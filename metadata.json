@@ -1,0 +1,11 @@
+{
+  "uuid": "aqua-dock-pro@shaque",
+  "name": "AquaDockPro",
+  "description": "A premium, high-performance Dock for GNOME Shell. Gaussian magnification physics, spring animations, folder stacks, live window previews, genie minimize effect, multi-position support, attention bouncing, notification badges. Complete modular rewrite.",
+  "shell-version": [
+    "50"
+  ],
+  "settings-schema": "org.gnome.shell.extensions.aqua-dock-pro",
+  "url": "https://github.com/sahid-code404/aqua-dock",
+  "version": 1
+}

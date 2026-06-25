@@ -1,0 +1,416 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist gettext-domain="aqua-dock-pro">
+  <schema id="org.gnome.shell.extensions.aqua-dock-pro"
+          path="/org/gnome/shell/extensions/aqua-dock-pro/">
+
+    <!-- ── Appearance ────────────────────────────────────────────────── -->
+    <key name="icon-size" type="i">
+      <default>60</default>
+      <range min="24" max="128"/>
+      <summary>Resting icon size in pixels</summary>
+    </key>
+
+    <key name="magnification" type="d">
+      <default>2.6</default>
+      <range min="1.0" max="3.5"/>
+      <summary>Peak magnification factor under the cursor</summary>
+    </key>
+
+    <key name="zoom-range" type="i">
+      <default>100</default>
+      <range min="40" max="500"/>
+      <summary>Gaussian magnification spread radius in pixels</summary>
+    </key>
+
+    <key name="magnification-curve" type="d">
+      <default>2.0</default>
+      <range min="0.5" max="5.0"/>
+      <summary>Magnification curve shape; higher values make the peak sharper</summary>
+    </key>
+
+    <key name="edge-margin" type="i">
+      <default>4</default>
+      <range min="0" max="14"/>
+      <summary>Floating gap between dock and screen edge in pixels</summary>
+    </key>
+
+    <key name="dock-position" type="s">
+      <default>'bottom'</default>
+      <choices>
+        <choice value='bottom'/>
+        <choice value='left'/>
+        <choice value='right'/>
+      </choices>
+      <summary>Dock screen position: bottom, left or right (all floating)</summary>
+    </key>
+
+    <!-- ── Background ────────────────────────────────────────────────── -->
+    <key name="background-opacity" type="d">
+      <default>0.25</default>
+      <range min="0.1" max="1.0"/>
+      <summary>Dock background opacity</summary>
+    </key>
+
+    <key name="pill-color" type="s">
+      <default>'rgb(255,255,255)'</default>
+      <summary>Dock pill background colour (CSS color string)</summary>
+    </key>
+
+    <key name="dock-radius" type="i">
+      <default>25</default>
+      <range min="0" max="40"/>
+      <summary>Dock corner radius in pixels</summary>
+    </key>
+
+    <key name="pill-thickness" type="i">
+      <default>88</default>
+      <range min="36" max="120"/>
+      <summary>Dock pill thickness in pixels</summary>
+    </key>
+
+    <key name="pill-thickness-auto" type="b">
+      <default>true</default>
+      <summary>Automatically scale pill thickness with icon size</summary>
+    </key>
+
+    <key name="dock-scale" type="d">
+      <default>1.0</default>
+      <range min="0.5" max="2.0"/>
+      <summary>Overall dock scale multiplier (scales icons, padding and pill together)</summary>
+    </key>
+
+    <!-- ── Behavior ───────────────────────────────────────────────────── -->
+    <key name="auto-hide-mode" type="s">
+      <default>'dodge'</default>
+      <choices>
+        <choice value='never'/>
+        <choice value='dodge'/>
+        <choice value='always'/>
+      </choices>
+      <summary>Auto-hide mode: never, intellihide (hide only when covered), or always hide</summary>
+    </key>
+
+    <key name="hide-delay" type="i">
+      <default>200</default>
+      <range min="0" max="2000"/>
+      <summary>Milliseconds before auto-hide triggers</summary>
+    </key>
+
+    <key name="reveal-pressure" type="i">
+      <default>200</default>
+      <range min="0" max="1000"/>
+      <summary>Reveal pressure threshold in milliseconds; 0 = immediate</summary>
+    </key>
+
+    <key name="pressure-sense" type="b">
+      <default>false</default>
+      <summary>Enable pressure-sense dwell reveal; pointer must linger at the screen edge before the dock appears</summary>
+    </key>
+
+    <key name="pressure-sense-sensitivity" type="d">
+      <default>0.5</default>
+      <range min="0.0" max="1.0"/>
+      <summary>Pressure-sense sensitivity; higher values require fewer dwell frames to reveal</summary>
+    </key>
+
+    <key name="click-to-minimize" type="b">
+      <default>true</default>
+      <summary>Clicking the focused app icon minimizes its windows</summary>
+    </key>
+
+    <key name="drag-to-open" type="b">
+      <default>true</default>
+      <summary>Drag an icon outside the dock to launch or activate the app</summary>
+    </key>
+
+    <key name="isolate-workspaces" type="b">
+      <default>false</default>
+      <summary>Only show running apps from the current workspace</summary>
+    </key>
+
+    <!-- ── Dock Sections ──────────────────────────────────────────────── -->
+    <key name="show-apps-button" type="b">
+      <default>true</default>
+      <summary>Show Applications grid button</summary>
+    </key>
+
+    <key name="apps-button-icon" type="s">
+      <default>''</default>
+      <summary>Custom icon for Applications button: theme name or absolute path</summary>
+    </key>
+
+    <key name="show-trash" type="b">
+      <default>true</default>
+      <summary>Show trash icon with dynamic full/empty state</summary>
+    </key>
+
+    <key name="show-downloads" type="b">
+      <default>true</default>
+      <summary>Show Downloads folder stack with bounce on new file</summary>
+    </key>
+
+    <!-- ── Running Indicators ─────────────────────────────────────────── -->
+    <key name="indicator-style" type="s">
+      <default>'glow-dots'</default>
+      <choices>
+        <choice value='dot'/>
+        <choice value='dots'/>
+        <choice value='line'/>
+        <choice value='pill'/>
+        <choice value='glow'/>
+        <choice value='glow-dots'/>
+      </choices>
+      <summary>Running application indicator style</summary>
+    </key>
+
+    <key name="indicator-size" type="i">
+      <default>5</default>
+      <range min="3" max="14"/>
+      <summary>Running indicator dot size in pixels</summary>
+    </key>
+
+    <key name="indicator-color" type="s">
+      <default>'#ffffff'</default>
+      <summary>Running indicator color (CSS hex)</summary>
+    </key>
+
+    <key name="show-window-count" type="b">
+      <default>true</default>
+      <summary>Show multiple dots for multiple windows</summary>
+    </key>
+
+    <!-- ── Animation ──────────────────────────────────────────────────── -->
+    <key name="animation-smoothness" type="i">
+      <default>50</default>
+      <range min="5" max="300"/>
+      <summary>Magnification follow time-constant in ms; lower = snappier</summary>
+    </key>
+
+    <key name="spring-tension" type="d">
+      <default>1.0</default>
+      <range min="0.1" max="1.0"/>
+      <summary>Spring tension for physics animations</summary>
+    </key>
+
+    <key name="spring-damping" type="d">
+      <default>0.50</default>
+      <range min="0.2" max="1.0"/>
+      <summary>Spring damping (1.0 = critically damped, no overshoot)</summary>
+    </key>
+
+    <key name="bounce-height" type="i">
+      <default>70</default>
+      <range min="0" max="80"/>
+      <summary>Launch bounce height in pixels; 0 disables bounce</summary>
+    </key>
+
+    <key name="bounce-decay" type="d">
+      <default>0.50</default>
+      <range min="0.30" max="0.95"/>
+      <summary>Bounce height decay per hop (each bounce is this fraction of the previous); higher = more, gentler bounces</summary>
+    </key>
+
+    <key name="enable-genie-effect" type="b">
+      <default>true</default>
+      <summary>Enable genie (magic lamp) minimize/restore effect</summary>
+    </key>
+
+
+    <key name="hover-lift" type="i">
+      <default>20</default>
+      <range min="0" max="24"/>
+      <summary>Icon lift in pixels on hover; 0 disables lift</summary>
+    </key>
+
+    <!-- ── Tooltip ────────────────────────────────────────────────────── -->
+    <key name="show-tooltip" type="b">
+      <default>true</default>
+      <summary>Show app name tooltip on hover</summary>
+    </key>
+
+    <key name="tooltip-delay" type="i">
+      <default>25</default>
+      <range min="0" max="2000"/>
+      <summary>Tooltip show delay in milliseconds</summary>
+    </key>
+
+    <key name="tooltip-radius" type="i">
+      <default>10</default>
+      <range min="0" max="30"/>
+      <summary>Tooltip pill corner radius in pixels</summary>
+    </key>
+
+    <key name="tooltip-bg-color" type="s">
+      <default>'rgba(46,46,54,0.376667)'</default>
+      <summary>Tooltip pill background colour and opacity (CSS color string)</summary>
+    </key>
+
+    <key name="tooltip-text-color" type="s">
+      <default>'rgb(255,255,255)'</default>
+      <summary>Tooltip app-name text colour (CSS color string)</summary>
+    </key>
+
+    <key name="tooltip-border-color" type="s">
+      <default>'rgba(255,255,255,0.16)'</default>
+      <summary>Tooltip border colour (CSS color string)</summary>
+    </key>
+
+    <key name="tooltip-border-width" type="i">
+      <default>0</default>
+      <range min="0" max="6"/>
+      <summary>Tooltip border width in pixels; 0 disables border</summary>
+    </key>
+
+    <!-- ── Context Menu ─────────────────────────────────────────────── -->
+    <key name="menu-radius" type="i">
+      <default>10</default>
+      <range min="0" max="30"/>
+      <summary>Context menu corner radius in pixels</summary>
+    </key>
+
+    <key name="menu-bg-color" type="s">
+      <default>'rgba(0,0,0,0.51)'</default>
+      <summary>Context menu background colour and opacity (CSS color string)</summary>
+    </key>
+
+    <key name="menu-text-color" type="s">
+      <default>'rgba(235,235,240,0.90)'</default>
+      <summary>Context menu item text colour (CSS color string)</summary>
+    </key>
+
+    <key name="menu-border-color" type="s">
+      <default>'rgb(154,153,150)'</default>
+      <summary>Context menu border colour (CSS color string)</summary>
+    </key>
+
+    <key name="menu-border-width" type="i">
+      <default>1</default>
+      <range min="0" max="6"/>
+      <summary>Context menu border width in pixels; 0 disables border</summary>
+    </key>
+
+    <!-- ── Window Previews ────────────────────────────────────────────── -->
+    <key name="show-previews" type="b">
+      <default>true</default>
+      <summary>Show live window thumbnails on hover</summary>
+    </key>
+
+    <key name="preview-delay" type="i">
+      <default>600</default>
+      <range min="100" max="3000"/>
+      <summary>Window preview show delay in milliseconds</summary>
+    </key>
+
+    <key name="preview-size" type="i">
+      <default>200</default>
+      <range min="80" max="400"/>
+      <summary>Window preview thumbnail max width in pixels</summary>
+    </key>
+
+    <!-- ── Badges ─────────────────────────────────────────────────────── -->
+    <key name="show-badges" type="b">
+      <default>true</default>
+      <summary>Show notification count badges</summary>
+    </key>
+
+    <key name="badge-color" type="s">
+      <default>'rgba(224,48,48,1.0)'</default>
+      <summary>Notification badge background colour (CSS color string)</summary>
+    </key>
+
+    <key name="badge-text-color" type="s">
+      <default>'rgba(255,255,255,1.0)'</default>
+      <summary>Notification badge text colour (CSS color string)</summary>
+    </key>
+
+    <!-- ── Downloads stack ────────────────────────────────────────────── -->
+    <key name="downloads-view" type="s">
+      <default>'fan'</default>
+      <choices>
+        <choice value='fan'/>
+        <choice value='grid'/>
+        <choice value='list'/>
+      </choices>
+      <summary>Default Downloads stack opening view</summary>
+    </key>
+
+    <key name="downloads-max-files" type="i">
+      <default>11</default>
+      <range min="3" max="11"/>
+      <summary>Maximum number of files shown in the Downloads stack (all views)</summary>
+    </key>
+
+    <key name="downloads-pill-color" type="s">
+      <default>'rgba(46,46,54,0.376667)'</default>
+      <summary>Downloads panel background colour (CSS color string)</summary>
+    </key>
+
+    <key name="downloads-border-radius" type="i">
+      <default>20</default>
+      <range min="0" max="40"/>
+      <summary>Downloads panel corner radius in pixels</summary>
+    </key>
+
+    <key name="downloads-border-color" type="s">
+      <default>'rgba(255,255,255,0.16)'</default>
+      <summary>Downloads panel border colour (CSS color string)</summary>
+    </key>
+
+    <key name="downloads-border-width" type="i">
+      <default>1</default>
+      <range min="0" max="6"/>
+      <summary>Downloads panel border width in pixels; 0 disables</summary>
+    </key>
+
+    <key name="downloads-item-color" type="s">
+      <default>'rgba(46,46,54,0.376667)'</default>
+      <summary>Downloads file card background colour (CSS color string)</summary>
+    </key>
+
+    <key name="downloads-item-radius" type="i">
+      <default>10</default>
+      <range min="0" max="28"/>
+      <summary>Downloads file card corner radius in pixels</summary>
+    </key>
+
+    <key name="downloads-item-border-color" type="s">
+      <default>'rgba(255,255,255,0.16)'</default>
+      <summary>Downloads file card border colour (CSS color string)</summary>
+    </key>
+
+    <key name="downloads-item-border-width" type="i">
+      <default>1</default>
+      <range min="0" max="6"/>
+      <summary>Downloads file card border width in pixels; 0 disables</summary>
+    </key>
+
+    <key name="downloads-item-thumb-color" type="s">
+      <default>'rgba(46,46,54,0.376667)'</default>
+      <summary>Downloads file card thumbnail background colour</summary>
+    </key>
+
+    <key name="downloads-item-font-color" type="s">
+      <default>'rgb(246,245,244)'</default>
+      <summary>Downloads file card text colour</summary>
+    </key>
+
+    <key name="border-color" type="s">
+      <default>'rgba(255,255,255,0.16)'</default>
+      <summary>Dock and all pills border color (CSS color string)</summary>
+    </key>
+
+    <key name="border-width" type="i">
+      <default>2</default>
+      <range min="0" max="6"/>
+      <summary>Dock and all pills border width in pixels; 0 disables border</summary>
+    </key>
+
+    <!-- ── Misc ──────────────────────────────────────────────────────── -->
+    <key name="genie-duration" type="i">
+      <default>120</default>
+      <range min="50" max="1000"/>
+      <summary>Genie (magic lamp) effect duration in milliseconds</summary>
+    </key>
+
+  </schema>
+</schemalist>

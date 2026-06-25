@@ -1,0 +1,239 @@
+/* AquaDockPro — stylesheet.
+ *
+ * The pill background colour/radius/border is set inline from the cached config
+ * (so live colour edits and theme switches need no static reload). The rules
+ * here cover the parts that are cheaper to express statically: indicator dots,
+ * separators and badges. Later phases add their own classes (tooltip, menu,
+ * previews, downloads).
+ *
+ * St CSS note: single box-shadow only (no comma-separated multi-shadows). */
+
+/* Force-hide the default GNOME dash when AquaDockPro is active. */
+.aqua-dash-hidden,
+.aqua-dash-hidden * {
+    opacity: 0;
+    width: 0;
+}
+
+/* ── Dock background pill ─────────────────────────────────────────────────── */
+.aqua-bg {
+    background-color: rgba(28, 28, 32, 0.78);
+    border:           1px solid rgba(255, 255, 255, 0.16);
+    border-radius:    20px;
+    box-shadow:       none;
+}
+
+/* ── Icon slot ────────────────────────────────────────────────────────────── */
+.aqua-item {
+    background-color: transparent;
+    border:           none;
+    padding:          0;
+}
+.aqua-item:focus { outline: none; }
+
+/* ── Running indicators (positioned/sized from JS) ────────────────────────── */
+.aqua-dot {
+    background-color: rgba(235, 235, 235, 0.92);
+    border-radius:    3px;
+    box-shadow:       0 1px 2px rgba(0, 0, 0, 0.50);
+}
+.aqua-indic-line {
+    background-color: rgba(235, 235, 235, 0.92);
+    border-radius:    2px;
+    box-shadow:       0 0 4px rgba(255, 255, 255, 0.40);
+}
+.aqua-indic-pill {
+    background-color: rgba(235, 235, 235, 0.92);
+    border-radius:    4px;
+    box-shadow:       0 0 5px rgba(255, 255, 255, 0.50);
+}
+.aqua-indic-glow {
+    background-color: transparent;
+    border-radius:    50%;
+    box-shadow:       0 0 10px 4px rgba(100, 180, 255, 0.65);
+}
+.aqua-indic-glow-dots {
+    border-radius:    50%;
+    background-color: rgba(235, 235, 235, 0.95);
+    box-shadow:       0 0 7px 3px rgba(100, 180, 255, 0.65);
+}
+
+/* ── Glass separator ──────────────────────────────────────────────────────── */
+.aqua-separator {
+    background-color: rgba(255, 255, 255, 0.30);
+    border-radius:    2px;
+}
+
+/* ── App-name tooltip (colours/radius/border set inline) ──────────────────── */
+.aqua-tooltip {
+    background-color: rgba(32, 32, 36, 0.92);
+    color:            #f2f2f4;
+    border-radius:    9px;
+    padding:          5px 14px;
+    font-size:        10.5pt;
+    font-weight:      500;
+    letter-spacing:   0.02em;
+    box-shadow:       0 4px 14px rgba(0, 0, 0, 0.45);
+}
+
+/* ── Context menu (box colours/radius set inline) ─────────────────────────── */
+.aqua-menu,
+.aqua-menu .popup-menu-boxpointer {
+    -arrow-rise: 0;
+    box-shadow:  none;
+}
+.aqua-menu .popup-menu-content {
+    background-color: rgba(35, 36, 40, 0.94);
+    border-radius:    12px;
+    box-shadow:       none;
+    padding:          4px 0;
+    min-width:        220px;
+    max-width:        220px;
+}
+.aqua-menu .popup-menu-item {
+    color:         rgba(235, 235, 240, 0.90);
+    font-size:     10.5pt;
+    padding:       7px 16px;
+    border-radius: 7px;
+    margin:        0 6px;
+    transition:    background-color 100ms ease;
+}
+.aqua-menu .popup-menu-item:hover,
+.aqua-menu .popup-menu-item:focus {
+    background-color: rgba(255, 255, 255, 0.11);
+}
+.aqua-menu .popup-menu-item:active {
+    background-color: rgba(255, 255, 255, 0.08);
+}
+.aqua-menu .popup-separator-menu-item { padding: 0; }
+.aqua-menu .popup-separator-menu-item .popup-separator-menu-item-separator {
+    background-color: rgba(255, 255, 255, 0.12);
+    margin:           5px 6px;
+    height:           1px;
+}
+
+/* ── Window previews ──────────────────────────────────────────────────────── */
+.aqua-preview-box {
+    background-color: transparent;
+    padding:          8px;
+    box-shadow:       none;
+    border:           none;
+}
+.aqua-preview-col,
+.aqua-preview-col:hover,
+.aqua-preview-col:focus,
+.aqua-preview-col:active {
+    background-color: transparent;
+    box-shadow:       none;
+    border:           none;
+}
+.aqua-preview-thumb {
+    background-color: rgba(14, 14, 18, 0.92);
+    border:           1px solid rgba(255, 255, 255, 0.16);
+    border-radius:    12px;
+    box-shadow:       none;
+    overflow:         hidden;
+}
+.aqua-preview-title {
+    color:      rgba(235, 235, 240, 0.82);
+    font-size:  8.5pt;
+    max-width:  200px;
+    text-align: center;
+}
+
+/* ── Notification badge ───────────────────────────────────────────────────── */
+.aqua-badge {
+    background-color: #e03030;
+    color:            #ffffff;
+    font-size:        7.5pt;
+    font-weight:      700;
+    border-radius:    10px;
+    padding:          1px 5px;
+    min-width:        16px;
+    min-height:       16px;
+    text-align:       center;
+    box-shadow:       0 1px 3px rgba(0, 0, 0, 0.50);
+    border:           1.5px solid rgba(255, 255, 255, 0.25);
+}
+
+/* ── Downloads stack ──────────────────────────────────────────────────────── */
+.aqua-dl-panel {
+    background-color: rgba(28, 28, 32, 0.78);
+    border:           1px solid rgba(255, 255, 255, 0.16);
+    border-radius:    18px;
+    box-shadow:       none;
+    padding:          0;
+    min-width:        340px;
+}
+.aqua-dl-panel.aqua-dl-fan { min-width: 300px; }
+.aqua-dl-fan-panel {
+    background-color: transparent;
+    border:           none;
+    box-shadow:       none;
+}
+.aqua-dl-flyer { box-shadow: none; border-radius: 8px; }
+
+.aqua-dl-fan-row {
+    background-color:    transparent;
+    border:              none;
+    box-shadow:          none;
+    padding:             0;
+    border-radius:       11px;
+    transition-duration: 120ms;
+}
+.aqua-dl-fan-row-sel { background-color: rgba(255, 255, 255, 0.16); }
+.aqua-dl-fan-row-inner { padding: 0; }
+.aqua-dl-fan-thumb { transition-duration: 140ms; }
+.aqua-dl-fan-label {
+    color:          #f2f2f5;
+    font-size:      10.5pt;
+    font-weight:    500;
+    letter-spacing: 0.01em;
+}
+.aqua-dl-fan-more { color: rgba(210, 210, 220, 0.80); }
+
+.aqua-dl-header { padding: 12px 12px 8px 16px; }
+.aqua-dl-hdr-label {
+    color:          #f4f4f6;
+    font-size:      12.5pt;
+    font-weight:    600;
+    letter-spacing: 0.01em;
+}
+.aqua-dl-hdr-sub {
+    color:       rgba(230, 230, 236, 0.55);
+    font-size:   8.5pt;
+    font-weight: 400;
+}
+.aqua-dl-open-btn {
+    background-color: rgba(255, 255, 255, 0.12);
+    color:            rgba(240, 240, 245, 0.90);
+    border:           1px solid rgba(255, 255, 255, 0.14);
+    border-radius:    8px;
+    padding:          5px 14px;
+    font-size:        9.5pt;
+    font-weight:      500;
+    box-shadow:       none;
+}
+.aqua-dl-open-btn:hover { background-color: rgba(255, 255, 255, 0.20); }
+.aqua-dl-divider {
+    background-color: rgba(255, 255, 255, 0.10);
+    height:           1px;
+    margin:           2px 12px 4px 12px;
+}
+.aqua-dl-filebox { padding: 4px 10px 12px 10px; }
+.aqua-dl-filebox-grid { padding: 8px 12px 14px 12px; }
+.aqua-dl-row {
+    background-color: transparent;
+    border:           1px solid transparent;
+    border-radius:    10px;
+    padding:          0;
+    transition:       background-color 120ms ease, border-color 120ms ease;
+}
+.aqua-dl-row:hover,
+.aqua-dl-row:focus,
+.aqua-dl-row-sel {
+    background-color: rgba(255, 255, 255, 0.10);
+    border-color:     rgba(255, 255, 255, 0.10);
+}
+.aqua-dl-row-grid { border-radius: 12px; }
+.aqua-dl-row-inner { padding: 6px 10px; }
