@@ -25,17 +25,24 @@ const MAX_WINDOWS = 4;
 const GRACE_MS = 130;   // window to move pointer from icon onto the popup
 
 export class PreviewManager {
-    // getConfig/getGeom: snapshot accessors. getHoverItem: () => current hover.
-    constructor(getConfig, getGeom, getHoverItem) {
+    // getConfig/getGeom are snapshot accessors; getHoverItem returns the current
+    // dock hover; getMonitor returns its monitor geometry. onClose lets the
+    // controller resume autohide after dismissal.
+    constructor(getConfig, getGeom, getHoverItem, getMonitor, onClose = null) {
         this._getConfig = getConfig;
         this._getGeom = getGeom;
         this._getHoverItem = getHoverItem;
+        this._getMonitor = getMonitor;
+        this._onClose = onClose;
         this._box = null;
         this._dying = null;
         this._timers = new TimeoutGroup();
         this._openId = 0;
         this._graceId = 0;
+        this._pendingItem = null;
     }
+
+    get active() { return Boolean(this._box); }
 
     schedule(item) {
         const cfg = this._getConfig();
@@ -47,10 +54,16 @@ export class PreviewManager {
         this._cancelGrace();
         if (this._box) { this._cancelOpen(); this._build(item, true); return; }
 
+        // A pointer can cross several icons before the delay expires. Reuse the
+        // timer, but let it resolve against the most recent valid target.
+        this._pendingItem = item;
         if (this._openId) return;
         this._openId = this._timers.addOnce(cfg.previewDelay, () => {
             this._openId = 0;
-            if (this._getHoverItem() === item) this._build(item, false);
+            const nextItem = this._pendingItem;
+            this._pendingItem = null;
+            if (nextItem && this._getHoverItem() === nextItem)
+                this._build(nextItem, false);
         });
     }
 
@@ -81,7 +94,7 @@ export class PreviewManager {
         box.spacing = 10;
         for (const win of wins.slice(0, MAX_WINDOWS)) {
             const btn = new St.Button({ style_class: 'aqua-preview-col', reactive: true, can_focus: true });
-            const col = new St.BoxLayout({ vertical: true, style_class: 'aqua-preview-col' });
+            const col = new St.BoxLayout({ vertical: true, style_class: 'aqua-preview-content' });
             col.spacing = 5;
             col.add_child(buildWindowFrame(win, targetW, frameH, item.entry.app.get_icon()));
             col.add_child(new St.Label({
@@ -90,14 +103,21 @@ export class PreviewManager {
             }));
             btn.set_child(col);
             btn.connect('clicked', () => {
+                if (this._box !== box) return;
                 win.activate(global.get_current_time());
                 this.hide(true);
             });
             box.add_child(btn);
         }
         // Keep the popup alive while the pointer is over it; dismiss on leave.
-        box.connect('enter-event', () => { this._cancelGrace(); return Clutter.EVENT_PROPAGATE; });
-        box.connect('leave-event', () => { this.hide(false); return Clutter.EVENT_PROPAGATE; });
+        box.connect('enter-event', () => {
+            if (this._box === box) this._cancelGrace();
+            return Clutter.EVENT_PROPAGATE;
+        });
+        box.connect('leave-event', () => {
+            if (this._box === box) this.hide(false);
+            return Clutter.EVENT_PROPAGATE;
+        });
 
         Main.uiGroup.add_child(box);
         const old = this._box;
@@ -107,6 +127,7 @@ export class PreviewManager {
         if (reuse && old) {
             if (this._dying) { this._destroyBox(this._dying); this._dying = null; }
             this._dying = old;
+            this._deactivateBox(old);
             box.opacity = 0;
             box.ease({ opacity: 255, duration: 110, mode: Clutter.AnimationMode.EASE_OUT_QUAD });
             old.remove_all_transitions();
@@ -137,7 +158,7 @@ export class PreviewManager {
             if (!geom.vert) { px = ix + iw / 2 - w / 2; py = iy - h - gap; }
             else if (geom.side === 'left') { px = ix + iw + gap; py = iy + ih / 2 - h / 2; }
             else { px = ix - w - gap; py = iy + ih / 2 - h / 2; }
-            const mon = Main.layoutManager.primaryMonitor;
+            const mon = this._getMonitor?.();
             if (mon) {
                 px = clamp(px, mon.x + 8, mon.x + mon.width - w - 8);
                 py = clamp(py, mon.y + 8, mon.y + mon.height - h - 8);
@@ -159,15 +180,32 @@ export class PreviewManager {
     }
 
     _hideNow() {
+        this._cancelGrace();
         if (this._dying) { this._destroyBox(this._dying); this._dying = null; }
         const box = this._box;
         this._box = null;
         if (!box) return;
+        this._deactivateBox(box);
+        this._dying = box;
+        box.remove_all_transitions();
         box.ease({
             opacity: 0, translation_y: 8, duration: 90,
             mode: Clutter.AnimationMode.EASE_IN_QUAD,
-            onComplete: () => this._destroyBox(box),
+            onComplete: () => {
+                if (this._dying === box) this._dying = null;
+                this._destroyBox(box);
+            },
         });
+        try { this._onClose?.(); }
+        catch (e) { logError(e, 'preview.onClose'); }
+    }
+
+    _deactivateBox(box) {
+        box.reactive = false;
+        for (const child of box.get_children()) {
+            child.reactive = false;
+            child.can_focus = false;
+        }
     }
 
     _destroyBox(box) {
@@ -176,6 +214,7 @@ export class PreviewManager {
 
     _cancelOpen() {
         if (this._openId) { this._timers.remove(this._openId); this._openId = 0; }
+        this._pendingItem = null;
     }
 
     _cancelGrace() {
@@ -186,8 +225,9 @@ export class PreviewManager {
         this._timers.removeAll();
         this._openId = 0;
         this._graceId = 0;
+        this._pendingItem = null;
         if (this._dying) { this._destroyBox(this._dying); this._dying = null; }
         if (this._box) { this._destroyBox(this._box); this._box = null; }
-        this._getConfig = this._getGeom = this._getHoverItem = null;
+        this._getConfig = this._getGeom = this._getHoverItem = this._getMonitor = this._onClose = null;
     }
 }

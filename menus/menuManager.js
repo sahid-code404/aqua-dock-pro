@@ -20,8 +20,8 @@ import { populateMenu } from './menuActions.js';
 import { TimeoutGroup } from '../core/utils.js';
 
 export class MenuManager {
-    // host: { container, getConfig, getGeom, onOpen, onClose, holdItem(item),
-    //         releaseHold(), onTrashEmptied }
+    // host: { container, getConfig, getGeom, isLayoutLocked, onOpen, onClose,
+    //         holdItem(item), releaseHold(), onTrashEmptied, onToggleLayoutLock }
     constructor(host) {
         this._host = host;
         this._timers = new TimeoutGroup();
@@ -29,6 +29,7 @@ export class MenuManager {
         this._manager = null;
         this._stateId = 0;
         this._closeIdle = 0;
+        this._heldItem = null;
     }
 
     get active() { return this._active === true; }
@@ -50,6 +51,7 @@ export class MenuManager {
         this._style();
         this._menu.actor.hide();
 
+        this._heldItem = item;
         this._host.holdItem?.(item);
 
         this._stateId = this._menu.connect('open-state-changed', (m, open) => {
@@ -58,16 +60,21 @@ export class MenuManager {
                 this._host.onOpen?.();
                 return;
             }
-            this._host.releaseHold?.();
+            this._releaseHeldItem();
             this._scheduleClose(m);
         });
 
-        populateMenu(this._menu, item.entry, this._host.onTrashEmptied);
+        populateMenu(this._menu, item.entry, {
+            onTrashEmptied: this._host.onTrashEmptied,
+            isLayoutLocked: () => this._host.isLayoutLocked?.() ??
+                this._host.getConfig().layoutLocked,
+            onToggleLayoutLock: this._host.onToggleLayoutLock,
+        });
         this._menu.open();
     }
 
     _scheduleClose(m) {
-        if (this._closeIdle) { this._timers.remove(this._closeIdle); this._closeIdle = 0; }
+        this._cancelCloseIdle();
         this._closeIdle = this._timers.addIdle(() => {
             this._closeIdle = 0;
             if (this._menu === m) this._destroyMenu();
@@ -81,12 +88,26 @@ export class MenuManager {
     }
 
     _destroyMenu() {
+        this._cancelCloseIdle();
+        this._releaseHeldItem();
         if (!this._menu) return;
         if (this._stateId) { try { this._menu.disconnect(this._stateId); } catch { } this._stateId = 0; }
         try { this._manager?.removeMenu(this._menu); } catch { }
         try { this._menu.destroy(); } catch { }
         this._menu = null;
         this._active = false;
+    }
+
+    _cancelCloseIdle() {
+        if (!this._closeIdle) return;
+        this._timers.remove(this._closeIdle);
+        this._closeIdle = 0;
+    }
+
+    _releaseHeldItem() {
+        if (!this._heldItem) return;
+        this._heldItem = null;
+        this._host.releaseHold?.();
     }
 
     _style() {

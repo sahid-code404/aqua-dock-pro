@@ -36,11 +36,26 @@ export function switchRow(s, key, title, subtitle) {
 
 export function comboRow(window, s, key, title, subtitle, labels, values) {
     const row = new Adw.ComboRow({ title, subtitle, model: Gtk.StringList.new(labels) });
+    let syncingFromSettings = false;
+
     row.selected = Math.max(0, values.indexOf(s.get_string(key)));
-    row.connect('notify::selected', () => s.set_string(key, values[row.selected]));
+    row.connect('notify::selected', () => {
+        if (syncingFromSettings) return;
+
+        const value = values[row.selected];
+        if (value !== undefined && value !== s.get_string(key)) s.set_string(key, value);
+    });
     window._settingsSignalIds.push(s.connect(`changed::${key}`, () => {
         const i = values.indexOf(s.get_string(key));
-        row.selected = i >= 0 ? i : 0;
+        const selected = i >= 0 ? i : 0;
+        if (row.selected === selected) return;
+
+        syncingFromSettings = true;
+        try {
+            row.selected = selected;
+        } finally {
+            syncingFromSettings = false;
+        }
     }));
     return row;
 }
@@ -52,12 +67,26 @@ export function colorRow(window, s, key, title, subtitle) {
         dialog: new Gtk.ColorDialog({ with_alpha: true }),
         valign: Gtk.Align.CENTER,
     });
+    let syncingFromSettings = false;
+
     const load = () => {
         const rgba = new Gdk.RGBA();
-        if (rgba.parse(s.get_string(key))) button.set_rgba(rgba);
+        if (!rgba.parse(s.get_string(key))) return;
+
+        syncingFromSettings = true;
+        try {
+            button.set_rgba(rgba);
+        } finally {
+            syncingFromSettings = false;
+        }
     };
     load();
-    button.connect('notify::rgba', () => s.set_string(key, button.get_rgba().to_string()));
+    button.connect('notify::rgba', () => {
+        if (syncingFromSettings) return;
+
+        const value = button.get_rgba().to_string();
+        if (value !== s.get_string(key)) s.set_string(key, value);
+    });
     window._settingsSignalIds.push(s.connect(`changed::${key}`, load));
     row.add_suffix(button);
     row.activatable_widget = button;

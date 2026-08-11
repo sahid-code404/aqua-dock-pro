@@ -8,11 +8,13 @@
 // Ownership: OWNS its child actors (auto-destroyed with the widget) and one
 //            Bounce instance, cancelled via the `destroy` SIGNAL (Clutter tears
 //            children down in C and never calls an overridden JS destroy()).
-// Cleanup:   `destroy` signal → bounce.destroy(). No timers/signals otherwise.
+// Cleanup:   `destroy` signal → bounce.destroy(); the icon-child signal is
+//            tied to this widget with connectObject().
 // Caching:   All per-frame constants (lift prop/sign, inverse-zoom, pivots) are
 //            cached in relayout(); the hot path does zero string compares.
 // Cost:      setScale: 1 set_scale + 1 translation write. Indicator/badge rebuild
-//            only when their inputs actually change (diffed in refresh()).
+//            only when their inputs actually change (diffed in refresh()); glow
+//            uses a few static translucent actors and never enters the hot path.
 
 import Clutter from 'gi://Clutter';
 import GObject from 'gi://GObject';
@@ -35,6 +37,10 @@ class DockItem extends St.Widget {
         });
         this.entry = entry;
         this._cfg = cfg;
+        // refresh() runs once before the controller's first relayout, so seed
+        // orientation from the complete settings snapshot for that first build.
+        this._vert = cfg.vertical;
+        this._isRight = cfg.position === 'right';
 
         // Magnification state, integrated by the AnimationEngine.
         this.scaleTarget = 1;
@@ -53,12 +59,21 @@ class DockItem extends St.Widget {
 
         this._icon = new St.Icon({ gicon: entry.gicon, icon_size: cfg.renderSize });
         this._icon.set_pivot_point(0.5, 1.0);
+        // St.Icon replaces its private texture when the icon source changes.
+        // Mipmaps keep the peak-size texture crisp when the dock scales it down.
+        this._icon.connectObject('child-added', (_icon, child) => {
+            this._setIconTextureFiltering(child);
+        }, this);
+        for (const child of this._icon.get_children())
+            this._setIconTextureFiltering(child);
         this.add_child(this._icon);
 
         this._indicator = new St.Widget({
             style_class: 'aqua-indic-row',
             layout_manager: new Clutter.FixedLayout(),
         });
+        // Halo children deliberately extend beyond the core indicator box.
+        this._indicator.set_clip_to_allocation(false);
         this.add_child(this._indicator);
 
         this._badge = new St.Label({ style_class: 'aqua-badge', visible: false });
@@ -74,10 +89,19 @@ class DockItem extends St.Widget {
         this.connect('destroy', () => this._bounce?.destroy());
     }
 
+    _setIconTextureFiltering(child) {
+        if (!child?.set_content_scaling_filters) return;
+        child.set_content_scaling_filters(
+            Clutter.ScalingFilter.TRILINEAR,
+            Clutter.ScalingFilter.LINEAR,
+        );
+    }
+
     label() {
         switch (this.entry.kind) {
             case 'apps': return 'Applications';
             case 'downloads': return 'Downloads';
+            case 'mount': return this.entry.name ?? 'Mounted device';
             case 'trash': return 'Trash';
             default: return this.entry.app?.get_name?.() ?? '';
         }
@@ -280,12 +304,22 @@ class DockItem extends St.Widget {
         const step = (vert ? dh : dw) + spacing;
         const dotClass = `aqua-dot aqua-indic-${style}`;
         const dotStyle = `background-color: ${cfg.indicatorColor};`;
+        const positions = [];
         for (let i = 0; i < count; i++) {
+            positions.push(vert ? [0, i * step] : [i * step, 0]);
+        }
+
+        // Shell's CSS shadows are unreliable on moving dock actors. A few faint,
+        // static layers provide a soft falloff without involving Mutter's shadow
+        // renderer or doing any work during magnification.
+        if (style === 'glow' || style === 'glow-dots')
+            this._addIndicatorGlow(positions, dw, dh, cfg.indicatorColor, style);
+
+        for (const [x, y] of positions) {
             const dot = new St.Widget({ style_class: dotClass });
             dot.set_size(dw, dh);
             dot.set_style(dotStyle);
-            if (vert) dot.set_position(0, i * step);
-            else dot.set_position(i * step, 0);
+            dot.set_position(x, y);
             this._indicator.add_child(dot);
         }
         const run = count * (vert ? dh : dw) + Math.max(0, count - 1) * spacing;
@@ -293,6 +327,38 @@ class DockItem extends St.Widget {
         this._indicH = vert ? run : dh;
         this._indicator.set_size(this._indicW, this._indicH);
         this._positionIndicator();
+    }
+
+    _addIndicatorGlow(positions, width, height, color, style) {
+        const shortEdge = Math.min(width, height);
+        const dotGlow = style === 'glow-dots';
+        const outerPad = dotGlow
+            ? Math.min(6, Math.max(3, Math.round(shortEdge * 0.55)))
+            : Math.min(7, Math.max(4, Math.round(shortEdge * 0.65)));
+        const middlePad = Math.max(2, Math.round(outerPad * 0.6));
+        const innerPad = Math.max(1, Math.round(outerPad * 0.3));
+        const layers = [
+            [outerPad, 6],
+            [middlePad, 12],
+            [innerPad, 24],
+        ];
+
+        // Add every halo before the solid indicators so overlapping glows can
+        // blend naturally without tinting a neighbouring dot's core.
+        for (const [padding, opacity] of layers) {
+            const haloW = width + padding * 2;
+            const haloH = height + padding * 2;
+            const radius = Math.ceil(Math.min(haloW, haloH) / 2);
+            const haloStyle =
+                `background-color: ${color}; border-radius: ${radius}px;`;
+            for (const [x, y] of positions) {
+                const halo = new St.Widget({ reactive: false, opacity });
+                halo.set_size(haloW, haloH);
+                halo.set_position(x - padding, y - padding);
+                halo.set_style(haloStyle);
+                this._indicator.add_child(halo);
+            }
+        }
     }
 
     // ── Magnification visual ────────────────────────────────────────────────

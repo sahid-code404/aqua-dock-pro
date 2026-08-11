@@ -35,11 +35,12 @@ const DEBOUNCE_MS = 80;            // silence before an arrival burst fires once
 const FLY_DISTANCE = 220;
 
 export class DownloadManager {
-    // host: { getConfig, getDownloadsItem, isHidden, kickEngine, onStackClosed }
+    // host: { getConfig, getMonitor, getDownloadsItem, isHidden, kickEngine,
+    //         onStackClosed }
     constructor(host) {
         this._host = host;
         this._timers = new TimeoutGroup();
-        this._stack = new DownloadsStack();
+        this._stack = new DownloadsStack(host.getMonitor);
         this._monitor = null;
         this._monitorId = 0;
         this._debounceId = 0;

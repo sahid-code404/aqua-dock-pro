@@ -1,16 +1,18 @@
 // AquaDockPro — lifecycle orchestrator.
 //
 // Purpose:   The composition root. Constructs the foundation (EventBus →
-//            SettingsManager → StateManager) in dependency order, will own the
-//            services and the dock in later phases, and tears everything down in
+//            SettingsManager → StateManager) in dependency order, owns one
+//            dock per configured monitor, and tears everything down in
 //            strict reverse order on disable(). Keeping all wiring here is what
 //            keeps extension.js trivial and every other module dependency-
 //            explicit (each receives exactly what it needs, nothing global).
-// Ownership: OWNS bus, settings, state (and, later, services + dock). Each is
-//            created here and destroyed here — one owner per resource.
+// Ownership: OWNS bus, settings, state and the dock controllers. Each is created
+//            here and destroyed here — one owner per resource.
 // Cleanup:   disable() destroys in reverse construction order and nulls refs so
 //            a re-enable starts from a clean slate (enable→disable→enable safe).
 // Cost:      Construction is a handful of allocations; no work on hot paths.
+
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import { EventBus } from './eventBus.js';
 import { SettingsManager } from './settingsManager.js';
@@ -24,8 +26,9 @@ export class ExtensionManager {
         this._bus = null;
         this._settings = null;
         this._state = null;
-        this._dock = null;
+        this._docks = [];
         this._unsubSettings = null;
+        this._monitorsChangedId = 0;
     }
 
     enable() {
@@ -41,7 +44,9 @@ export class ExtensionManager {
             this._unsubSettings = this._bus.on('settings-changed', payload =>
                 this._onSettingsChanged(payload));
 
-            this._buildDock();
+            this._buildDocks();
+            this._monitorsChangedId = Main.layoutManager.connect(
+                'monitors-changed', () => this._onMonitorsChanged());
             this._state.set('enabled', true);
             log('enabled');
         } catch (e) {
@@ -51,23 +56,66 @@ export class ExtensionManager {
         }
     }
 
-    _buildDock() {
-        this._dock = new DockController(this._settings, this._bus, this._state);
+    _monitorIndexes() {
+        const monitors = Main.layoutManager.monitors ?? [];
+        if (!monitors.length) return [];
+
+        const primary = Main.layoutManager.primaryIndex;
+        const primaryIndex = primary >= 0 && primary < monitors.length ? primary : 0;
+        if (!this._settings.config.multiMonitor) return [primaryIndex];
+
+        // Build the primary controller first so it is the sole owner of the
+        // global GNOME overview dash. The remaining controllers are independent.
+        const indexes = [primaryIndex];
+        for (let i = 0; i < monitors.length; i++) {
+            if (i !== primaryIndex) indexes.push(i);
+        }
+        return indexes;
+    }
+
+    _buildDocks() {
+        const indexes = this._monitorIndexes();
+        for (let i = 0; i < indexes.length; i++) {
+            const monitorIndex = indexes[i];
+            this._docks.push(new DockController(this._settings, this._bus, this._state, {
+                monitorIndex,
+                manageDash: i === 0,
+            }));
+        }
+    }
+
+    _destroyDocks() {
+        for (let i = this._docks.length - 1; i >= 0; i--) {
+            try { this._docks[i]?.destroy(); }
+            catch (e) { logError(e, `destroy dock on monitor ${i}`); }
+        }
+        this._docks = [];
+    }
+
+    _rebuildDocks() {
+        this._destroyDocks();
+        this._buildDocks();
+    }
+
+    _onMonitorsChanged() {
+        try { this._rebuildDocks(); }
+        catch (e) {
+            logError(e, 'monitors-changed → rebuilding');
+            this._destroyDocks();
+        }
     }
 
     _onSettingsChanged({ structural }) {
-        if (structural || !this._dock) {
-            this._dock?.destroy();
-            this._buildDock();
+        if (structural || !this._docks.length) {
+            this._rebuildDocks();
             return;
         }
         try {
-            this._dock.applySettings();
+            for (const dock of this._docks) dock.applySettings();
         } catch (e) {
-            // Fall back to a full rebuild rather than a half-applied dock.
+            // Fall back to a full rebuild rather than leave one dock half-applied.
             logError(e, 'applySettings → rebuilding');
-            this._dock.destroy();
-            this._buildDock();
+            this._rebuildDocks();
         }
     }
 
@@ -76,8 +124,12 @@ export class ExtensionManager {
 
         if (this._unsubSettings) { this._unsubSettings(); this._unsubSettings = null; }
 
-        this._dock?.destroy();
-        this._dock = null;
+        if (this._monitorsChangedId) {
+            try { Main.layoutManager.disconnect(this._monitorsChangedId); } catch { }
+            this._monitorsChangedId = 0;
+        }
+
+        this._destroyDocks();
 
         this._state?.destroy();
         this._state = null;

@@ -12,6 +12,8 @@
 // Cost:      All work is event-driven and coalesced (idle-queued intellihide,
 //            debounced hide checks). No per-frame cost.
 
+import Clutter from 'gi://Clutter';
+
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import { SignalGroup, TimeoutGroup } from '../core/utils.js';
@@ -20,19 +22,28 @@ import { OverlapDetector } from './overlapDetector.js';
 import { PressureBarrier } from './pressureBarrier.js';
 
 const DEBOUNCE_HIDE_MS = 200;
+const POINTER_BUTTON_MASK =
+    Clutter.ModifierType.BUTTON1_MASK |
+    Clutter.ModifierType.BUTTON2_MASK |
+    Clutter.ModifierType.BUTTON3_MASK |
+    Clutter.ModifierType.BUTTON4_MASK |
+    Clutter.ModifierType.BUTTON5_MASK;
 
 export class AutohideManager {
-    // host: { chrome, getGeom, getConfig, kickEngine, clearHover, isDragActive }
+    // host: { chrome, getGeom, getConfig, getMonitor, getMonitorIndex,
+    //         kickEngine, clearHover, isInteractionActive }
     constructor(host) {
         this._host = host;
         this._signals = new SignalGroup();
         this._timers = new TimeoutGroup();
 
         this._vis = new VisibilityController(host.chrome.container);
-        this._overlap = new OverlapDetector(host.getGeom, host.getConfig,
+        this._overlap = new OverlapDetector(host.getGeom, host.getMonitorIndex,
             () => this._debounceCheckHide());
-        this._pressure = new PressureBarrier(host.getConfig,
-            () => this._vis.hidden, () => this._reveal());
+        this._pressure = new PressureBarrier(host.getConfig, host.getMonitor,
+            () => this._vis.hidden,
+            () => !this._pointerButtonDown(),
+            () => this._reveal());
 
         this._hideId = 0;
         this._revealId = 0;
@@ -83,7 +94,8 @@ export class AutohideManager {
     // ── Pointer hooks called by the controller ───────────────────────────────
     onDockActivity() {
         this._cancelHide();
-        if (this._vis.hidden) this._setHidden(false, true);
+        if (this._vis.hidden && !this._pointerButtonDown())
+            this._setHidden(false, true);
     }
 
     onDockLeft() {
@@ -99,7 +111,10 @@ export class AutohideManager {
         s.connect(strip, 'enter-event', () => { this._cancelHide(); this._beginReveal(); });
         // Keep a pending hide cancelled while the pointer rides the edge; the
         // PressureBarrier's own poll handles dwell accumulation.
-        s.connect(strip, 'motion-event', () => this._cancelHide());
+        s.connect(strip, 'motion-event', () => {
+            this._cancelHide();
+            if (this._pointerButtonDown()) this._cancelReveal();
+        });
         // When the pointer leaves the strip (moved off-edge), queue a hide
         // check — if it didn't land on the dock/edge-zone, auto-hide fires.
         s.connect(strip, 'leave-event', () => { this._cancelReveal(); this._debounceCheckHide(); });
@@ -137,7 +152,16 @@ export class AutohideManager {
         const cfg = this._host.getConfig();
         const mode = cfg.autoHideMode;
 
-        if (mode === 'never' || Main.overview.visible || this._host.isDragActive?.()) {
+        // Fullscreen owns visibility on the dock's monitor. Cancelling here
+        // also stops a reveal armed just before the fullscreen transition.
+        if (this._fullscreenBlocksDock()) {
+            this._cancelHide();
+            this._cancelReveal();
+            this._cancelDebounce();
+            this._setHidden(true, false);
+            return;
+        }
+        if (mode === 'never' || Main.overview.visible || this._host.isInteractionActive?.()) {
             this._cancelHide();
             this._setHidden(false, true);
             return;
@@ -173,7 +197,7 @@ export class AutohideManager {
         if (this._hideId || cfg.autoHideMode === 'never') return;
         this._hideId = this._timers.addOnce(cfg.hideDelay, () => {
             this._hideId = 0;
-            if (this._pointerReallyInside()) return;
+            if (this._pointerReallyInside() || this._host.isInteractionActive?.()) return;
             const live = this._host.getConfig();
             if (live.autoHideMode === 'dodge' && !this._overlap.isOverlapped()) return;
             this._setHidden(true, true);
@@ -186,12 +210,13 @@ export class AutohideManager {
 
     _beginReveal() {
         this._cancelReveal();
+        if (this._fullscreenBlocksDock() || this._pointerButtonDown()) return;
         const cfg = this._host.getConfig();
         if (cfg.pressureSense) { this._pressure.begin(); return; }
         if (cfg.revealPressure <= 0) { this._setHidden(false, true); return; }
         this._revealId = this._timers.addOnce(cfg.revealPressure, () => {
             this._revealId = 0;
-            this._setHidden(false, true);
+            if (!this._pointerButtonDown()) this._setHidden(false, true);
         });
     }
 
@@ -201,6 +226,7 @@ export class AutohideManager {
     }
 
     _reveal() {
+        if (this._fullscreenBlocksDock() || this._pointerButtonDown()) return;
         this._cancelHide();
         this._setHidden(false, true);
     }
@@ -208,7 +234,8 @@ export class AutohideManager {
     // ── Slide + side effects ──────────────────────────────────────────────────
     _setHidden(hidden, animate) {
         const cfg = this._host.getConfig();
-        if (cfg.autoHideMode === 'never' && hidden) hidden = false;
+        if (this._fullscreenBlocksDock()) hidden = true;
+        else if (cfg.autoHideMode === 'never' && hidden) hidden = false;
         const geom = this._host.getGeom();
         if (!geom) return;
 
@@ -221,6 +248,18 @@ export class AutohideManager {
         } else {
             this._host.chrome.applyEdgeZone(geom.edgeZone);
         }
+    }
+
+    // ── Fullscreen policy ────────────────────────────────────────────────────
+    _fullscreenBlocksDock() {
+        if (!this._enabled || Main.overview.visible) return false;
+        const monitor = this._host.getMonitorIndex?.() ?? -1;
+        return monitor >= 0 && global.display.get_monitor_in_fullscreen(monitor);
+    }
+
+    _pointerButtonDown() {
+        try { return Boolean(global.get_pointer()[2] & POINTER_BUTTON_MASK); }
+        catch { return false; }
     }
 
     // ── Pointer-in-dock truth ─────────────────────────────────────────────────

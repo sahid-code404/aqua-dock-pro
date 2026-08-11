@@ -69,6 +69,7 @@ function computeConfig(s) {
         invZoom: 1 / zoomMax,
         liftDenom: 1 / Math.max(0.001, zoomMax - 1),
         position,
+        multiMonitor: s.get_boolean('multi-monitor'),
         zoomRange: Math.round(s.get_int('zoom-range') * scale),
         magnificationCurve: s.get_double('magnification-curve'),
         edgeMargin: s.get_int('edge-margin'),
@@ -83,11 +84,18 @@ function computeConfig(s) {
 
         // ── Sections / behaviour ──
         showApps: s.get_boolean('show-apps-button'),
+        appsButtonPosition: s.get_int('apps-button-position'),
         appsIcon: s.get_string('apps-button-icon'),
         showDownloads: s.get_boolean('show-downloads'),
+        showMountedDevices: s.get_boolean('show-mounted-devices'),
+        showRemovableDevices: s.get_boolean('show-removable-devices'),
+        showNetworkDevices: s.get_boolean('show-network-devices'),
+        showFixedDevices: s.get_boolean('show-fixed-devices'),
+        hiddenMountedDevices: s.get_strv('hidden-mounted-devices'),
         showTrash: s.get_boolean('show-trash'),
         clickToMinimize: s.get_boolean('click-to-minimize'),
         dragToOpen: s.get_boolean('drag-to-open'),
+        layoutLocked: s.get_boolean('lock-layout'),
         isolateWS: s.get_boolean('isolate-workspaces'),
 
         // ── Auto-hide ──

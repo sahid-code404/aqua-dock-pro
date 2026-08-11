@@ -44,6 +44,11 @@
       <summary>Dock screen position: bottom, left or right (all floating)</summary>
     </key>
 
+    <key name="multi-monitor" type="b">
+      <default>false</default>
+      <summary>Display a dock on every connected monitor</summary>
+    </key>
+
     <!-- ── Background ────────────────────────────────────────────────── -->
     <key name="background-opacity" type="d">
       <default>0.25</default>
@@ -123,6 +128,11 @@
       <summary>Drag an icon outside the dock to launch or activate the app</summary>
     </key>
 
+    <key name="lock-layout" type="b">
+      <default>false</default>
+      <summary>Prevent pinned apps and the Applications button from being moved, added, or removed through the dock</summary>
+    </key>
+
     <key name="isolate-workspaces" type="b">
       <default>false</default>
       <summary>Only show running apps from the current workspace</summary>
@@ -132,6 +142,12 @@
     <key name="show-apps-button" type="b">
       <default>true</default>
       <summary>Show Applications grid button</summary>
+    </key>
+
+    <key name="apps-button-position" type="i">
+      <default>0</default>
+      <range min="0" max="1000"/>
+      <summary>Position of the Applications button within the dock application section</summary>
     </key>
 
     <key name="apps-button-icon" type="s">
@@ -147,6 +163,31 @@
     <key name="show-downloads" type="b">
       <default>true</default>
       <summary>Show Downloads folder stack with bounce on new file</summary>
+    </key>
+
+    <key name="show-mounted-devices" type="b">
+      <default>true</default>
+      <summary>Show mounted devices beside Downloads</summary>
+    </key>
+
+    <key name="show-removable-devices" type="b">
+      <default>true</default>
+      <summary>Show mounted removable drives, phones, and cameras</summary>
+    </key>
+
+    <key name="show-network-devices" type="b">
+      <default>true</default>
+      <summary>Show mounted network locations</summary>
+    </key>
+
+    <key name="show-fixed-devices" type="b">
+      <default>false</default>
+      <summary>Show mounted fixed local volumes</summary>
+    </key>
+
+    <key name="hidden-mounted-devices" type="as">
+      <default>[]</default>
+      <summary>Stable identifiers for mounted devices hidden from the dock</summary>
     </key>
 
     <!-- ── Running Indicators ─────────────────────────────────────────── -->

@@ -1,4 +1,4 @@
-// AquaDockPro — click activation policy for app/apps/trash icons.
+// AquaDockPro — click activation policy for dock icons.
 //
 // Purpose:   Turn a left/middle click on an icon into the right window action —
 //            launch (with a launch-bounce watch), raise, cycle, or minimize —
@@ -33,9 +33,18 @@ export class AppActions {
             Main.overview.visible ? Main.overview.hide() : Main.overview.showApps();
             return;
         }
-        if (entry.kind === 'trash') { launchUri('trash:///'); return; }
+        if (entry.kind === 'mount') { this._openUri(item, entry.uri); return; }
+        if (entry.kind === 'trash') { this._openUri(item, 'trash:///'); return; }
         if (entry.kind !== 'app' || !entry.app) return;
         this._activateApp(entry.app, item, button);
+    }
+
+    // URI entries do not have a Shell.App/window lifecycle to watch, but they
+    // should still receive the same immediate launch feedback as app icons.
+    _openUri(item, uri) {
+        const cfg = this._getConfig();
+        try { item.bounce(cfg.bounceHeight, { decay: cfg.bounceDecay }); } catch { }
+        launchUri(uri);
     }
 
     _activateApp(app, item, button) {

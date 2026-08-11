@@ -20,7 +20,7 @@ export const CELL_PAD = 6;       // horizontal padding inside one icon cell
 export const ICON_BOT = 8;       // gap between a resting icon and the pill bottom
 export const BG_PAD_X = 10;      // padding between the end chips and the pill edge
 export const DOT_SIZE = 5;       // running-indicator dot size
-export const SEP_W = 3;          // separator line thickness
+export const SEP_W = 2;          // separator line thickness
 export const SEP_PAD = 8;        // padding on each side of a separator
 
 // ── Physics ──────────────────────────────────────────────────────────────────
@@ -38,10 +38,17 @@ export const SETTINGS_DEBOUNCE_MS = 120;
 // colour/style, …) is pure geometry/style/runtime state, applied in place.
 export const STRUCTURAL_KEYS = Object.freeze(new Set([
     'dock-position',
+    'multi-monitor',
     'auto-hide-mode',
     'show-apps-button',
+    'apps-button-position',
     'apps-button-icon',
     'show-downloads',
+    'show-mounted-devices',
+    'show-removable-devices',
+    'show-network-devices',
+    'show-fixed-devices',
+    'hidden-mounted-devices',
     'show-trash',
     'isolate-workspaces',
 ]));

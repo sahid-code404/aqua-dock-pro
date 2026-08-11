@@ -12,6 +12,8 @@ export function buildDockPage(window, s) {
     layout.add(comboRow(window, s, 'dock-position', 'Position',
         'Screen edge the floating dock appears on',
         ['Bottom', 'Left side', 'Right side'], ['bottom', 'left', 'right']));
+    layout.add(switchRow(s, 'multi-monitor', 'Show on all monitors',
+        'Display a dock on every connected monitor'));
     layout.add(spinRow(s, 'dock-scale', 'Overall scale',
         'Scales icons, padding and pill together', 0.5, 2.0, 0.05, 2));
     layout.add(spinRow(s, 'icon-size', 'Icon size',
@@ -49,6 +51,8 @@ export function buildDockPage(window, s) {
 
     // ── Items ──
     const items = group('Items on the dock', 'Choose which built-in icons appear.');
+    items.add(switchRow(s, 'lock-layout', 'Lock current layout',
+        'Prevent pinned apps and the Applications button from being reordered, added, or removed through the dock'));
     items.add(switchRow(s, 'show-apps-button', 'Applications button',
         'Show the app-grid launcher'));
     items.add(iconChooserRow(window, s, 'apps-button-icon', 'Applications icon'));

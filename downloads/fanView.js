@@ -20,6 +20,9 @@ import { iconForInfo } from './fileEnumerator.js';
 import { applyTileStyle } from './tileStyle.js';
 import { SelectionModel } from './keyboardNav.js';
 
+const LABEL_WIDTH = 86;
+const CONTENT_GAP = 14;
+
 export class FanView {
     // opts: { folder, files, overflow, cfg, mon, origin:{x,y}, close }
     constructor(opts) {
@@ -47,7 +50,7 @@ export class FanView {
         const thumbSize = clamp(Math.round(cfg.iconSize * 0.88), 44, 96);
         const thumbH = Math.round(thumbSize * 0.72);
         const rowH = Math.max(thumbH, 32) + 20;
-        const leftPad = 6, labelGap = 10, labelW = 90, labelPillW = labelW + 28;
+        const leftPad = 6, labelGap = CONTENT_GAP, labelW = LABEL_WIDTH, labelPillW = labelW + 28;
         const rowW = leftPad + labelPillW + labelGap + thumbSize + 6;
         const iconCx = leftPad + labelPillW + labelGap + thumbSize / 2;
 
@@ -136,19 +139,23 @@ export class FanView {
         });
         btn.set_style('background-color: transparent; border: none; box-shadow: none;');
         const box = new St.BoxLayout({ style_class: 'aqua-dl-fan-row-inner' });
-        box.spacing = 10;
         const labelPill = new St.Bin({
             style_class: 'aqua-dl-fan-label-pill', x_expand: true,
             x_align: Clutter.ActorAlign.START, y_align: Clutter.ActorAlign.CENTER,
         });
         const label = new St.Label({
-            style_class: 'aqua-dl-fan-label', width: 90,
+            style_class: 'aqua-dl-fan-label', width: LABEL_WIDTH,
             x_align: Clutter.ActorAlign.START, y_align: Clutter.ActorAlign.CENTER,
         });
         label.clutter_text.set_line_wrap(false);
         label.clutter_text.set_ellipsize(2);
         labelPill.set_child(label);
         box.add_child(labelPill);
+        box.add_child(new St.Widget({
+            width: CONTENT_GAP,
+            x_expand: false,
+            reactive: false,
+        }));
         const thumb = new St.Bin({
             style_class: 'aqua-dl-fan-thumb', x_expand: false, y_expand: false,
             x_align: Clutter.ActorAlign.END, y_align: Clutter.ActorAlign.CENTER,

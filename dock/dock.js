@@ -38,9 +38,10 @@ export class DockChrome {
         Main.layoutManager.addChrome(this._magZone, { affectsStruts: false, trackFullscreen: false });
 
         // Thin reactive strip at the very screen edge — the autohide reveal
-        // trigger (pointer hits the edge while the dock is hidden).
+        // trigger. Fullscreen tracking also removes it from the input region,
+        // so it cannot sit on top of a fullscreen application's controls.
         this._strip = new St.Widget({ reactive: true, opacity: 0 });
-        Main.layoutManager.addChrome(this._strip, { affectsStruts: false, trackFullscreen: false });
+        Main.layoutManager.addChrome(this._strip, { affectsStruts: false, trackFullscreen: true });
 
         // Invisible reactive zone filling the edge-margin gap between the pill
         // and the screen edge, so hovering the gap keeps the dock revealed.

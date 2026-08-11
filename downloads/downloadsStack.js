@@ -20,30 +20,37 @@ import { FanView } from './fanView.js';
 import { PanelView } from './panelView.js';
 
 export class DownloadsStack {
-    constructor() {
+    constructor(getMonitor) {
+        this._getMonitor = getMonitor;
         this._blocker = null;
         this._view = null;
         this._dying = null;
+        this._opening = false;
         this._showGen = 0;
         this._onClose = null;
         this._keyId = 0;
     }
 
-    get isOpen() { return !!(this._blocker || this._view); }
+    get isOpen() { return this._opening || !!(this._blocker || this._view); }
 
     async show(anchor, folder, cfg, onClose) {
         this._destroyNow();             // clear any lingering popup synchronously
         this._onClose = onClose;
         const gen = ++this._showGen;
+        this._opening = true;
 
         let files;
         try { files = await enumerateRecent(folder); }
-        catch (e) { logError(e, 'enumerateRecent'); return; }
+        catch (e) {
+            logError(e, 'enumerateRecent');
+            if (gen === this._showGen) this.hide();
+            return;
+        }
         if (gen !== this._showGen) return;        // superseded or destroyed
 
-        const mon = Main.layoutManager.primaryMonitor;
-        if (!mon) return;
-        const origin = this._origin(anchor);
+        const mon = this._getMonitor?.();
+        if (!mon) { this.hide(); return; }
+        const origin = this._origin(anchor, mon);
 
         const blocker = new St.Widget({ reactive: true, opacity: 0 });
         blocker.set_position(mon.x, mon.y);
@@ -51,6 +58,7 @@ export class DownloadsStack {
         blocker.connect('button-press-event', () => { this.hide(); return Clutter.EVENT_STOP; });
         Main.uiGroup.add_child(blocker);
         this._blocker = blocker;
+        this._opening = false;
 
         const max = clamp(cfg.downloadsMaxFiles ?? 11, 3, 11);
         const totalFiles = files.length;
@@ -73,6 +81,7 @@ export class DownloadsStack {
 
     hide() {
         this._showGen++;                 // invalidate any pending show
+        this._opening = false;
         const view = this._view;
         const blocker = this._blocker;
         const onClose = this._onClose;
@@ -95,6 +104,7 @@ export class DownloadsStack {
     }
 
     _destroyNow() {
+        this._opening = false;
         if (this._view) { this._destroyActor(this._view.actor); this._view = null; }
         if (this._dying) { this._destroyActor(this._dying); this._dying = null; }
         if (this._blocker) { try { this._blocker.destroy(); } catch { } this._blocker = null; }
@@ -108,9 +118,10 @@ export class DownloadsStack {
         this._showGen++;
         this._destroyNow();
         this._onClose = null;
+        this._getMonitor = null;
     }
 
-    _origin(anchor) {
+    _origin(anchor, mon) {
         try {
             const [ax, ay] = anchor.get_transformed_position();
             const tx = anchor.translation_x || 0;
@@ -138,7 +149,6 @@ export class DownloadsStack {
 
             return { x: cx, y: cy };
         } catch {
-            const mon = Main.layoutManager.primaryMonitor;
             return { x: (mon?.x ?? 0) + (mon?.width ?? 0) / 2, y: (mon?.y ?? 0) + (mon?.height ?? 0) };
         }
     }

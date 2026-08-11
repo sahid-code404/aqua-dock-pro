@@ -19,13 +19,18 @@ import St from 'gi://St';
 
 import { clamp, appWindows, logError, TimeoutGroup } from '../../core/utils.js';
 
+// St.Settings.slow_down_factor is process-global. Multiple monitor controllers
+// can start genie animations at once, so the latest controller temporarily owns
+// the override and restores the original value once the final animation ends.
+let slowDownOwner = null;
+let slowDownPrevious = 1;
+
 export class GenieController {
-    // host: { getConfig, getGeom, getChips, getItems }
+    // host: { getConfig, getGeom, getMonitorIndex, getChips, getItems }
     constructor(host) {
         this._host = host;
         this._timers = new TimeoutGroup();
         this._restoreId = 0;
-        this._slowPrev = 1;
     }
 
     get enabled() { return !!this._host?.getConfig().enableGenieEffect; }
@@ -58,10 +63,16 @@ export class GenieController {
     setIconGeometry(item, windows, chip = null) {
         if (!this.enabled || !item || !windows?.length) return;
         try {
+            const cfg = this._host.getConfig();
+            const monitorIndex = this._host.getMonitorIndex?.() ?? -1;
+            const targets = cfg.multiMonitor ? windows.filter(win => {
+                try { return win.get_monitor() === monitorIndex; }
+                catch { return false; }
+            }) : windows;
+            if (!targets.length) return;
             const rect = this.iconRestRect(item, chip);
             if (!rect) return;
-            if (rect.x <= 0 && rect.y <= 0) return;     // dock not allocated yet
-            for (const win of windows) win.set_icon_geometry(rect);
+            for (const win of targets) win.set_icon_geometry(rect);
         } catch (e) { logError(e, 'setIconGeometry'); }
     }
 
@@ -100,22 +111,41 @@ export class GenieController {
         const stSettings = St.Settings.get();
         const dur = clamp(this._host.getConfig().genieDuration ?? 120, 50, 1000);
         const factor = clamp(dur / 250, 0.4, 4.0);
-        if (!this._restoreId) {
-            try { this._slowPrev = stSettings.slow_down_factor; } catch { this._slowPrev = 1; }
+
+        // Transfer ownership without restoring in between animations. Otherwise
+        // a second dock could capture an already-overridden value and leave it
+        // behind after both timer callbacks run.
+        if (slowDownOwner && slowDownOwner !== this)
+            slowDownOwner._cancelSlowDownRestore();
+        if (!slowDownOwner) {
+            try { slowDownPrevious = stSettings.slow_down_factor; }
+            catch { slowDownPrevious = 1; }
         }
+        slowDownOwner = this;
+        this._cancelSlowDownRestore();
         try { stSettings.slow_down_factor = factor; } catch { }
         try { fn(); } catch (e) { logError(e, 'genie fn'); }
-        if (this._restoreId) this._timers.remove(this._restoreId);
         this._restoreId = this._timers.addOnce(dur + 60, () => {
             this._restoreId = 0;
-            try { stSettings.slow_down_factor = this._slowPrev ?? 1; } catch { }
+            if (slowDownOwner !== this) return;
+            slowDownOwner = null;
+            try { stSettings.slow_down_factor = slowDownPrevious; } catch { }
+            slowDownPrevious = 1;
         });
+    }
+
+    _cancelSlowDownRestore() {
+        if (!this._restoreId) return;
+        this._timers.remove(this._restoreId);
+        this._restoreId = 0;
     }
 
     destroy() {
         // Restore animation speed before clearing timers.
-        if (this._restoreId) {
-            try { St.Settings.get().slow_down_factor = this._slowPrev ?? 1; } catch { }
+        if (slowDownOwner === this) {
+            slowDownOwner = null;
+            try { St.Settings.get().slow_down_factor = slowDownPrevious; } catch { }
+            slowDownPrevious = 1;
         }
         this._timers.removeAll();
         this._restoreId = 0;

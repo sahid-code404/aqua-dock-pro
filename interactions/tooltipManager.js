@@ -18,13 +18,17 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import { logError, TimeoutGroup } from '../core/utils.js';
 
 export class TooltipManager {
-    constructor(getConfig) {
+    constructor(getConfig, getHoverItem = null, getMonitor = null) {
         this._getConfig = getConfig;
+        this._getHoverItem = getHoverItem;
+        this._getMonitor = getMonitor;
         this._label = new St.Label({ style_class: 'aqua-tooltip', visible: false });
         Main.uiGroup.add_child(this._label);
         this._timers = new TimeoutGroup();
         this._shown = false;
         this._showId = 0;
+        this._pendingItem = null;
+        this._pendingGeom = null;
         this._w = null;
         this._h = null;
         this._mon = null;
@@ -48,12 +52,23 @@ export class TooltipManager {
     }
 
     scheduleShow(item, geom) {
+        if (!item) { this.hide(); return; }
         if (this._shown) { this.show(item, geom); return; }
+
+        // Keep one timer, but always point it at the latest icon. This avoids a
+        // stale tooltip when the pointer crosses icons before the delay ends.
+        this._pendingItem = item;
+        this._pendingGeom = geom;
         if (this._showId) return;
         const delay = this._getConfig().tooltipDelay ?? 100;
         this._showId = this._timers.addOnce(delay, () => {
             this._showId = 0;
-            this.show(item, geom);
+            const nextItem = this._pendingItem;
+            const nextGeom = this._pendingGeom;
+            this._pendingItem = null;
+            this._pendingGeom = null;
+            if (nextItem && (!this._getHoverItem || this._getHoverItem() === nextItem))
+                this.show(nextItem, nextGeom);
         });
     }
 
@@ -85,7 +100,7 @@ export class TooltipManager {
                 if (!this._w || !this._h) return;
             }
             const tw = this._w, th = this._h;
-            const mon = this._mon ?? (this._mon = Main.layoutManager.primaryMonitor);
+            const mon = this._mon ?? (this._mon = this._getMonitor?.());
             if (!mon) return;
 
             const gap = 12;
@@ -111,6 +126,8 @@ export class TooltipManager {
 
     cancel() {
         if (this._showId) { this._timers.remove(this._showId); this._showId = 0; }
+        this._pendingItem = null;
+        this._pendingGeom = null;
     }
 
     hide() {
@@ -122,7 +139,9 @@ export class TooltipManager {
     destroy() {
         this._timers.removeAll();
         this._showId = 0;
+        this._pendingItem = null;
+        this._pendingGeom = null;
         if (this._label) { try { this._label.destroy(); } catch { } this._label = null; }
-        this._getConfig = null;
+        this._getConfig = this._getHoverItem = this._getMonitor = null;
     }
 }

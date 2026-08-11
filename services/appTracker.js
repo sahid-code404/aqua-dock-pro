@@ -1,8 +1,8 @@
 // AquaDockPro — the dock's entry model (what chips exist, in what order).
 //
-// Purpose:   Produce the ordered list of dock entries — Applications button,
-//            pinned favourites, a divider, running-but-unpinned apps, a system
-//            divider, then Downloads and Trash — and fire a callback whenever
+// Purpose:   Produce the ordered list of dock entries — the configurable
+//            Applications button, pinned favourites, running-but-unpinned apps,
+//            then Downloads, mounted devices and Trash — and fire a callback whenever
 //            anything that affects that list changes (favourites, app install/
 //            state, active workspace under isolate-workspaces). The dock turns
 //            entries into chips; this service knows nothing about actors.
@@ -22,8 +22,9 @@ import { trashHasFiles } from './fileService.js';
 
 export class AppTracker {
     // getConfig: () => current config snapshot (for the section/isolate flags).
-    constructor(getConfig) {
+    constructor(getConfig, getMountedEntries = () => []) {
         this._getConfig = getConfig;
+        this._getMountedEntries = getMountedEntries;
         this._signals = new SignalGroup();
         this._onChanged = null;
         this._dlGicon = null;
@@ -60,21 +61,31 @@ export class AppTracker {
             runningExtra.push(app);
         }
 
-        const entries = [];
-        if (cfg.showApps)
-            entries.push({ key: 'apps', kind: 'apps', gicon: this._resolveAppsIcon(cfg) });
-        for (const app of favsList)
-            entries.push({ key: `app:${app.get_id()}`, kind: 'app', app, gicon: app.get_icon() });
+        const entries = favsList.map(app => ({
+            key: `app:${app.get_id()}`,
+            kind: 'app',
+            app,
+            gicon: app.get_icon(),
+        }));
+        if (cfg.showApps) {
+            const appsEntry = { key: 'apps', kind: 'apps', gicon: this._resolveAppsIcon(cfg) };
+            const appsIndex = Math.max(0, Math.min(cfg.appsButtonPosition ?? 0, entries.length));
+            entries.splice(appsIndex, 0, appsEntry);
+        }
         if (runningExtra.length && favsList.length)
             entries.push({ key: 'sep:running', kind: 'separator' });
         for (const app of runningExtra)
             entries.push({ key: `app:${app.get_id()}`, kind: 'app', app, gicon: app.get_icon() });
-        if (cfg.showDownloads || cfg.showTrash)
-            entries.push({ key: 'sep:system', kind: 'separator' });
+        const systemEntries = [];
         if (cfg.showDownloads)
-            entries.push({ key: 'downloads', kind: 'downloads', gicon: this._downloadsGicon() });
+            systemEntries.push({ key: 'downloads', kind: 'downloads', gicon: this._downloadsGicon() });
+        if (cfg.showMountedDevices)
+            systemEntries.push(...(this._getMountedEntries?.() ?? []));
         if (cfg.showTrash)
-            entries.push({ key: 'trash', kind: 'trash', gicon: this.trashGicon(this._trashIsFull) });
+            systemEntries.push({ key: 'trash', kind: 'trash', gicon: this.trashGicon(this._trashIsFull) });
+        if (systemEntries.length && entries.length)
+            entries.push({ key: 'sep:system', kind: 'separator' });
+        entries.push(...systemEntries);
         return entries;
     }
 
@@ -114,5 +125,6 @@ export class AppTracker {
         this._trashEmpty = null;
         this._appsGicon = null;
         this._appsIconKey = null;
+        this._getMountedEntries = null;
     }
 }

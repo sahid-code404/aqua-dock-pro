@@ -81,6 +81,7 @@ gnome-extensions enable aqua-dock-pro@shaque
 A beautifully crafted floating dock that feels like it belongs on your desktop.
 
 - Position: **Bottom**, **Left**, or **Right**
+- Optional dock on **every connected monitor**
 - Configurable icon size, dock thickness, and corner radius
 - Background opacity control with custom border color and width
 - Automatic layout recalculation and floating edge spacing
@@ -132,9 +133,11 @@ Native GNOME popup menus for every item in the dock.
 
 ```
 Right-click any dock icon →
+  ├── Open Application
   ├── New Window
   ├── Desktop Actions
   ├── Pin / Unpin
+  ├── Lock / Unlock Layout
   ├── Window List
   ├── Quit Application
   ├── Downloads Menu
@@ -189,6 +192,7 @@ Every click, scroll, and drag is handled intelligently.
 Reorder your dock on the fly.
 
 - Drag pinned apps to reorder
+- Drag the Applications icon anywhere within the app section
 - Pin apps by dragging from the GNOME Overview
 - Animated drag preview and insertion indicator
 - Drop zone highlighting
@@ -225,7 +229,7 @@ A full **Adwaita preferences window** — no config files, no terminal tweaks.
 
 | Page | What You Configure |
 |------|--------------------|
-| **Dock** | Size, position, radius, opacity, borders |
+| **Dock** | Size, position, all-monitor mode, radius, opacity, borders |
 | **Motion** | Spring tension, damping, magnification, lift |
 | **Behavior** | Auto-hide mode, click actions, scroll behavior |
 | **Widgets** | Badges, indicators, tooltips, previews |

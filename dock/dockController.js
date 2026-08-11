@@ -1,12 +1,12 @@
 // AquaDockPro — dock orchestration (the de-godded core).
 //
 // Purpose:   Compose the dock from its parts and own their interplay: build the
-//            chrome, the chip factory, the app tracker and the animation engine;
-//            relayout on monitor/settings/chip changes; route pointer motion to
+//            chrome, the chip factory, app/device trackers and the animation engine;
+//            relayout on settings/chip changes for its assigned monitor; route pointer motion to
 //            the engine; and turn clicks/scrolls into launch/activate/minimize/
 //            cycle actions. Each concern lives in its own module — this file only
 //            connects them and holds the small amount of glue state.
-// Ownership: OWNS chrome, factory, tracker, engine and the sub-managers
+// Ownership: OWNS chrome, factory, trackers, engine and the sub-managers
 //            (autohide, tooltip, menu, preview, downloads, trash, app actions),
 //            plus the SignalGroup of shell connections. destroy() releases every
 //            one, in reverse order.
@@ -20,6 +20,7 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import { SignalGroup, TimeoutGroup, appWindows, logError, log } from '../core/utils.js';
 import { buildNotificationMap } from '../services/notificationService.js';
 import { AppTracker } from '../services/appTracker.js';
+import { MountedDevices } from '../services/mountedDevices.js';
 import { AnimationEngine } from '../animation/animationEngine.js';
 import { AutohideManager } from '../autohide/autohideManager.js';
 import { TooltipManager } from '../interactions/tooltipManager.js';
@@ -37,10 +38,15 @@ import { computeLayout, pillStyle } from './dockLayout.js';
 const MOVE_THRESHOLD = 10;     // px of pointer travel that cancels a click
 
 export class DockController {
-    constructor(settings, bus, state) {
+    constructor(settings, bus, state, {
+        monitorIndex = Main.layoutManager.primaryIndex,
+        manageDash = true,
+    } = {}) {
         this._settings = settings;
         this._bus = bus;
         this._state = state;
+        this._monitorIndex = monitorIndex;
+        this._manageDash = manageDash;
 
         this._signals = new SignalGroup();
         this._timers = new TimeoutGroup();
@@ -51,37 +57,61 @@ export class DockController {
         this._pointerInMag = false;
         this._pointerInEdge = false;
         this._press = null;
-        this._edgePress = null;
         this._hoverItem = null;
 
         this._chrome = new DockChrome();
         this._factory = new DockFactory(this._chrome.container, item => this._wireItem(item));
-        this._tracker = new AppTracker(() => this._settings.config);
+        this._mountedDevices = new MountedDevices(() => this._cfg);
+        this._tracker = new AppTracker(
+            () => this._settings.config,
+            () => this._mountedDevices.entries,
+        );
         this._engine = new AnimationEngine();
         this._engine.attach(this._chrome.container);
         this._autohide = new AutohideManager({
             chrome: this._chrome,
             getGeom: () => this._geom,
             getConfig: () => this._cfg,
+            getMonitor: () => this._getMonitor(),
+            getMonitorIndex: () => this._monitorIndex,
             kickEngine: () => this._engine.kick(),
             clearHover: () => this._endHover(),
-            isDragActive: () => false,
+            isInteractionActive: () => this._isDockBusy(),
         });
-        this._tooltip = new TooltipManager(() => this._cfg);
+        this._tooltip = new TooltipManager(
+            () => this._cfg,
+            () => this._hoverItem,
+            () => this._getMonitor(),
+        );
         this._tooltip.style();
-        this._preview = new PreviewManager(() => this._cfg, () => this._geom, () => this._hoverItem);
+        this._preview = new PreviewManager(
+            () => this._cfg,
+            () => this._geom,
+            () => this._hoverItem,
+            () => this._getMonitor(),
+            () => {
+                if (!this._pointerInContainer && !this._pointerInMag && !this._pointerInEdge)
+                    this._autohide?.onDockLeft();
+            },
+        );
         this._menu = new MenuManager({
             container: this._chrome.container,
             getConfig: () => this._cfg,
             getGeom: () => this._geom,
+            isLayoutLocked: () => this._settings.raw.get_boolean('lock-layout'),
             onOpen: () => { this._tooltip.hide(); this._preview.hide(true); this._hoverItem = null; },
             onClose: () => this._autohide?.onDockLeft(),
             holdItem: item => { this._engine.setHeldItem(item); this._engine.kick(); },
             releaseHold: () => { this._engine.setHeldItem(null); this._engine.kick(); },
             onTrashEmptied: () => this._refreshItems(),
+            onToggleLayoutLock: () => {
+                const raw = this._settings.raw;
+                raw.set_boolean('lock-layout', !raw.get_boolean('lock-layout'));
+            },
         });
         this._downloads = new DownloadManager({
             getConfig: () => this._cfg,
+            getMonitor: () => this._getMonitor(),
             getDownloadsItem: () => this._findItem('downloads'),
             isHidden: () => this._autohide?.hidden ?? false,
             kickEngine: () => this._engine.kick(),
@@ -99,6 +129,7 @@ export class DockController {
             getGeom: () => this._geom,
             getChips: () => this._factory.chips,
             getItems: () => this._factory.items,
+            getMonitorIndex: () => this._monitorIndex,
         });
         this._appActions = new AppActions(() => this._cfg, this._genie);
         this._drag = new DragManager({
@@ -108,8 +139,10 @@ export class DockController {
             getItems: () => this._factory.items,
             container: this._chrome.container,
             engine: this._engine,
+            setAppsButtonPosition: position =>
+                this._settings.raw.set_int('apps-button-position', position),
             onDragStart: () => { this._endHover(); this._autohide?.onDockActivity(); },
-            onDragEnd: () => { this._press = null; this._edgePress = null; this._autohide?.onDockLeft(); },
+            onDragEnd: () => { this._press = null; this._autohide?.onDockLeft(); },
         });
         // GNOME's DnD calls handleDragOver/acceptDrop on the container's delegate.
         this._chrome.container._delegate = this._drag;
@@ -121,19 +154,34 @@ export class DockController {
         });
 
         this._connectSignals();
+        this._mountedDevices.start(() => this._onEntriesChanged());
         this._tracker.start(() => this._onEntriesChanged());
         this._onEntriesChanged();    // initial sync + first layout
         this._autohide.enable();
         this._downloads.enable();
         this._trash.enable();
-        this._chrome.hideDash(this._cfg);
-        log('dock built');
+        if (this._manageDash) this._chrome.hideDash(this._cfg);
+        log(`dock built on monitor ${this._monitorIndex}`);
+    }
+
+    _getMonitor() {
+        return Main.layoutManager.monitors?.[this._monitorIndex] ?? null;
     }
 
     _findItem(kind) {
         for (const chip of this._factory.chips)
             if (chip.item && chip.entry.kind === kind) return chip.item;
         return null;
+    }
+
+    _isDockBusy() {
+        return Boolean(
+            this._drag?.reordering ||
+            this._drag?.externalDnD ||
+            this._menu?.active ||
+            this._downloads?.stackOpen ||
+            this._preview?.active
+        );
     }
 
     // ── Wiring ──────────────────────────────────────────────────────────────
@@ -177,7 +225,6 @@ export class DockController {
         s.connect(ez, 'button-release-event', (_a, ev) => this._onEdgeRelease(ev));
         s.connect(ez, 'scroll-event', (_a, ev) => this._onScroll(ev));
 
-        s.connect(Main.layoutManager, 'monitors-changed', () => this.relayout());
         const wm = global.window_manager;
         for (const sig of ['map', 'destroy', 'minimize', 'unminimize'])
             s.connect(wm, sig, () => { this._scheduleRefreshItems(); this._autohide?.queueIntellihide(); });
@@ -237,6 +284,8 @@ export class DockController {
     // ── Entry / layout ────────────────────────────────────────────────────
     _onEntriesChanged() {
         const changed = this._factory.sync(this._tracker.getEntries(), this._cfg);
+        if (this._hoverItem && !this._factory.items.includes(this._hoverItem))
+            this._endHover();
         if (changed) this.relayout();
         else this._engine.kick();
     }
@@ -259,9 +308,9 @@ export class DockController {
     }
 
     relayout() {
-        const mon = Main.layoutManager.primaryMonitor;
+        const mon = this._getMonitor();
         if (!mon) return;
-        const fs = global.display.get_monitor_in_fullscreen(Main.layoutManager.primaryIndex);
+        const fs = global.display.get_monitor_in_fullscreen(this._monitorIndex);
         const { cfg, geom } = computeLayout(this._settings.config, this._factory.chips, mon, fs);
         this._cfg = cfg;
         this._geom = geom;
@@ -300,10 +349,13 @@ export class DockController {
 
     // In-place refresh for non-structural settings changes.
     applySettings() {
+        const next = this._settings.config;
+        if (next.layoutLocked && !this._cfg.layoutLocked)
+            this._drag?.cancelLayoutChanges();
         this.relayout();
         this._refreshItems();
         this._tooltip?.style();
-        this._chrome.enforceDashGap(this._cfg);
+        if (this._manageDash) this._chrome.enforceDashGap(this._cfg);
     }
 
     // ── Pointer ─────────────────────────────────────────────────────────────
@@ -312,7 +364,7 @@ export class DockController {
         if (inContainer) this._pointerInContainer = true;
         // A reorder drag takes over: it owns the chip translations and the flyer.
         if (this._drag.reordering) { this._drag.update(x, y); return Clutter.EVENT_STOP; }
-        if (this._press && this._drag.maybeStart(this._press, x, y)) return Clutter.EVENT_STOP;
+        if (this._updatePressedDrag(x, y)) return Clutter.EVENT_STOP;
         this._autohide?.onDockActivity();
         this._cancelEndHover();
         this._engine.setPointer(x, y, true);
@@ -325,7 +377,7 @@ export class DockController {
         const [x, y] = ev.get_coords();
         this._pointerInMag = true;
         if (this._drag.reordering) { this._drag.update(x, y); return Clutter.EVENT_STOP; }
-        if (this._press && this._drag.maybeStart(this._press, x, y)) return Clutter.EVENT_STOP;
+        if (this._updatePressedDrag(x, y)) return Clutter.EVENT_STOP;
         this._autohide?.onDockActivity();
         this._cancelEndHover();
         this._engine.setPointer(x, y, true);
@@ -351,7 +403,7 @@ export class DockController {
         const [x, y] = ev.get_coords();
         this._pointerInEdge = true;
         if (this._drag.reordering) { this._drag.update(x, y); return Clutter.EVENT_STOP; }
-        if (this._press && this._drag.maybeStart(this._press, x, y)) return Clutter.EVENT_STOP;
+        if (this._updatePressedDrag(x, y)) return Clutter.EVENT_STOP;
         this._autohide?.onDockActivity();
         this._cancelEndHover();
         this._engine.setPointer(x, y, true);
@@ -372,9 +424,11 @@ export class DockController {
         let button, sx, sy;
         try { button = ev.get_button(); [sx, sy] = ev.get_coords(); }
         catch { return Clutter.EVENT_PROPAGATE; }
+        if (button !== 1 && button !== 2 && button !== 3)
+            return Clutter.EVENT_PROPAGATE;
         const item = this._pickItemRedirected(sx, sy);
         if (!item) return Clutter.EVENT_PROPAGATE;
-        this._edgePress = { item, sx, sy, button };
+        this._press = { item, sx, sy, button };
         return Clutter.EVENT_STOP;
     }
 
@@ -382,12 +436,13 @@ export class DockController {
         let button, sx, sy;
         try { button = ev.get_button(); [sx, sy] = ev.get_coords(); }
         catch { return Clutter.EVENT_PROPAGATE; }
-        const press = this._edgePress;
-        this._edgePress = null;
-        const item = press?.item ?? this._pickItemRedirected(sx, sy);
+        if (this._drag.reordering) {
+            this._press = null;
+            this._drag.finish(sx, sy);
+            return Clutter.EVENT_STOP;
+        }
+        const item = this._takePress(button, sx, sy);
         if (!item) return Clutter.EVENT_PROPAGATE;
-        if (press && Math.hypot(sx - press.sx, sy - press.sy) > MOVE_THRESHOLD)
-            return Clutter.EVENT_PROPAGATE;
         this._dispatch(item, button);
         return Clutter.EVENT_STOP;
     }
@@ -420,6 +475,7 @@ export class DockController {
         this._endHoverId = this._timers.addOnce(16, () => {
             this._endHoverId = 0;
             if (!this._engine) return;  // destroyed
+            if (!this._drag?.reordering) this._press = null;
             this._endHover();
             this._autohide?.onDockLeft();
         });
@@ -485,6 +541,8 @@ export class DockController {
         let button, sx, sy;
         try { button = ev.get_button(); [sx, sy] = ev.get_coords(); }
         catch { return Clutter.EVENT_PROPAGATE; }
+        if (button !== 1 && button !== 2 && button !== 3)
+            return Clutter.EVENT_PROPAGATE;
         const item = this._pickItemRedirected(sx, sy);
         if (!item) return Clutter.EVENT_PROPAGATE;
         this._press = { item, sx, sy, button };
@@ -495,13 +553,13 @@ export class DockController {
         let button, sx, sy;
         try { button = ev.get_button(); [sx, sy] = ev.get_coords(); }
         catch { return Clutter.EVENT_PROPAGATE; }
-        const press = this._press;
-        this._press = null;
-        if (this._drag.reordering) { this._drag.finish(sx, sy); return Clutter.EVENT_STOP; }
-        const item = press?.item ?? this._pickItemRedirected(sx, sy);
+        if (this._drag.reordering) {
+            this._press = null;
+            this._drag.finish(sx, sy);
+            return Clutter.EVENT_STOP;
+        }
+        const item = this._takePress(button, sx, sy);
         if (!item) return Clutter.EVENT_PROPAGATE;
-        if (press && Math.hypot(sx - press.sx, sy - press.sy) > MOVE_THRESHOLD)
-            return Clutter.EVENT_PROPAGATE;
         this._dispatch(item, button);
         return Clutter.EVENT_STOP;
     }
@@ -511,15 +569,35 @@ export class DockController {
             this._press = item ? { item, sx, sy, button } : null;
             return item ? Clutter.EVENT_STOP : Clutter.EVENT_PROPAGATE;
         }
-        const press = this._press;
-        this._press = null;
-        if (this._drag.reordering) { this._drag.finish(sx, sy); return Clutter.EVENT_STOP; }
-        const target = press?.item ?? item;
+        if (this._drag.reordering) {
+            this._press = null;
+            this._drag.finish(sx, sy);
+            return Clutter.EVENT_STOP;
+        }
+        const target = this._takePress(button, sx, sy);
         if (!target) return Clutter.EVENT_PROPAGATE;
-        if (press && Math.hypot(sx - press.sx, sy - press.sy) > MOVE_THRESHOLD)
-            return Clutter.EVENT_PROPAGATE;
         this._dispatch(target, button);
         return Clutter.EVENT_STOP;
+    }
+
+    // A release is a dock click only when its matching press began on the dock.
+    // One record is shared by all three hit zones because magnification can move
+    // an icon from one zone to another between press and release.
+    _takePress(button, sx, sy) {
+        const press = this._press;
+        this._press = null;
+        if (!press || press.button !== button || !press.item) return null;
+        if (Math.hypot(sx - press.sx, sy - press.sy) > MOVE_THRESHOLD) return null;
+        return press.item;
+    }
+
+    _updatePressedDrag(x, y) {
+        const press = this._press;
+        if (!press) return false;
+        if (this._drag.maybeStart(press, x, y)) return true;
+        if (Math.hypot(x - press.sx, y - press.sy) > MOVE_THRESHOLD)
+            this._press = null;
+        return false;
     }
 
     // Downloads opens its stack on any button; otherwise right-click opens the
@@ -585,6 +663,7 @@ export class DockController {
         this._autohide?.destroy(); this._autohide = null;
         this._engine?.destroy(); this._engine = null;
         this._tracker?.destroy(); this._tracker = null;
+        this._mountedDevices?.destroy(); this._mountedDevices = null;
         this._factory?.destroyAll(); this._factory = null;
         this._chrome?.destroy(); this._chrome = null;
         this._geom = null;

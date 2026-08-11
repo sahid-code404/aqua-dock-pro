@@ -30,8 +30,9 @@ export function buildBehaviorPage(window, s) {
     const click = group('Clicking', 'What clicks do.');
     click.add(switchRow(s, 'click-to-minimize', 'Click to minimize',
         'Clicking the focused app icon minimizes its window'));
-    click.add(switchRow(s, 'drag-to-open', 'Drag to open',
-        'Drag an icon outside the dock to launch or activate the app'));
+    const dragToOpen = switchRow(s, 'drag-to-open', 'Drag to open',
+        'Drag a pinned app outside the dock to launch or activate it, even when the layout is locked');
+    click.add(dragToOpen);
     click.add(switchRow(s, 'isolate-workspaces', 'Only this workspace',
         'Show running apps from the current workspace only'));
     p.add(click);

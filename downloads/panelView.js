@@ -20,6 +20,7 @@ import { applyTileStyle } from './tileStyle.js';
 import { SelectionModel } from './keyboardNav.js';
 
 const GRID_COLS = 2;
+const CONTENT_GAP = 12;
 
 export class PanelView {
     // opts: { folder, files, cfg, mon, origin:{x,y}, close }
@@ -138,8 +139,15 @@ export class PanelView {
         });
         row.set_style('background-color: transparent; border: none; box-shadow: none;');
         const box = new St.BoxLayout({ style_class: 'aqua-dl-row-inner', vertical: false, x_expand: true });
-        box.spacing = 8;
         return { row, box };
+    }
+
+    _contentGap() {
+        return new St.Widget({
+            width: CONTENT_GAP,
+            x_expand: false,
+            reactive: false,
+        });
     }
 
     _thumbBin(thumbSz) {
@@ -184,6 +192,7 @@ export class PanelView {
             style_class: 'aqua-dl-fan-icon',
         }));
         box.add_child(thumb);
+        box.add_child(this._contentGap());
         const { labelPill, label } = this._labelPill(info.get_display_name());
         box.add_child(labelPill);
         row.set_child(box);
@@ -204,6 +213,7 @@ export class PanelView {
             icon_size: Math.round(Math.min(thumbW, thumbH) * 0.72), style_class: 'aqua-dl-fan-icon',
         }));
         box.add_child(thumb);
+        box.add_child(this._contentGap());
         const { labelPill, label } = this._labelPill(`+${more} more in Files`, 'aqua-dl-fan-more');
         box.add_child(labelPill);
         row.set_child(box);

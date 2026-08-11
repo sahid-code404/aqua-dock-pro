@@ -11,7 +11,6 @@
 //            per 30ms tick. Self-stops the moment it reveals.
 
 import GLib from 'gi://GLib';
-import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import { TimeoutGroup } from '../core/utils.js';
 
@@ -20,10 +19,13 @@ const EDGE_PX = 4;                 // how close to the edge counts as "pressed"
 const LATERAL_AREA = 40 * 40;      // max squared lateral drift to keep dwelling
 
 export class PressureBarrier {
-    // getConfig: () => config. isHidden: () => bool. onReveal: () => void.
-    constructor(getConfig, isHidden, onReveal) {
+    // getConfig: () => config; getMonitor: () => monitor geometry.
+    // isHidden/canReveal: () => bool. onReveal: () => void.
+    constructor(getConfig, getMonitor, isHidden, canReveal, onReveal) {
         this._getConfig = getConfig;
+        this._getMonitor = getMonitor;
         this._isHidden = isHidden;
+        this._canReveal = canReveal;
         this._onReveal = onReveal;
         this._timers = new TimeoutGroup();
         this._pollId = 0;
@@ -36,6 +38,12 @@ export class PressureBarrier {
         this._last = null;
         if (this._pollId) return;
         this._pollId = this._timers.add(POLL_MS, () => {
+            if (!this._canReveal()) {
+                this._pollId = 0;
+                this._dwell = 0;
+                this._last = null;
+                return GLib.SOURCE_REMOVE;
+            }
             this._sample();
             if (!this._isHidden() || !this._getConfig().pressureSense) {
                 this._pollId = 0;
@@ -51,12 +59,20 @@ export class PressureBarrier {
         this._last = null;
     }
 
-    destroy() { this.cancel(); this._timers.removeAll(); this._onReveal = null; }
+    destroy() {
+        this.cancel();
+        this._timers.removeAll();
+        this._getConfig = null;
+        this._getMonitor = null;
+        this._isHidden = null;
+        this._canReveal = null;
+        this._onReveal = null;
+    }
 
     _sample() {
         const cfg = this._getConfig();
         if (!cfg.pressureSense || !this._isHidden()) return;
-        const mon = Main.layoutManager.primaryMonitor;
+        const mon = this._getMonitor?.();
         if (!mon) return;
         let p;
         try { p = global.get_pointer(); } catch { return; }

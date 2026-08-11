@@ -1,7 +1,8 @@
 // AquaDockPro — context-menu content.
 //
 // Purpose:   Populate a PopupMenu with the right actions for a dock entry
-//            (Applications / Trash / app). Pure builder: it adds items and wires
+//            (Applications / mounted devices / Trash / app). Pure builder: it
+//            adds items and wires
 //            their callbacks; it knows nothing about positioning, styling, or
 //            the menu's lifecycle (that's the MenuManager's job).
 // Ownership: Stateless. Adds children to the menu it's given.
@@ -15,30 +16,55 @@ import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 
 import { appWindows, launchUri } from '../core/utils.js';
 import { emptyTrash, downloadsUri } from '../services/fileService.js';
+import { ejectMountedDevice, unmountMountedDevice } from '../services/mountedDevices.js';
 
-export function populateMenu(menu, entry, onTrashEmptied = null) {
+export function populateMenu(menu, entry, {
+    onTrashEmptied = null,
+    isLayoutLocked = () => false,
+    onToggleLayoutLock = null,
+} = {}) {
     switch (entry.kind) {
         case 'apps':
             menu.addAction('Open Applications', () => Main.overview.showApps());
+            menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+            addLayoutToggle(menu, isLayoutLocked, onToggleLayoutLock);
             break;
         case 'downloads':
             menu.addAction('Open Downloads', () => launchUri(downloadsUri()));
+            break;
+        case 'mount':
+            menu.addAction(`Open ${entry.name ?? 'Mounted device'}`, () => launchUri(entry.uri));
+            if (entry.canEject) {
+                menu.addAction(`Eject ${entry.name ?? 'Mounted device'}`, () =>
+                    ejectMountedDevice(entry.mount));
+            } else if (entry.canUnmount) {
+                menu.addAction(`Unmount ${entry.name ?? 'Mounted device'}`, () =>
+                    unmountMountedDevice(entry.mount));
+            }
             break;
         case 'trash':
             menu.addAction('Open Trash', () => launchUri('trash:///'));
             menu.addAction('Empty Trash', () => emptyTrash(onTrashEmptied));
             break;
         case 'app':
-            if (entry.app) populateAppMenu(menu, entry.app);
+            if (entry.app)
+                populateAppMenu(menu, entry.app, isLayoutLocked, onToggleLayoutLock);
             break;
     }
 }
 
-function populateAppMenu(menu, app) {
+function addLayoutToggle(menu, isLayoutLocked, onToggleLayoutLock) {
+    menu.addAction(
+        isLayoutLocked() ? 'Unlock Layout' : 'Lock Layout',
+        () => onToggleLayoutLock?.());
+}
+
+function populateAppMenu(menu, app, isLayoutLocked, onToggleLayoutLock) {
     const appInfo = app.app_info;
     const actions = appInfo?.list_actions?.() ?? [];
     const canNew = app.can_open_new_window();
 
+    menu.addAction('Open Application', () => app.activate());
     if (canNew) menu.addAction('New Window', () => app.open_new_window(-1));
 
     for (const action of actions) {
@@ -51,11 +77,20 @@ function populateAppMenu(menu, app) {
             appInfo.launch_action(action, global.create_app_launch_context(0, -1)));
     }
 
-    const favs = AppFavorites.getAppFavorites();
-    const id = app.get_id();
-    menu.addAction(
-        favs.isFavorite(id) ? 'Unpin from Dock' : 'Pin to Dock',
-        () => favs.isFavorite(id) ? favs.removeFavorite(id) : favs.addFavorite(id));
+    if (!isLayoutLocked()) {
+        const favs = AppFavorites.getAppFavorites();
+        const id = app.get_id();
+        menu.addAction(
+            favs.isFavorite(id) ? 'Unpin from Dock' : 'Pin to Dock',
+            () => {
+                if (isLayoutLocked()) return;
+                if (favs.isFavorite(id)) favs.removeFavorite(id);
+                else favs.addFavorite(id);
+            });
+    }
+
+    menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+    addLayoutToggle(menu, isLayoutLocked, onToggleLayoutLock);
 
     const wins = appWindows(app);
     if (wins.length) {
