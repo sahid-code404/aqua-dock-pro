@@ -92,16 +92,24 @@ export function computeLayout(base, chips, monitor, monitorFullscreen = false) {
     const width = vert ? thick : mainLen;
     const height = vert ? mainLen : thick;
 
-    // Floating position (all three sides share the same edge margin).
+    // Floating position (all three sides share the same edge margin). Alignment
+    // changes only the main-axis origin; center remains the compatible default.
+    const alignPad = Math.max(12, Math.round(16 * cfg.scale));
+    const mainOrigin = (available, length) => {
+        const room = Math.max(0, available - length);
+        if (cfg.alignment === 'start') return Math.min(alignPad, room);
+        if (cfg.alignment === 'end') return Math.max(0, room - alignPad);
+        return (available - length) / 2;
+    };
     let x, y;
     if (side === 'left') {
         x = monitor.x + cfg.edgeMargin;
-        y = Math.round(monitor.y + (monitor.height - height) / 2);
+        y = Math.round(monitor.y + mainOrigin(monitor.height, height));
     } else if (side === 'right') {
         x = monitor.x + monitor.width - width - cfg.edgeMargin;
-        y = Math.round(monitor.y + (monitor.height - height) / 2);
+        y = Math.round(monitor.y + mainOrigin(monitor.height, height));
     } else {
-        x = Math.round(monitor.x + (monitor.width - width) / 2);
+        x = Math.round(monitor.x + mainOrigin(monitor.width, width));
         y = Math.round(monitor.y + monitor.height - height - cfg.edgeMargin);
     }
     let hiddenX = x, hiddenY = y;

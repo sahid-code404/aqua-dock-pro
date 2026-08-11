@@ -26,6 +26,7 @@ import {
     SETTINGS_DEBOUNCE_MS,
     STRUCTURAL_KEYS,
 } from './constants.js';
+import { migrateSettings } from './settingsMigration.js';
 
 // Pill thickness derived from icon size when auto mode is on: a constant ~28 px
 // of vertical breathing room around the icon, clamped to the schema's range.
@@ -69,7 +70,9 @@ function computeConfig(s) {
         invZoom: 1 / zoomMax,
         liftDenom: 1 / Math.max(0.001, zoomMax - 1),
         position,
+        alignment: s.get_string('dock-alignment'),
         multiMonitor: s.get_boolean('multi-monitor'),
+        isolateMonitors: s.get_boolean('isolate-monitors'),
         zoomRange: Math.round(s.get_int('zoom-range') * scale),
         magnificationCurve: s.get_double('magnification-curve'),
         edgeMargin: s.get_int('edge-margin'),
@@ -87,6 +90,8 @@ function computeConfig(s) {
         appsButtonPosition: s.get_int('apps-button-position'),
         appsIcon: s.get_string('apps-button-icon'),
         showDownloads: s.get_boolean('show-downloads'),
+        showCustomFolder: s.get_boolean('show-custom-folder'),
+        customFolderUri: s.get_string('custom-folder-uri'),
         showMountedDevices: s.get_boolean('show-mounted-devices'),
         showRemovableDevices: s.get_boolean('show-removable-devices'),
         showNetworkDevices: s.get_boolean('show-network-devices'),
@@ -94,6 +99,9 @@ function computeConfig(s) {
         hiddenMountedDevices: s.get_strv('hidden-mounted-devices'),
         showTrash: s.get_boolean('show-trash'),
         clickToMinimize: s.get_boolean('click-to-minimize'),
+        leftClickAction: s.get_string('left-click-action'),
+        middleClickAction: s.get_string('middle-click-action'),
+        scrollAction: s.get_string('scroll-action'),
         dragToOpen: s.get_boolean('drag-to-open'),
         layoutLocked: s.get_boolean('lock-layout'),
         isolateWS: s.get_boolean('isolate-workspaces'),
@@ -137,6 +145,8 @@ function computeConfig(s) {
         showPreviews: s.get_boolean('show-previews'),
         previewDelay: s.get_int('preview-delay'),
         previewSize: Math.round(s.get_int('preview-size') * scale),
+        previewWindowMode: s.get_string('preview-window-mode'),
+        previewCloseButtons: s.get_boolean('preview-close-buttons'),
 
         // ── Indicators / badges ──
         indicatorStyle: s.get_string('indicator-style'),
@@ -150,6 +160,7 @@ function computeConfig(s) {
         // ── Downloads stack ──
         downloadsView: s.get_string('downloads-view'),
         downloadsMaxFiles: s.get_int('downloads-max-files'),
+        downloadsSort: s.get_string('downloads-sort'),
         downloadsPillColor: s.get_string('downloads-pill-color'),
         downloadsBorderRadius: s.get_int('downloads-border-radius'),
         downloadsBorderColor: s.get_string('downloads-border-color'),
@@ -168,6 +179,7 @@ export class SettingsManager {
     constructor(settings, bus) {
         this._settings = settings;
         this._bus = bus;
+        migrateSettings(settings);
         this._config = computeConfig(settings);
 
         this._pendingStructural = false;

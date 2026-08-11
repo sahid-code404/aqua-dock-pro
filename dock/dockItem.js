@@ -18,10 +18,12 @@
 
 import Clutter from 'gi://Clutter';
 import GObject from 'gi://GObject';
+import Atk from 'gi://Atk';
 import Shell from 'gi://Shell';
 import St from 'gi://St';
 
-import { clamp, appWindows } from '../core/utils.js';
+import { animationsEnabled, clamp, appWindows } from '../core/utils.js';
+import { _ } from '../core/i18n.js';
 import { DOT_SIZE, SETTLE_EPS } from '../core/constants.js';
 import { Bounce } from '../animation/bounce.js';
 
@@ -30,12 +32,15 @@ class DockItem extends St.Widget {
     _init(entry, cfg) {
         super._init({
             style_class: 'aqua-item',
-            reactive: false,
+            reactive: true,
+            can_focus: true,
+            accessible_role: Atk.Role.PUSH_BUTTON,
             x_expand: false,
             y_expand: false,
             layout_manager: new Clutter.FixedLayout(),
         });
         this.entry = entry;
+        this.accessible_name = this.label();
         this._cfg = cfg;
         // refresh() runs once before the controller's first relayout, so seed
         // orientation from the complete settings snapshot for that first build.
@@ -99,10 +104,11 @@ class DockItem extends St.Widget {
 
     label() {
         switch (this.entry.kind) {
-            case 'apps': return 'Applications';
-            case 'downloads': return 'Downloads';
-            case 'mount': return this.entry.name ?? 'Mounted device';
-            case 'trash': return 'Trash';
+            case 'apps': return _('Applications');
+            case 'downloads': return _('Downloads');
+            case 'folder': return this.entry.name ?? _('Folder');
+            case 'mount': return this.entry.name ?? _('Mounted device');
+            case 'trash': return _('Trash');
             default: return this.entry.app?.get_name?.() ?? '';
         }
     }
@@ -235,11 +241,17 @@ class DockItem extends St.Widget {
     // refresh batch by the controller). Falls back to per-item lookup.
     refresh(notifMap) {
         const cfg = this._cfg;
+        this.accessible_name = this.label();
         const app = this.entry.app;
-        const running = app?.get_state?.() === Shell.AppState.RUNNING;
+        let windows = app ? appWindows(app) : [];
+        if (cfg.isolateMonitors)
+            windows = windows.filter(win => win.get_monitor?.() === cfg.monitorIndex);
+        const running = cfg.isolateMonitors
+            ? windows.length > 0
+            : app?.get_state?.() === Shell.AppState.RUNNING;
         const multiStyle = cfg.indicatorStyle === 'dots' || cfg.indicatorStyle === 'glow-dots';
         const count = running && multiStyle && cfg.showWindowCount
-            ? clamp(Math.max(1, appWindows(app).length), 1, 4)
+            ? clamp(Math.max(1, windows.length), 1, 4)
             : (running ? 1 : 0);
 
         let notif = 0;
@@ -390,6 +402,10 @@ class DockItem extends St.Widget {
         this._icon.remove_all_transitions();
         this._icon.translation_x = 0;
         this._icon.translation_y = 0;
+        if (!animationsEnabled()) {
+            this._icon.set_scale(restScale, restScale);
+            return;
+        }
         this._icon.ease({
             scale_x: restScale, scale_y: restScale,
             [this._liftProp]: 0, duration,
@@ -401,6 +417,12 @@ class DockItem extends St.Widget {
         if (!this._icon) return;
         const restScale = this._invZoom;
         this._icon.remove_all_transitions();
+        if (!animationsEnabled()) {
+            this._landing = false;
+            this._icon.set_scale(restScale, restScale);
+            this._icon.opacity = 255;
+            return;
+        }
         this._icon.set_scale(restScale * 0.4, restScale * 0.4);
         this._icon.opacity = 0;
         this._landing = true;     // set before ease so the first tick skips setScale
@@ -440,6 +462,12 @@ class DockItem extends St.Widget {
         if (!this._icon) { onDone?.(); return; }
         const base = this.scaleCurrent * this._invZoom;
         this._icon.remove_all_transitions();
+        if (!animationsEnabled()) {
+            this._pulsing = false;
+            this._icon.set_scale(base, base);
+            onDone?.();
+            return;
+        }
         this._pulsing = true;
         this._icon.ease({
             scale_x: base * factor, scale_y: base * factor, duration: 130,

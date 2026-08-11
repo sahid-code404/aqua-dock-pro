@@ -45,9 +45,9 @@ Built on a **spring-physics animation engine**, a **modular event-driven archite
 | | |
 |---|---|
 | 🎯 **Premium UX** | Gaussian magnification, spring physics, Genie minimize effects |
-| ⚡ **Engineered for performance** | Frame-synced rendering, zero polling loops, GPU-friendly compositing |
+| ⚡ **Engineered for performance** | Self-stopping frame loop, event-driven updates, GPU-friendly compositing |
 | 🧩 **Fully modular** | Every subsystem is decoupled and independently configurable |
-| 🔧 **Deep customization** | 50+ settings across appearance, behavior, animations, and widgets |
+| 🔧 **Deep customization** | 80+ settings across appearance, behavior, animations, and widgets |
 
 ---
 
@@ -58,14 +58,9 @@ Built on a **spring-physics animation engine**, a **modular event-driven archite
 git clone https://github.com/sahid-code404/aqua-dock-pro.git
 cd aqua-dock-pro
 
-# Install to your GNOME extensions directory
-mkdir -p ~/.local/share/gnome-shell/extensions
-cp -r . ~/.local/share/gnome-shell/extensions/aqua-dock-pro@shaque
-
-# Compile GSettings schemas
-glib-compile-schemas ~/.local/share/gnome-shell/extensions/aqua-dock-pro@shaque/schemas
-
-# Enable the extension
+# Validate, package and install the extension
+scripts/package.sh
+gnome-extensions install --force dist/aqua-dock-pro@shaque.shell-extension.zip
 gnome-extensions enable aqua-dock-pro@shaque
 ```
 
@@ -81,7 +76,9 @@ gnome-extensions enable aqua-dock-pro@shaque
 A beautifully crafted floating dock that feels like it belongs on your desktop.
 
 - Position: **Bottom**, **Left**, or **Right**
+- Start, center, or end alignment on the selected edge
 - Optional dock on **every connected monitor**
+- Optional per-monitor window isolation
 - Configurable icon size, dock thickness, and corner radius
 - Background opacity control with custom border color and width
 - Automatic layout recalculation and floating edge spacing
@@ -111,7 +108,7 @@ A polished Downloads folder stack, right in your dock.
 | **Grid View** | Thumbnail grid for image-heavy folders |
 | **List View** | Compact list with metadata |
 
-Additional features: keyboard & mouse navigation, recent file ordering, automatic thumbnails, content-type icons, overflow handling, animated open/close.
+Additional features: keyboard and mouse navigation, newest/name/type sorting, automatic thumbnails, content-type icons, overflow handling, animated open/close, and one optional custom folder stack.
 
 ---
 
@@ -124,6 +121,7 @@ See what's running before you switch — without leaving the dock.
 - Cross-workspace previews
 - Click-to-activate with animated popup
 - Configurable preview size and hover delay
+- Hidden-only or all-window modes, with optional close buttons
 
 ---
 
@@ -133,7 +131,6 @@ Native GNOME popup menus for every item in the dock.
 
 ```
 Right-click any dock icon →
-  ├── Open Application
   ├── New Window
   ├── Desktop Actions
   ├── Pin / Unpin
@@ -181,9 +178,10 @@ Every click, scroll, and drag is handled intelligently.
 - Click to minimize active windows
 - Smart window cycling when clicking a running app
 - Middle-click to open a new window
-- Scroll to cycle through windows
+- Configurable primary-click, middle-click, and scroll actions
 - Drag to launch or restore
 - Hover magnification and lift
+- Full keyboard navigation from a configurable shortcut
 
 ---
 
@@ -220,6 +218,7 @@ The dock keeps an eye on your file system so you don't have to.
 
 - **Trash** — Live full/empty icon, directory monitoring, bounce on new items
 - **Downloads** — Auto-detection, bounce on new files, thumbnail generation, dynamic stack
+- **Mounted devices** — Per-type and per-device visibility with safe eject/unmount actions
 
 ---
 
@@ -229,12 +228,13 @@ A full **Adwaita preferences window** — no config files, no terminal tweaks.
 
 | Page | What You Configure |
 |------|--------------------|
-| **Dock** | Size, position, all-monitor mode, radius, opacity, borders |
+| **Dock** | Size, position, alignment, monitor behavior, radius, opacity, borders |
 | **Motion** | Spring tension, damping, magnification, lift |
 | **Behavior** | Auto-hide mode, click actions, scroll behavior |
 | **Widgets** | Badges, indicators, tooltips, previews |
-| **Downloads** | Stack view, thumbnail size, bounce behavior |
-| **About** | Version, links, credits |
+| **Downloads** | Stack view, sorting, custom folder and card styling |
+| **Devices** | Mounted-device categories and individual visibility |
+| **About** | Version, backup/restore, diagnostics and reset |
 
 ---
 
@@ -247,7 +247,8 @@ AquaDockPro/
 │
 ├── animation/          # Spring solver, bounce engine, frame scheduler, easing
 ├── autohide/           # Visibility controller, overlap detector, pressure barrier
-├── core/               # Event bus, state manager, settings cache, constants
+├── compat/             # Small boundary around Shell-private integration points
+├── core/               # Event bus, settings cache/migrations, constants, i18n
 ├── dock/               # Dock widget, layout engine, item rendering, factory
 ├── downloads/          # File enumeration, stack UI, fan/grid/list views, keyboard nav
 ├── effects/
@@ -259,6 +260,9 @@ AquaDockPro/
 │   └── widgets/        # Reusable Adwaita row components
 ├── schemas/            # GSettings XML schema
 ├── services/           # App tracker, file service, notification watcher, trash monitor
+├── po/                 # Translation template and update tooling
+├── scripts/            # Validation and release packaging
+├── tests/              # Physics, layout, settings and preferences checks
 ├── ui/
 │   └── preview/        # Live window thumbnail system
 │
@@ -287,12 +291,23 @@ AquaDockPro was engineered around performance from day one — not retrofitted.
 
 | Concern | Approach |
 |---------|----------|
-| Animation | Frame-synchronized via `requestAnimationFrame`-equivalent, no `setInterval` loops |
+| Animation | Frame-clock synchronized and completely stopped whenever the dock settles |
 | Settings | Cached GSettings reads — no redundant dconf calls per frame |
 | Memory | Minimal allocations in hot paths, pooled where possible |
 | Rendering | GPU-friendly native compositor paths, no shader hacks |
 | File I/O | Fully asynchronous with batched enumeration |
 | Updates | Event-driven — components update only when state actually changes |
+| Edge pressure | A short-lived 30 ms sampler exists only while reveal pressure is armed |
+
+The extension also honors GNOME's **Reduce Animation** preference, keeps normal visual defaults backward-compatible, and provides cancellable async file operations so teardown never leaves background work behind.
+
+## Maintenance and support
+
+- Run `scripts/validate.sh` before every release.
+- Every delivered revision increments the integer in `metadata.json`.
+- Settings changes are protected by a migration version and JSON backup/restore.
+- Shell-private access is isolated in `compat/` to make GNOME upgrades easier to audit.
+- See [SUPPORT.md](SUPPORT.md), [CONTRIBUTING.md](CONTRIBUTING.md), and [CHANGELOG.md](CHANGELOG.md).
 
 ---
 

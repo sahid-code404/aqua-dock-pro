@@ -10,11 +10,13 @@
 // Cost:      One popup at a time. Enumeration is async (never blocks paint).
 
 import Clutter from 'gi://Clutter';
+import Gio from 'gi://Gio';
 import St from 'gi://St';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import { clamp, logError } from '../core/utils.js';
+import { _ } from '../core/i18n.js';
 import { enumerateRecent } from './fileEnumerator.js';
 import { FanView } from './fanView.js';
 import { PanelView } from './panelView.js';
@@ -29,24 +31,31 @@ export class DownloadsStack {
         this._showGen = 0;
         this._onClose = null;
         this._keyId = 0;
+        this._cancellable = null;
     }
 
     get isOpen() { return this._opening || !!(this._blocker || this._view); }
 
-    async show(anchor, folder, cfg, onClose) {
+    async show(anchor, folder, cfg, onClose, { title = _('Downloads'), gicon = null } = {}) {
         this._destroyNow();             // clear any lingering popup synchronously
         this._onClose = onClose;
         const gen = ++this._showGen;
         this._opening = true;
+        this._cancellable = new Gio.Cancellable();
 
-        let files;
-        try { files = await enumerateRecent(folder); }
+        const max = clamp(cfg.downloadsMaxFiles ?? 11, 3, 11);
+        let listing;
+        try {
+            listing = await enumerateRecent(
+                folder, this._cancellable, cfg.downloadsSort, max);
+        }
         catch (e) {
             logError(e, 'enumerateRecent');
             if (gen === this._showGen) this.hide();
             return;
         }
         if (gen !== this._showGen) return;        // superseded or destroyed
+        this._cancellable = null;
 
         const mon = this._getMonitor?.();
         if (!mon) { this.hide(); return; }
@@ -60,15 +69,24 @@ export class DownloadsStack {
         this._blocker = blocker;
         this._opening = false;
 
-        const max = clamp(cfg.downloadsMaxFiles ?? 11, 3, 11);
-        const totalFiles = files.length;
-        files = files.slice(0, max);
-        const opts = { folder, cfg, mon, origin, close: () => this.hide() };
+        const files = listing.files;
+        const totalFiles = listing.total;
+        const opts = {
+            folder,
+            files,
+            totalFiles,
+            cfg,
+            mon,
+            origin,
+            title,
+            gicon,
+            close: () => this.hide(),
+        };
         let view;
         if (cfg.downloadsView === 'fan') {
-            view = new FanView({ ...opts, files, overflow: Math.max(0, totalFiles - max) });
+            view = new FanView({ ...opts, overflow: Math.max(0, totalFiles - max) });
         } else {
-            view = new PanelView({ ...opts, files });
+            view = new PanelView(opts);
         }
 
         let actor;
@@ -81,6 +99,8 @@ export class DownloadsStack {
 
     hide() {
         this._showGen++;                 // invalidate any pending show
+        this._cancellable?.cancel();
+        this._cancellable = null;
         this._opening = false;
         const view = this._view;
         const blocker = this._blocker;
@@ -105,6 +125,8 @@ export class DownloadsStack {
 
     _destroyNow() {
         this._opening = false;
+        this._cancellable?.cancel();
+        this._cancellable = null;
         if (this._view) { this._destroyActor(this._view.actor); this._view = null; }
         if (this._dying) { this._destroyActor(this._dying); this._dying = null; }
         if (this._blocker) { try { this._blocker.destroy(); } catch { } this._blocker = null; }

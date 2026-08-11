@@ -16,7 +16,7 @@
 
 import Clutter from 'gi://Clutter';
 
-import { clamp, logError } from '../core/utils.js';
+import { animationsEnabled, clamp, logError } from '../core/utils.js';
 import { smoothFactor } from './easing.js';
 import { gaussianTarget, subSteps, integrateSpring } from './springSolver.js';
 import { FrameScheduler } from './frameScheduler.js';
@@ -44,10 +44,12 @@ export class AnimationEngine {
 
         this._magZoneActive = false;
         this._scratch = { cur: 0, vel: 0 };
+        this._stepScratch = { nSteps: 1, st: 1, dampPow: 1 };
         this._lastDt = 16;
         this._heldItem = null;   // pinned to peak zoom while its menu is open
         this._frameHook = null;  // optional () => void run at the end of each frame
         this._suspended = false; // a drag owns the chip translations
+        this._animate = true;
 
         // Frame-loop invariants, cached on setModel() to avoid property lookups
         // on the model/cfg/geom objects every tick.
@@ -129,7 +131,9 @@ export class AnimationEngine {
     }
 
     kick() {
-        if (this._scheduler && !this._suspended) this._scheduler.start();
+        if (!this._scheduler || this._suspended) return;
+        if (!this._scheduler.isRunning()) this._animate = animationsEnabled();
+        this._scheduler.start();
     }
 
     stop() {
@@ -163,6 +167,7 @@ export class AnimationEngine {
     demagnify(duration = 220) {
         this.stop();
         if (!this._model) return;
+        if (!animationsEnabled()) { this.snapToRest(); return; }
         const items = this._cachedItems;
         const chips = this._cachedChips;
         const vert = this._vert;
@@ -227,7 +232,13 @@ export class AnimationEngine {
         const m = cfg.mag;
         const inBand = haveLocal &&
             crossCoord >= geom.band.low && crossCoord <= geom.band.high;
-        const { nSteps, st, dampPow } = subSteps(dt, m.damping);
+        let nSteps = 1, st = 1, dampPow = 1;
+        if (this._animate) {
+            const step = subSteps(dt, m.damping, this._stepScratch);
+            nSteps = step.nSteps;
+            st = step.st;
+            dampPow = step.dampPow;
+        }
 
         const s = this._scratch;
         const zoomMax = this._zoomMax;
@@ -244,6 +255,11 @@ export class AnimationEngine {
             if (item === this._heldItem) target = zoomMax;
             item.scaleTarget = target;
             if (item._landing) continue;
+            if (!this._animate) {
+                item.vel = 0;
+                item.setScale(target);
+                continue;
+            }
             if (target === 1 && item.vel === 0 && item.scaleCurrent === 1) continue;
             s.cur = item.scaleCurrent;
             s.vel = item.vel;
@@ -254,8 +270,10 @@ export class AnimationEngine {
             if (s.vel !== 0 || s.cur !== target) anyUnsettled = true;
         }
 
-        this._applySpread(false);
+        this._applySpread(!this._animate);
         if (this._frameHook) this._frameHook();
+
+        if (!this._animate) return false;
 
         // Items settled check was done inline above; only pill spread remains.
         if (!anyUnsettled &&
@@ -362,5 +380,6 @@ export class AnimationEngine {
         this._cachedBg = null;
         this._cachedMagZone = null;
         this._cachedMagConst = null;
+        this._stepScratch = null;
     }
 }

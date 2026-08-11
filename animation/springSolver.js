@@ -43,10 +43,14 @@ export function gaussianTarget(dist, m) {
 // Number of fixed ~16ms physics sub-steps for a frame delta, and the per-step
 // damping power. Sub-stepping keeps the spring stable when a frame is long
 // (e.g. after a stall) without changing its tuned feel.
-export function subSteps(dtMs, damping) {
+export function subSteps(dtMs, damping, out = {}) {
+    dtMs = Number.isFinite(dtMs) ? clamp(dtMs, 0.1, 64) : 16;
     const nSteps = Math.max(1, Math.ceil(dtMs / 16));
     const st = (dtMs / nSteps) / 16;       // normalized step (1 == 16ms)
-    return { nSteps, st, dampPow: Math.pow(damping, st) };
+    out.nSteps = nSteps;
+    out.st = st;
+    out.dampPow = Math.pow(damping, st);
+    return out;
 }
 
 // Advance one icon's spring toward `target`. Mutates `state` ({cur, vel}) in

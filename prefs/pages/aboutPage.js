@@ -5,20 +5,22 @@ import Gio from 'gi://Gio';
 import Gtk from 'gi://Gtk';
 
 import { page, group } from '../widgets/rows.js';
+import { copyDiagnostics, exportSettings, importSettings } from '../supportTools.js';
+import { _ } from '../../core/i18n.js';
 
 export function buildAboutPage(window, s, metadata) {
-    const p = page('About', 'help-about-symbolic');
+    const p = page(_('About'), 'help-about-symbolic');
     window.add(p);
 
-    const info = group('AquaDockPro', metadata?.description ?? '');
+    const info = group(_('AquaDockPro'), metadata?.description ?? '');
     const versionRow = new Adw.ActionRow({
-        title: 'Version',
+        title: _('Version'),
         subtitle: String(metadata?.version ?? '—'),
     });
     info.add(versionRow);
 
     if (metadata?.url) {
-        const linkRow = new Adw.ActionRow({ title: 'Project page', subtitle: metadata.url });
+        const linkRow = new Adw.ActionRow({ title: _('Project page'), subtitle: metadata.url });
         const open = new Gtk.Button({ icon_name: 'adw-external-link-symbolic', valign: Gtk.Align.CENTER });
         open.add_css_class('flat');
         open.connect('clicked', () => {
@@ -31,26 +33,48 @@ export function buildAboutPage(window, s, metadata) {
     }
     p.add(info);
 
-    // ── Reset ──
-    const reset = group('Reset', 'Restore every setting to its default value.');
-    const resetRow = new Adw.ActionRow({
-        title: 'Reset all settings',
-        subtitle: 'This cannot be undone',
+    const support = group(_('Backup and support'),
+        _('Move settings safely or collect a privacy-safe support report.'));
+    const backupRow = new Adw.ActionRow({ title: _('Settings backup') });
+    const exportButton = new Gtk.Button({ label: _('Export'), valign: Gtk.Align.CENTER });
+    exportButton.connect('clicked', () => exportSettings(window, s, metadata));
+    backupRow.add_suffix(exportButton);
+    const importButton = new Gtk.Button({ label: _('Import'), valign: Gtk.Align.CENTER });
+    importButton.connect('clicked', () => importSettings(window, s, metadata));
+    backupRow.add_suffix(importButton);
+    support.add(backupRow);
+
+    const diagnosticsRow = new Adw.ActionRow({
+        title: _('Diagnostics'),
+        subtitle: _('Copies versions and changed setting names, without private values'),
     });
-    const resetBtn = new Gtk.Button({ label: 'Reset', valign: Gtk.Align.CENTER });
+    const diagnosticsButton = new Gtk.Button({ label: _('Copy'), valign: Gtk.Align.CENTER });
+    diagnosticsButton.connect('clicked', () => copyDiagnostics(window, s, metadata));
+    diagnosticsRow.add_suffix(diagnosticsButton);
+    support.add(diagnosticsRow);
+    p.add(support);
+
+    // ── Reset ──
+    const reset = group(_('Reset'), _('Restore every setting to its default value.'));
+    const resetRow = new Adw.ActionRow({
+        title: _('Reset all settings'),
+        subtitle: _('This cannot be undone'),
+    });
+    const resetBtn = new Gtk.Button({ label: _('Reset'), valign: Gtk.Align.CENTER });
     resetBtn.add_css_class('destructive-action');
     resetBtn.connect('clicked', () => {
         const dialog = new Adw.MessageDialog({
             transient_for: window, modal: true,
-            heading: 'Reset all settings?',
-            body: 'Every AquaDockPro preference will return to its default.',
+            heading: _('Reset all settings?'),
+            body: _('Every AquaDockPro preference will return to its default.'),
         });
-        dialog.add_response('cancel', 'Cancel');
-        dialog.add_response('reset', 'Reset');
+        dialog.add_response('cancel', _('Cancel'));
+        dialog.add_response('reset', _('Reset'));
         dialog.set_response_appearance('reset', Adw.ResponseAppearance.DESTRUCTIVE);
         dialog.connect('response', (_d, resp) => {
             if (resp === 'reset') {
                 for (const key of s.settings_schema.list_keys()) {
+                    if (key === 'settings-version') continue;
                     try { s.reset(key); } catch { }
                 }
             }

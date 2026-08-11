@@ -27,6 +27,7 @@ import St from 'gi://St';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import { TimeoutGroup, logError } from '../core/utils.js';
+import { _ } from '../core/i18n.js';
 import { downloadsDir } from '../services/fileService.js';
 import { DownloadsStack } from './downloadsStack.js';
 
@@ -67,10 +68,14 @@ export class DownloadManager {
     }
 
     openStack(item) {
+        this.openFolderStack(item, downloadsDir(), _('Downloads'), Gio.ThemedIcon.new('folder-download'));
+    }
+
+    openFolderStack(item, folder, title = _('Folder'), gicon = null) {
         const cfg = this._host.getConfig();
         // Bounce the folder as it opens, like a real stack.
         try { item.bounce(Math.round(cfg.bounceHeight * 0.6), { decay: cfg.bounceDecay }); } catch { }
-        this._stack.show(item, downloadsDir(), cfg, () => this._host.onStackClosed?.());
+        this._stack.show(item, folder, cfg, () => this._host.onStackClosed?.(), { title, gicon });
     }
 
     // ── Arrival ───────────────────────────────────────────────────────────────

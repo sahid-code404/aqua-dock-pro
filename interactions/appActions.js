@@ -49,18 +49,37 @@ export class AppActions {
 
     _activateApp(app, item, button) {
         const cfg = this._getConfig();
-        const windows = appWindows(app);
+        let action = button === 2 ? cfg.middleClickAction : cfg.leftClickAction;
+        if (action === 'nothing') return;
+        if (action === 'new-window') { this._launch(app, item); return; }
+        if (button === 2 && action === 'smart') button = 1;
+
+        let windows = appWindows(app);
+        if (cfg.isolateMonitors)
+            windows = windows.filter(win => win.get_monitor?.() === cfg.monitorIndex);
         const focusApp = getFocusedAppSafe();
         const ws = global.workspace_manager.get_active_workspace();
         const onHere = windows.filter(w => !w.minimized && (!ws || w.located_on_workspace(ws)));
         const focusedHere = focusApp === app && onHere.some(w => w.has_focus());
 
-        if (button === 2) { this._launch(app, item); return; }
         if (windows.length === 0) {
             if (app.get_state() === Shell.AppState.STARTING || this._launching.has(app)) {
                 this._lastClickItem = item; return;
             }
             this._launch(app, item); return;
+        }
+
+        if (action === 'minimize') {
+            const visible = windows.filter(w => !w.minimized);
+            if (visible.length) this._minimize(item, visible);
+            else this._raise(windows, item);
+            this._lastClickItem = null;
+            return;
+        }
+        if (action === 'cycle') {
+            this._cycle(windows);
+            this._lastClickItem = item;
+            return;
         }
 
         const repeat = this._lastClickItem === item;
@@ -80,6 +99,22 @@ export class AppActions {
             this._lastClickItem = null; return;
         }
         this._raise(windows, item); this._lastClickItem = item;
+    }
+
+    _cycle(windows, backwards = false) {
+        if (!windows.length) return;
+        const focused = windows.findIndex(w => w.has_focus?.());
+        const start = focused >= 0 ? focused : (backwards ? 0 : windows.length - 1);
+        const offset = backwards ? -1 : 1;
+        const target = windows[(start + offset + windows.length) % windows.length];
+        try {
+            if (target.minimized) target.unminimize();
+            Main.activateWindow(target, global.get_current_time());
+        } catch { try { target.activate(global.get_current_time()); } catch { } }
+    }
+
+    cycle(windows, backwards = false) {
+        this._cycle(windows, backwards);
     }
 
     // Minimize, genie-ing into the dock icon when the effect is enabled.

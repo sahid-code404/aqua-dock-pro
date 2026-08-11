@@ -3,6 +3,12 @@
   <schema id="org.gnome.shell.extensions.aqua-dock-pro"
           path="/org/gnome/shell/extensions/aqua-dock-pro/">
 
+    <key name="settings-version" type="i">
+      <default>1</default>
+      <range min="1" max="2147483647"/>
+      <summary>Internal settings data version used for safe migrations</summary>
+    </key>
+
     <!-- ── Appearance ────────────────────────────────────────────────── -->
     <key name="icon-size" type="i">
       <default>60</default>
@@ -47,6 +53,21 @@
     <key name="multi-monitor" type="b">
       <default>false</default>
       <summary>Display a dock on every connected monitor</summary>
+    </key>
+
+    <key name="isolate-monitors" type="b">
+      <default>false</default>
+      <summary>Show and control running windows only on each dock's monitor</summary>
+    </key>
+
+    <key name="dock-alignment" type="s">
+      <default>'center'</default>
+      <choices>
+        <choice value='start'/>
+        <choice value='center'/>
+        <choice value='end'/>
+      </choices>
+      <summary>Alignment of the dock along its screen edge</summary>
     </key>
 
     <!-- ── Background ────────────────────────────────────────────────── -->
@@ -123,6 +144,38 @@
       <summary>Clicking the focused app icon minimizes its windows</summary>
     </key>
 
+    <key name="left-click-action" type="s">
+      <default>'smart'</default>
+      <choices>
+        <choice value='smart'/>
+        <choice value='minimize'/>
+        <choice value='cycle'/>
+        <choice value='preview'/>
+        <choice value='nothing'/>
+      </choices>
+      <summary>Action performed by a primary click on an application icon</summary>
+    </key>
+
+    <key name="middle-click-action" type="s">
+      <default>'new-window'</default>
+      <choices>
+        <choice value='new-window'/>
+        <choice value='smart'/>
+        <choice value='nothing'/>
+      </choices>
+      <summary>Action performed by a middle click on an application icon</summary>
+    </key>
+
+    <key name="scroll-action" type="s">
+      <default>'minimize-restore'</default>
+      <choices>
+        <choice value='minimize-restore'/>
+        <choice value='cycle'/>
+        <choice value='nothing'/>
+      </choices>
+      <summary>Action performed by scrolling over an application icon</summary>
+    </key>
+
     <key name="drag-to-open" type="b">
       <default>true</default>
       <summary>Drag an icon outside the dock to launch or activate the app</summary>
@@ -136,6 +189,11 @@
     <key name="isolate-workspaces" type="b">
       <default>false</default>
       <summary>Only show running apps from the current workspace</summary>
+    </key>
+
+    <key name="focus-dock-shortcut" type="as">
+      <default>['&lt;Super&gt;d']</default>
+      <summary>Keyboard shortcut that focuses the dock; an empty list disables it</summary>
     </key>
 
     <!-- ── Dock Sections ──────────────────────────────────────────────── -->
@@ -163,6 +221,16 @@
     <key name="show-downloads" type="b">
       <default>true</default>
       <summary>Show Downloads folder stack with bounce on new file</summary>
+    </key>
+
+    <key name="show-custom-folder" type="b">
+      <default>false</default>
+      <summary>Show a user-selected folder stack</summary>
+    </key>
+
+    <key name="custom-folder-uri" type="s">
+      <default>''</default>
+      <summary>URI of the user-selected folder stack</summary>
     </key>
 
     <key name="show-mounted-devices" type="b">
@@ -348,6 +416,20 @@
       <summary>Window preview thumbnail max width in pixels</summary>
     </key>
 
+    <key name="preview-window-mode" type="s">
+      <default>'hidden'</default>
+      <choices>
+        <choice value='hidden'/>
+        <choice value='all'/>
+      </choices>
+      <summary>Whether previews show hidden windows only or every application window</summary>
+    </key>
+
+    <key name="preview-close-buttons" type="b">
+      <default>false</default>
+      <summary>Show a close button on each window preview</summary>
+    </key>
+
     <!-- ── Badges ─────────────────────────────────────────────────────── -->
     <key name="show-badges" type="b">
       <default>true</default>
@@ -379,6 +461,16 @@
       <default>11</default>
       <range min="3" max="11"/>
       <summary>Maximum number of files shown in the Downloads stack (all views)</summary>
+    </key>
+
+    <key name="downloads-sort" type="s">
+      <default>'newest'</default>
+      <choices>
+        <choice value='newest'/>
+        <choice value='name'/>
+        <choice value='type'/>
+      </choices>
+      <summary>Sort order shared by Downloads and custom folder stacks</summary>
     </key>
 
     <key name="downloads-pill-color" type="s">

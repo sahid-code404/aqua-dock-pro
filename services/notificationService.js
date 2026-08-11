@@ -9,7 +9,7 @@
 //            buildNotificationMap() iterates sources ONCE and returns a Map for
 //            O(1) per-item lookup, avoiding the O(sources × items) blowup.
 
-import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+import { messageTraySources } from '../compat/shell.js';
 
 // Build a Map<appId, count> from all tray sources in a single pass.
 // Callers iterate dock items and do map.get(appId) — O(1) per item
@@ -23,7 +23,7 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 export function buildNotificationMap() {
     const map = new Map();
     try {
-        const sources = Main.messageTray?.getSources?.() ?? [];
+        const sources = messageTraySources();
         for (const src of sources) {
             if (!src) continue;
 

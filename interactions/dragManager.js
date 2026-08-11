@@ -21,6 +21,8 @@ import * as AppFavorites from 'resource:///org/gnome/shell/ui/appFavorites.js';
 import * as DND from 'resource:///org/gnome/shell/ui/dnd.js';
 
 import { logError, appWindows, TimeoutGroup } from '../core/utils.js';
+import { _ } from '../core/i18n.js';
+import { dragSourceApp } from '../compat/shell.js';
 
 const START_THRESHOLD = 8;     // px before a press becomes a reorder drag
 
@@ -108,7 +110,7 @@ export class DragManager {
         flyer.ease({ opacity: 240, scale_x: 1.1, scale_y: 1.1, duration: 250, mode: Clutter.AnimationMode.EASE_OUT_QUAD });
 
         // Floating context badge.
-        const badge = new St.Label({ text: canReorder ? '↕  Move' : '↗  Open' });
+        const badge = new St.Label({ text: canReorder ? `↕  ${_('Move')}` : `↗  ${_('Open')}` });
         badge.set_style(
             'background: rgba(30,30,36,0.85); color: rgba(255,255,255,0.95); ' +
             'border-radius: 8px; padding: 4px 10px; font-size: 11px; font-weight: 600; ' +
@@ -244,7 +246,10 @@ export class DragManager {
             this._host.onDragEnd?.();
             // Smart launch: minimized → restore, visible → new window, not running → launch.
             try {
-                const wins = appWindows(r.app);
+                let wins = appWindows(r.app);
+                const cfg = this._host.getConfig();
+                if (cfg.isolateMonitors)
+                    wins = wins.filter(win => win.get_monitor?.() === cfg.monitorIndex);
                 const t = global.get_current_time();
                 if (wins.length === 0) {
                     // Not running — just launch.
@@ -411,7 +416,7 @@ export class DragManager {
 
     // ── Drop-to-pin (DND delegate; called by GNOME on container._delegate) ────
     _dragApp(source) {
-        const app = source?.app ?? source?._delegate?.app ?? null;
+        const app = dragSourceApp(source);
         return app?.get_id ? app : null;
     }
 

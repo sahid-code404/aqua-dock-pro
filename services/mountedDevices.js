@@ -57,45 +57,68 @@ function logActionError(action, error) {
     catch { }
 }
 
-function runAsync(target, method, finish, args, action) {
-    if (!target || typeof target[method] !== 'function') return false;
+const busyMounts = new WeakSet();
+
+function runAsync(target, method, finish, buildArgs, action, onDone) {
+    if (!target || typeof target[method] !== 'function') return null;
+    const cancellable = new Gio.Cancellable();
     try {
-        target[method](...args, (source, result) => {
+        target[method](...buildArgs(cancellable), (source, result) => {
+            let error = null;
             try { (source ?? target)[finish]?.(result); }
-            catch (error) { logActionError(action, error); }
+            catch (e) { error = e; logActionError(action, e); }
+            onDone?.(error);
         });
-        return true;
+        return cancellable;
     } catch (error) {
         logActionError(action, error);
-        return false;
+        return null;
     }
+}
+
+function mountAction(mount, candidates, action, onDone) {
+    if (!mount || busyMounts.has(mount)) return null;
+    const settled = error => {
+        busyMounts.delete(mount);
+        onDone?.(error);
+    };
+    for (const [target, method, finish, args] of candidates) {
+        const cancellable = runAsync(target, method, finish, args, action, settled);
+        if (cancellable) {
+            busyMounts.add(mount);
+            return cancellable;
+        }
+    }
+    return null;
 }
 
 // Prefer the mount itself: Gio will unmount it cleanly before ejecting when
 // necessary. Some backends expose eject only on the owning volume or drive.
-export function ejectMountedDevice(mount) {
+export function ejectMountedDevice(mount, onDone = null) {
     const volume = safely(() => mount?.get_volume());
     const drive = driveForMount(mount);
+    const candidates = [];
     const targets = [mount, volume, drive];
     for (const target of targets) {
         if (!safely(() => target?.can_eject(), false)) continue;
-        if (runAsync(target, 'eject_with_operation', 'eject_with_operation_finish',
-            [Gio.MountUnmountFlags.NONE, null, null], 'eject mounted device'))
-            return true;
-        if (runAsync(target, 'eject', 'eject_finish',
-            [Gio.MountUnmountFlags.NONE, null], 'eject mounted device'))
-            return true;
+        candidates.push(
+            [target, 'eject_with_operation', 'eject_with_operation_finish',
+                cancellable => [Gio.MountUnmountFlags.NONE, null, cancellable]],
+            [target, 'eject', 'eject_finish',
+                cancellable => [Gio.MountUnmountFlags.NONE, cancellable]],
+        );
     }
-    return false;
+    return mountAction(mount, candidates, 'eject mounted device', onDone);
 }
 
-export function unmountMountedDevice(mount) {
-    if (!safely(() => mount?.can_unmount(), false)) return false;
-    if (runAsync(mount, 'unmount_with_operation', 'unmount_with_operation_finish',
-        [Gio.MountUnmountFlags.NONE, null, null], 'unmount mounted device'))
-        return true;
-    return runAsync(mount, 'unmount', 'unmount_finish',
-        [Gio.MountUnmountFlags.NONE, null], 'unmount mounted device');
+export function unmountMountedDevice(mount, onDone = null) {
+    if (!safely(() => mount?.can_unmount(), false)) return null;
+    return mountAction(mount, [
+        [mount, 'unmount_with_operation', 'unmount_with_operation_finish',
+            cancellable => [Gio.MountUnmountFlags.NONE, null, cancellable]],
+        [mount, 'unmount', 'unmount_finish',
+            cancellable => [Gio.MountUnmountFlags.NONE, cancellable]],
+    ], 'unmount mounted device', onDone);
 }
 
 export function mountedDeviceId(mount) {

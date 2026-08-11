@@ -30,7 +30,11 @@
     border:           none;
     padding:          0;
 }
-.aqua-item:focus { outline: none; }
+.aqua-item:focus {
+    outline: 2px solid rgba(255, 255, 255, 0.72);
+    outline-offset: -3px;
+    border-radius: 12px;
+}
 
 /* ── Running indicators (positioned/sized from JS) ────────────────────────── */
 .aqua-dot {
@@ -154,6 +158,18 @@
     font-size:  9pt;
     max-width:  200px;
     text-align: center;
+}
+.aqua-preview-close {
+    background-color: rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    padding: 0 6px;
+}
+.aqua-preview-close:hover,
+.aqua-preview-close:focus { background-color: rgba(255, 255, 255, 0.16); }
+.aqua-preview-more {
+    color: rgba(240, 240, 244, 0.78);
+    font-size: 9pt;
+    padding: 0 8px;
 }
 
 /* ── Notification badge ───────────────────────────────────────────────────── */

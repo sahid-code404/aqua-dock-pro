@@ -6,6 +6,7 @@ import GLib from 'gi://GLib';
 import Gtk from 'gi://Gtk';
 
 import { buildMountedDeviceEntries } from '../../services/mountedDevices.js';
+import { _ } from '../../core/i18n.js';
 import { page, group, switchRow } from '../widgets/rows.js';
 
 const DEVICE_TYPES = Object.freeze({
@@ -15,23 +16,23 @@ const DEVICE_TYPES = Object.freeze({
 });
 
 export function buildDevicesPage(window, s) {
-    const p = page('Devices', 'drive-removable-media-symbolic');
+    const p = page(_('Devices'), 'drive-removable-media-symbolic');
     window.add(p);
 
-    const visibility = group('Mounted devices',
-        'Choose which mounted storage appears beside Downloads.');
-    visibility.add(switchRow(s, 'show-mounted-devices', 'Show mounted devices',
-        'Add mounted storage and network locations to the dock'));
+    const visibility = group(_('Mounted devices'),
+        _('Choose which mounted storage appears beside Downloads.'));
+    visibility.add(switchRow(s, 'show-mounted-devices', _('Show mounted devices'),
+        _('Add mounted storage and network locations to the dock')));
     p.add(visibility);
 
-    const types = group('Device types', 'Control whole categories of mounted storage.');
+    const types = group(_('Device types'), _('Control whole categories of mounted storage.'));
     const typeRows = [
-        switchRow(s, 'show-removable-devices', 'Removable devices',
-            'Show USB storage, memory cards and optical media'),
-        switchRow(s, 'show-network-devices', 'Network locations',
-            'Show mounted servers and other remote locations'),
-        switchRow(s, 'show-fixed-devices', 'Fixed volumes',
-            'Show mounted internal and permanently attached volumes'),
+        switchRow(s, 'show-removable-devices', _('Removable devices'),
+            _('Show USB storage, memory cards and optical media')),
+        switchRow(s, 'show-network-devices', _('Network locations'),
+            _('Show mounted servers and other remote locations')),
+        switchRow(s, 'show-fixed-devices', _('Fixed volumes'),
+            _('Show mounted internal and permanently attached volumes')),
     ];
     for (const row of typeRows) types.add(row);
     p.add(types);
@@ -44,8 +45,8 @@ export function buildDevicesPage(window, s) {
     window._settingsSignalIds.push(
         s.connect('changed::show-mounted-devices', syncTypeSensitivity));
 
-    const current = group('Currently mounted',
-        'Turn off an individual device to keep it hidden when it reconnects.');
+    const current = group(_('Currently mounted'),
+        _('Turn off an individual device to keep it hidden when it reconnects.'));
     p.add(current);
 
     const monitor = Gio.VolumeMonitor.get();
@@ -87,8 +88,8 @@ export function buildDevicesPage(window, s) {
 
     const addEmptyRow = () => {
         const row = new Adw.ActionRow({
-            title: 'No devices are mounted',
-            subtitle: 'Mounted storage will appear here automatically.',
+            title: _('No devices are mounted'),
+            subtitle: _('Mounted storage will appear here automatically.'),
             sensitive: false,
         });
         current.add(row);
@@ -98,7 +99,7 @@ export function buildDevicesPage(window, s) {
     const addDeviceRow = (entry, hidden) => {
         const row = new Adw.ActionRow({
             title: entry.name,
-            subtitle: `${DEVICE_TYPES[entry.group] ?? 'Mounted device'} · ${entry.uri}`,
+            subtitle: `${_(DEVICE_TYPES[entry.group] ?? 'Mounted device')} · ${entry.uri}`,
             subtitle_lines: 2,
         });
         row.add_prefix(new Gtk.Image({

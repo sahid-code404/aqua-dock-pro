@@ -18,7 +18,8 @@ import St from 'gi://St';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
-import { clamp, appWindows, logError, TimeoutGroup } from '../../core/utils.js';
+import { animationsEnabled, clamp, appWindows, logError, TimeoutGroup } from '../../core/utils.js';
+import { _, format, ngettext } from '../../core/i18n.js';
 import { buildWindowFrame } from './livePreview.js';
 
 const MAX_WINDOWS = 4;
@@ -43,6 +44,14 @@ export class PreviewManager {
     }
 
     get active() { return Boolean(this._box); }
+
+    showNow(item) {
+        if (!item || item.entry.kind !== 'app') return false;
+        this._cancelOpen();
+        this._cancelGrace();
+        this._build(item, Boolean(this._box), true);
+        return Boolean(this._box);
+    }
 
     schedule(item) {
         const cfg = this._getConfig();
@@ -70,10 +79,13 @@ export class PreviewManager {
     // Collect windows eligible for live preview — must be hidden (minimized or
     // on another workspace) AND have a valid compositor actor + frame rect so
     // we never fall back to the app-icon placeholder.
-    _previewableWindows(item) {
+    _previewableWindows(item, forceAll = false) {
+        const showAll = forceAll || this._getConfig().previewWindowMode === 'all';
         const ws = global.workspace_manager.get_active_workspace();
         return appWindows(item.entry.app).filter(w => {
-            if (!w.minimized && !(ws && !w.located_on_workspace(ws))) return false;
+            if (this._getConfig().isolateMonitors &&
+                w.get_monitor?.() !== this._getConfig().monitorIndex) return false;
+            if (!showAll && !w.minimized && !(ws && !w.located_on_workspace(ws))) return false;
             let actor = null, rect = null;
             try { actor = w.get_compositor_private?.(); } catch { }
             try { rect = w.get_frame_rect(); } catch { }
@@ -81,9 +93,9 @@ export class PreviewManager {
         });
     }
 
-    _build(item, reuse) {
+    _build(item, reuse, forceAll = false) {
         // Re-filter at build time to avoid stale window state from schedule().
-        const wins = this._previewableWindows(item);
+        const wins = this._previewableWindows(item, forceAll);
         if (!wins.length) { this.hide(true); return; }
 
         const cfg = this._getConfig();
@@ -91,16 +103,37 @@ export class PreviewManager {
         const frameH = Math.round(targetW * 0.62);
 
         const box = new St.BoxLayout({ style_class: 'aqua-preview-box', reactive: true });
-        box.spacing = 10;
+        box.get_layout_manager().set_spacing(10);
         for (const win of wins.slice(0, MAX_WINDOWS)) {
             const btn = new St.Button({ style_class: 'aqua-preview-col', reactive: true, can_focus: true });
             const col = new St.BoxLayout({ vertical: true, style_class: 'aqua-preview-content' });
-            col.spacing = 5;
+            col.get_layout_manager().set_spacing(5);
             col.add_child(buildWindowFrame(win, targetW, frameH, item.entry.app.get_icon()));
-            col.add_child(new St.Label({
+            const title = new St.Label({
                 text: win.get_title() ?? item.label(),
                 style_class: 'aqua-preview-title',
-            }));
+                x_expand: true,
+            });
+            if (cfg.previewCloseButtons) {
+                const titleRow = new St.BoxLayout({ x_expand: true });
+                titleRow.get_layout_manager().set_spacing(5);
+                titleRow.add_child(title);
+                const close = new St.Button({
+                    label: '×',
+                    style_class: 'aqua-preview-close',
+                    can_focus: true,
+                    accessible_name: format(_('Close %s'), title.text),
+                });
+                close.connect('clicked', () => {
+                    if (this._box !== box) return;
+                    try { win.delete(global.get_current_time()); }
+                    catch (e) { logError(e, 'preview close window'); }
+                });
+                titleRow.add_child(close);
+                col.add_child(titleRow);
+            } else {
+                col.add_child(title);
+            }
             btn.set_child(col);
             btn.connect('clicked', () => {
                 if (this._box !== box) return;
@@ -108,6 +141,14 @@ export class PreviewManager {
                 this.hide(true);
             });
             box.add_child(btn);
+        }
+        if (wins.length > MAX_WINDOWS) {
+            box.add_child(new St.Label({
+                text: format(ngettext('+%d more window', '+%d more windows',
+                    wins.length - MAX_WINDOWS), wins.length - MAX_WINDOWS),
+                style_class: 'aqua-preview-more',
+                y_align: Clutter.ActorAlign.CENTER,
+            }));
         }
         // Keep the popup alive while the pointer is over it; dismiss on leave.
         box.connect('enter-event', () => {
@@ -123,6 +164,13 @@ export class PreviewManager {
         const old = this._box;
         this._box = box;
         this._position(box, item);
+
+        if (!animationsEnabled()) {
+            box.opacity = 255;
+            box.translation_y = 0;
+            if (old) this._destroyBox(old);
+            return;
+        }
 
         if (reuse && old) {
             if (this._dying) { this._destroyBox(this._dying); this._dying = null; }
@@ -188,6 +236,13 @@ export class PreviewManager {
         this._deactivateBox(box);
         this._dying = box;
         box.remove_all_transitions();
+        if (!animationsEnabled()) {
+            this._dying = null;
+            this._destroyBox(box);
+            try { this._onClose?.(); }
+            catch (e) { logError(e, 'preview.onClose'); }
+            return;
+        }
         box.ease({
             opacity: 0, translation_y: 8, duration: 90,
             mode: Clutter.AnimationMode.EASE_IN_QUAD,
@@ -201,10 +256,13 @@ export class PreviewManager {
     }
 
     _deactivateBox(box) {
-        box.reactive = false;
-        for (const child of box.get_children()) {
-            child.reactive = false;
-            child.can_focus = false;
+        const pending = [box];
+        while (pending.length) {
+            const actor = pending.pop();
+            actor.reactive = false;
+            actor.can_focus = false;
+            for (const child of actor.get_children?.() ?? [])
+                pending.push(child);
         }
     }
 

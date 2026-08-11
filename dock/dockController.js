@@ -15,6 +15,7 @@
 //            pick via one transform + O(chips) scan. No per-frame work here.
 
 import Clutter from 'gi://Clutter';
+import Gio from 'gi://Gio';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import { SignalGroup, TimeoutGroup, appWindows, logError, log } from '../core/utils.js';
@@ -34,36 +35,45 @@ import { TrashWatcher } from '../services/trashWatcher.js';
 import { DockChrome } from './dock.js';
 import { DockFactory } from './dockFactory.js';
 import { computeLayout, pillStyle } from './dockLayout.js';
+import { messageTray, messageTraySources, setDropDelegate } from '../compat/shell.js';
 
 const MOVE_THRESHOLD = 10;     // px of pointer travel that cancels a click
 
 export class DockController {
-    constructor(settings, bus, state, {
+    constructor(settings, {
         monitorIndex = Main.layoutManager.primaryIndex,
         manageDash = true,
     } = {}) {
         this._settings = settings;
-        this._bus = bus;
-        this._state = state;
         this._monitorIndex = monitorIndex;
         this._manageDash = manageDash;
 
         this._signals = new SignalGroup();
         this._timers = new TimeoutGroup();
 
-        this._cfg = settings.config;
+        this._cfg = { ...settings.config, monitorIndex };
         this._geom = null;
         this._pointerInContainer = false;
         this._pointerInMag = false;
         this._pointerInEdge = false;
         this._press = null;
         this._hoverItem = null;
+        this._focusItem = null;
+        this._focusLeaveId = 0;
 
+        try { this._build(); }
+        catch (e) {
+            this.destroy();
+            throw e;
+        }
+    }
+
+    _build() {
         this._chrome = new DockChrome();
         this._factory = new DockFactory(this._chrome.container, item => this._wireItem(item));
         this._mountedDevices = new MountedDevices(() => this._cfg);
         this._tracker = new AppTracker(
-            () => this._settings.config,
+            () => this._cfg,
             () => this._mountedDevices.entries,
         );
         this._engine = new AnimationEngine();
@@ -145,7 +155,7 @@ export class DockController {
             onDragEnd: () => { this._press = null; this._autohide?.onDockLeft(); },
         });
         // GNOME's DnD calls handleDragOver/acceptDrop on the container's delegate.
-        this._chrome.container._delegate = this._drag;
+        setDropDelegate(this._chrome.container, this._drag);
         // Track the tooltip to the hovered icon as it magnifies (runs only while
         // the frame loop is alive; free once the dock settles).
         this._engine.setFrameHook(() => {
@@ -174,13 +184,16 @@ export class DockController {
         return null;
     }
 
+    get monitorIndex() { return this._monitorIndex; }
+
     _isDockBusy() {
         return Boolean(
             this._drag?.reordering ||
             this._drag?.externalDnD ||
             this._menu?.active ||
             this._downloads?.stackOpen ||
-            this._preview?.active
+            this._preview?.active ||
+            this._focusItem
         );
     }
 
@@ -194,6 +207,92 @@ export class DockController {
             if (this._tooltip.shown && this._hoverItem === item)
                 this._tooltip.position(item, this._geom);
         };
+        item.connect('key-focus-in', () => this._onItemFocus(item));
+        item.connect('key-focus-out', () => this._scheduleFocusLeave());
+        item.connect('key-press-event', (_actor, event) => this._onItemKey(item, event));
+    }
+
+    focusFirst() {
+        const item = this._factory?.items?.[0];
+        if (!item || !this._geom) return false;
+        try {
+            if (global.display.get_monitor_in_fullscreen(this._monitorIndex) && !Main.overview.visible)
+                return false;
+            this._autohide?.onDockActivity();
+            item.grab_key_focus();
+            return true;
+        } catch (e) {
+            logError(e, 'focus dock');
+            return false;
+        }
+    }
+
+    _onItemFocus(item) {
+        if (this._focusLeaveId) {
+            this._timers.remove(this._focusLeaveId);
+            this._focusLeaveId = 0;
+        }
+        this._focusItem = item;
+        this._autohide?.onDockActivity();
+        this._engine.setHeldItem(item);
+        this._engine.kick();
+        this._setHover(item);
+    }
+
+    _scheduleFocusLeave() {
+        if (this._focusLeaveId) return;
+        this._focusLeaveId = this._timers.addIdle(() => {
+            this._focusLeaveId = 0;
+            const focused = global.stage.get_key_focus?.();
+            if (focused && this._factory?.items.includes(focused)) return false;
+            this._focusItem = null;
+            if (!this._menu?.active) this._engine?.setHeldItem(null);
+            this._endHover();
+            this._autohide?.onDockLeft();
+            return false;
+        });
+    }
+
+    _onItemKey(item, event) {
+        const items = this._factory.items;
+        const index = items.indexOf(item);
+        if (index < 0) return Clutter.EVENT_PROPAGATE;
+
+        const symbol = event.get_key_symbol();
+        const state = event.get_state?.() ?? 0;
+        const menuKey = symbol === Clutter.KEY_Menu ||
+            (symbol === Clutter.KEY_F10 && (state & Clutter.ModifierType.SHIFT_MASK));
+        if (menuKey) {
+            this._menu.openFor(item);
+            return Clutter.EVENT_STOP;
+        }
+        if (symbol === Clutter.KEY_Return || symbol === Clutter.KEY_KP_Enter ||
+            symbol === Clutter.KEY_space) {
+            this._dispatch(item, 1);
+            return Clutter.EVENT_STOP;
+        }
+        if (symbol === Clutter.KEY_Escape) {
+            global.stage.set_key_focus(null);
+            return Clutter.EVENT_STOP;
+        }
+
+        let next = index;
+        if (symbol === Clutter.KEY_Left || symbol === Clutter.KEY_Up ||
+            symbol === Clutter.KEY_ISO_Left_Tab ||
+            (symbol === Clutter.KEY_Tab && (state & Clutter.ModifierType.SHIFT_MASK)))
+            next = Math.max(0, index - 1);
+        else if (symbol === Clutter.KEY_Right || symbol === Clutter.KEY_Down ||
+            symbol === Clutter.KEY_Tab)
+            next = Math.min(items.length - 1, index + 1);
+        else if (symbol === Clutter.KEY_Home)
+            next = 0;
+        else if (symbol === Clutter.KEY_End)
+            next = items.length - 1;
+        else
+            return Clutter.EVENT_PROPAGATE;
+
+        items[next]?.grab_key_focus();
+        return Clutter.EVENT_STOP;
     }
 
     _connectSignals() {
@@ -244,7 +343,7 @@ export class DockController {
         // Subscribe to messageTray so badges update in real time when
         // notifications arrive or are dismissed. Each source's count
         // signal is tracked individually for clean disconnection.
-        const tray = Main.messageTray;
+        const tray = messageTray();
         if (tray) {
             this._traySourceSignals = new Map();
             const onTray = () => this._scheduleRefreshItems();
@@ -276,7 +375,7 @@ export class DockController {
             });
             // Pick up any sources that already exist when the dock starts.
             try {
-                for (const src of (tray.getSources?.() ?? [])) watchSource(src);
+                for (const src of messageTraySources()) watchSource(src);
             } catch { }
         }
     }
@@ -286,6 +385,8 @@ export class DockController {
         const changed = this._factory.sync(this._tracker.getEntries(), this._cfg);
         if (this._hoverItem && !this._factory.items.includes(this._hoverItem))
             this._endHover();
+        if (this._focusItem && !this._factory.items.includes(this._focusItem))
+            this._focusItem = null;
         if (changed) this.relayout();
         else this._engine.kick();
     }
@@ -311,7 +412,8 @@ export class DockController {
         const mon = this._getMonitor();
         if (!mon) return;
         const fs = global.display.get_monitor_in_fullscreen(this._monitorIndex);
-        const { cfg, geom } = computeLayout(this._settings.config, this._factory.chips, mon, fs);
+        const base = { ...this._settings.config, monitorIndex: this._monitorIndex };
+        const { cfg, geom } = computeLayout(base, this._factory.chips, mon, fs);
         this._cfg = cfg;
         this._geom = geom;
 
@@ -608,9 +710,21 @@ export class DockController {
             catch (e) { logError(e, 'openStack'); }
             return;
         }
+        if (item.entry.kind === 'folder') {
+            try {
+                const folder = Gio.File.new_for_uri(item.entry.uri);
+                this._downloads.openFolderStack(item, folder, item.entry.name, item.entry.gicon);
+            } catch (e) { logError(e, 'open folder stack'); }
+            return;
+        }
         if (button === 3) {
             try { this._menu.openFor(item); }
             catch (e) { logError(e, 'openMenu'); }
+            return;
+        }
+        if (button === 1 && item.entry.kind === 'app' &&
+            this._cfg.leftClickAction === 'preview') {
+            this._preview.showNow(item);
             return;
         }
         try { this._appActions.activate(item, button); }
@@ -623,9 +737,18 @@ export class DockController {
         try { [sx, sy] = ev.get_coords(); } catch { return Clutter.EVENT_PROPAGATE; }
         const item = this._pickItem(sx, sy) ?? this._pickItemRedirected(sx, sy);
         if (!item || item.entry.kind !== 'app') return Clutter.EVENT_PROPAGATE;
-        const wins = appWindows(item.entry.app);
+        if (this._cfg.scrollAction === 'nothing') return Clutter.EVENT_PROPAGATE;
+        let wins = appWindows(item.entry.app);
+        if (this._cfg.isolateMonitors)
+            wins = wins.filter(win => win.get_monitor?.() === this._monitorIndex);
         if (!wins.length) return Clutter.EVENT_PROPAGATE;
         const dir = ev.get_scroll_direction();
+        if (this._cfg.scrollAction === 'cycle') {
+            if (dir !== Clutter.ScrollDirection.UP && dir !== Clutter.ScrollDirection.DOWN)
+                return Clutter.EVENT_PROPAGATE;
+            this._appActions.cycle(wins, dir === Clutter.ScrollDirection.UP);
+            return Clutter.EVENT_STOP;
+        }
         if (dir === Clutter.ScrollDirection.DOWN) {
             const t = global.get_current_time();
             for (const w of wins) { try { w.unminimize(); w.activate(t); } catch { } }
@@ -643,6 +766,8 @@ export class DockController {
         this._timers.removeAll();
         this._refreshId = 0;
         this._endHoverId = 0;
+        this._focusLeaveId = 0;
+        this._focusItem = null;
         // Disconnect per-source tray signals before the bulk disconnectAll().
         if (this._traySourceSignals) {
             for (const [src, ids] of this._traySourceSignals) {

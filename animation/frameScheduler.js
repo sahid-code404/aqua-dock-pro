@@ -41,7 +41,7 @@ export class FrameScheduler {
         this._frameId = this._timeline.connect('new-frame', () => {
             // Frame-clock delta in ms; clamp pathological gaps (resume/stall).
             let dt = this._timeline.get_delta();
-            dt = Math.min(64, dt || 16);
+            dt = Number.isFinite(dt) && dt > 0 ? Math.min(64, dt) : 16;
             let keep = false;
             try { keep = this._onFrame(dt); }
             catch (e) { logError(e, 'FrameScheduler.onFrame'); keep = false; }

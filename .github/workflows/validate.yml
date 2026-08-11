@@ -1,0 +1,18 @@
+name: Validate
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  extension:
+    runs-on: ubuntu-latest
+    container: fedora:44
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install validation dependencies
+        run: dnf install -y gjs glib2 gettext jq git gnome-shell libadwaita xorg-x11-server-Xvfb
+      - name: Static and unit checks
+        run: scripts/validate.sh
+      - name: Preferences smoke test
+        run: xvfb-run -a env AQUA_RUN_PREFS_SMOKE=1 scripts/validate.sh

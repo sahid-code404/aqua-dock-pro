@@ -14,7 +14,8 @@ import St from 'gi://St';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
-import { clamp, launchUri } from '../core/utils.js';
+import { animationsEnabled, clamp, launchUri } from '../core/utils.js';
+import { _, format, ngettext } from '../core/i18n.js';
 import { iconForInfo } from './fileEnumerator.js';
 import { applyTileStyle } from './tileStyle.js';
 import { SelectionModel } from './keyboardNav.js';
@@ -30,12 +31,14 @@ export class PanelView {
         this._model = new SelectionModel('aqua-dl-row-sel');
         this._actor = null;
         this._cols = this._view === 'grid' ? GRID_COLS : 1;
+        this._reduce = false;
     }
 
     get actor() { return this._actor; }
 
     build() {
         const { cfg, mon, files, folder } = this;
+        this._reduce = !animationsEnabled();
         const view = this._view;
         const panelW = view === 'grid' ? 360 : 340;
         const boxPadH = view === 'grid' ? 24 : 20;
@@ -58,7 +61,7 @@ export class PanelView {
         const userMax = Math.min(11, Math.max(3, cfg.downloadsMaxFiles ?? 9));
         const actualMax = Math.min(userMax, maxTilesFit);
         const shown = files.slice(0, actualMax);
-        const more = Math.max(0, files.length - shown.length);
+        const more = Math.max(0, (this.totalFiles ?? files.length) - shown.length);
         const firstHidden = more > 0 ? files[actualMax] : null;
 
         const tiles = shown.map(info => this._row(info, view, thumbSz));
@@ -74,10 +77,10 @@ export class PanelView {
         let box;
         if (view === 'grid') {
             box = new St.BoxLayout({ vertical: true, style_class: 'aqua-dl-filebox aqua-dl-filebox-grid', x_expand: true });
-            box.spacing = rowSpacing;
+            box.get_layout_manager().set_spacing(rowSpacing);
             for (let i = 0; i < tiles.length; i += GRID_COLS) {
                 const r = new St.BoxLayout({ style_class: 'aqua-dl-grid-row', x_expand: true });
-                r.spacing = colGap;
+                r.get_layout_manager().set_spacing(colGap);
                 for (let j = i; j < Math.min(i + GRID_COLS, tiles.length); j++) {
                     tiles[j].set_width(tileW);
                     r.add_child(tiles[j]);
@@ -86,7 +89,7 @@ export class PanelView {
             }
         } else {
             box = new St.BoxLayout({ vertical: true, style_class: 'aqua-dl-filebox', x_expand: true });
-            box.spacing = rowSpacing;
+            box.get_layout_manager().set_spacing(rowSpacing);
             for (const t of tiles) box.add_child(t);
         }
         panel.add_child(box);
@@ -116,17 +119,21 @@ export class PanelView {
 
     _header(folder, count) {
         const header = new St.BoxLayout({ style_class: 'aqua-dl-header' });
-        header.spacing = 10;
+        header.get_layout_manager().set_spacing(10);
         header.add_child(new St.Icon({
-            gicon: Gio.ThemedIcon.new('folder-download'), icon_size: 22, style_class: 'aqua-dl-hdr-icon',
+            gicon: this.gicon ?? Gio.ThemedIcon.new('folder-download'), icon_size: 22, style_class: 'aqua-dl-hdr-icon',
         }));
         const titleBox = new St.BoxLayout({ vertical: true, x_expand: true, y_align: Clutter.ActorAlign.CENTER });
-        titleBox.add_child(new St.Label({ text: 'Downloads', style_class: 'aqua-dl-hdr-label' }));
         titleBox.add_child(new St.Label({
-            text: count === 1 ? '1 item' : `${count} items`, style_class: 'aqua-dl-hdr-sub',
+            text: this.title ?? _('Downloads'),
+            style_class: 'aqua-dl-hdr-label',
+        }));
+        titleBox.add_child(new St.Label({
+            text: format(ngettext('%d item', '%d items', count), count),
+            style_class: 'aqua-dl-hdr-sub',
         }));
         header.add_child(titleBox);
-        const openBtn = new St.Button({ label: 'Open Folder', style_class: 'aqua-dl-open-btn' });
+        const openBtn = new St.Button({ label: _('Open Folder'), style_class: 'aqua-dl-open-btn' });
         openBtn.connect('clicked', () => { launchUri(folder.get_uri()); this.close(); });
         header.add_child(openBtn);
         return header;
@@ -214,7 +221,9 @@ export class PanelView {
         }));
         box.add_child(thumb);
         box.add_child(this._contentGap());
-        const { labelPill, label } = this._labelPill(`+${more} more in Files`, 'aqua-dl-fan-more');
+        const { labelPill, label } = this._labelPill(format(
+            ngettext('+%d more item in Files', '+%d more items in Files', more), more),
+            'aqua-dl-fan-more');
         box.add_child(labelPill);
         row.set_child(box);
         row._thumb = thumb;
@@ -227,6 +236,16 @@ export class PanelView {
     }
 
     _animateOpen(panel, tiles, view) {
+        if (this._reduce) {
+            panel.opacity = 255;
+            panel.set_scale(1, 1);
+            panel.translation_y = 0;
+            for (const tile of tiles) {
+                tile.opacity = 255;
+                tile.translation_y = 0;
+            }
+            return;
+        }
         if (view === 'grid') {
             panel.set_scale(0.88, 0.88);
             panel.ease({ opacity: 255, scale_x: 1, scale_y: 1, duration: 240, mode: Clutter.AnimationMode.EASE_OUT_CUBIC });
@@ -262,6 +281,7 @@ export class PanelView {
         const actor = this._actor;
         if (!actor) { onDone(); return; }
         actor.remove_all_transitions();
+        if (this._reduce || !animationsEnabled()) { onDone(); return; }
         if (this._view === 'grid') {
             actor.ease({ opacity: 0, scale_x: 0.88, scale_y: 0.88, duration: 200, mode: Clutter.AnimationMode.EASE_IN_CUBIC, onComplete: onDone });
         } else {

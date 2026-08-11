@@ -11,13 +11,19 @@
 // Cost:      One menu lives at a time. No per-frame cost.
 
 
+import Clutter from 'gi://Clutter';
 import St from 'gi://St';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+import * as Dialog from 'resource:///org/gnome/shell/ui/dialog.js';
+import * as ModalDialog from 'resource:///org/gnome/shell/ui/modalDialog.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 
 import { populateMenu } from './menuActions.js';
-import { TimeoutGroup } from '../core/utils.js';
+import { appWindows, TimeoutGroup } from '../core/utils.js';
+import { _, format, ngettext } from '../core/i18n.js';
+import { emptyTrash } from '../services/fileService.js';
+import { notifyUser } from '../compat/shell.js';
 
 export class MenuManager {
     // host: { container, getConfig, getGeom, isLayoutLocked, onOpen, onClose,
@@ -30,6 +36,8 @@ export class MenuManager {
         this._stateId = 0;
         this._closeIdle = 0;
         this._heldItem = null;
+        this._trashDialog = null;
+        this._trashOperation = null;
     }
 
     get active() { return this._active === true; }
@@ -66,9 +74,17 @@ export class MenuManager {
 
         populateMenu(this._menu, item.entry, {
             onTrashEmptied: this._host.onTrashEmptied,
+            onEmptyTrash: callback => this._confirmEmptyTrash(callback),
             isLayoutLocked: () => this._host.isLayoutLocked?.() ??
                 this._host.getConfig().layoutLocked,
             onToggleLayoutLock: this._host.onToggleLayoutLock,
+            appWindowsFor: app => {
+                const cfg = this._host.getConfig();
+                const windows = appWindows(app);
+                return cfg.isolateMonitors
+                    ? windows.filter(win => win.get_monitor?.() === cfg.monitorIndex)
+                    : windows;
+            },
         });
         this._menu.open();
     }
@@ -110,6 +126,50 @@ export class MenuManager {
         this._host.releaseHold?.();
     }
 
+    _confirmEmptyTrash(onDone) {
+        this._destroyTrashDialog();
+        const dialog = new ModalDialog.ModalDialog({ destroyOnClose: true });
+        dialog.contentLayout.add_child(new Dialog.MessageDialogContent({
+            title: _('Empty Trash?'),
+            description: _('All items in Trash will be permanently deleted.'),
+        }));
+        dialog.setButtons([
+            {
+                label: _('Cancel'),
+                action: () => { this._trashDialog = null; dialog.close(); },
+                key: Clutter.KEY_Escape,
+            },
+            {
+                label: _('Empty Trash'),
+                default: true,
+                action: () => {
+                    this._trashDialog = null;
+                    dialog.close();
+                    this._trashOperation?.cancel();
+                    this._trashOperation = emptyTrash(result => {
+                        this._trashOperation = null;
+                        if (result.cancelled) return;
+                        onDone?.();
+                        if (result.failed > 0)
+                            notifyUser(_('Trash could not be fully emptied'), format(
+                                ngettext('%d item could not be removed.', '%d items could not be removed.', result.failed),
+                                result.failed), true);
+                        else
+                            notifyUser(_('Trash emptied'));
+                    });
+                },
+            },
+        ]);
+        this._trashDialog = dialog;
+        dialog.open();
+    }
+
+    _destroyTrashDialog() {
+        if (!this._trashDialog) return;
+        try { this._trashDialog.close(); } catch { }
+        this._trashDialog = null;
+    }
+
     _style() {
         const cfg = this._host.getConfig();
         const radius = cfg.menuRadius ?? 12;
@@ -135,6 +195,9 @@ export class MenuManager {
     }
 
     destroy() {
+        this._destroyTrashDialog();
+        this._trashOperation?.cancel();
+        this._trashOperation = null;
         this._timers.removeAll();
         this._closeIdle = 0;
         this._destroyMenu();

@@ -1,22 +1,24 @@
 // AquaDockPro — lifecycle orchestrator.
 //
 // Purpose:   The composition root. Constructs the foundation (EventBus →
-//            SettingsManager → StateManager) in dependency order, owns one
+//            SettingsManager) in dependency order, owns one
 //            dock per configured monitor, and tears everything down in
 //            strict reverse order on disable(). Keeping all wiring here is what
 //            keeps extension.js trivial and every other module dependency-
 //            explicit (each receives exactly what it needs, nothing global).
-// Ownership: OWNS bus, settings, state and the dock controllers. Each is created
+// Ownership: OWNS bus, settings and the dock controllers. Each is created
 //            here and destroyed here — one owner per resource.
 // Cleanup:   disable() destroys in reverse construction order and nulls refs so
 //            a re-enable starts from a clean slate (enable→disable→enable safe).
 // Cost:      Construction is a handful of allocations; no work on hot paths.
 
+import Meta from 'gi://Meta';
+import Shell from 'gi://Shell';
+
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import { EventBus } from './eventBus.js';
 import { SettingsManager } from './settingsManager.js';
-import { StateManager } from './stateManager.js';
 import { log, logError } from './utils.js';
 import { DockController } from '../dock/dockController.js';
 
@@ -25,19 +27,17 @@ export class ExtensionManager {
         this._extension = extension;
         this._bus = null;
         this._settings = null;
-        this._state = null;
         this._docks = [];
         this._unsubSettings = null;
         this._monitorsChangedId = 0;
+        this._keybindingAdded = false;
     }
 
     enable() {
         try {
-            // Construction order = dependency order. Bus first (no deps), then
-            // settings (needs bus to announce changes), then state (needs bus).
+            // Construction order = dependency order. Bus first, then settings.
             this._bus = new EventBus();
             this._settings = new SettingsManager(this._extension.getSettings(), this._bus);
-            this._state = new StateManager(this._bus);
 
             // A structural settings change rebuilds the dock; anything else is a
             // cheap in-place refresh so dragging a slider never tears it down.
@@ -45,9 +45,9 @@ export class ExtensionManager {
                 this._onSettingsChanged(payload));
 
             this._buildDocks();
+            this._registerKeybinding();
             this._monitorsChangedId = Main.layoutManager.connect(
                 'monitors-changed', () => this._onMonitorsChanged());
-            this._state.set('enabled', true);
             log('enabled');
         } catch (e) {
             logError(e, 'ExtensionManager.enable');
@@ -75,13 +75,21 @@ export class ExtensionManager {
 
     _buildDocks() {
         const indexes = this._monitorIndexes();
-        for (let i = 0; i < indexes.length; i++) {
-            const monitorIndex = indexes[i];
-            this._docks.push(new DockController(this._settings, this._bus, this._state, {
-                monitorIndex,
-                manageDash: i === 0,
-            }));
+        const built = [];
+        try {
+            for (let i = 0; i < indexes.length; i++) {
+                built.push(new DockController(this._settings, {
+                    monitorIndex: indexes[i],
+                    manageDash: i === 0,
+                }));
+            }
+        } catch (e) {
+            for (let i = built.length - 1; i >= 0; i--) {
+                try { built[i].destroy(); } catch { }
+            }
+            throw e;
         }
+        this._docks = built;
     }
 
     _destroyDocks() {
@@ -90,6 +98,38 @@ export class ExtensionManager {
             catch (e) { logError(e, `destroy dock on monitor ${i}`); }
         }
         this._docks = [];
+    }
+
+    _registerKeybinding() {
+        try {
+            Main.wm.addKeybinding(
+                'focus-dock-shortcut',
+                this._settings.raw,
+                Meta.KeyBindingFlags.IGNORE_AUTOREPEAT,
+                Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW,
+                () => this._focusDock(),
+            );
+            this._keybindingAdded = true;
+        } catch (e) {
+            logError(e, 'register focus shortcut');
+        }
+    }
+
+    _focusDock() {
+        let monitorIndex = -1;
+        try { monitorIndex = global.display.focus_window?.get_monitor?.() ?? -1; }
+        catch { }
+        if (monitorIndex < 0) {
+            try {
+                const [x, y] = global.get_pointer();
+                monitorIndex = (Main.layoutManager.monitors ?? []).findIndex(mon =>
+                    x >= mon.x && x < mon.x + mon.width &&
+                    y >= mon.y && y < mon.y + mon.height);
+            } catch { }
+        }
+        const dock = this._docks.find(item => item.monitorIndex === monitorIndex) ??
+            this._docks[0];
+        dock?.focusFirst();
     }
 
     _rebuildDocks() {
@@ -120,8 +160,10 @@ export class ExtensionManager {
     }
 
     disable() {
-        this._state?.set('enabled', false);
-
+        if (this._keybindingAdded) {
+            try { Main.wm.removeKeybinding('focus-dock-shortcut'); } catch { }
+            this._keybindingAdded = false;
+        }
         if (this._unsubSettings) { this._unsubSettings(); this._unsubSettings = null; }
 
         if (this._monitorsChangedId) {
@@ -130,9 +172,6 @@ export class ExtensionManager {
         }
 
         this._destroyDocks();
-
-        this._state?.destroy();
-        this._state = null;
 
         this._settings?.destroy();
         this._settings = null;

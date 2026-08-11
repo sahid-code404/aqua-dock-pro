@@ -15,7 +15,8 @@ import St from 'gi://St';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
-import { clamp, launchUri } from '../core/utils.js';
+import { animationsEnabled, clamp, launchUri } from '../core/utils.js';
+import { _, format, ngettext } from '../core/i18n.js';
 import { iconForInfo } from './fileEnumerator.js';
 import { applyTileStyle } from './tileStyle.js';
 import { SelectionModel } from './keyboardNav.js';
@@ -37,7 +38,7 @@ export class FanView {
 
     build() {
         const { cfg, mon, files, overflow } = this;
-        const reduce = !St.Settings.get().enable_animations;
+        const reduce = !animationsEnabled();
         this._reduce = reduce;
 
         const fan = new St.Widget({
@@ -56,9 +57,12 @@ export class FanView {
 
         const builders = files.map(info => () => this._rowCard(info, thumbSize, rowW, rowH));
         if (overflow > 0)
-            builders.push(() => this._infoCard(`Open in Files · ${overflow} more`, thumbSize, rowW, rowH));
+            builders.push(() => this._infoCard(format(
+                ngettext('Open in Files · %d more item', 'Open in Files · %d more items', overflow),
+                overflow), thumbSize, rowW, rowH));
         if (builders.length === 0)
-            builders.push(() => this._infoCard('Downloads is empty', thumbSize, rowW, rowH));
+            builders.push(() => this._infoCard(format(_('%s is empty'), this.title),
+                thumbSize, rowW, rowH));
         const n = builders.length;
 
         let stepY = clamp(thumbH + 24, 50, 72);
@@ -122,10 +126,7 @@ export class FanView {
         this._model.setRows(rows);
         if (rows.length) this._model.select(0);
 
-        if (reduce) {
-            fan.opacity = 0;
-            fan.ease({ opacity: 255, duration: 180, mode: Clutter.AnimationMode.EASE_OUT_QUAD });
-        }
+        if (reduce) fan.opacity = 255;
         this._actor = fan;
         return fan;
     }
@@ -193,7 +194,7 @@ export class FanView {
         const { btn, label, thumb, thumbW, thumbH } = this._card(thumbSize, w, h, 'aqua-dl-fan-more');
         label.text = text;
         thumb.set_child(new St.Icon({
-            gicon: Gio.ThemedIcon.new('folder-download'),
+            gicon: this.gicon ?? Gio.ThemedIcon.new('folder-download'),
             icon_size: Math.round(Math.min(thumbW, thumbH) * 0.72),
             style_class: 'aqua-dl-fan-icon',
         }));
@@ -223,10 +224,7 @@ export class FanView {
         const actor = this._actor;
         if (!actor) { onDone(); return; }
         if (this._reduce || !this._collapse) {
-            actor.ease({
-                opacity: 0, duration: 150, mode: Clutter.AnimationMode.EASE_OUT_QUAD,
-                onComplete: onDone,
-            });
+            onDone();
             return;
         }
         const kids = actor.get_children();

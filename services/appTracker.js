@@ -18,6 +18,7 @@ import Shell from 'gi://Shell';
 import * as AppFavorites from 'resource:///org/gnome/shell/ui/appFavorites.js';
 
 import { SignalGroup, appWindows } from '../core/utils.js';
+import { _ } from '../core/i18n.js';
 import { trashHasFiles } from './fileService.js';
 
 export class AppTracker {
@@ -28,6 +29,7 @@ export class AppTracker {
         this._signals = new SignalGroup();
         this._onChanged = null;
         this._dlGicon = null;
+        this._folderGicon = null;
         this._trashFull = null;
         this._trashEmpty = null;
         // Seed the trash state so the very first getEntries() shows the
@@ -57,7 +59,10 @@ export class AppTracker {
         const runningExtra = [];
         for (const app of running) {
             if (favIds.has(app.get_id())) continue;
-            if (ws && !appWindows(app).some(w => w.located_on_workspace(ws))) continue;
+            const windows = appWindows(app);
+            if (ws && !windows.some(w => w.located_on_workspace(ws))) continue;
+            if (cfg.isolateMonitors &&
+                !windows.some(w => w.get_monitor?.() === cfg.monitorIndex)) continue;
             runningExtra.push(app);
         }
 
@@ -79,6 +84,19 @@ export class AppTracker {
         const systemEntries = [];
         if (cfg.showDownloads)
             systemEntries.push({ key: 'downloads', kind: 'downloads', gicon: this._downloadsGicon() });
+        if (cfg.showCustomFolder && cfg.customFolderUri) {
+            try {
+                const folder = Gio.File.new_for_uri(cfg.customFolderUri);
+                const name = folder.get_basename() || _('Folder');
+                systemEntries.push({
+                    key: `folder:${cfg.customFolderUri}`,
+                    kind: 'folder',
+                    name,
+                    uri: cfg.customFolderUri,
+                    gicon: (this._folderGicon ??= Gio.ThemedIcon.new('folder')),
+                });
+            } catch { }
+        }
         if (cfg.showMountedDevices)
             systemEntries.push(...(this._getMountedEntries?.() ?? []));
         if (cfg.showTrash)
@@ -121,6 +139,7 @@ export class AppTracker {
         this._signals.disconnectAll();
         this._onChanged = null;
         this._dlGicon = null;
+        this._folderGicon = null;
         this._trashFull = null;
         this._trashEmpty = null;
         this._appsGicon = null;

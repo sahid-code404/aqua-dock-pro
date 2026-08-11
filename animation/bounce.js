@@ -14,7 +14,7 @@
 // Cost:      Active only while bouncing; integrates in fixed 2ms sub-steps and
 //            paints one pose per frame. Zero cost at rest (scheduler stopped).
 
-import { clamp } from '../core/utils.js';
+import { animationsEnabled, clamp } from '../core/utils.js';
 import { FrameScheduler } from './frameScheduler.js';
 
 const GRAVITY = 1900;                       // px/s²
@@ -55,6 +55,12 @@ export class Bounce {
     // height px; opts: { state, repeat, decay, softness }.
     start(height = 24, opts = {}) {
         if (height <= 0 || !this._actor) return;
+        if (!animationsEnabled()) {
+            this.cancel();
+            this._compose?.(0, 1, 1);
+            this._onSettle?.();
+            return;
+        }
         this._state = opts.state ?? 'once';
         this._peak = height;
         this._launchActive = opts.repeat ?? null;

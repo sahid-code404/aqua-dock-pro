@@ -19,6 +19,7 @@ import St from 'gi://St';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import { clamp } from '../core/utils.js';
+import { overviewDash } from '../compat/shell.js';
 
 export class DockChrome {
     constructor() {
@@ -125,7 +126,7 @@ export class DockChrome {
     // Hide the GNOME dash but reserve its space so the overview layout stays
     // at the default position (workspace previews don't shift down).
     hideDash(cfg) {
-        const dash = Main.overview?.dash ?? null;
+        const dash = overviewDash();
         if (!dash) return;
         this._dash = dash;
         this._dashWasVisible = dash.visible;
@@ -170,12 +171,14 @@ export class DockChrome {
         }
         try {
             this._dash.remove_style_class_name('aqua-dash-hidden');
-            this._dash.set_height(-1);
+            this._dash.set_height(this._dashHeight ?? -1);
             this._dash.opacity = this._dashOpacity ?? 255;
             this._dash.reactive = this._dashReactive ?? true;
             if (this._dashWasVisible) this._dash.show();
+            else this._dash.hide();
         } catch { }
         this._dash = null;
+        this._dashHeight = null;
     }
 
     destroy() {

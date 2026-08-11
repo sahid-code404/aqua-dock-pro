@@ -12,6 +12,8 @@
 
 import Clutter from 'gi://Clutter';
 
+import { animationsEnabled } from '../core/utils.js';
+
 const SLIDE_MS = 200;
 
 export class VisibilityController {
@@ -36,7 +38,7 @@ export class VisibilityController {
             this._container.remove_transition('y');
         } catch { }
 
-        if (animate) {
+        if (animate && animationsEnabled()) {
             this._container.ease({
                 x, y, duration: SLIDE_MS,
                 mode: Clutter.AnimationMode.EASE_OUT_QUAD,

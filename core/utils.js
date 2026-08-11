@@ -14,6 +14,7 @@
 import GLib from 'gi://GLib';
 import Gio from 'gi://Gio';
 import Shell from 'gi://Shell';
+import St from 'gi://St';
 
 import { LOG_PREFIX } from './constants.js';
 
@@ -26,6 +27,14 @@ export function logError(error, context = '') {
     const where = context ? ` [${context}]` : '';
     const stack = error?.stack ? `\n${error.stack}` : '';
     console.error(`${LOG_PREFIX}:${where} ${error}${stack}`);
+}
+
+const warned = new Set();
+
+export function warnOnce(key, message) {
+    if (warned.has(key)) return;
+    warned.add(key);
+    console.warn(`${LOG_PREFIX}: ${message}`);
 }
 
 // ── Pure helpers ───────────────────────────────────────────────────────────────
@@ -56,6 +65,13 @@ export function appWindows(app) {
 export function launchUri(uri) {
     try { Gio.AppInfo.launch_default_for_uri(uri, null); }
     catch (e) { logError(e, `launchUri ${uri}`); }
+}
+
+// Read GNOME's reduced-motion preference only when an animation starts. This
+// adds no signal, timer, or per-frame work.
+export function animationsEnabled() {
+    try { return St.Settings.get().enable_animations; }
+    catch { return true; }
 }
 
 // ── SignalGroup ────────────────────────────────────────────────────────────────
