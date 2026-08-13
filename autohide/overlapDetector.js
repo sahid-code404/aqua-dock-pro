@@ -1,17 +1,9 @@
-// AquaDockPro — intellihide overlap detection.
-//
-// Purpose:   Answer "does any real window on the active workspace overlap the
-//            dock's pill?" and keep the windows it sees tracked so the dock
-//            re-evaluates the instant one is moved/resized (not just on grab
-//            end). This is the dodge-mode brain, extracted from the reference's
-//            _checkOverlap/_trackWindow god-methods.
-// Ownership: OWNS its set of per-window signal connections (via connectObject
-//            with `this` as the disconnect token). destroy() releases all.
-// Cost:      isOverlapped() is O(window actors), run only on coalesced WM/focus
-//            events — never per frame. Early-outs on overview/fullscreen.
+// Intellihide window overlap detector.
+// Tracks active workspace windows to detect dock collision.
 
 import GLib from 'gi://GLib';
 import Meta from 'gi://Meta';
+import { monitorInFullscreen } from '../compat/shell.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 const TOL = 4;   // px tolerance so a window just touching the dock isn't "overlap"
@@ -41,7 +33,7 @@ export class OverlapDetector {
 
         const monIndex = this._getMonitorIndex?.() ?? -1;
         if (monIndex < 0) return false;
-        if (global.display.get_monitor_in_fullscreen(monIndex)) return true;
+        if (monitorInFullscreen(monIndex)) return true;
 
         const ws = global.workspace_manager.get_active_workspace();
         if (!ws) return false;

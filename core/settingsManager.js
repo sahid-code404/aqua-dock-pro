@@ -1,21 +1,4 @@
-// AquaDockPro — settings ownership and the derived configuration snapshot.
-//
-// Purpose:   Wrap the extension's Gio.Settings into one authority that (1) owns
-//            the single `changed` connection, (2) debounces bursts, (3) derives
-//            an immutable, fully-computed `config` snapshot (sizes, geometry,
-//            colours, behaviour flags) so consumers never re-read raw keys or
-//            recompute geometry on hot paths, and (4) announces changes through
-//            the EventBus with a `structural` flag for rebuild-vs-refresh.
-// Ownership: OWNS the `changed` signal id and the debounce timeout id, plus the
-//            cached config object. The raw Gio.Settings is owned by the GNOME
-//            Extension base; we only borrow and disconnect our own handler.
-// Cleanup:   destroy() removes the timeout, disconnects the signal, drops refs.
-// Caching:   `config` is recomputed only on flush (post-debounce), never per
-//            read. Consumers hold the reference and re-read fields for free.
-//            Pre-computed derived constants (invZoom, liftDenom) eliminate
-//            repeated division in per-frame hot paths.
-// Cost:      One signal, at most one live timeout. Recompute is ~80 key reads,
-//            amortised to once per settle of a slider drag.
+// Gio.Settings wrapper and derived configuration snapshot generator.
 
 import GLib from 'gi://GLib';
 
@@ -214,9 +197,9 @@ export class SettingsManager {
 
     _flush() {
         const structural = this._pendingStructural;
-        const keys = this._pendingKeys;
+        const keys = new Set(this._pendingKeys);
         this._pendingStructural = false;
-        this._pendingKeys = new Set();
+        this._pendingKeys.clear();
 
         try { this._config = computeConfig(this._settings); }
         catch (e) { logError(e, 'computeConfig'); return; }

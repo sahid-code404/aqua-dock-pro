@@ -1,8 +1,4 @@
-// AquaDockPro — extension entry point.
-//
-// Deliberately thin: it owns nothing but the ExtensionManager and forwards the
-// GNOME enable()/disable() lifecycle to it. All wiring, ownership, and teardown
-// live in core/extensionManager.js so this file never grows.
+// Extension entry point. Forwards lifecycle to ExtensionManager.
 
 import { Extension } from 'resource:///org/gnome/shell/extensions/extension.js';
 

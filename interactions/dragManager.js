@@ -1,16 +1,4 @@
-// AquaDockPro — in-dock reorder and drop-to-pin.
-//
-// Purpose:   Two drag gestures: (1) press-and-drag a pinned icon or Applications
-//            launcher to reorder the main dock section, and (2) drop an app from
-//            the overview grid onto the dock
-//            to pin it at a slot. Both temporarily SUSPEND the animation engine
-//            (so it stops writing chip translations) and drive the chip slides /
-//            flyer themselves, then commit via AppFavorites and resume the engine.
-// Ownership: OWNS the in-flight reorder state (incl. its flyer actor), the
-//            external-DnD gap state, and the post-drop settle timer. destroy()
-//            cancels any active drag and releases all of it.
-// Cost:      Event-driven; no per-frame work (the engine is suspended during a
-//            drag). Chip slides are short eases.
+// In-dock reorder and drag-to-pin drop manager.
 
 import Clutter from 'gi://Clutter';
 import GLib from 'gi://GLib';
@@ -20,7 +8,7 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as AppFavorites from 'resource:///org/gnome/shell/ui/appFavorites.js';
 import * as DND from 'resource:///org/gnome/shell/ui/dnd.js';
 
-import { logError, appWindows, TimeoutGroup } from '../core/utils.js';
+import { logError, appWindowsForConfig, TimeoutGroup } from '../core/utils.js';
 import { _ } from '../core/i18n.js';
 import { dragSourceApp } from '../compat/shell.js';
 
@@ -246,10 +234,8 @@ export class DragManager {
             this._host.onDragEnd?.();
             // Smart launch: minimized → restore, visible → new window, not running → launch.
             try {
-                let wins = appWindows(r.app);
                 const cfg = this._host.getConfig();
-                if (cfg.isolateMonitors)
-                    wins = wins.filter(win => win.get_monitor?.() === cfg.monitorIndex);
+                const wins = appWindowsForConfig(r.app, cfg);
                 const t = global.get_current_time();
                 if (wins.length === 0) {
                     // Not running — just launch.
@@ -323,10 +309,10 @@ export class DragManager {
         if (!r.badge || r.mode === mode) return;
         r.mode = mode;
         if (mode === 'open') {
-            r.badge.text = '↗  Open';
+            r.badge.text = `↗  ${_('Open')}`;
             r.badge.ease({ scale_x: 1.08, scale_y: 1.08, duration: 180, mode: Clutter.AnimationMode.EASE_OUT_QUAD });
         } else {
-            r.badge.text = '↕  Move';
+            r.badge.text = `↕  ${_('Move')}`;
             r.badge.ease({ scale_x: 1.0, scale_y: 1.0, duration: 180, mode: Clutter.AnimationMode.EASE_OUT_QUAD });
         }
     }

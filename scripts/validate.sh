@@ -11,8 +11,20 @@ glib-compile-schemas --strict --targetdir="$schema_dir" schemas
 jq -e '
     .uuid == "aqua-dock-pro@shaque" and
     (.version | type == "number") and
-    (."shell-version" | index("50")) != null
+    ."shell-version" == ["50", "51.beta"]
 ' metadata.json >/dev/null
+
+if command -v rg >/dev/null; then
+    if rg -n 'vertical[[:space:]]*:' downloads ui --glob '*.js'; then
+        printf 'Deprecated St.BoxLayout vertical property found; use Clutter.Orientation.\n' >&2
+        exit 1
+    fi
+else
+    if grep -rnE 'vertical[[:space:]]*:' downloads ui --include='*.js'; then
+        printf 'Deprecated St.BoxLayout vertical property found; use Clutter.Orientation.\n' >&2
+        exit 1
+    fi
+fi
 
 if command -v xgettext >/dev/null && [[ -f po/aqua-dock-pro.pot ]]; then
     pot_before=$(sha256sum po/aqua-dock-pro.pot | cut -d' ' -f1)
@@ -53,9 +65,12 @@ fi
 export AQUA_SCHEMA_DIR="$schema_dir"
 export GSETTINGS_BACKEND=memory
 gjs -m tests/springSolver.test.js
+gjs -m tests/iconResolution.test.js
 gjs -m tests/layout.test.js
 gjs -m tests/settings.test.js
 gjs -m tests/fileEnumerator.test.js
+gjs -m tests/mountedDevices.test.js
+gjs -m tests/windowFilter.test.js
 
 if [[ ${AQUA_RUN_PREFS_SMOKE:-0} == 1 ]]; then
     gjs -m tests/prefsSmoke.test.js

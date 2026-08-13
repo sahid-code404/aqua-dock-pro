@@ -1,4 +1,4 @@
-// AquaDockPro preferences — Behavior page (auto-hide, clicking, scrolling).
+// Preferences page for auto-hide, click action, and scroll behavior.
 
 import { page, group, spinRow, switchRow, comboRow, shortcutRow } from '../widgets/rows.js';
 import { _ } from '../../core/i18n.js';

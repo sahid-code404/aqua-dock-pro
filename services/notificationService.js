@@ -1,15 +1,6 @@
-// AquaDockPro — message-tray notification counting.
-//
-// Purpose:   Translate GNOME's message-tray sources into per-app notification
-//            counts for dock badges. Pure read helpers over Main.messageTray;
-//            the dock subscribes to tray source changes elsewhere and calls
-//            these to recompute a badge number.
-// Ownership: Stateless functions. They read the live tray; they own nothing.
-// Cost:      O(sources). Called on tray change / window events, never per frame.
-//            buildNotificationMap() iterates sources ONCE and returns a Map for
-//            O(1) per-item lookup, avoiding the O(sources × items) blowup.
+// Read helpers counting GNOME message-tray notifications per app.
 
-import { messageTraySources } from '../compat/shell.js';
+import { messageTraySources, notificationSourceApp } from '../compat/shell.js';
 
 // Build a Map<appId, count> from all tray sources in a single pass.
 // Callers iterate dock items and do map.get(appId) — O(1) per item
@@ -17,9 +8,8 @@ import { messageTraySources } from '../compat/shell.js';
 //
 // GNOME 50 compatibility: the Source class may or may not have an `app`
 // property depending on the notification daemon type. We try, in order:
-//   1. src.app?.get_id()          — GtkNotificationDaemonAppSource
-//   2. src._app?.get_id()         — some legacy daemon subclasses
-//   3. src.policy?.id + ".desktop" — NotificationApplicationPolicy
+//   1. public/fallback app resolution at the compatibility boundary
+//   2. src.policy?.id + ".desktop" — NotificationApplicationPolicy
 export function buildNotificationMap() {
     const map = new Map();
     try {
@@ -29,7 +19,7 @@ export function buildNotificationMap() {
 
             // Resolve the desktop app ID from whichever path is available.
             let srcId = null;
-            const app = src.app ?? src._app ?? null;
+            const app = notificationSourceApp(src);
             if (app?.get_id) {
                 srcId = app.get_id();
             } else if (src.policy?.id && src.policy.id !== 'generic') {

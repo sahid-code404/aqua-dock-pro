@@ -1,22 +1,25 @@
-// AquaDockPro — stateless helpers and resource-ownership primitives.
-//
-// Purpose:   Two unrelated-but-tiny concerns that every module needs: (1) pure
-//            functions (clamp, icon compare, safe app lookups) and (2) the
-//            resource-tracking primitives — SignalGroup, TimeoutGroup — that
-//            enforce the project's "every connect has a disconnect, every
-//            timeout has a remove" rule by construction rather than by audit.
-// Ownership: Pure functions own nothing. SignalGroup/TimeoutGroup each OWN the
-//            ids handed to them and release every id on destroy()/removeAll().
-// Cleanup:   Callers must call disconnectAll()/removeAll() (or destroy()) when
-//            their owner tears down. A group leaks nothing it was given.
-// Cost:      Helpers are O(1). Groups store one small record per live resource.
+// Helper utilities and resource ownership groups (SignalGroup, TimeoutGroup).
 
 import GLib from 'gi://GLib';
 import Gio from 'gi://Gio';
-import Shell from 'gi://Shell';
-import St from 'gi://St';
 
 import { LOG_PREFIX } from './constants.js';
+
+let _Shell = null;
+function getShell() {
+    if (!_Shell) {
+        try { _Shell = imports.gi.Shell; } catch { _Shell = null; }
+    }
+    return _Shell;
+}
+
+let _St = null;
+function getSt() {
+    if (!_St) {
+        try { _St = imports.gi.St; } catch { _St = null; }
+    }
+    return _St;
+}
 
 // ── Logging ───────────────────────────────────────────────────────────────────
 export function log(msg) {
@@ -37,6 +40,10 @@ export function warnOnce(key, message) {
     console.warn(`${LOG_PREFIX}: ${message}`);
 }
 
+export function clearRuntimeWarnings() {
+    warned.clear();
+}
+
 // ── Pure helpers ───────────────────────────────────────────────────────────────
 export function clamp(v, min, max) {
     return v < min ? min : v > max ? max : v;
@@ -53,13 +60,43 @@ export function sameIcon(a, b) {
 export function getFocusedAppSafe() {
     const win = global.display?.focus_window ?? null;
     if (!win) return null;
-    try { return Shell.WindowTracker.get_default().get_window_app(win); }
+    try { return getShell()?.WindowTracker.get_default().get_window_app(win) ?? null; }
     catch { return null; }
 }
 
 export function appWindows(app) {
     try { return app?.get_windows?.() ?? []; }
     catch { return []; }
+}
+
+// Return the windows that belong to this dock's configured scope. Keeping this
+// in one place prevents indicators and interactions from disagreeing when
+// workspace and monitor isolation are enabled together.
+export function appWindowsForConfig(app, cfg, activeWorkspace = undefined) {
+    const windows = appWindows(app);
+    const isolateMonitors = cfg?.isolateMonitors === true;
+    const isolateWorkspaces = cfg?.isolateWS === true;
+    if (!isolateMonitors && !isolateWorkspaces) return windows;
+
+    let workspace = activeWorkspace;
+    if (isolateWorkspaces && workspace === undefined) {
+        try { workspace = global.workspace_manager?.get_active_workspace?.() ?? null; }
+        catch { workspace = null; }
+    }
+
+    return windows.filter(window => {
+        if (isolateMonitors) {
+            try {
+                if (window.get_monitor?.() !== cfg.monitorIndex) return false;
+            } catch { return false; }
+        }
+        if (isolateWorkspaces && workspace) {
+            try {
+                if (!window.located_on_workspace?.(workspace)) return false;
+            } catch { return false; }
+        }
+        return true;
+    });
 }
 
 export function launchUri(uri) {
@@ -70,7 +107,18 @@ export function launchUri(uri) {
 // Read GNOME's reduced-motion preference only when an animation starts. This
 // adds no signal, timer, or per-frame work.
 export function animationsEnabled() {
-    try { return St.Settings.get().enable_animations; }
+    try {
+        const StModule = getSt();
+        if (!StModule) return true;
+
+        const settings = StModule.Settings.get();
+        if (!settings.enable_animations) return false;
+
+        // GNOME 51 adds a separate reduced-motion preference. Keep this
+        // feature check so the same package continues to run on GNOME 50.
+        const reduce = StModule.ReducedMotion?.REDUCE;
+        return reduce === undefined || settings.reduced_motion !== reduce;
+    }
     catch { return true; }
 }
 

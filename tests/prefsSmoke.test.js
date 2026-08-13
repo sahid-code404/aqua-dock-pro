@@ -30,7 +30,7 @@ buildDownloadsPage(window, settings);
 buildDevicesPage(window, settings);
 buildAboutPage(window, settings, {
     uuid: 'aqua-dock-pro@shaque',
-    version: 218,
+    version: 221,
     description: 'AquaDockPro test',
 });
 

@@ -1,16 +1,4 @@
-// AquaDockPro — chip lifecycle: entries → live actors, diffed.
-//
-// Purpose:   Reconcile the AppTracker's entry list with the actor tree. On the
-//            common case (an app launches/quits but the chip set is unchanged)
-//            it refreshes in place and reports "no structural change" so the dock
-//            skips a relayout — preventing mid-animation jitter. On a real change
-//            it diffs by key, reusing existing DockItem actors and destroying
-//            only what disappeared. This is the reference's _syncItems logic,
-//            extracted from the god-class into a single-responsibility unit.
-// Ownership: OWNS the chip/item collections and the actors it creates; they are
-//            parented to the container passed in. destroyAll() releases them.
-// Cost:      Fast path O(chips) refresh, no allocation. Rebuild O(chips) with
-//            actor create/destroy only for the delta.
+// Chip/item factory reconciling tracker entries with live DockItem actors.
 
 import St from 'gi://St';
 
@@ -42,7 +30,7 @@ export class DockFactory {
                 const item = this._chips[i]?.item;
                 if (!item) continue;
                 item.entry = e;
-                if (!sameIcon(item._icon.gicon, e.gicon)) item._icon.gicon = e.gicon;
+                if (!sameIcon(item.gicon, e.gicon)) item.setGicon(e.gicon);
                 item.refresh();
             }
             return false;
@@ -75,7 +63,7 @@ export class DockFactory {
             if (item) {
                 oldByKey.delete(entry.key);
                 item.entry = entry;
-                if (!sameIcon(item._icon.gicon, entry.gicon)) item._icon.gicon = entry.gicon;
+                if (!sameIcon(item.gicon, entry.gicon)) item.setGicon(entry.gicon);
                 item.refresh();
             } else {
                 item = new DockItem(entry, cfg);

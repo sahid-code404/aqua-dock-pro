@@ -1,14 +1,5 @@
-// AquaDockPro — pressure-sense reveal.
-//
-// Purpose:   Implement the "dwell at the screen edge to reveal" gesture. Because
-//            motion events stop firing when the pointer is stationary at the
-//            edge (which IS the gesture), it polls the pointer on a short timer
-//            and accumulates dwell frames while the pointer stays pressed to the
-//            edge with little lateral drift. Higher sensitivity → fewer frames.
-// Ownership: OWNS one GLib poll source. begin() starts it, cancel()/destroy()
-//            removes it — no dangling timer.
-// Cost:      Active only while armed and the dock is hidden; one get_pointer()
-//            per 30ms tick. Self-stops the moment it reveals.
+// Pressure-sense edge reveal gesture handler.
+// Polls pointer dwell at the screen edge to trigger dock reveal.
 
 import GLib from 'gi://GLib';
 

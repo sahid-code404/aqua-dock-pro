@@ -1,11 +1,9 @@
-// AquaDockPro — mounted-device discovery and dock entry model.
-//
-// Gio.VolumeMonitor already exposes the user-visible mounts a file manager
-// would show. This service keeps a small cached view of that list and refreshes
-// only when Gio reports a mount, volume, or drive change.
+// Mounted device discovery and dock entry representation via VolumeMonitor.
 
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
+
+import { TimeoutGroup } from '../core/utils.js';
 
 const DEVICE_SCHEMES = new Set(['afc', 'gphoto2', 'mtp']);
 const VIRTUAL_SCHEMES = new Set([
@@ -58,19 +56,32 @@ function logActionError(action, error) {
 }
 
 const busyMounts = new WeakSet();
+const activeOperations = new Set();
+
+function operationCancelled(cancellable, error) {
+    if (cancellable?.is_cancelled()) return true;
+    try { return error?.matches?.(Gio.io_error_quark(), Gio.IOErrorEnum.CANCELLED) === true; }
+    catch { return false; }
+}
 
 function runAsync(target, method, finish, buildArgs, action, onDone) {
     if (!target || typeof target[method] !== 'function') return null;
     const cancellable = new Gio.Cancellable();
+    activeOperations.add(cancellable);
     try {
         target[method](...buildArgs(cancellable), (source, result) => {
             let error = null;
             try { (source ?? target)[finish]?.(result); }
-            catch (e) { error = e; logActionError(action, e); }
-            onDone?.(error);
+            catch (e) {
+                error = e;
+                if (!operationCancelled(cancellable, e)) logActionError(action, e);
+            }
+            activeOperations.delete(cancellable);
+            onDone?.(error, operationCancelled(cancellable, error));
         });
         return cancellable;
     } catch (error) {
+        activeOperations.delete(cancellable);
         logActionError(action, error);
         return null;
     }
@@ -78,9 +89,9 @@ function runAsync(target, method, finish, buildArgs, action, onDone) {
 
 function mountAction(mount, candidates, action, onDone) {
     if (!mount || busyMounts.has(mount)) return null;
-    const settled = error => {
+    const settled = (error, cancelled) => {
         busyMounts.delete(mount);
-        onDone?.(error);
+        if (!cancelled) onDone?.(error);
     };
     for (const [target, method, finish, args] of candidates) {
         const cancellable = runAsync(target, method, finish, args, action, settled);
@@ -90,6 +101,16 @@ function mountAction(mount, candidates, action, onDone) {
         }
     }
     return null;
+}
+
+// Device actions can outlive the popup that launched them. The extension owns
+// their cancellables at module scope so disable() can stop every outstanding
+// backend request without retaining a destroyed menu or emitting a late notice.
+export function cancelMountedDeviceOperations() {
+    for (const cancellable of activeOperations) {
+        try { cancellable.cancel(); } catch { }
+    }
+    activeOperations.clear();
 }
 
 // Prefer the mount itself: Gio will unmount it cleanly before ejecting when
@@ -261,6 +282,16 @@ function entriesFingerprint(entries) {
     ].join('\u0001')).join('\u0002');
 }
 
+export function reconcileMountedDeviceEntries(previous, next) {
+    const previousByKey = new Map(previous.map(entry => [entry.key, entry]));
+    return next.map(entry => {
+        const retained = previousByKey.get(entry.key);
+        if (!retained) return entry;
+        Object.assign(retained, entry);
+        return retained;
+    });
+}
+
 export class MountedDevices {
     constructor(getConfig, monitor = null) {
         this._getConfig = getConfig;
@@ -268,6 +299,7 @@ export class MountedDevices {
         this._entries = listMountedDevices(this._monitor, this._getConfig?.());
         this._fingerprint = entriesFingerprint(this._entries);
         this._signalIds = [];
+        this._timers = new TimeoutGroup();
         this._refreshId = 0;
         this._onChanged = null;
     }
@@ -296,10 +328,10 @@ export class MountedDevices {
 
     _queueRefresh() {
         if (this._refreshId) return;
-        this._refreshId = GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
+        this._refreshId = this._timers.addIdle(() => {
             this._refreshId = 0;
             this._refresh();
-            return GLib.SOURCE_REMOVE;
+            return false;
         });
     }
 
@@ -308,7 +340,7 @@ export class MountedDevices {
 
         const entries = listMountedDevices(this._monitor, this._getConfig?.());
         const fingerprint = entriesFingerprint(entries);
-        this._entries = entries;
+        this._entries = reconcileMountedDeviceEntries(this._entries, entries);
         if (fingerprint === this._fingerprint) return;
 
         this._fingerprint = fingerprint;
@@ -320,14 +352,8 @@ export class MountedDevices {
     }
 
     destroy() {
-        if (this._refreshId) {
-            try {
-                GLib.Source.remove(this._refreshId);
-            } catch {
-                // Source already completed.
-            }
-            this._refreshId = 0;
-        }
+        this._timers.removeAll();
+        this._refreshId = 0;
 
         if (this._monitor) {
             for (const id of this._signalIds) {

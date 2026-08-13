@@ -1,4 +1,4 @@
-import { computeLayout } from '../dock/dockLayout.js';
+import { computeLayout, magnifiedOverflow } from '../dock/dockLayout.js';
 
 function assert(condition, message) {
     if (!condition) throw new Error(message);
@@ -51,5 +51,19 @@ assert(left.y >= monitor.y && left.y + left.height <= monitor.y + monitor.height
 assert(centered.strut?.h > 0, 'always-visible dock should reserve work area');
 assert(computeLayout({ ...base }, chips(), monitor, true).geom.strut === null,
     'fullscreen dock must not reserve work area');
+
+// The overflow input zone must end at the transformed icon edge. At peak zoom
+// that is icon growth + hover lift - the icon's resting inset in the pill.
+const peakOverflow = 104;
+assert(magnifiedOverflow(centered.magZone, base.zoomMax) === peakOverflow,
+    'bottom magnification zone should match the peak icon overflow');
+assert(magnifiedOverflow(centered.magZone, 1) === 0,
+    'resting icons should not create an overflow input zone');
+assert(magnifiedOverflow(centered.magZone, 1.1) === 0,
+    'input zone should stay collapsed while the icon remains inside the pill');
+assert(magnifiedOverflow(left.magZone, base.zoomMax) === peakOverflow,
+    'vertical magnification zone should use the same icon-edge geometry');
+assert(centered.magZone.mainPad === 48,
+    'the overflow zone should reserve only the peak icon side overhang');
 
 print('layout: ok');

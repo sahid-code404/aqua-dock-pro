@@ -1,12 +1,4 @@
-// AquaDockPro — keyboard/hover selection model for the Downloads stack.
-//
-// Purpose:   Track which row/tile is selected and reflect it visually (selection
-//            style + thumbnail pop), shared by the fan and grid/list views so
-//            the highlight logic lives in one place. The views own key→index
-//            mapping (fan is bottom-up, grid is 2-D); this owns the visual state.
-// Ownership: Holds references to the view's row actors (not owned — destroyed by
-//            the view). clear() drops them.
-// Cost:      O(1) per selection change.
+// Keyboard and hover selection model for Downloads stack popups.
 
 import Clutter from 'gi://Clutter';
 

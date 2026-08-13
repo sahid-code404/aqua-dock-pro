@@ -1,14 +1,4 @@
-// AquaDockPro — hover tooltip.
-//
-// Purpose:   Own the single app-name tooltip label: its actor, styling, the
-//            show-delay timer, and placement. It anchors to the hovered icon's
-//            LIVE transformed box so it tracks the icon as it magnifies — the
-//            controller calls position() from the engine's per-frame hook, so
-//            there's no dedicated timer and zero cost once the icon settles.
-// Ownership: OWNS the St.Label (parented to Main.uiGroup) and the show timer.
-//            destroy() removes both.
-// Cost:      position() is two transform reads + one set_position, allocation-
-//            free, dirty-checked against the last position.
+// Hover tooltip label lifecycle and placement.
 
 
 import St from 'gi://St';

@@ -1,14 +1,4 @@
-// AquaDockPro — context-menu lifecycle.
-//
-// Purpose:   Own the right-click popup: create it anchored to the icon, style it
-//            from config, hold the icon magnified while it's open, and tear it
-//            down cleanly on close (including the re-check of autohide, since the
-//            menu's input grab swallows the dock's leave-event). Content comes
-//            from menuActions; this file is pure lifecycle + the PopupMenuManager
-//            that makes it behave like a native menu (click-away / Escape close).
-// Ownership: OWNS the current PopupMenu, its open-state signal, the close idle,
-//            and the shared PopupMenuManager. close()/destroy() release all.
-// Cost:      One menu lives at a time. No per-frame cost.
+// Context menu lifecycle and item action orchestration.
 
 
 import Clutter from 'gi://Clutter';
@@ -20,7 +10,7 @@ import * as ModalDialog from 'resource:///org/gnome/shell/ui/modalDialog.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 
 import { populateMenu } from './menuActions.js';
-import { appWindows, TimeoutGroup } from '../core/utils.js';
+import { appWindowsForConfig, TimeoutGroup } from '../core/utils.js';
 import { _, format, ngettext } from '../core/i18n.js';
 import { emptyTrash } from '../services/fileService.js';
 import { notifyUser } from '../compat/shell.js';
@@ -41,6 +31,7 @@ export class MenuManager {
     }
 
     get active() { return this._active === true; }
+    get heldItem() { return this._heldItem; }
 
     openFor(item) {
         this._destroyMenu();
@@ -80,12 +71,14 @@ export class MenuManager {
             onToggleLayoutLock: this._host.onToggleLayoutLock,
             appWindowsFor: app => {
                 const cfg = this._host.getConfig();
-                const windows = appWindows(app);
-                return cfg.isolateMonitors
-                    ? windows.filter(win => win.get_monitor?.() === cfg.monitorIndex)
-                    : windows;
+                return appWindowsForConfig(app, cfg);
+            },
+            isWindowIsolationActive: () => {
+                const cfg = this._host.getConfig();
+                return cfg.isolateWS || cfg.isolateMonitors;
             },
         });
+        this._styleItems();
         this._menu.open();
     }
 
@@ -101,6 +94,12 @@ export class MenuManager {
 
     close() {
         try { this._menu?.close(); } catch { }
+    }
+
+    closeNow() {
+        const wasActive = this.active;
+        this._destroyMenu();
+        if (wasActive) this._host.onClose?.();
     }
 
     _destroyMenu() {
@@ -146,8 +145,9 @@ export class MenuManager {
                     this._trashDialog = null;
                     dialog.close();
                     this._trashOperation?.cancel();
-                    this._trashOperation = emptyTrash(result => {
-                        this._trashOperation = null;
+                    const operation = emptyTrash(result => {
+                        if (this._trashOperation === operation)
+                            this._trashOperation = null;
                         if (result.cancelled) return;
                         onDone?.();
                         if (result.failed > 0)
@@ -157,6 +157,7 @@ export class MenuManager {
                         else
                             notifyUser(_('Trash emptied'));
                     });
+                    this._trashOperation = operation;
                 },
             },
         ]);
@@ -180,17 +181,17 @@ export class MenuManager {
         const border = bw > 0 ? `${bw}px solid ${bc}` : 'none';
 
         const box = this._menu.box;
-        if (box) box.set_style(`background-color: ${bg}; border-radius: ${radius}px; border: ${border};`);
+        if (box)
+            box.set_style(`background-color: ${bg}; border-radius: ${radius}px; border: ${border};`);
 
-        // Colour items added after this point (all of them — open() runs later).
-        if (!this._menu._aquaStyleHooked) {
-            this._menu._aquaStyleHooked = true;
-            const orig = this._menu.addAction.bind(this._menu);
-            this._menu.addAction = (label, cb, icon) => {
-                const itm = orig(label, cb, icon);
-                try { itm?.label?.set_style(`color: ${fg};`); } catch { }
-                return itm;
-            };
+        this._menuTextColor = fg;
+    }
+
+    _styleItems() {
+        const color = this._menuTextColor;
+        if (!color) return;
+        for (const item of this._menu?.box?.get_children?.() ?? []) {
+            try { item.label?.set_style(`color: ${color};`); } catch { }
         }
     }
 
@@ -203,5 +204,6 @@ export class MenuManager {
         this._destroyMenu();
         if (this._manager) { try { this._manager.destroy?.(); } catch { } this._manager = null; }
         this._host = null;
+        this._menuTextColor = null;
     }
 }

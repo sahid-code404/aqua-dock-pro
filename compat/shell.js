@@ -26,12 +26,28 @@ export function messageTraySources() {
     }
 }
 
+export function notificationSourceApp(source) {
+    return source?.app ?? source?._app ?? null;
+}
+
 export function dragSourceApp(source) {
     return source?.app ?? source?._delegate?.app ?? null;
 }
 
 export function setDropDelegate(actor, delegate) {
     actor._delegate = delegate;
+}
+
+export function monitorInFullscreen(index) {
+    try {
+        if (typeof global.display?.get_monitor_in_fullscreen === 'function')
+            return global.display.get_monitor_in_fullscreen(index);
+        const monitor = Main.layoutManager.monitors?.[index];
+        return Boolean(monitor?.inFullscreen ?? monitor?.in_fullscreen);
+    } catch {
+        warnOnce('monitor-fullscreen', 'Monitor fullscreen state is unavailable.');
+        return false;
+    }
 }
 
 export function notifyUser(title, detail = '', error = false) {

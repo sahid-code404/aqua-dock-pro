@@ -1,24 +1,10 @@
-// AquaDockPro — dock orchestration (the de-godded core).
-//
-// Purpose:   Compose the dock from its parts and own their interplay: build the
-//            chrome, the chip factory, app/device trackers and the animation engine;
-//            relayout on settings/chip changes for its assigned monitor; route pointer motion to
-//            the engine; and turn clicks/scrolls into launch/activate/minimize/
-//            cycle actions. Each concern lives in its own module — this file only
-//            connects them and holds the small amount of glue state.
-// Ownership: OWNS chrome, factory, trackers, engine and the sub-managers
-//            (autohide, tooltip, menu, preview, downloads, trash, app actions),
-//            plus the SignalGroup of shell connections. destroy() releases every
-//            one, in reverse order.
-// Cleanup:   destroy() — safe after a partial build.
-// Cost:      Pointer handlers do O(1) bookkeeping then kick the engine. Clicks
-//            pick via one transform + O(chips) scan. No per-frame work here.
+// Main dock controller wiring layout, signals, input handling, and services.
 
 import Clutter from 'gi://Clutter';
 import Gio from 'gi://Gio';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
-import { SignalGroup, TimeoutGroup, appWindows, logError, log } from '../core/utils.js';
+import { SignalGroup, TimeoutGroup, appWindowsForConfig, logError, log } from '../core/utils.js';
 import { buildNotificationMap } from '../services/notificationService.js';
 import { AppTracker } from '../services/appTracker.js';
 import { MountedDevices } from '../services/mountedDevices.js';
@@ -35,7 +21,12 @@ import { TrashWatcher } from '../services/trashWatcher.js';
 import { DockChrome } from './dock.js';
 import { DockFactory } from './dockFactory.js';
 import { computeLayout, pillStyle } from './dockLayout.js';
-import { messageTray, messageTraySources, setDropDelegate } from '../compat/shell.js';
+import {
+    messageTray,
+    messageTraySources,
+    monitorInFullscreen,
+    setDropDelegate,
+} from '../compat/shell.js';
 
 const MOVE_THRESHOLD = 10;     // px of pointer travel that cancels a click
 
@@ -60,6 +51,7 @@ export class DockController {
         this._hoverItem = null;
         this._focusItem = null;
         this._focusLeaveId = 0;
+        this._stageCaptureId = 0;
 
         try { this._build(); }
         catch (e) {
@@ -71,10 +63,15 @@ export class DockController {
     _build() {
         this._chrome = new DockChrome();
         this._factory = new DockFactory(this._chrome.container, item => this._wireItem(item));
-        this._mountedDevices = new MountedDevices(() => this._cfg);
+        // VolumeMonitor can wake on several system signals. Avoid creating it
+        // when the entire mounted-devices feature is disabled; this key is
+        // structural, so enabling it later rebuilds the service cleanly.
+        this._mountedDevices = this._cfg.showMountedDevices
+            ? new MountedDevices(() => this._cfg)
+            : null;
         this._tracker = new AppTracker(
             () => this._cfg,
-            () => this._mountedDevices.entries,
+            () => this._mountedDevices?.entries ?? [],
         );
         this._engine = new AnimationEngine();
         this._engine.attach(this._chrome.container);
@@ -85,6 +82,7 @@ export class DockController {
             getMonitor: () => this._getMonitor(),
             getMonitorIndex: () => this._monitorIndex,
             kickEngine: () => this._engine.kick(),
+            isMagnifying: () => this._engine?.animating ?? false,
             clearHover: () => this._endHover(),
             isInteractionActive: () => this._isDockBusy(),
         });
@@ -159,14 +157,22 @@ export class DockController {
         // Track the tooltip to the hovered icon as it magnifies (runs only while
         // the frame loop is alive; free once the dock settles).
         this._engine.setFrameHook(() => {
-            if (this._tooltip.shown && this._hoverItem)
-                this._tooltip.position(this._hoverItem, this._geom);
+            if (this._tooltip.shown && this._hoverItem) {
+                // Only reposition when the icon's scale changed — avoids
+                // expensive get_transformed_position/Size every frame.
+                const sc = this._hoverItem.scaleCurrent;
+                if (sc !== this._lastTooltipScale) {
+                    this._lastTooltipScale = sc;
+                    this._tooltip.position(this._hoverItem, this._geom);
+                }
+            }
         });
 
         this._connectSignals();
-        this._mountedDevices.start(() => this._onEntriesChanged());
+        this._mountedDevices?.start(() => this._onEntriesChanged());
         this._tracker.start(() => this._onEntriesChanged());
         this._onEntriesChanged();    // initial sync + first layout
+        this._refreshItems();        // seed badges before the first shell event
         this._autohide.enable();
         this._downloads.enable();
         this._trash.enable();
@@ -185,6 +191,7 @@ export class DockController {
     }
 
     get monitorIndex() { return this._monitorIndex; }
+    get keyboardFocusActive() { return Boolean(this._focusItem); }
 
     _isDockBusy() {
         return Boolean(
@@ -201,7 +208,7 @@ export class DockController {
     _wireItem(item) {
         // When a bounce settles, the engine's loop has idled; restart it so
         // hover magnification resumes immediately.
-        item.onBounceSettled = () => this._engine.kick();
+        item.onAnimationSettled = () => this._engine.kick();
         // Keep the tooltip glued to the icon while it bounces.
         item.onComposed = () => {
             if (this._tooltip.shown && this._hoverItem === item)
@@ -216,7 +223,7 @@ export class DockController {
         const item = this._factory?.items?.[0];
         if (!item || !this._geom) return false;
         try {
-            if (global.display.get_monitor_in_fullscreen(this._monitorIndex) && !Main.overview.visible)
+            if (monitorInFullscreen(this._monitorIndex) && !Main.overview.visible)
                 return false;
             this._autohide?.onDockActivity();
             item.grab_key_focus();
@@ -227,12 +234,45 @@ export class DockController {
         }
     }
 
+    exitKeyboardFocus() {
+        if (!this._focusItem) {
+            this._disableFocusPointerExit();
+            return false;
+        }
+
+        if (this._focusLeaveId) {
+            this._timers.remove(this._focusLeaveId);
+            this._focusLeaveId = 0;
+        }
+
+        // Clear our state before moving key focus. The resulting focus-out
+        // signal then sees that cleanup is already complete and stays idle.
+        const focusItem = this._focusItem;
+        this._focusItem = null;
+        this._disableFocusPointerExit();
+        try {
+            const focused = global.stage.get_key_focus?.();
+            if (focused === focusItem ||
+                (focused && this._factory?.items.includes(focused)))
+                global.stage.set_key_focus(null);
+        } catch { }
+
+        if (!this._menu?.active) this._engine?.setHeldItem(null);
+        if (!this._pointerInContainer && !this._pointerInMag && !this._pointerInEdge) {
+            this._endHover();
+            this._autohide?.onDockLeft();
+        }
+        this._engine?.kick();
+        return true;
+    }
+
     _onItemFocus(item) {
         if (this._focusLeaveId) {
             this._timers.remove(this._focusLeaveId);
             this._focusLeaveId = 0;
         }
         this._focusItem = item;
+        this._enableFocusPointerExit();
         this._autohide?.onDockActivity();
         this._engine.setHeldItem(item);
         this._engine.kick();
@@ -240,12 +280,13 @@ export class DockController {
     }
 
     _scheduleFocusLeave() {
-        if (this._focusLeaveId) return;
+        if (!this._focusItem || this._focusLeaveId) return;
         this._focusLeaveId = this._timers.addIdle(() => {
             this._focusLeaveId = 0;
             const focused = global.stage.get_key_focus?.();
             if (focused && this._factory?.items.includes(focused)) return false;
             this._focusItem = null;
+            this._disableFocusPointerExit();
             if (!this._menu?.active) this._engine?.setHeldItem(null);
             this._endHover();
             this._autohide?.onDockLeft();
@@ -268,11 +309,14 @@ export class DockController {
         }
         if (symbol === Clutter.KEY_Return || symbol === Clutter.KEY_KP_Enter ||
             symbol === Clutter.KEY_space) {
+            // Hand focus back before activation. Dispatch comes second so a
+            // configured preview or Downloads stack remains open afterwards.
+            this.exitKeyboardFocus();
             this._dispatch(item, 1);
             return Clutter.EVENT_STOP;
         }
         if (symbol === Clutter.KEY_Escape) {
-            global.stage.set_key_focus(null);
+            this.exitKeyboardFocus();
             return Clutter.EVENT_STOP;
         }
 
@@ -382,17 +426,24 @@ export class DockController {
 
     // ── Entry / layout ────────────────────────────────────────────────────
     _onEntriesChanged() {
-        const changed = this._factory.sync(this._tracker.getEntries(), this._cfg);
+        const entries = this._tracker.getEntries();
+        const heldItem = this._menu?.heldItem;
+        if (heldItem && !entries.some(entry => entry.key === heldItem.entry?.key))
+            this._menu.closeNow();
+        const changed = this._factory.sync(entries, this._cfg);
         if (this._hoverItem && !this._factory.items.includes(this._hoverItem))
             this._endHover();
         if (this._focusItem && !this._factory.items.includes(this._focusItem))
-            this._focusItem = null;
+            this.exitKeyboardFocus();
         if (changed) this.relayout();
         else this._engine.kick();
     }
 
     _refreshItems() {
-        const notifMap = buildNotificationMap();
+        // Message-tray traversal is unnecessary when badges are disabled.
+        // Passing null also tells DockItem to preserve its cached count until
+        // the feature is enabled and the next snapshot is requested.
+        const notifMap = this._cfg.showBadges ? buildNotificationMap() : null;
         for (const item of this._factory.items) {
             try { item.refresh(notifMap); } catch (e) { logError(e, 'item.refresh'); }
         }
@@ -411,7 +462,7 @@ export class DockController {
     relayout() {
         const mon = this._getMonitor();
         if (!mon) return;
-        const fs = global.display.get_monitor_in_fullscreen(this._monitorIndex);
+        const fs = monitorInFullscreen(this._monitorIndex);
         const base = { ...this._settings.config, monitorIndex: this._monitorIndex };
         const { cfg, geom } = computeLayout(base, this._factory.chips, mon, fs);
         this._cfg = cfg;
@@ -461,6 +512,33 @@ export class DockController {
     }
 
     // ── Pointer ─────────────────────────────────────────────────────────────
+    _enableFocusPointerExit() {
+        if (this._stageCaptureId) return;
+        try {
+            this._stageCaptureId = global.stage.connect(
+                'captured-event', (_stage, ev) => this._onStageCaptured(ev));
+        } catch { }
+    }
+
+    _disableFocusPointerExit() {
+        if (!this._stageCaptureId) return;
+        try { global.stage.disconnect(this._stageCaptureId); }
+        catch { }
+        this._stageCaptureId = 0;
+    }
+
+    _onStageCaptured(ev) {
+        if (!this._focusItem) return Clutter.EVENT_PROPAGATE;
+
+        let type;
+        try { type = ev.type(); }
+        catch { return Clutter.EVENT_PROPAGATE; }
+        if (type === Clutter.EventType.BUTTON_PRESS ||
+            type === Clutter.EventType.TOUCH_BEGIN)
+            this.exitKeyboardFocus();
+        return Clutter.EVENT_PROPAGATE;
+    }
+
     _onMotion(ev, inContainer) {
         const [x, y] = ev.get_coords();
         if (inContainer) this._pointerInContainer = true;
@@ -555,6 +633,7 @@ export class DockController {
         if (this._menu.active || this._autohide?.hidden || this._downloads?.stackOpen) item = null;
         if (item === this._hoverItem) return;
         this._hoverItem = item;
+        this._lastTooltipScale = -1; // force tooltip reposition on new hover
         if (!item) { this._tooltip.hide(); this._preview.hide(false); return; }
         if (this._cfg.showTooltip) this._tooltip.scheduleShow(item, this._geom);
         else this._tooltip.hide();
@@ -738,9 +817,7 @@ export class DockController {
         const item = this._pickItem(sx, sy) ?? this._pickItemRedirected(sx, sy);
         if (!item || item.entry.kind !== 'app') return Clutter.EVENT_PROPAGATE;
         if (this._cfg.scrollAction === 'nothing') return Clutter.EVENT_PROPAGATE;
-        let wins = appWindows(item.entry.app);
-        if (this._cfg.isolateMonitors)
-            wins = wins.filter(win => win.get_monitor?.() === this._monitorIndex);
+        const wins = appWindowsForConfig(item.entry.app, this._cfg);
         if (!wins.length) return Clutter.EVENT_PROPAGATE;
         const dir = ev.get_scroll_direction();
         if (this._cfg.scrollAction === 'cycle') {
@@ -768,6 +845,7 @@ export class DockController {
         this._endHoverId = 0;
         this._focusLeaveId = 0;
         this._focusItem = null;
+        this._disableFocusPointerExit();
         // Disconnect per-source tray signals before the bulk disconnectAll().
         if (this._traySourceSignals) {
             for (const [src, ids] of this._traySourceSignals) {

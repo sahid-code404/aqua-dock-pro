@@ -1,4 +1,4 @@
-// AquaDockPro preferences — mounted-device visibility.
+// Preferences page for mounted-device visibility.
 
 import Adw from 'gi://Adw';
 import Gio from 'gi://Gio';

@@ -1,10 +1,4 @@
-// AquaDockPro — Downloads card styling.
-//
-// Purpose:   One place for the cfg→CSS mapping every Downloads tile uses (label
-//            pill, label colour, thumbnail), so the fan and grid/list views look
-//            identical and pick up the same user-configurable colours/borders.
-// Ownership: Stateless. Mutates the style of the actors it's handed.
-// Cost:      String build + 3 set_style calls; runs on build and on hover.
+// Downloads stack tile styling.
 
 import { clamp } from '../core/utils.js';
 

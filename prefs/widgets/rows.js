@@ -1,14 +1,4 @@
-// AquaDockPro preferences — reusable Adwaita rows.
-//
-// Purpose:   One small, consistent vocabulary of bound rows (spin / switch /
-//            combo / colour / entry / icon-chooser) so every page is built the
-//            same way and stays two-way bound to GSettings. Continuous/abstract
-//            values use fractional spinners (digits ≥ 2); pixels/ms use integer
-//            steppers — the caller decides per row.
-// Ownership: Rows bind directly to GSettings. Manual `changed::` connections
-//            (combo/colour) are tracked on window._settingsSignalIds and dropped
-//            on window close.
-// Cost:      UI-thread only; built once when the prefs window opens.
+// Reusable Adwaita preference rows bound to GSettings.
 
 import Adw from 'gi://Adw';
 import Gdk from 'gi://Gdk';

@@ -1,8 +1,4 @@
-// AquaDockPro preferences — Widgets page.
-//
-// Running indicators, notification badges, tooltips, the context menu and live
-// window previews. Every option is visible — colour/border styling sits in its
-// own clearly-titled group right below the feature it belongs to.
+// Preferences page for indicators, badges, tooltips, menus, and previews.
 
 import { page, group, spinRow, switchRow, comboRow, colorRow }
     from '../widgets/rows.js';

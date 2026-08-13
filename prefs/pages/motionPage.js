@@ -1,7 +1,4 @@
-// AquaDockPro preferences — Motion page (magnification, springs, bounce, genie).
-//
-// Continuous, "feel" values are fractional spinners (2 decimals) for fine
-// control; pixel/millisecond values stay whole numbers.
+// Preferences page for magnification, spring physics, and Genie effect.
 
 import { page, group, spinRow, switchRow } from '../widgets/rows.js';
 import { _ } from '../../core/i18n.js';

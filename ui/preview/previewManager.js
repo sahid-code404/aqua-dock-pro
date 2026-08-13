@@ -1,16 +1,4 @@
-// AquaDockPro — window-preview popups on hover.
-//
-// Purpose:   Show live thumbnails of an app's windows the user CAN'T already see
-//            (minimized, or on another workspace) when they hover its icon. One
-//            popup at a time: a second hover retargets the existing popup with a
-//            crossfade (no flicker). The popup is reactive with a short grace
-//            period so the user can move onto it and click a thumbnail to raise
-//            that window.
-// Ownership: OWNS the current popup box, the dying (crossfading-out) box, the
-//            open-delay timer and the grace-hide timer. hide(true)/destroy()
-//            release every one synchronously.
-// Cost:      Built only after the open delay while still hovered. Per-window
-//            clones are GPU-cheap. No per-frame cost.
+// Window hover preview popup manager and lifecycle.
 
 import Clutter from 'gi://Clutter';
 
@@ -18,7 +6,13 @@ import St from 'gi://St';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
-import { animationsEnabled, clamp, appWindows, logError, TimeoutGroup } from '../../core/utils.js';
+import {
+    animationsEnabled,
+    clamp,
+    appWindowsForConfig,
+    logError,
+    TimeoutGroup,
+} from '../../core/utils.js';
 import { _, format, ngettext } from '../../core/i18n.js';
 import { buildWindowFrame } from './livePreview.js';
 
@@ -80,11 +74,10 @@ export class PreviewManager {
     // on another workspace) AND have a valid compositor actor + frame rect so
     // we never fall back to the app-icon placeholder.
     _previewableWindows(item, forceAll = false) {
-        const showAll = forceAll || this._getConfig().previewWindowMode === 'all';
+        const cfg = this._getConfig();
+        const showAll = forceAll || cfg.previewWindowMode === 'all';
         const ws = global.workspace_manager.get_active_workspace();
-        return appWindows(item.entry.app).filter(w => {
-            if (this._getConfig().isolateMonitors &&
-                w.get_monitor?.() !== this._getConfig().monitorIndex) return false;
+        return appWindowsForConfig(item.entry.app, cfg, ws).filter(w => {
             if (!showAll && !w.minimized && !(ws && !w.located_on_workspace(ws))) return false;
             let actor = null, rect = null;
             try { actor = w.get_compositor_private?.(); } catch { }
@@ -106,7 +99,10 @@ export class PreviewManager {
         box.get_layout_manager().set_spacing(10);
         for (const win of wins.slice(0, MAX_WINDOWS)) {
             const btn = new St.Button({ style_class: 'aqua-preview-col', reactive: true, can_focus: true });
-            const col = new St.BoxLayout({ vertical: true, style_class: 'aqua-preview-content' });
+            const col = new St.BoxLayout({
+                orientation: Clutter.Orientation.VERTICAL,
+                style_class: 'aqua-preview-content',
+            });
             col.get_layout_manager().set_spacing(5);
             col.add_child(buildWindowFrame(win, targetW, frameH, item.entry.app.get_icon()));
             const title = new St.Label({

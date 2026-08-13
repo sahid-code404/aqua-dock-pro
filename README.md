@@ -2,335 +2,277 @@
 
 <br/>
 
-```
+```text
  █████╗  ██████╗ ██╗   ██╗ █████╗     ██████╗  ██████╗  ██████╗██╗  ██╗
 ██╔══██╗██╔═══██╗██║   ██║██╔══██╗    ██╔══██╗██╔═══██╗██╔════╝██║ ██╔╝
-███████║██║   ██║██║   ██║███████║    ██║  ██║██║   ██║██║     █████╔╝ 
-██╔══██║██║▄▄ ██║██║   ██║██╔══██║    ██║  ██║██║   ██║██║     ██╔═██╗ 
+███████║██║   ██║██║   ██║███████║    ██║  ██║██║   ██║██║     █████╔╝
+██╔══██║██║▄▄ ██║██║   ██║██╔══██║    ██║  ██║██║   ██║██║     ██╔═██╗
 ██║  ██║╚██████╔╝╚██████╔╝██║  ██║    ██████╔╝╚██████╔╝╚██████╗██║  ██╗
 ╚═╝  ╚═╝ ╚══▀▀═╝  ╚═════╝ ╚═╝  ╚═╝   ╚═════╝  ╚═════╝  ╚═════╝╚═╝  ╚═╝
                                                                     PRO
 ```
 
-**A premium, physics-driven dock for GNOME Shell — built for Linux, designed to impress.**
+### A modern dock for GNOME, built to feel smooth and responsive.
+
+**Made with ❤️ for GNOME. Give it a try — I hope you enjoy using it 😊**
 
 <br/>
 
 [![GNOME Shell](https://img.shields.io/badge/GNOME_Shell-50-5294E2?style=for-the-badge&logo=gnome&logoColor=white)](https://extensions.gnome.org)
-[![JavaScript](https://img.shields.io/badge/JavaScript-ES_Modules-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black)](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Modules)
+[![JavaScript](https://img.shields.io/badge/JavaScript-GJS-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black)](https://gjs.guide/)
 [![GTK](https://img.shields.io/badge/GTK-4.0-4A90D9?style=for-the-badge&logo=gtk&logoColor=white)](https://gtk.org)
 [![License](https://img.shields.io/badge/License-MIT-00C9C8?style=for-the-badge)](LICENSE)
-[![Status](https://img.shields.io/badge/Status-Active-00D26A?style=for-the-badge)](https://github.com/sahid-code404/aqua-dock-pro)
-[![Wayland](https://img.shields.io/badge/Wayland-✓-7C5CFC?style=for-the-badge)](https://wayland.freedesktop.org)
+[![Status](https://img.shields.io/badge/Status-WIP-orange?style=for-the-badge)](https://github.com/sahid-code404/aqua-dock-pro)
 
 <br/>
 
-> *Deliver a premium desktop experience while remaining lightweight, modular, and fully native to GNOME Shell.*
-
-<br/>
+> ⚠️ **Work in progress:** There are still bugs and unfinished parts. I'm testing and fixing things regularly.
 
 </div>
 
+---
 
-<img width="3199" height="1999" alt="Screenshot From 2026-06-26 05-02-50" src="https://github.com/user-attachments/assets/f0d60c6e-9dab-4c2c-aa87-43465d234e79" />
-<img width="3199" height="1999" alt="Screenshot From 2026-06-26 05-03-16" src="https://github.com/user-attachments/assets/3993363c-eedf-43cd-8a6c-f9544c7551a0" />
+## ✦ Aqua Dock Pro
+
+Aqua Dock Pro is a customizable GNOME Shell dock with smooth magnification, spring-based motion, live window previews, intellihide, folder stacks, notification badges, mounted devices and multi-monitor support.
+
+Currently focused on **GNOME Shell 50 + Wayland**.
+
+> 🧪 Around **3–4 months of work and 230+ install/test/debug cycles** so far.<br/>
+> 🤖 **AI disclosure:** I use AI tools for coding help, debugging, refactoring, GNOME/GJS API help and some documentation, and I test and fix the results myself.
 
 ---
-## ✦ What is AquaDockPro?
 
-AquaDockPro is a **complete rewrite** of the GNOME dock experience — not a fork, not a theme, but a ground-up engineering effort.
+## 📸 Preview
 
-Built on a **spring-physics animation engine**, a **modular event-driven architecture**, and **native GNOME compositor APIs**, it brings a level of polish and performance that traditional GNOME extensions simply don't offer.
+<p align="center">
+  <img width="2560" height="1600" alt="Aqua Dock Pro Main Dock" src="https://github.com/user-attachments/assets/41a620ce-e300-4670-bd23-d7519eefcdbe" />
+</p>
 
-| | |
-|---|---|
-| 🎯 **Premium UX** | Gaussian magnification, spring physics, Genie minimize effects |
-| ⚡ **Engineered for performance** | Self-stopping frame loop, event-driven updates, GPU-friendly compositing |
-| 🧩 **Fully modular** | Every subsystem is decoupled and independently configurable |
-| 🔧 **Deep customization** | 80+ settings across appearance, behavior, animations, and widgets |
+### Downloads Stack
+
+<p align="center">
+  <img width="2560" height="1600" alt="Aqua Dock Pro Downloads Stack" src="https://github.com/user-attachments/assets/e236ea04-3e64-4512-9c67-2d1cedcae073" />
+</p>
+
+> Screenshots are from the current development build, so some details may change.
 
 ---
 
 ## ⚡ Quick Install
 
+Copy the whole block and paste it into the terminal once:
+
 ```bash
-# Clone the repository
-git clone https://github.com/sahid-code404/aqua-dock-pro.git
-cd aqua-dock-pro
-
-# Validate, package and install the extension
-scripts/package.sh
-gnome-extensions install --force dist/aqua-dock-pro@shaque.shell-extension.zip
-gnome-extensions enable aqua-dock-pro@shaque
+tmpdir="$(mktemp -d)" && \
+git clone https://github.com/sahid-code404/aqua-dock-pro.git "$tmpdir" && \
+mkdir -p ~/.local/share/gnome-shell/extensions && \
+rm -rf ~/.local/share/gnome-shell/extensions/aqua-dock-pro@shaque && \
+cp -a "$tmpdir"/. ~/.local/share/gnome-shell/extensions/aqua-dock-pro@shaque/ && \
+rm -rf ~/.local/share/gnome-shell/extensions/aqua-dock-pro@shaque/.git && \
+glib-compile-schemas ~/.local/share/gnome-shell/extensions/aqua-dock-pro@shaque/schemas && \
+gnome-extensions enable aqua-dock-pro@shaque && \
+rm -rf "$tmpdir"
 ```
 
-> **🟣 Wayland** — Log out and back in after installation.  
-> **🔵 X11** — Press `Alt + F2`, type `r`, press `Enter`.
+**Wayland:** log out and back in once after installing.<br/>
+**X11:** use **Alt + F2 → `r` → Enter**.
 
 ---
 
-## ✦ Feature Overview
+## ✨ Highlights
 
-### 🎯 Dock
-
-A beautifully crafted floating dock that feels like it belongs on your desktop.
-
-- Position: **Bottom**, **Left**, or **Right**
-- Start, center, or end alignment on the selected edge
-- Optional dock on **every connected monitor**
-- Optional per-monitor window isolation
-- Configurable icon size, dock thickness, and corner radius
-- Background opacity control with custom border color and width
-- Automatic layout recalculation and floating edge spacing
-
----
-
-### ✨ Animation Engine
-
-Powered by a custom **spring-physics solver** — not CSS transitions, not tweens.
-
-- Gaussian magnification on hover
-- Configurable spring damping and tension
-- Adjustable hover lift with smooth interpolation
-- Frame-synchronized rendering (no dropped frames)
-- **Launch**, **attention**, and **download** bounce animations
-
+| | |
+|---|---|
+| **Dock** | Bottom / left / right, start / center / end alignment, floating spacing, custom size and styling |
+| **Motion** | Gaussian magnification, spring physics, hover lift, launch / attention / download bounce |
+| **Windows** | Live previews, Genie-style minimize/restore, monitor and workspace isolation |
+| **Hide modes** | Never, Intellihide, Always, plus pressure reveal |
+| **Files** | Downloads stack, custom folder stack, Trash and mounted devices |
+| **Interaction** | Mouse actions, keyboard navigation, drag-and-drop, context menus |
+| **Appearance** | Notification badges, 6 running indicator styles, colors, borders, radius and opacity |
+| **Settings** | GTK 4 / Libadwaita preferences, backup/restore and reset |
 
 ---
 
-### 📂 Downloads Stack
+## ⌨️ Keyboard Navigation
 
-A polished Downloads folder stack, right in your dock.
-
-| View Mode | Description |
-|-----------|-------------|
-| **Fan View** | Fanned card layout for quick visual scanning |
-| **Grid View** | Thumbnail grid for image-heavy folders |
-| **List View** | Compact list with metadata |
-
-Additional features: keyboard and mouse navigation, newest/name/type sorting, automatic thumbnails, content-type icons, overflow handling, animated open/close, and one optional custom folder stack.
+| Shortcut | Action |
+|---|---|
+| **Super + D** | Focus the dock |
+| **← / →** | Move across a horizontal dock |
+| **↑ / ↓** | Move across a vertical dock |
+| **Enter / Space** | Open or activate the selected item |
+| **Escape** | Exit focus mode or close an open popup/stack |
 
 ---
 
-### 🪟 Live Window Previews
+## 🧩 Features
 
-See what's running before you switch — without leaving the dock.
+### Dock & Motion
 
-- Live compositor thumbnails (not screenshots)
-- Multi-window and minimized window previews
+- Bottom, left and right positions
+- Start, center and end alignment
+- Independent dock on each monitor
+- Optional monitor/workspace isolation
+- Icon size **24–128 px**
+- Dock scale **0.5×–2.0×**
+- Corner radius **0–40 px**
+- Custom pill color, opacity, border and spacing
+- Gaussian magnification up to **3.5×**
+- Adjustable magnification curve and spread
+- Spring tension and damping
+- Hover lift up to **24 px**
+- Launch, attention and download bounce animations
+
+### Windows & Visibility
+
+- Live compositor window previews
+- Minimized/hidden window previews
 - Cross-workspace previews
-- Click-to-activate with animated popup
-- Configurable preview size and hover delay
-- Hidden-only or all-window modes, with optional close buttons
+- Optional close button on preview thumbnails
+- Genie-style minimize and restore animation
+- Never / Intellihide / Always hide modes
+- Reveal and hide delays
+- Pressure reveal with adjustable sensitivity
+
+### Files, Folders & Devices
+
+- Downloads stack
+- Optional custom folder stack
+- Fan / Grid / List views
+- Sort by Newest / Name / Type
+- Thumbnails and file-type icons
+- Live file watching
+- Trash full/empty state and Empty Trash action
+- Mounted USB drives, phones, cameras and network mounts
+- Hide individual mounted devices from the dock
+
+### Mouse & Drag-and-Drop
+
+- Smart left-click behavior
+- Minimize / cycle / preview / no-action modes
+- Middle-click actions
+- Scroll to cycle or minimize/restore windows
+- Reorder pinned apps
+- Drag apps from GNOME Overview to pin them
+- Drag files onto app icons
+- Move the Applications button
+- Layout lock to prevent accidental changes
+
+### Indicators & Menus
+
+- Notification count badges
+- Custom badge colors
+- 6 running indicator styles
+- App desktop actions
+- Pin / Unpin
+- Window list
+- Quit Application
+- Downloads / Trash context actions
 
 ---
 
-### 🗂 Context Menus
+## ⚙️ Preferences
 
-Native GNOME popup menus for every item in the dock.
+Aqua Dock Pro uses a native **GTK 4 / Libadwaita** preferences window.
 
-```
-Right-click any dock icon →
-  ├── New Window
-  ├── Desktop Actions
-  ├── Pin / Unpin
-  ├── Lock / Unlock Layout
-  ├── Window List
-  ├── Quit Application
-  ├── Downloads Menu
-  └── Trash Menu → Empty Trash
-```
+| Page | Includes |
+|---|---|
+| **Dock** | Position, alignment, size, scale, spacing, opacity, radius, borders |
+| **Motion** | Magnification, spring tuning, hover lift, animation timing |
+| **Behavior** | Auto-hide, pressure reveal, click/scroll actions, workspace/monitor behavior |
+| **Widgets** | Badges, indicators, previews, tooltips |
+| **Downloads** | Stack view, sorting, thumbnails, custom folder |
+| **Devices** | Mounted-device behavior |
+| **About** | Version and project information |
 
----
-
-### 🔔 Notification Badges
-
-Live unread counts on your dock icons, sourced directly from the GNOME notification system.
-
-- Native GNOME notification integration
-- Live count updates
-- Configurable badge and text color
-- Badge visibility toggle
+Settings can also be **exported/imported as JSON** or reset to defaults.
 
 ---
 
-### ⚫ Running Indicators
+## 🛠 Under the Hood
 
-Six styles to mark your active applications:
+| | |
+|---|---|
+| **GNOME** | GNOME Shell 50 |
+| **Language** | JavaScript / GJS |
+| **Shell UI** | St + Clutter |
+| **Preferences** | GTK 4 + Libadwaita |
+| **System APIs** | GObject Introspection |
+| **Files / Events** | Gio + GLib |
+| **Settings** | GSettings |
+| **Session** | Mainly tested on Wayland |
 
-| Style | Preview |
-|-------|---------|
-| Single Dot | `•` |
-| Multiple Dots | `• • •` |
-| Line | `———` |
-| Pill | `(———)` |
-| Glow | `✦` |
-| Glow Dots | `✦ ✦ ✦` |
+<details>
+<summary><b>Project structure</b></summary>
 
-Fully customizable size and color.
+<br/>
 
----
+| Folder | Contains |
+|---|---|
+| `animation` | Magnification, spring motion and bounce |
+| `autohide` | Visibility, overlap detection and pressure reveal |
+| `compat` | GNOME Shell compatibility helpers |
+| `core` | Shared state, settings and helpers |
+| `dock` | Dock UI and layout |
+| `downloads` | Downloads and custom folder stacks |
+| `effects` | Genie effect |
+| `interactions` | Mouse, keyboard and drag-and-drop |
+| `menus` | Context menus |
+| `prefs` | Preferences UI |
+| `schemas` | GSettings |
+| `services` | Apps, files, notifications, Trash and devices |
+| `ui` | Window previews and other UI |
 
-### 🖱 Smart Mouse Interaction
-
-Every click, scroll, and drag is handled intelligently.
-
-- Click to minimize active windows
-- Smart window cycling when clicking a running app
-- Middle-click to open a new window
-- Configurable primary-click, middle-click, and scroll actions
-- Drag to launch or restore
-- Hover magnification and lift
-- Full keyboard navigation from a configurable shortcut
-
----
-
-### 📌 Drag & Drop
-
-Reorder your dock on the fly.
-
-- Drag pinned apps to reorder
-- Drag the Applications icon anywhere within the app section
-- Pin apps by dragging from the GNOME Overview
-- Animated drag preview and insertion indicator
-- Drop zone highlighting
-- Smart launch when dropped outside the dock
+</details>
 
 ---
 
-### 👓 Auto-Hide
+## 🐛 Status
 
-Three modes — pick what suits your workflow.
+**It has bugs.**
 
-| Mode | Behavior |
-|------|----------|
-| **Never** | Dock is always visible |
-| **Intellihide** | Hides only when a window overlaps |
-| **Always** | Hides until you push to the edge |
+The areas I'm still working on most are **animations, intellihide, window previews, drag-and-drop, multi-monitor behavior and folder stacks**.
 
-Pressure reveal, configurable reveal/hide delay, edge detection.
+### Tested on
 
----
+- Fedora Linux
+- GNOME Shell 50
+- Wayland
+- Intel integrated graphics
 
-### 🗑 Trash & Downloads Monitoring
-
-The dock keeps an eye on your file system so you don't have to.
-
-- **Trash** — Live full/empty icon, directory monitoring, bounce on new items
-- **Downloads** — Auto-detection, bounce on new files, thumbnail generation, dynamic stack
-- **Mounted devices** — Per-type and per-device visibility with safe eject/unmount actions
+Testing on **AMD, NVIDIA, multiple monitors, fractional scaling, other distros and vertical layouts** is very welcome.
 
 ---
 
-### ⚙️ Preferences
+## 💬 Feedback & Contributions
 
-A full **Adwaita preferences window** — no config files, no terminal tweaks.
+If you try it, I'd really like feedback on **performance, animations, bugs, keyboard navigation, multi-monitor behavior and how the dock feels to use**.
 
-| Page | What You Configure |
-|------|--------------------|
-| **Dock** | Size, position, alignment, monitor behavior, radius, opacity, borders |
-| **Motion** | Spring tension, damping, magnification, lift |
-| **Behavior** | Auto-hide mode, click actions, scroll behavior |
-| **Widgets** | Badges, indicators, tooltips, previews |
-| **Downloads** | Stack view, sorting, custom folder and card styling |
-| **Devices** | Mounted-device categories and individual visibility |
-| **About** | Version, backup/restore, diagnostics and reset |
+Issues, testing, suggestions and code reviews are welcome.
 
----
-
-## 🏗 Architecture
-
-AquaDockPro is organized into focused, decoupled modules — each responsible for exactly one domain.
-
-```
-AquaDockPro/
-│
-├── animation/          # Spring solver, bounce engine, frame scheduler, easing
-├── autohide/           # Visibility controller, overlap detector, pressure barrier
-├── compat/             # Small boundary around Shell-private integration points
-├── core/               # Event bus, settings cache/migrations, constants, i18n
-├── dock/               # Dock widget, layout engine, item rendering, factory
-├── downloads/          # File enumeration, stack UI, fan/grid/list views, keyboard nav
-├── effects/
-│   └── genie/          # Native minimize/restore compositor animation
-├── interactions/       # App actions, drag & drop manager, tooltip manager
-├── menus/              # Context menu actions and GNOME popup integration
-├── prefs/
-│   ├── pages/          # One file per preferences page
-│   └── widgets/        # Reusable Adwaita row components
-├── schemas/            # GSettings XML schema
-├── services/           # App tracker, file service, notification watcher, trash monitor
-├── po/                 # Translation template and update tooling
-├── scripts/            # Validation and release packaging
-├── tests/              # Physics, layout, settings and preferences checks
-├── ui/
-│   └── preview/        # Live window thumbnail system
-│
-├── extension.js        # Extension entry point
-├── prefs.js            # Preferences entry point
-├── metadata.json       # Extension metadata
-└── stylesheet.css      # Clutter/St stylesheet
-```
-
----
-
-## 🛠 Technology Stack
-
-| Layer | Technology |
-|-------|-----------|
-| Shell Integration | GNOME Shell 50, GJS, St Toolkit, Clutter |
-| UI Framework | GTK 4, LibAdwaita |
-| System APIs | GObject Introspection, Gio, GLib |
-| Language | JavaScript (ES Modules) |
-
----
-
-## 📈 Performance
-
-AquaDockPro was engineered around performance from day one — not retrofitted.
-
-| Concern | Approach |
-|---------|----------|
-| Animation | Frame-clock synchronized and completely stopped whenever the dock settles |
-| Settings | Cached GSettings reads — no redundant dconf calls per frame |
-| Memory | Minimal allocations in hot paths, pooled where possible |
-| Rendering | GPU-friendly native compositor paths, no shader hacks |
-| File I/O | Fully asynchronous with batched enumeration |
-| Updates | Event-driven — components update only when state actually changes |
-| Edge pressure | A short-lived 30 ms sampler exists only while reveal pressure is armed |
-
-The extension also honors GNOME's **Reduce Animation** preference, keeps normal visual defaults backward-compatible, and provides cancellable async file operations so teardown never leaves background work behind.
-
-## Maintenance and support
-
-- Run `scripts/validate.sh` before every release.
-- Every delivered revision increments the integer in `metadata.json`.
-- Settings changes are protected by a migration version and JSON backup/restore.
-- Shell-private access is isolated in `compat/` to make GNOME upgrades easier to audit.
-- See [SUPPORT.md](SUPPORT.md), [CONTRIBUTING.md](CONTRIBUTING.md), and [CHANGELOG.md](CHANGELOG.md).
+When reporting a bug, please include your **GNOME version, distro, Wayland/X11, GPU, scaling, monitor setup and dock position** if possible. Screenshots, videos and GNOME Shell logs help a lot.
 
 ---
 
 ## ⚖️ License
 
-Released under the **MIT License** — free to use, modify, and distribute.  
-See [`LICENSE`](LICENSE) for the full text.
-
----
-
-## 👤 Author
-
-**Sahidul Haque**
-
-[![GitHub](https://img.shields.io/badge/GitHub-sahid--code404-181717?style=flat-square&logo=github)](https://github.com/sahid-code404)
-[![Project](https://img.shields.io/badge/Project-aqua--dock--pro-00C9C8?style=flat-square&logo=gnome)](https://github.com/sahid-code404/aqua-dock-pro)
+Released under the **MIT License**. See [`LICENSE`](LICENSE).
 
 ---
 
 <div align="center">
 
-**Built with ❤️ for the GNOME desktop community**
+### Sahidul Haque
 
-*If AquaDockPro makes your desktop feel a little more yours — consider leaving a ⭐ on the repo.*
+[![GitHub](https://img.shields.io/badge/GitHub-sahid--code404-181717?style=flat-square&logo=github)](https://github.com/sahid-code404)
+[![Project](https://img.shields.io/badge/Aqua_Dock_Pro-Repository-00C9C8?style=flat-square&logo=gnome)](https://github.com/sahid-code404/aqua-dock-pro)
+
+<br/>
+
+If Aqua Dock Pro works well for you, a ⭐ is always appreciated. 😊
+
+**Made with ❤️ for GNOME.**
 
 </div>

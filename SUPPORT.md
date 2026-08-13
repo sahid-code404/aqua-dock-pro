@@ -1,6 +1,9 @@
 # Support
 
-AquaDockPro currently targets GNOME Shell 50 on Wayland and X11.
+AquaDockPro currently targets GNOME Shell 50 and the GNOME Shell 51 beta on
+Wayland. Xwayland applications are supported, but GNOME Shell 50 no longer
+provides an X11 session. The stable `51` metadata entry will be shipped only
+after GNOME 51.0 is released and retested.
 
 Before reporting a problem:
 

@@ -1,16 +1,4 @@
-// AquaDockPro — genie (magic-lamp) minimize integration.
-//
-// Purpose:   Make windows minimize/restore INTO their dock icon. Rather than a
-//            custom shader, it feeds GNOME each window's icon geometry (the
-//            icon's resting on-screen rect) via Meta's set_icon_geometry, so the
-//            compositor's own minimize animation flies to the right spot — for
-//            BOTH title-bar minimizes and dock-initiated ones. For dock-initiated
-//            minimize/restore it also briefly tunes the global animation speed to
-//            the configured genie duration.
-// Ownership: OWNS the slow-down restore timer and the window-created idle ids.
-//            destroy() cancels both and restores the user's animation speed.
-// Cost:      Geometry updates are O(running windows), run on relayout / window
-//            create — never per frame. set_icon_geometry is a cheap WM call.
+// Magic-lamp (genie) minimize/restore animation controller.
 
 import GLib from 'gi://GLib';
 import Mtk from 'gi://Mtk';

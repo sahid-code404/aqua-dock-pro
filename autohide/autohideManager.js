@@ -1,16 +1,5 @@
-// AquaDockPro — autohide / intellihide orchestration.
-//
-// Purpose:   Decide WHEN the dock hides and reveals. Wires the reveal strip and
-//            edge zone, listens to the WM/focus/overview signals that change
-//            overlap, and runs the intellihide state machine (never / always /
-//            dodge). Delegates HOW-to-slide to VisibilityController, overlap to
-//            OverlapDetector, and the dwell gesture to PressureBarrier — so this
-//            file is pure policy + timer/ signal ownership.
-// Ownership: OWNS a SignalGroup (strip/edge/WM signals), a TimeoutGroup (hide/
-//            reveal/debounce/idle), and the three helper objects. disable()/
-//            destroy() release every one and leave the dock shown.
-// Cost:      All work is event-driven and coalesced (idle-queued intellihide,
-//            debounced hide checks). No per-frame cost.
+// Autohide and intellihide policy manager.
+// Listens for window/focus changes and controls when the dock slides in/out.
 
 import Clutter from 'gi://Clutter';
 
@@ -20,6 +9,7 @@ import { SignalGroup, TimeoutGroup } from '../core/utils.js';
 import { VisibilityController } from './visibilityController.js';
 import { OverlapDetector } from './overlapDetector.js';
 import { PressureBarrier } from './pressureBarrier.js';
+import { monitorInFullscreen } from '../compat/shell.js';
 
 const DEBOUNCE_HIDE_MS = 200;
 const POINTER_BUTTON_MASK =
@@ -31,7 +21,7 @@ const POINTER_BUTTON_MASK =
 
 export class AutohideManager {
     // host: { chrome, getGeom, getConfig, getMonitor, getMonitorIndex,
-    //         kickEngine, clearHover, isInteractionActive }
+    //         kickEngine, isMagnifying, clearHover, isInteractionActive }
     constructor(host) {
         this._host = host;
         this._signals = new SignalGroup();
@@ -68,6 +58,10 @@ export class AutohideManager {
         this._cancelReveal();
         this._cancelDebounce();
         this._timers.removeAll();
+        this._hideId = 0;
+        this._revealId = 0;
+        this._debounceId = 0;
+        this._idleId = 0;
         this._signals.disconnectAll();
         this._setHidden(false, false);   // show before tearing down
     }
@@ -171,6 +165,15 @@ export class AutohideManager {
             this._setHidden(false, true);
             return;
         }
+        // A middle icon can keep several neighbours magnified. Do not start
+        // the dock's slide until that shared pill has settled, otherwise the
+        // slide and the shrinking pill compete for the same visible surface.
+        if (this._host.isMagnifying?.()) {
+            this._cancelHide();
+            this._setHidden(false, true);
+            this._scheduleHide();
+            return;
+        }
         if (mode === 'always') { this._scheduleHide(); return; }
         if (mode === 'dodge') {
             if (this._overlap.isOverlapped()) this._scheduleHide();
@@ -198,6 +201,9 @@ export class AutohideManager {
         this._hideId = this._timers.addOnce(cfg.hideDelay, () => {
             this._hideId = 0;
             if (this._pointerReallyInside() || this._host.isInteractionActive?.()) return;
+            // Continue waiting in short, bounded checks while magnification
+            // finishes; the next check applies the normal hide policy.
+            if (this._host.isMagnifying?.()) { this._scheduleHide(); return; }
             const live = this._host.getConfig();
             if (live.autoHideMode === 'dodge' && !this._overlap.isOverlapped()) return;
             this._setHidden(true, true);
@@ -254,7 +260,7 @@ export class AutohideManager {
     _fullscreenBlocksDock() {
         if (!this._enabled || Main.overview.visible) return false;
         const monitor = this._host.getMonitorIndex?.() ?? -1;
-        return monitor >= 0 && global.display.get_monitor_in_fullscreen(monitor);
+        return monitor >= 0 && monitorInFullscreen(monitor);
     }
 
     _pointerButtonDown() {

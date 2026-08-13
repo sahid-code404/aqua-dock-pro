@@ -1,20 +1,4 @@
-// AquaDockPro — a single dock item: icon + running indicator + badge + bounce.
-//
-// Purpose:   The visual unit on the dock. Owns one St.Icon (rendered at peak
-//            magnified size and scaled DOWN only — no per-frame re-rasterise),
-//            a running-indicator row, and a notification badge. Exposes the
-//            magnification state (scaleTarget/scaleCurrent/vel) the AnimationEngine
-//            integrates, and delegates bounce physics to the Bounce engine.
-// Ownership: OWNS its child actors (auto-destroyed with the widget) and one
-//            Bounce instance, cancelled via the `destroy` SIGNAL (Clutter tears
-//            children down in C and never calls an overridden JS destroy()).
-// Cleanup:   `destroy` signal → bounce.destroy(); the icon-child signal is
-//            tied to this widget with connectObject().
-// Caching:   All per-frame constants (lift prop/sign, inverse-zoom, pivots) are
-//            cached in relayout(); the hot path does zero string compares.
-// Cost:      setScale: 1 set_scale + 1 translation write. Indicator/badge rebuild
-//            only when their inputs actually change (diffed in refresh()); glow
-//            uses a few static translucent actors and never enters the hot path.
+// Visual dock item widget (icon, indicator row, notification badge, and bounce).
 
 import Clutter from 'gi://Clutter';
 import GObject from 'gi://GObject';
@@ -22,12 +6,15 @@ import Atk from 'gi://Atk';
 import Shell from 'gi://Shell';
 import St from 'gi://St';
 
-import { animationsEnabled, clamp, appWindows } from '../core/utils.js';
+import { animationsEnabled, clamp, appWindowsForConfig } from '../core/utils.js';
 import { _ } from '../core/i18n.js';
 import { DOT_SIZE, SETTLE_EPS } from '../core/constants.js';
 import { Bounce } from '../animation/bounce.js';
+import { peakTierThresholds, usePeakTier } from './iconResolution.js';
 
-export const DockItem = GObject.registerClass(
+export const DockItem = GObject.registerClass({
+    GTypeName: 'AquaDockProDockItem',
+},
 class DockItem extends St.Widget {
     _init(entry, cfg) {
         super._init({
@@ -59,18 +46,45 @@ class DockItem extends St.Widget {
 
         // Optional hooks set by the controller (kept null when unused so the
         // hot path stays free).
-        this.onComposed = null;     // () => void, after each bounce/pulse frame
-        this.onBounceSettled = null;// () => void, when a bounce comes to rest
+        this.onComposed = null;          // () => void, after each bounce/pulse frame
+        this.onAnimationSettled = null;  // () => void, when an owned transform ends
 
-        this._icon = new St.Icon({ gicon: entry.gicon, icon_size: cfg.renderSize });
+        // Scaling one peak-size texture down at rest softens it, while scaling a
+        // rest-size texture up softens the magnified state. Keep both native
+        // resolutions and transform their shared wrapper. Only the closer tier
+        // is painted; Shell's normal icon filtering and HiDPI resource scale are
+        // left untouched.
+        this._gicon = entry.gicon;
+        this._icon = new St.Widget({
+            style_class: 'aqua-icon-stack',
+            reactive: false,
+            layout_manager: new Clutter.FixedLayout(),
+            clip_to_allocation: false,
+        });
         this._icon.set_pivot_point(0.5, 1.0);
-        // St.Icon replaces its private texture when the icon source changes.
-        // Mipmaps keep the peak-size texture crisp when the dock scales it down.
-        this._icon.connectObject('child-added', (_icon, child) => {
-            this._setIconTextureFiltering(child);
-        }, this);
-        for (const child of this._icon.get_children())
-            this._setIconTextureFiltering(child);
+        this._focusPill = new St.Widget({
+            style_class: 'aqua-focus-pill',
+            reactive: false,
+            visible: false,
+        });
+        this._restIcon = new St.Icon({
+            gicon: this._gicon,
+            icon_size: cfg.iconSize,
+            reactive: false,
+        });
+        this._peakIcon = new St.Icon({
+            gicon: this._gicon,
+            icon_size: cfg.renderSize,
+            reactive: false,
+            opacity: 0,
+        });
+        this._peakIcon.set_pivot_point(0, 0);
+        this._peakIcon.set_scale(cfg.invZoom, cfg.invZoom);
+        this._icon.add_child(this._focusPill);
+        this._icon.add_child(this._restIcon);
+        this._icon.add_child(this._peakIcon);
+        this._peakTierThresholds = peakTierThresholds(cfg.zoomMax);
+        this._usingPeakTier = false;
         this.add_child(this._icon);
 
         this._indicator = new St.Widget({
@@ -87,19 +101,35 @@ class DockItem extends St.Widget {
         this._bounce = new Bounce(
             this._icon,
             (h, sx, sy) => this._composeBounce(h, sx, sy),
-            () => this.onBounceSettled?.(),
+            () => this.onAnimationSettled?.(),
         );
 
+        this.connect('key-focus-in', () => this._focusPill?.show());
+        this.connect('key-focus-out', () => this._focusPill?.hide());
         this.refresh();
-        this.connect('destroy', () => this._bounce?.destroy());
+        this.connect('destroy', () => {
+            this._bounce?.destroy();
+            this._bounce = null;
+            this.onComposed = null;
+            this.onAnimationSettled = null;
+        });
     }
 
-    _setIconTextureFiltering(child) {
-        if (!child?.set_content_scaling_filters) return;
-        child.set_content_scaling_filters(
-            Clutter.ScalingFilter.TRILINEAR,
-            Clutter.ScalingFilter.LINEAR,
-        );
+    get gicon() { return this._gicon; }
+
+    setGicon(gicon) {
+        this._gicon = gicon;
+        if (this._restIcon) this._restIcon.gicon = gicon;
+        if (this._peakIcon) this._peakIcon.gicon = gicon;
+    }
+
+    _syncTextureTier(scale, force = false) {
+        const peak = usePeakTier(
+            scale, this._peakTierThresholds, this._usingPeakTier, force);
+        if (peak === this._usingPeakTier) return;
+        this._usingPeakTier = peak;
+        this._restIcon.opacity = peak ? 0 : 255;
+        this._peakIcon.opacity = peak ? 255 : 0;
     }
 
     label() {
@@ -129,8 +159,22 @@ class DockItem extends St.Widget {
         if (vert) this.set_size(crossLen, mainLen);
         else this.set_size(mainLen, crossLen);
 
-        this._icon.icon_size = cfg.renderSize;
         const restSize = cfg.iconSize;
+        this._icon.set_size(restSize, restSize);
+        const mainPad = Math.max(5, Math.round(restSize * 0.11));
+        const crossPad = Math.max(3, Math.round(restSize * 0.07));
+        const pillX = vert ? -crossPad : -mainPad;
+        const pillY = vert ? -mainPad : -crossPad;
+        this._focusPill.set_position(pillX, pillY);
+        this._focusPill.set_size(
+            restSize - pillX * 2,
+            restSize - pillY * 2);
+        this._restIcon.icon_size = restSize;
+        this._peakIcon.icon_size = cfg.renderSize;
+        this._restIcon.set_position(0, 0);
+        this._peakIcon.set_position(0, 0);
+        this._peakIcon.set_scale(cfg.invZoom, cfg.invZoom);
+        peakTierThresholds(cfg.zoomMax, this._peakTierThresholds);
         const restGap = Math.round((cfg.dockH - restSize) / 2);
         this._restGap = restGap;
 
@@ -138,8 +182,8 @@ class DockItem extends St.Widget {
             const iconBottomY = this._containerHeadroom + cfg.dockH - restGap;
             this._icon.set_pivot_point(0.5, 1.0);
             this._icon.set_position(
-                Math.round((mainLen - cfg.renderSize) / 2),
-                iconBottomY - cfg.renderSize);
+                Math.round((mainLen - restSize) / 2),
+                iconBottomY - restSize);
             this._restRect = {
                 x: Math.round((mainLen - restSize) / 2),
                 y: iconBottomY - restSize, w: restSize, h: restSize,
@@ -147,7 +191,7 @@ class DockItem extends St.Widget {
         } else if (cfg.position === 'left') {
             const iconLeftX = restGap;
             this._icon.set_pivot_point(0.0, 0.5);
-            this._icon.set_position(iconLeftX, Math.round((mainLen - cfg.renderSize) / 2));
+            this._icon.set_position(iconLeftX, Math.round((mainLen - restSize) / 2));
             this._restRect = {
                 x: iconLeftX, y: Math.round((mainLen - restSize) / 2),
                 w: restSize, h: restSize,
@@ -156,7 +200,7 @@ class DockItem extends St.Widget {
             const iconRightX = this._containerHeadroom + cfg.dockH - restGap;
             this._icon.set_pivot_point(1.0, 0.5);
             this._icon.set_position(
-                iconRightX - cfg.renderSize, Math.round((mainLen - cfg.renderSize) / 2));
+                iconRightX - restSize, Math.round((mainLen - restSize) / 2));
             this._restRect = {
                 x: iconRightX - restSize, y: Math.round((mainLen - restSize) / 2),
                 w: restSize, h: restSize,
@@ -166,7 +210,6 @@ class DockItem extends St.Widget {
         // Per-frame constants — recomputed only here.
         this._liftProp = vert ? 'translation_x' : 'translation_y';
         this._liftSign = vert ? (cfg.position === 'left' ? 1 : -1) : -1;
-        this._invZoom = cfg.invZoom;
         this._liftDenom = cfg.liftDenom;
         if (vert) {
             this._pivotY = 0.5;
@@ -176,12 +219,12 @@ class DockItem extends St.Widget {
             this._pivotY = 1.0;
         }
 
-        // Pre-cached for _positionBadge (avoids repeated multiplication).
-        this._renderSize = cfg.renderSize;
+        // Pre-cached for _positionBadge (avoids repeated property reads).
+        this._baseIconSize = restSize;
 
         // Preserve current magnification lift through relayout (no 1-frame drop).
-        const visualScale = this.scaleCurrent * this._invZoom;
-        this._icon.set_scale(visualScale, visualScale);
+        this._icon.set_scale(this.scaleCurrent, this.scaleCurrent);
+        this._syncTextureTier(this.scaleCurrent, true);
         this._icon.translation_x = vert ? this._baseLift() : 0;
         this._icon.translation_y = vert ? 0 : this._baseLift();
 
@@ -219,13 +262,13 @@ class DockItem extends St.Widget {
             this._badgeH = h;
         }
         const bw = this._badgeW, bh = this._badgeH;
-        const renderSize = this._renderSize;
-        const s = this.scaleCurrent * this._invZoom;
-        const drawn = renderSize * s;
+        const baseSize = this._baseIconSize;
+        const s = this.scaleCurrent;
+        const drawn = baseSize * s;
         const ix = this._icon.x + (this._icon.translation_x || 0);
         const iy = this._icon.y + (this._icon.translation_y || 0);
-        const drawnX = ix + renderSize * this._pivotX * (1 - s);
-        const drawnY = iy + renderSize * this._pivotY * (1 - s);
+        const drawnX = ix + baseSize * this._pivotX * (1 - s);
+        const drawnY = iy + baseSize * this._pivotY * (1 - s);
         const cornerX = (this._vert && this._isRight) ? drawnX : drawnX + drawn;
         const bx = Math.round(cornerX - bw * 0.6);
         const by = Math.round(drawnY - bh * 0.4);
@@ -243,10 +286,8 @@ class DockItem extends St.Widget {
         const cfg = this._cfg;
         this.accessible_name = this.label();
         const app = this.entry.app;
-        let windows = app ? appWindows(app) : [];
-        if (cfg.isolateMonitors)
-            windows = windows.filter(win => win.get_monitor?.() === cfg.monitorIndex);
-        const running = cfg.isolateMonitors
+        const windows = app ? appWindowsForConfig(app, cfg) : [];
+        const running = cfg.isolateMonitors || cfg.isolateWS
             ? windows.length > 0
             : app?.get_state?.() === Shell.AppState.RUNNING;
         const multiStyle = cfg.indicatorStyle === 'dots' || cfg.indicatorStyle === 'glow-dots';
@@ -254,7 +295,11 @@ class DockItem extends St.Widget {
             ? clamp(Math.max(1, windows.length), 1, 4)
             : (running ? 1 : 0);
 
-        let notif = 0;
+        // A model-only refresh does not have a notification snapshot. Preserve
+        // the last known badge in that case; a tray refresh passes a Map and
+        // replaces it. This prevents favourite/app-state changes from briefly
+        // clearing otherwise valid badges.
+        let notif = cfg.showBadges ? (this._rNotif ?? 0) : 0;
         if (cfg.showBadges && app?.get_id && notifMap) {
             notif = notifMap.get(app.get_id()) ?? 0;
         }
@@ -281,8 +326,11 @@ class DockItem extends St.Widget {
         this._indicator.destroy_all_children();
 
         if (notif > 0) {
-            this._badge.text = notif > 99 ? '99+' : String(notif);
-            this._badgeW = null;
+            const newText = notif > 99 ? '99+' : String(notif);
+            if (newText !== this._badge.text) {
+                this._badge.text = newText;
+                this._badgeW = null; // invalidate layout cache only when text changes
+            }
             // Apply configurable badge colours via inline style override.
             const bc = cfg.badgeColor;
             const btc = cfg.badgeTextColor;
@@ -378,10 +426,9 @@ class DockItem extends St.Widget {
         if (this._landing) return;
         this.scaleCurrent = scale;
         if (this._bounce?.active || this._pulsing) return;
-        const visualScale = scale * this._invZoom;
-        this._icon.set_scale(visualScale, visualScale);
-        if (!this._icon.get_transition(this._liftProp))
-            this._icon[this._liftProp] = this._baseLift();
+        this._syncTextureTier(scale);
+        this._icon.set_scale(scale, scale);
+        this._icon[this._liftProp] = this._baseLift();
         if (this._badge?.visible) this._positionBadge();
     }
 
@@ -398,11 +445,12 @@ class DockItem extends St.Widget {
     // ── Transitions ─────────────────────────────────────────────────────────
     easeToRest(duration = 200) {
         if (!this._icon || this._bounce?.active || this._pulsing || this._landing) return;
-        const restScale = this._invZoom;
+        const restScale = 1;
         this._icon.remove_all_transitions();
         this._icon.translation_x = 0;
         this._icon.translation_y = 0;
         if (!animationsEnabled()) {
+            this._syncTextureTier(1, true);
             this._icon.set_scale(restScale, restScale);
             return;
         }
@@ -410,17 +458,20 @@ class DockItem extends St.Widget {
             scale_x: restScale, scale_y: restScale,
             [this._liftProp]: 0, duration,
             mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+            onComplete: () => this._syncTextureTier(1, true),
         });
     }
 
     landIn(duration = 280) {
         if (!this._icon) return;
-        const restScale = this._invZoom;
+        const restScale = 1;
         this._icon.remove_all_transitions();
+        this._syncTextureTier(1, true);
         if (!animationsEnabled()) {
             this._landing = false;
             this._icon.set_scale(restScale, restScale);
             this._icon.opacity = 255;
+            this.onAnimationSettled?.();
             return;
         }
         this._icon.set_scale(restScale * 0.4, restScale * 0.4);
@@ -429,7 +480,10 @@ class DockItem extends St.Widget {
         this._icon.ease({
             scale_x: restScale, scale_y: restScale, opacity: 255, duration,
             mode: Clutter.AnimationMode.EASE_OUT_BACK,
-            onComplete: () => { this._landing = false; },
+            onComplete: () => {
+                this._landing = false;
+                this.onAnimationSettled?.();
+            },
         });
     }
 
@@ -448,7 +502,8 @@ class DockItem extends St.Widget {
 
     _composeBounce(heightPx, sx, sy) {
         if (!this._icon) return;
-        const magScale = this.scaleCurrent * this._invZoom;
+        const magScale = this.scaleCurrent;
+        this._syncTextureTier(this.scaleCurrent);
         this._icon.set_scale(magScale * sx, magScale * sy);
         this._icon[this._liftProp] = this._baseLift() + this._liftSign * (heightPx || 0);
         if (this._badge?.visible) this._positionBadge();
@@ -460,7 +515,7 @@ class DockItem extends St.Widget {
     // record-only for the pulse's lifetime so the mag loop can't fight the ease.
     pulseScale(factor = 1.18, onDone = null) {
         if (!this._icon) { onDone?.(); return; }
-        const base = this.scaleCurrent * this._invZoom;
+        const base = this.scaleCurrent;
         this._icon.remove_all_transitions();
         if (!animationsEnabled()) {
             this._pulsing = false;
@@ -473,7 +528,7 @@ class DockItem extends St.Widget {
             scale_x: base * factor, scale_y: base * factor, duration: 130,
             mode: Clutter.AnimationMode.EASE_OUT_QUAD,
             onComplete: () => {
-                const b = this.scaleCurrent * this._invZoom;
+                const b = this.scaleCurrent;
                 this._icon.ease({
                     scale_x: b, scale_y: b, duration: 120,
                     mode: Clutter.AnimationMode.EASE_IN_OUT_QUAD,

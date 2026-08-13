@@ -1,12 +1,4 @@
-// AquaDockPro — Trash full/empty state + bounce-on-fill.
-//
-// Purpose:   Watch the trash directory and keep the dock's Trash icon in sync
-//            (full vs empty glyph), bouncing it for attention the moment it goes
-//            from empty → full. Reads are debounced so a bulk delete doesn't
-//            thrash the icon.
-// Ownership: OWNS the directory monitor + its signal and the debounce timer.
-//            destroy() releases all.
-// Cost:      Idle except on trash change; one debounced stat per burst.
+// Trash directory monitor for full/empty state and attention bounce.
 
 import Gio from 'gi://Gio';
 
@@ -24,14 +16,13 @@ export class TrashWatcher {
         this._monitorId = 0;
         this._debounceId = 0;
         this._wasFull = false;
+        this._initialized = false;
+        this._query = null;
     }
 
     enable() {
         if (!this._host.getConfig().showTrash) return;
-        this._wasFull = trashHasFiles();
-        // Initial icon sync — the tracker seeds from trashHasFiles() too, but
-        // it runs before the dock items exist so the icon actor may still show
-        // the wrong glyph.  A deferred _refresh fixes that.
+        // Query after the first actor sync without blocking GNOME Shell.
         this._timers.addOnce(0, () => this._refresh());
         if (this._monitor) return;
         try {
@@ -51,22 +42,38 @@ export class TrashWatcher {
     _refresh() {
         const item = this._host.getTrashItem();
         if (!item) return;
-        const has = trashHasFiles();
-        // Keep the tracker in sync so re-syncs produce the right icon.
-        this._host.setTrashFull?.(has);
-        const icon = this._host.getTrashGicon(has);
-        item.entry.gicon = icon;
-        if (item._icon) item._icon.gicon = icon;
-        if (has && !this._wasFull) {
-            const cfg = this._host.getConfig();
-            try { item.bounce(cfg.bounceHeight, { state: 'attention', decay: cfg.bounceDecay }); } catch { }
-            this._host.kickEngine?.();
-        }
-        this._wasFull = has;
+        this._query?.cancel();
+        const query = new Gio.Cancellable();
+        this._query = query;
+        trashHasFiles(query).then(has => {
+            if (this._query !== query || query.is_cancelled() || !this._host) return;
+            this._query = null;
+            const liveItem = this._host.getTrashItem();
+            if (!liveItem) return;
+            this._host.setTrashFull?.(has);
+            const icon = this._host.getTrashGicon(has);
+            liveItem.entry.gicon = icon;
+            liveItem.setGicon?.(icon);
+            if (this._initialized && has && !this._wasFull) {
+                const cfg = this._host.getConfig();
+                try {
+                    liveItem.bounce(cfg.bounceHeight,
+                        { state: 'attention', decay: cfg.bounceDecay });
+                } catch { }
+                this._host.kickEngine?.();
+            }
+            this._wasFull = has;
+            this._initialized = true;
+        }).catch(error => {
+            if (this._query === query) this._query = null;
+            if (!query.is_cancelled()) logError(error, 'trash state');
+        });
     }
 
     destroy() {
         if (this._debounceId) { this._timers.remove(this._debounceId); this._debounceId = 0; }
+        this._query?.cancel();
+        this._query = null;
         this._timers.removeAll();
         if (this._monitor) {
             if (this._monitorId) { try { this._monitor.disconnect(this._monitorId); } catch { } this._monitorId = 0; }

@@ -1,4 +1,4 @@
-// AquaDockPro preferences — About page (info + reset).
+// Preferences page for extension about info and diagnostics.
 
 import Adw from 'gi://Adw';
 import Gio from 'gi://Gio';

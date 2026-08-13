@@ -1,15 +1,4 @@
-// AquaDockPro — pure dock geometry.
-//
-// Purpose:   Given the config snapshot, the current chip list and the target
-//            monitor, compute every coordinate the dock needs — container box,
-//            hidden offsets, pill rect, per-chip offsets, pick/magnify bands,
-//            chrome-zone rects and the strut — WITHOUT touching a single actor.
-//            Separating computation from mutation makes layout testable and
-//            keeps "layout thrashing" impossible to introduce by accident.
-// Ownership: Stateless. Reads its inputs, returns a plain result object. It does
-//            write the derived `baseX`/`w`/`box` fields onto the caller's chip
-//            records (data, not actors) since those ARE the layout output.
-// Cost:      O(chips), run only on relayout (settings/monitor/chip changes).
+// Pure dock geometry and layout calculator.
 
 import { clamp } from '../core/utils.js';
 import { ICON_BOT, BG_PAD_X, SEP_W, SEP_PAD } from '../core/constants.js';
@@ -30,6 +19,14 @@ export function pillStyle(cfg) {
     const border = bw > 0 ? `${bw}px solid ${bc}` : 'none';
     const fill = applyAlpha(cfg.pillColor ?? 'rgba(28,28,32,0.78)', clamp(cfg.bgOpacity, 0.1, 1.0));
     return `border-radius: ${cfg.dockRadius}px; border: ${border}; background-color: ${fill};`;
+}
+
+// Pixels by which a transformed icon extends beyond the dock pill. The icon is
+// anchored at the screen-facing edge, so only its scale growth and hover lift
+// move outward; `restInset` is the breathing room already inside the pill.
+export function magnifiedOverflow(magZone, scale) {
+    const growth = Math.max(0, scale - 1) * magZone.growthPerScale;
+    return Math.max(0, Math.ceil(growth - magZone.restInset));
 }
 
 // Shrink the dock proportionally if its natural length overflows the monitor.
@@ -172,6 +169,17 @@ export function computeLayout(base, chips, monitor, monitorFullscreen = false) {
         else strut = { x: monitor.x, y: monitor.y + monitor.height - reserve, w: monitor.width, h: reserve };
     }
 
+    // DockItem uses the same rounded centring gap. Deriving the magnification
+    // zone from it keeps the invisible input region flush with the icon's live
+    // outer edge rather than extending into the tooltip area.
+    const restGap = Math.round((thick - cfg.iconSize) / 2);
+    const restInset = Math.max(0, thick - restGap - cfg.iconSize);
+    const growthPerScale = cfg.iconSize + cfg.hoverLift * cfg.liftDenom;
+    // The overflow zone must not change along the row while the pill animates:
+    // resizing a reactive actor under the pointer produces synthetic leave and
+    // enter events. Reserve only the transformed icon's peak side overhang.
+    const mainPad = Math.ceil(Math.max(0, cfg.renderSize - cfg.iconSize) / 2);
+
     const geom = {
         side, vert, width, height, x, y, hiddenX, hiddenY,
         mainLen, thick, pad,
@@ -180,8 +188,9 @@ export function computeLayout(base, chips, monitor, monitorFullscreen = false) {
         firstItemCenter, lastItemCenter,
         edgeZone, strip, strut,
         magZone: {
-            headroom: cfg.renderSize + cfg.hoverLift,
-            scaleDiv: 1 / Math.max(0.001, cfg.zoomMax - 1),
+            restInset,
+            growthPerScale,
+            mainPad,
             side, dockH: thick,
         },
     };

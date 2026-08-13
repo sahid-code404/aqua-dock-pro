@@ -1,16 +1,4 @@
-// AquaDockPro — typed publish/subscribe bus.
-//
-// Purpose:   Decouple producers from consumers so services, the dock, and the
-//            interaction layers never hold direct references to each other. A
-//            module emits an event; whoever cares subscribes. This is how we
-//            avoid the god-object/circular-dependency traps of the reference.
-// Ownership: Owns the handler registry only. Subscribers own their unsubscribe
-//            handle (returned by on()) and must call it on teardown.
-// Cleanup:   clear() drops every registry entry; the owning ExtensionManager
-//            calls it last, after all subscribers have unsubscribed.
-// Cost:      on/off are O(1). emit is O(handlers-for-event). No allocation on
-//            emit beyond the JS rest-args array (events here are low-frequency:
-//            settings/state/lifecycle, never per-frame).
+// Typed publish/subscribe event bus.
 
 import { logError } from './utils.js';
 

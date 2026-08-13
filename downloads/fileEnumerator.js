@@ -1,12 +1,4 @@
-// AquaDockPro — async Downloads folder enumeration.
-//
-// Purpose:   Read a folder's entries off the main loop (batched) and return them
-//            newest-first, plus pick the best icon for a file (real thumbnail if
-//            the thumbnailer made one, else the content-type icon). Enumeration
-//            NEVER blocks the compositor — large/slow folders can't stall paint.
-// Ownership: Stateless. The Promise resolves with {files, total}; only the
-//            requested visible subset is retained while total counts overflow.
-// Cost:      O(entries), async, 64 per batch, O(limit) retained memory.
+// Async folder enumeration for stack popups.
 
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';

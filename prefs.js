@@ -1,9 +1,4 @@
-// AquaDockPro — preferences entry point.
-//
-// Builds the Adwaita preferences window for GNOME Shell 50. Settings are grouped
-// by FEATURE across a handful of scannable pages (Dock / Motion / Behavior /
-// Widgets / Downloads / Devices / About). Each page lives in its own module;
-// this file only wires them and manages the shared settings-signal cleanup.
+// Preferences entry point. Builds the Adwaita settings window.
 
 import { ExtensionPreferences } from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
@@ -23,7 +18,7 @@ export default class AquaDockProPreferences extends ExtensionPreferences {
         window._cleanupCallbacks = [];
 
         window.set_default_size(740, 820);
-        window.set_search_enabled(true);   // every option is searchable — no digging
+        window.set_search_enabled(true);
 
         buildDockPage(window, s);
         buildMotionPage(window, s);

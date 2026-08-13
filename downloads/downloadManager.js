@@ -1,23 +1,4 @@
-// AquaDockPro — Downloads watcher, arrival animation, and stack opener.
-//
-// Purpose:   Watch ~/Downloads and, when a new file lands, play the arrival
-//            sequence on the Downloads icon (a thumbnail flies in → the folder
-//            pulses → an attention bounce). Also opens the stack popup on click.
-//
-//   CRASH-PROOF BY CONSTRUCTION (the old extension froze the whole dock here):
-//   • Arrival storms are coalesced — an 80ms debounce + a 1.2s hard cooldown, so
-//     bulk landings (unzip, torrent chunks) play AT MOST one animation, never a
-//     flood of flyers/bounces that starves the frame clock.
-//   • Every async hop (the icon query, each ease onComplete) is GENERATION-
-//     GUARDED and re-fetches the LIVE Downloads item: if the dock was rebuilt or
-//     disabled in the gap, the callback bails instead of poking a freed actor.
-//   • The in-flight flyer is tracked and killed on teardown; the pulse/bounce
-//     run through DockItem's crash-safe pulse/Bounce paths (record-only setScale,
-//     self-stopping frame clock). A throw can never wedge the compositor.
-// Ownership: OWNS the file monitor + its signal, the debounce timer, the flyer,
-//            and the DownloadsStack. destroy() releases every one and bumps the
-//            generation so pending async callbacks no-op.
-// Cost:      Idle except when a file arrives. One coalesced animation per burst.
+// Downloads directory watcher, arrival animation, and stack opener.
 
 import Clutter from 'gi://Clutter';
 import Gio from 'gi://Gio';
@@ -47,6 +28,7 @@ export class DownloadManager {
         this._debounceId = 0;
         this._lastArrivalAt = 0;
         this._flyer = null;
+        this._iconQuery = null;
         this._gen = 0;     // bumped on every arrival AND on teardown
     }
 
@@ -148,20 +130,30 @@ export class DownloadManager {
         };
 
         // Async icon query — never blocks the compositor; guarded against staleness.
+        this._iconQuery?.cancel();
+        const iconQuery = new Gio.Cancellable();
+        this._iconQuery = iconQuery;
         try {
             file.query_info_async('standard::icon', Gio.FileQueryInfoFlags.NONE,
-                GLib.PRIORITY_DEFAULT, null, (f, res) => {
+                GLib.PRIORITY_DEFAULT, iconQuery, (f, res) => {
+                    if (this._iconQuery === iconQuery) this._iconQuery = null;
+                    if (iconQuery.is_cancelled()) return;
                     if (!live()) return;
                     let gicon = null;
                     try { gicon = f.query_info_finish(res)?.get_icon?.(); } catch { }
                     spawn(gicon);
                 });
-        } catch { spawn(fallback); }
+        } catch {
+            if (this._iconQuery === iconQuery) this._iconQuery = null;
+            spawn(fallback);
+        }
     }
 
     // ── Teardown ────────────────────────────────────────────────────────────
     disable() {
         this._gen++;     // invalidate any in-flight async callbacks
+        this._iconQuery?.cancel();
+        this._iconQuery = null;
         if (this._debounceId) { this._timers.remove(this._debounceId); this._debounceId = 0; }
         this._timers.removeAll();
         if (this._flyer) { try { this._flyer.remove_all_transitions(); this._flyer.destroy(); } catch { } this._flyer = null; }

@@ -1,16 +1,4 @@
-// AquaDockPro — lifecycle orchestrator.
-//
-// Purpose:   The composition root. Constructs the foundation (EventBus →
-//            SettingsManager) in dependency order, owns one
-//            dock per configured monitor, and tears everything down in
-//            strict reverse order on disable(). Keeping all wiring here is what
-//            keeps extension.js trivial and every other module dependency-
-//            explicit (each receives exactly what it needs, nothing global).
-// Ownership: OWNS bus, settings and the dock controllers. Each is created
-//            here and destroyed here — one owner per resource.
-// Cleanup:   disable() destroys in reverse construction order and nulls refs so
-//            a re-enable starts from a clean slate (enable→disable→enable safe).
-// Cost:      Construction is a handful of allocations; no work on hot paths.
+// Extension lifecycle orchestrator and dock controller manager.
 
 import Meta from 'gi://Meta';
 import Shell from 'gi://Shell';
@@ -19,8 +7,9 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import { EventBus } from './eventBus.js';
 import { SettingsManager } from './settingsManager.js';
-import { log, logError } from './utils.js';
+import { clearRuntimeWarnings, log, logError } from './utils.js';
 import { DockController } from '../dock/dockController.js';
+import { cancelMountedDeviceOperations } from '../services/mountedDevices.js';
 
 export class ExtensionManager {
     constructor(extension) {
@@ -116,6 +105,14 @@ export class ExtensionManager {
     }
 
     _focusDock() {
+        // The shortcut is a toggle. Check every controller because the focused
+        // dock may no longer match the active window's monitor.
+        const focusedDock = this._docks.find(dock => dock.keyboardFocusActive);
+        if (focusedDock) {
+            focusedDock.exitKeyboardFocus();
+            return;
+        }
+
         let monitorIndex = -1;
         try { monitorIndex = global.display.focus_window?.get_monitor?.() ?? -1; }
         catch { }
@@ -172,11 +169,13 @@ export class ExtensionManager {
         }
 
         this._destroyDocks();
+        cancelMountedDeviceOperations();
 
         this._settings?.destroy();
         this._settings = null;
 
         this._bus?.clear();
         this._bus = null;
+        clearRuntimeWarnings();
     }
 }

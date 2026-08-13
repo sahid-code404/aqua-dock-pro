@@ -1,12 +1,4 @@
-// AquaDockPro — Downloads "grid" / "list" view.
-//
-// Purpose:   Build the panel-style stack: a titled card with a header (Open
-//            Folder) and a grid (2-col) or list (1-col) of file tiles. Owns its
-//            open/close animation and keyboard navigation. Pure view, mirroring
-//            FanView's contract (build / handleKey / animateClose).
-// Ownership: Owns its panel actor + tiles (destroyed with it) and a
-//            SelectionModel. The DownloadsStack parents/destroys the actor.
-// Cost:      Built once per open; one icon per tile, capped by user + fit.
+// Downloads grid and list view.
 
 import Clutter from 'gi://Clutter';
 import Gio from 'gi://Gio';
@@ -69,14 +61,20 @@ export class PanelView {
 
         const panel = new St.BoxLayout({
             style_class: `aqua-dl-panel aqua-dl-${view}`,
-            vertical: true, reactive: true, can_focus: true,
+            orientation: Clutter.Orientation.VERTICAL,
+            reactive: true,
+            can_focus: true,
         });
         panel.add_child(this._header(folder, files.length));
         panel.add_child(new St.Widget({ style_class: 'aqua-dl-divider' }));
 
         let box;
         if (view === 'grid') {
-            box = new St.BoxLayout({ vertical: true, style_class: 'aqua-dl-filebox aqua-dl-filebox-grid', x_expand: true });
+            box = new St.BoxLayout({
+                orientation: Clutter.Orientation.VERTICAL,
+                style_class: 'aqua-dl-filebox aqua-dl-filebox-grid',
+                x_expand: true,
+            });
             box.get_layout_manager().set_spacing(rowSpacing);
             for (let i = 0; i < tiles.length; i += GRID_COLS) {
                 const r = new St.BoxLayout({ style_class: 'aqua-dl-grid-row', x_expand: true });
@@ -88,7 +86,11 @@ export class PanelView {
                 box.add_child(r);
             }
         } else {
-            box = new St.BoxLayout({ vertical: true, style_class: 'aqua-dl-filebox', x_expand: true });
+            box = new St.BoxLayout({
+                orientation: Clutter.Orientation.VERTICAL,
+                style_class: 'aqua-dl-filebox',
+                x_expand: true,
+            });
             box.get_layout_manager().set_spacing(rowSpacing);
             for (const t of tiles) box.add_child(t);
         }
@@ -123,7 +125,11 @@ export class PanelView {
         header.add_child(new St.Icon({
             gicon: this.gicon ?? Gio.ThemedIcon.new('folder-download'), icon_size: 22, style_class: 'aqua-dl-hdr-icon',
         }));
-        const titleBox = new St.BoxLayout({ vertical: true, x_expand: true, y_align: Clutter.ActorAlign.CENTER });
+        const titleBox = new St.BoxLayout({
+            orientation: Clutter.Orientation.VERTICAL,
+            x_expand: true,
+            y_align: Clutter.ActorAlign.CENTER,
+        });
         titleBox.add_child(new St.Label({
             text: this.title ?? _('Downloads'),
             style_class: 'aqua-dl-hdr-label',
@@ -145,7 +151,11 @@ export class PanelView {
             reactive: true, track_hover: true, can_focus: true, x_expand: view !== 'grid',
         });
         row.set_style('background-color: transparent; border: none; box-shadow: none;');
-        const box = new St.BoxLayout({ style_class: 'aqua-dl-row-inner', vertical: false, x_expand: true });
+        const box = new St.BoxLayout({
+            style_class: 'aqua-dl-row-inner',
+            orientation: Clutter.Orientation.HORIZONTAL,
+            x_expand: true,
+        });
         return { row, box };
     }
 
@@ -248,10 +258,22 @@ export class PanelView {
         }
         if (view === 'grid') {
             panel.set_scale(0.88, 0.88);
-            panel.ease({ opacity: 255, scale_x: 1, scale_y: 1, duration: 240, mode: Clutter.AnimationMode.EASE_OUT_CUBIC });
+            panel.ease({
+                opacity: 255,
+                scale_x: 1,
+                scale_y: 1,
+                duration: 240,
+                mode: Clutter.AnimationMode.EASE_OUT_CUBIC,
+            });
         } else {
             panel.translation_y = 12; panel.scale_y = 0.9;
-            panel.ease({ opacity: 255, translation_y: 0, scale_y: 1, duration: 240, mode: Clutter.AnimationMode.EASE_OUT_CUBIC });
+            panel.ease({
+                opacity: 255,
+                translation_y: 0,
+                scale_y: 1,
+                duration: 240,
+                mode: Clutter.AnimationMode.EASE_OUT_CUBIC,
+            });
         }
         tiles.forEach((tile, i) => {
             tile.opacity = 0; tile.translation_y = 6;

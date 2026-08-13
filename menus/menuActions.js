@@ -1,12 +1,4 @@
-// AquaDockPro — context-menu content.
-//
-// Purpose:   Populate a PopupMenu with the right actions for a dock entry
-//            (Applications / mounted devices / Trash / app). Pure builder: it
-//            adds items and wires
-//            their callbacks; it knows nothing about positioning, styling, or
-//            the menu's lifecycle (that's the MenuManager's job).
-// Ownership: Stateless. Adds children to the menu it's given.
-// Cost:      O(desktop-actions + windows). Runs once per menu open.
+// Populate PopupMenu context menu items for dock entries.
 
 import Shell from 'gi://Shell';
 
@@ -26,6 +18,7 @@ export function populateMenu(menu, entry, {
     isLayoutLocked = () => false,
     onToggleLayoutLock = null,
     appWindowsFor = appWindows,
+    isWindowIsolationActive = () => false,
 } = {}) {
     switch (entry.kind) {
         case 'apps':
@@ -72,7 +65,7 @@ export function populateMenu(menu, entry, {
         case 'app':
             if (entry.app)
                 populateAppMenu(menu, entry.app, isLayoutLocked, onToggleLayoutLock,
-                    appWindowsFor);
+                    appWindowsFor, isWindowIsolationActive);
             break;
     }
 }
@@ -83,7 +76,8 @@ function addLayoutToggle(menu, isLayoutLocked, onToggleLayoutLock) {
         () => onToggleLayoutLock?.());
 }
 
-function populateAppMenu(menu, app, isLayoutLocked, onToggleLayoutLock, appWindowsFor) {
+function populateAppMenu(menu, app, isLayoutLocked, onToggleLayoutLock,
+    appWindowsFor, isWindowIsolationActive) {
     const appInfo = app.app_info;
     const actions = appInfo?.list_actions?.() ?? [];
     const canNew = app.can_open_new_window();
@@ -135,6 +129,15 @@ function populateAppMenu(menu, app, isLayoutLocked, onToggleLayoutLock, appWindo
 
     if (wins.length && app.get_state() === Shell.AppState.RUNNING) {
         menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
-        menu.addAction(_('Quit'), () => app.request_quit());
+        menu.addAction(_('Quit'), () => {
+            if (!isWindowIsolationActive()) {
+                app.request_quit();
+                return;
+            }
+            const time = global.get_current_time();
+            for (const win of appWindowsFor(app)) {
+                try { win.delete(time); } catch { }
+            }
+        });
     }
 }

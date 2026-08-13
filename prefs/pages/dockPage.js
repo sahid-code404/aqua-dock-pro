@@ -1,4 +1,4 @@
-// AquaDockPro preferences — Dock page (look & layout of the dock itself).
+// Preferences page for dock position, alignment, and styling.
 
 import { page, group, spinRow, switchRow, comboRow, colorRow, iconChooserRow }
     from '../widgets/rows.js';

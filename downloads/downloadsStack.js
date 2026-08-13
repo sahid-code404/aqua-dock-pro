@@ -1,13 +1,4 @@
-// AquaDockPro — the Downloads stack popup controller.
-//
-// Purpose:   Open the right view (fan / grid / list) over a full-screen click
-//            blocker, drive its open/close animation, and tear everything down
-//            cleanly. The async file read is generation-guarded so a stack that
-//            was closed (or the extension disabled) before the read finished
-//            never builds a ghost popup.
-// Ownership: OWNS the blocker, the current view, and any "dying" (animating-out)
-//            actor. hide() animates then destroys; destroy() is synchronous.
-// Cost:      One popup at a time. Enumeration is async (never blocks paint).
+// Controller for the Downloads stack popup views (fan, grid, list).
 
 import Clutter from 'gi://Clutter';
 import Gio from 'gi://Gio';

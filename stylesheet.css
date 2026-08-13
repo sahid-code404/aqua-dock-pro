@@ -31,9 +31,15 @@
     padding:          0;
 }
 .aqua-item:focus {
-    outline: 2px solid rgba(255, 255, 255, 0.72);
-    outline-offset: -3px;
-    border-radius: 12px;
+    background-color: transparent;
+    border:           none;
+    outline:          none;
+}
+.aqua-focus-pill {
+    background-color: rgba(255, 255, 255, 0.10);
+    border:           1px solid rgba(255, 255, 255, 0.42);
+    border-radius:    999px;
+    box-shadow:       none;
 }
 
 /* ── Running indicators (positioned/sized from JS) ────────────────────────── */
@@ -54,16 +60,16 @@
 }
 .aqua-indic-glow {
     background-color: transparent;
-    border-radius:    50%;
+    border-radius:    999px;
     box-shadow:       none;
 }
 .aqua-indic-glow-dots {
-    border-radius:    50%;
+    border-radius:    999px;
     background-color: rgba(235, 235, 235, 0.95);
     box-shadow:       none;
 }
 
-/* ── Glass separator ──────────────────────────────────────────────────────── */
+/* ── Section separator ────────────────────────────────────────────────────── */
 .aqua-separator {
     background-color: rgba(255, 255, 255, 0.22);
     border-radius:    1px;

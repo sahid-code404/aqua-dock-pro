@@ -1,4 +1,4 @@
-// AquaDockPro preferences — Downloads page (stack + file-card styling).
+// Preferences page for Downloads stack appearance and sorting.
 
 import { page, group, spinRow, switchRow, comboRow, colorRow, folderChooserRow }
     from '../widgets/rows.js';

@@ -1,13 +1,4 @@
-// AquaDockPro — Downloads "fan" view.
-//
-// Purpose:   Build the macOS-style stack fan: cards spray up and out of the dock
-//            icon, the most-recent file at the bottom. Owns its open animation
-//            (cards fly from the icon) and close animation (cards retract into
-//            the icon). Pure view: it's handed the file list + geometry and a
-//            close() callback; it knows nothing about the watcher or the dock.
-// Ownership: Owns the fan actor + its row cards (destroyed with the actor) and a
-//            SelectionModel. The DownloadsStack parents/destroys the actor.
-// Cost:      Built once per open; cards are St.Buttons with one icon each.
+// Downloads fan view.
 
 import Clutter from 'gi://Clutter';
 import Gio from 'gi://Gio';

@@ -1,17 +1,4 @@
-// AquaDockPro — dock chrome: the actors and their stage registration.
-//
-// Purpose:   Own the low-level actor tree — the reactive container (the pill's
-//            hit area), the background pill it parents, the dynamic magnification
-//            zone that catches clicks on icons magnified ABOVE the pill, and the
-//            strut that reserves space for maximized windows — plus their
-//            registration with Main.layoutManager. It holds NO behaviour: the
-//            controller connects signals and the engine drives the pill; this
-//            file is purely "make the actors exist and place them".
-// Ownership: OWNS container, bg, magZone, strut. destroy() unregisters chrome
-//            and destroys every actor exactly once.
-// Cleanup:   destroy() — idempotent.
-// Cost:      A handful of actors; geometry setters are called only on relayout
-//            (magZone resize is per-frame but a single set_size/set_position).
+// Dock chrome actor hierarchy and GNOME Shell stage registration.
 
 import Clutter from 'gi://Clutter';
 import St from 'gi://St';
@@ -36,7 +23,7 @@ export class DockChrome {
         // Dynamic invisible zone covering magnified icon overflow above the
         // pill. Zero-sized at rest, so clicks pass through to the desktop.
         this._magZone = new St.Widget({ reactive: true, opacity: 0 });
-        Main.layoutManager.addChrome(this._magZone, { affectsStruts: false, trackFullscreen: false });
+        Main.layoutManager.addChrome(this._magZone, { affectsStruts: false, trackFullscreen: true });
 
         // Thin reactive strip at the very screen edge — the autohide reveal
         // trigger. Fullscreen tracking also removes it from the input region,
@@ -47,7 +34,7 @@ export class DockChrome {
         // Invisible reactive zone filling the edge-margin gap between the pill
         // and the screen edge, so hovering the gap keeps the dock revealed.
         this._edgeZone = new St.Widget({ reactive: true, opacity: 0 });
-        Main.layoutManager.addChrome(this._edgeZone, { affectsStruts: false, trackFullscreen: false });
+        Main.layoutManager.addChrome(this._edgeZone, { affectsStruts: false, trackFullscreen: true });
 
         // Strut reserves screen space so maximized windows clear the dock.
         this._strut = new St.Widget({ reactive: false, opacity: 0 });
@@ -65,6 +52,7 @@ export class DockChrome {
         this._dashWasVisible = true;
         this._dashOpacity = 255;
         this._dashReactive = true;
+        this._dashCfg = null;
     }
 
     get container() { return this._container; }
@@ -133,22 +121,25 @@ export class DockChrome {
         this._dashHeight = dash.height;
         this._dashOpacity = dash.opacity;
         this._dashReactive = dash.reactive;
+        this._dashCfg = cfg;
         this._enforceDash(cfg);
         // Monitor for GNOME resetting dash properties (overview DnD does this).
         this._dashNotifyIds = [
-            dash.connect('notify::opacity', () => this._enforceDash(cfg)),
-            dash.connect('notify::reactive', () => this._enforceDash(cfg)),
+            dash.connect('notify::opacity', () => this._enforceDash()),
+            dash.connect('notify::reactive', () => this._enforceDash()),
         ];
     }
 
-    _enforceDash(cfg) {
+    _enforceDash(cfg = null) {
         const dash = this._dash;
         if (!dash) return;
+        if (cfg) this._dashCfg = cfg;
+        const current = this._dashCfg;
         try {
             dash.opacity = 0;
             dash.reactive = false;
             dash.add_style_class_name('aqua-dash-hidden');
-            const gap = clamp((cfg?.dockH ?? 48) + (cfg?.edgeMargin ?? 0) + 42, 90, 170);
+            const gap = clamp((current?.dockH ?? 48) + (current?.edgeMargin ?? 0) + 42, 90, 170);
             dash.set_height(gap);
         } catch { }
     }
@@ -178,6 +169,7 @@ export class DockChrome {
             else this._dash.hide();
         } catch { }
         this._dash = null;
+        this._dashCfg = null;
         this._dashHeight = null;
     }
 

@@ -73,12 +73,20 @@ export function importSettings(window, settings, metadata) {
                 parsed.push([key, GLib.Variant.parse(
                     new GLib.VariantType(expected), record.value, null, null)]);
             }
-            settings.delay();
+            // Parse and validate the whole document before changing anything.
+            // Gio.Settings.delay() is sticky for the lifetime of the object,
+            // which would leave the rest of the preferences window delayed.
+            const previous = parsed.map(([key]) => [key, settings.get_user_value(key)]);
             try {
-                for (const [key, value] of parsed) settings.set_value(key, value);
-                settings.apply();
+                for (const [key, value] of parsed) {
+                    if (!settings.set_value(key, value))
+                        throw new Error(format(_('Setting “%s” could not be restored.'), key));
+                }
             } catch (e) {
-                settings.revert();
+                for (const [key, value] of previous) {
+                    if (value === null) settings.reset(key);
+                    else settings.set_value(key, value);
+                }
                 throw e;
             }
             showMessage(window, _('Settings imported'),

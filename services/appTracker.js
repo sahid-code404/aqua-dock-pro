@@ -1,25 +1,11 @@
-// AquaDockPro — the dock's entry model (what chips exist, in what order).
-//
-// Purpose:   Produce the ordered list of dock entries — the configurable
-//            Applications button, pinned favourites, running-but-unpinned apps,
-//            then Downloads, mounted devices and Trash — and fire a callback whenever
-//            anything that affects that list changes (favourites, app install/
-//            state, active workspace under isolate-workspaces). The dock turns
-//            entries into chips; this service knows nothing about actors.
-// Ownership: OWNS its shell-signal connections (one SignalGroup) and the cached
-//            static GIcons. destroy() releases all of them.
-// Cleanup:   destroy() disconnects every signal and drops the icon cache.
-// Cost:      getEntries() is O(favourites + running). Called on app events, not
-//            per frame. Static GIcons are built once (re-allocating would defeat
-//            the icon-identity fast path in the chip diff).
+// Dock entry model tracking app favorites, running apps, and system shortcuts.
 
 import Gio from 'gi://Gio';
 import Shell from 'gi://Shell';
 import * as AppFavorites from 'resource:///org/gnome/shell/ui/appFavorites.js';
 
-import { SignalGroup, appWindows } from '../core/utils.js';
+import { SignalGroup, appWindowsForConfig } from '../core/utils.js';
 import { _ } from '../core/i18n.js';
-import { trashHasFiles } from './fileService.js';
 
 export class AppTracker {
     // getConfig: () => current config snapshot (for the section/isolate flags).
@@ -32,9 +18,9 @@ export class AppTracker {
         this._folderGicon = null;
         this._trashFull = null;
         this._trashEmpty = null;
-        // Seed the trash state so the very first getEntries() shows the
-        // correct full/empty icon without waiting for a monitor callback.
-        this._trashIsFull = trashHasFiles();
+        this._windowSignals = new Map();
+        // TrashWatcher fills this asynchronously after the first actor sync.
+        this._trashIsFull = false;
     }
 
     start(onChanged) {
@@ -45,7 +31,53 @@ export class AppTracker {
         this._signals.connect(favs, 'changed', fire);
         this._signals.connect(sys, 'installed-changed', fire);
         this._signals.connect(sys, 'app-state-changed', fire);
-        this._signals.connect(global.workspace_manager, 'active-workspace-changed', fire);
+
+        const cfg = this._getConfig();
+        if (cfg.isolateWS)
+            this._signals.connect(global.workspace_manager, 'active-workspace-changed', fire);
+        if (cfg.isolateWS || cfg.isolateMonitors) {
+            this._signals.connect(global.display, 'window-created', (_display, window) => {
+                this._trackWindow(window, fire);
+                fire();
+            });
+            for (const actor of global.get_window_actors?.() ?? [])
+                this._trackWindow(actor.meta_window, fire);
+        }
+        if (cfg.isolateMonitors) {
+            const onMonitorChanged = (_display, monitorIndex) => {
+                if (monitorIndex === this._getConfig()?.monitorIndex) fire();
+            };
+            this._signals.connect(global.display, 'window-entered-monitor', onMonitorChanged);
+            this._signals.connect(global.display, 'window-left-monitor', onMonitorChanged);
+        }
+    }
+
+    _trackWindow(window, onChanged) {
+        if (!window || this._windowSignals.has(window)) return;
+        const ids = [];
+        try {
+            if (this._getConfig()?.isolateWS)
+                ids.push(window.connect('workspace-changed', onChanged));
+            ids.push(window.connect('unmanaging', () => {
+                this._untrackWindow(window);
+                onChanged();
+            }));
+        } catch {
+            for (const id of ids) {
+                try { window.disconnect(id); } catch { }
+            }
+            return;
+        }
+        this._windowSignals.set(window, ids);
+    }
+
+    _untrackWindow(window) {
+        const ids = this._windowSignals.get(window);
+        if (!ids) return;
+        this._windowSignals.delete(window);
+        for (const id of ids) {
+            try { window.disconnect(id); } catch { }
+        }
     }
 
     getEntries() {
@@ -54,15 +86,11 @@ export class AppTracker {
         const favIds = new Set();
         for (const a of favsList) favIds.add(a.get_id());
         const running = Shell.AppSystem.get_default().get_running();
-        const ws = cfg.isolateWS ? global.workspace_manager.get_active_workspace() : null;
-
         const runningExtra = [];
         for (const app of running) {
             if (favIds.has(app.get_id())) continue;
-            const windows = appWindows(app);
-            if (ws && !windows.some(w => w.located_on_workspace(ws))) continue;
-            if (cfg.isolateMonitors &&
-                !windows.some(w => w.get_monitor?.() === cfg.monitorIndex)) continue;
+            const windows = appWindowsForConfig(app, cfg);
+            if ((cfg.isolateWS || cfg.isolateMonitors) && !windows.length) continue;
             runningExtra.push(app);
         }
 
@@ -137,6 +165,8 @@ export class AppTracker {
 
     destroy() {
         this._signals.disconnectAll();
+        for (const window of this._windowSignals.keys()) this._untrackWindow(window);
+        this._windowSignals.clear();
         this._onChanged = null;
         this._dlGicon = null;
         this._folderGicon = null;

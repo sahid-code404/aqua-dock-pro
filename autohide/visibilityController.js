@@ -1,14 +1,4 @@
-// AquaDockPro — the dock's show/hide slide.
-//
-// Purpose:   Own the single source of truth for "is the dock hidden?" and the
-//            container slide between its shown and hidden positions. Nothing
-//            else moves the container on the hide axis. Kept tiny and free of
-//            policy — the AutohideManager decides WHEN to hide; this decides HOW.
-// Ownership: Borrows the container actor; owns only the in-flight slide
-//            transition, which it removes before starting a new one so eases
-//            never stack.
-// Cleanup:   reset() shows the dock; destroy() drops the reference.
-// Cost:      One ease per state change (rare). Zero per-frame cost.
+// Controls dock container slide animations between shown and hidden states.
 
 import Clutter from 'gi://Clutter';
 

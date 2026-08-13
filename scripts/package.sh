@@ -8,6 +8,7 @@ output_dir=${1:-"$project_root/dist"}
 mkdir -p "$output_dir"
 
 extra=()
+extra+=(--extra-source=LICENSE)
 for directory in animation autohide compat core dock downloads effects interactions menus prefs services ui; do
     [[ -d "$project_root/$directory" ]] || continue
     extra+=(--extra-source="$directory")

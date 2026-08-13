@@ -1,19 +1,17 @@
-// AquaDockPro — click activation policy for dock icons.
-//
-// Purpose:   Turn a left/middle click on an icon into the right window action —
-//            launch (with a launch-bounce watch), raise, cycle, or minimize —
-//            matching the dock's "smart click" behaviour. Extracted from the
-//            controller so the orchestrator stays small and the (fiddly) click
-//            rules live in one testable place.
-// Ownership: OWNS the launch-watch signal connections (per app) and their
-//            timeout group. destroy() releases all of them.
-// Cost:      O(windows) per click. No background or per-frame work.
+// Click activation policy for launching, focusing, cycling, and minimizing app windows.
 
 import GLib from 'gi://GLib';
 import Shell from 'gi://Shell';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
-import { TimeoutGroup, getFocusedAppSafe, appWindows, launchUri, logError } from '../core/utils.js';
+import {
+    TimeoutGroup,
+    getFocusedAppSafe,
+    appWindows,
+    appWindowsForConfig,
+    launchUri,
+    logError,
+} from '../core/utils.js';
 
 const LAUNCH_LOCK_US = 1200 * 1000;
 const LAUNCH_WATCH_MS = 8000;
@@ -23,8 +21,8 @@ export class AppActions {
         this._getConfig = getConfig;
         this._genie = genie;
         this._timers = new TimeoutGroup();
-        this._launching = new Map();   // app -> { stateId, timeoutId }
-        this._lastClickItem = null;
+        this._launching = new Map();   // app -> { item, stateId, itemDestroyId, timeoutId }
+        this._lastClickKey = null;
     }
 
     activate(item, button) {
@@ -49,14 +47,13 @@ export class AppActions {
 
     _activateApp(app, item, button) {
         const cfg = this._getConfig();
+        const clickKey = item.entry?.key ?? app.get_id?.() ?? null;
         let action = button === 2 ? cfg.middleClickAction : cfg.leftClickAction;
         if (action === 'nothing') return;
         if (action === 'new-window') { this._launch(app, item); return; }
         if (button === 2 && action === 'smart') button = 1;
 
-        let windows = appWindows(app);
-        if (cfg.isolateMonitors)
-            windows = windows.filter(win => win.get_monitor?.() === cfg.monitorIndex);
+        const windows = appWindowsForConfig(app, cfg);
         const focusApp = getFocusedAppSafe();
         const ws = global.workspace_manager.get_active_workspace();
         const onHere = windows.filter(w => !w.minimized && (!ws || w.located_on_workspace(ws)));
@@ -64,7 +61,7 @@ export class AppActions {
 
         if (windows.length === 0) {
             if (app.get_state() === Shell.AppState.STARTING || this._launching.has(app)) {
-                this._lastClickItem = item; return;
+                this._lastClickKey = clickKey; return;
             }
             this._launch(app, item); return;
         }
@@ -73,32 +70,32 @@ export class AppActions {
             const visible = windows.filter(w => !w.minimized);
             if (visible.length) this._minimize(item, visible);
             else this._raise(windows, item);
-            this._lastClickItem = null;
+            this._lastClickKey = null;
             return;
         }
         if (action === 'cycle') {
             this._cycle(windows);
-            this._lastClickItem = item;
+            this._lastClickKey = clickKey;
             return;
         }
 
-        const repeat = this._lastClickItem === item;
-        if (onHere.length === 0) { this._raise(windows, item); this._lastClickItem = item; return; }
+        const repeat = this._lastClickKey === clickKey;
+        if (onHere.length === 0) { this._raise(windows, item); this._lastClickKey = clickKey; return; }
         if (button === 1 && onHere.length > 1 && !focusedHere && !repeat) {
-            this._raise(windows, item); this._lastClickItem = item; return;
+            this._raise(windows, item); this._lastClickKey = clickKey; return;
         }
         if (focusedHere && onHere.length > 1) {
             const cur = onHere.findIndex(w => w.has_focus());
             onHere[(cur + 1) % onHere.length].activate(global.get_current_time());
-            this._lastClickItem = item; return;
+            this._lastClickKey = clickKey; return;
         }
         if (cfg.clickToMinimize && (focusedHere || (repeat && focusApp === app))) {
             const wins = (onHere.find(w => w.has_focus()) ? [onHere.find(w => w.has_focus())] : onHere);
             this._minimize(item, wins);
             item.bounce(Math.max(8, Math.round(cfg.bounceHeight * 0.5)), { decay: cfg.bounceDecay });
-            this._lastClickItem = null; return;
+            this._lastClickKey = null; return;
         }
-        this._raise(windows, item); this._lastClickItem = item;
+        this._raise(windows, item); this._lastClickKey = clickKey;
     }
 
     _cycle(windows, backwards = false) {
@@ -157,7 +154,7 @@ export class AppActions {
             if (app.get_state() === Shell.AppState.RUNNING) app.open_new_window(-1);
             else app.activate();
         } catch (e) { logError(e, 'launch'); return; }
-        this._lastClickItem = item;
+        this._lastClickKey = item.entry?.key ?? app.get_id?.() ?? null;
         if (Main.overview.visible) Main.overview.hide();
         this._beginLaunchWatch(app, item);
     }
@@ -169,15 +166,21 @@ export class AppActions {
         const launching = () => this._launching.has(app);
         item.bounce(cfg.bounceHeight, { state: 'launch', repeat: launching, decay: cfg.bounceDecay });
 
-        const rec = { stateId: 0, timeoutId: 0 };
-        const stop = () => {
+        const rec = { item, stateId: 0, itemDestroyId: 0, timeoutId: 0 };
+        const stop = (itemDestroyed = false) => {
             if (!this._launching.has(app)) return;
             this._launching.delete(app);
             if (rec.stateId) { try { app.disconnect(rec.stateId); } catch { } }
             if (rec.timeoutId) this._timers.remove(rec.timeoutId);
-            item.stopBounce();
+            if (rec.itemDestroyId && !itemDestroyed) {
+                try { item.disconnect(rec.itemDestroyId); } catch { }
+            }
+            rec.stateId = rec.itemDestroyId = rec.timeoutId = 0;
+            rec.item = null;
+            if (!itemDestroyed) item.stopBounce();
         };
         rec.stateId = app.connect('windows-changed', () => { if (appWindows(app).length) stop(); });
+        rec.itemDestroyId = item.connect('destroy', () => stop(true));
         rec.timeoutId = this._timers.addOnce(LAUNCH_WATCH_MS, () => { rec.timeoutId = 0; stop(); });
         this._launching.set(app, rec);
         if (appWindows(app).length > 0) stop();
@@ -187,10 +190,19 @@ export class AppActions {
         for (const [app, rec] of this._launching) {
             if (rec.stateId) { try { app.disconnect(rec.stateId); } catch { } }
             if (rec.timeoutId) this._timers.remove(rec.timeoutId);
+            if (rec.itemDestroyId) {
+                // DockController destroys AppActions before its item actors, so
+                // the connection is still live here.
+                try { rec.item?.disconnect(rec.itemDestroyId); } catch { }
+            }
+            rec.item = null;
         }
         this._launching.clear();
         this._timers.removeAll();
-        this._lastClickItem = null;
+        this._lastClickKey = null;
+        this._launchLockApp = null;
+        this._launchLockAt = 0;
         this._getConfig = null;
+        this._genie = null;
     }
 }

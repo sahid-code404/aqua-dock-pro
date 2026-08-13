@@ -1,10 +1,5 @@
-// AquaDockPro — frame-rate-independent easing primitives.
-//
-// Purpose:   Pure math used by the per-frame loop. The key idea is exponential
-//            smoothing driven by elapsed time, not by a fixed per-frame factor —
-//            so the same visual settle time holds at 60, 120 or 144 Hz / VRR.
-// Ownership: Stateless. No actors, no timers, no allocation.
-// Cost:      One exp() per call; callers invoke a handful of times per frame.
+// Frame-rate-independent exponential smoothing primitives.
+// Settle time remains invariant across 60/120/144 Hz and VRR.
 
 // Critically-damped-style approach toward a target. `tauMs` is the time
 // constant: larger = slower/softer. Returns the new value; caller keeps state.
