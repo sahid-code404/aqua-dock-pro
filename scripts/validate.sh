@@ -76,5 +76,7 @@ if [[ ${AQUA_RUN_PREFS_SMOKE:-0} == 1 ]]; then
     gjs -m tests/prefsSmoke.test.js
 fi
 
-git diff --check
+git --version
+git status --short
+git diff --check HEAD --
 printf 'AquaDockPro validation passed.\n'
