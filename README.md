@@ -26,7 +26,7 @@
 
 <br/>
 
-> ⚠️ **Work in progress:** There are still bugs and unfinished parts. I'm testing and fixing things regularly.
+> ⚠️ **Work in progress:** There are still bugs and I'm testing and fixing things regularly.
 
 </div>
 
