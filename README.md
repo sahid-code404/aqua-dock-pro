@@ -1,3 +1,4 @@
+Work in progress: Aqua Dock Pro is under active development. There are known bugs and edge cases, and I'm continuously testing and fixing them. Bug reports and feedback are very welcome.
 <div align="center">
 
 <br/>
