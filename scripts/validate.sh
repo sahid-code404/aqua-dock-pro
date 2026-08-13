@@ -80,4 +80,4 @@ if [[ "${CI:-}" != "true" ]]; then
     git diff --check
 fi
 
-printf 'AquaDockPro validation passed.\n' 
+printf 'AquaDockPro validation passed.\n'
