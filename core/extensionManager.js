@@ -5,11 +5,13 @@ import Shell from 'gi://Shell';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
+import { DOCK_NOOP_KEYS } from './constants.js';
 import { EventBus } from './eventBus.js';
 import { SettingsManager } from './settingsManager.js';
 import { clearRuntimeWarnings, log, logError, setReduceMotionOverride } from './utils.js';
 import { DockController } from '../dock/dockController.js';
 import { cancelMountedDeviceOperations } from '../services/mountedDevices.js';
+import { clearNotificationCache } from '../services/notificationService.js';
 
 export class ExtensionManager {
     constructor(extension) {
@@ -24,13 +26,11 @@ export class ExtensionManager {
 
     enable() {
         try {
-            // Construction order = dependency order. Bus first, then settings.
             this._bus = new EventBus();
             this._settings = new SettingsManager(this._extension.getSettings(), this._bus);
             setReduceMotionOverride(this._settings.config.reduceMotion);
+            clearNotificationCache();
 
-            // A structural settings change rebuilds the dock; anything else is a
-            // cheap in-place refresh so dragging a slider never tears it down.
             this._unsubSettings = this._bus.on('settings-changed', payload =>
                 this._onSettingsChanged(payload));
 
@@ -54,8 +54,6 @@ export class ExtensionManager {
         const primaryIndex = primary >= 0 && primary < monitors.length ? primary : 0;
         if (!this._settings.config.multiMonitor) return [primaryIndex];
 
-        // Build the primary controller first so it is the sole owner of the
-        // global GNOME overview dash. The remaining controllers are independent.
         const indexes = [primaryIndex];
         for (let i = 0; i < monitors.length; i++) {
             if (i !== primaryIndex) indexes.push(i);
@@ -106,8 +104,6 @@ export class ExtensionManager {
     }
 
     _focusDock() {
-        // The shortcut is a toggle. Check every controller because the focused
-        // dock may no longer match the active window's monitor.
         const focusedDock = this._docks.find(dock => dock.keyboardFocusActive);
         if (focusedDock) {
             focusedDock.exitKeyboardFocus();
@@ -143,8 +139,15 @@ export class ExtensionManager {
         }
     }
 
-    _onSettingsChanged({ structural }) {
+    _onSettingsChanged({ structural, keys }) {
         setReduceMotionOverride(this._settings.config.reduceMotion);
+
+        // GSettings owns the keybinding and the migration key is internal.
+        // Neither changes dock geometry or presentation, so avoid waking every
+        // monitor for a full relayout when a batch contains only those keys.
+        if (keys?.size && [...keys].every(key => DOCK_NOOP_KEYS.has(key)))
+            return;
+
         if (structural || !this._docks.length) {
             this._rebuildDocks();
             return;
@@ -152,7 +155,6 @@ export class ExtensionManager {
         try {
             for (const dock of this._docks) dock.applySettings();
         } catch (e) {
-            // Fall back to a full rebuild rather than leave one dock half-applied.
             logError(e, 'applySettings → rebuilding');
             this._rebuildDocks();
         }
@@ -172,6 +174,7 @@ export class ExtensionManager {
 
         this._destroyDocks();
         cancelMountedDeviceOperations();
+        clearNotificationCache();
 
         this._settings?.destroy();
         this._settings = null;

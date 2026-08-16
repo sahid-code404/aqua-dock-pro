@@ -1,5 +1,11 @@
 # Changelog
 
+## 249
+
+- Reuse notification snapshots across dock instances when Shell notification sources and counts are unchanged, reducing repeated app-ID resolution and map allocation on multi-monitor refreshes.
+- Skip dock-wide apply/relayout work for keybinding-only and internal settings batches that do not affect dock presentation.
+- Clear shared notification snapshot state across extension enable/disable boundaries so no source references survive lifecycle teardown.
+
 ## 248
 
 - Share app/window tracking, location metadata resolution, mounted-device signals, Downloads monitoring, and Trash state work across dock instances to reduce multi-monitor idle overhead.
