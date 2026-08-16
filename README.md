@@ -38,7 +38,7 @@ Aqua Dock Pro is a customizable GNOME Shell dock with smooth magnification, spri
 
 Currently focused on **GNOME Shell 50 + Wayland**.
 
-> 🧪 Around **3–4 months of work and 230+ install/test/debug cycles** so far.<br/>
+> 🧪 Around **3–4 months of work and 240+ install/test/debug cycles** so far.<br/>
 > 🤖 **AI disclosure:** I use AI tools for coding help, debugging, refactoring, GNOME/GJS API help and some documentation, and I test and fix the results myself.
 
 ---
