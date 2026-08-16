@@ -22,6 +22,14 @@ assert(hasFullscreenWindow([fullscreen, coveringWindow], 1, workspace),
     'a covered fullscreen window must keep the dock hidden');
 assert(hasFullscreenWindow([coveringWindow, fullscreen], 1, workspace),
     'window stacking order must not change fullscreen ownership');
+assert(hasFullscreenWindow(
+    [coveringWindow, fullscreen].filter(win => win !== coveringWindow),
+    1, workspace),
+    'a fullscreen window underneath a closing cover must be detected before the restack');
+assert(!hasFullscreenWindow(
+    [coveringWindow, fullscreen].filter(win => win !== fullscreen),
+    1, workspace),
+    'closing the fullscreen owner itself must not invent another fullscreen blocker');
 assert(!windowKeepsDockHidden(fullscreen, 0, workspace),
     'fullscreen on another monitor must not hide this dock');
 assert(!windowKeepsDockHidden({ ...fullscreen, minimized: true }, 1, workspace),

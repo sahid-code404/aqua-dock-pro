@@ -9,7 +9,7 @@ import { SignalGroup, TimeoutGroup } from '../core/utils.js';
 import { VisibilityController } from './visibilityController.js';
 import { OverlapDetector } from './overlapDetector.js';
 import { PressureBarrier } from './pressureBarrier.js';
-import { hasFullscreenWindow } from './fullscreenPolicy.js';
+import { hasFullscreenWindow, windowKeepsDockHidden } from './fullscreenPolicy.js';
 import { monitorInFullscreen } from '../compat/shell.js';
 
 const DEBOUNCE_HIDE_MS = 200;
@@ -126,13 +126,23 @@ export class AutohideManager {
 
         const d = global.display;
         s.connect(d, 'restacked', () => this.queueIntellihide());
-        s.connect(d, 'notify::focus-window', () => this.queueIntellihide());
+        // Focus changes are infrequent and can expose an already-fullscreen
+        // window immediately after a covering window disappears. Evaluate
+        // synchronously so the dock cannot survive that hand-off for one frame.
+        s.connect(d, 'notify::focus-window', () => this.updateIntellihide());
         s.connect(d, 'grab-op-end', () => this.queueIntellihide());
         // Positive fullscreen transitions must hide immediately. A transient
         // negative reading is held by _fullscreenBlocksDock() until confirmed.
         s.connect(d, 'in-fullscreen-changed', () => this.updateIntellihide());
 
         const wm = global.window_manager;
+        // Shell.WM emits destroy/minimize before the compositor effect has
+        // completed. If that window is covering a fullscreen window, pre-hide
+        // now rather than waiting for the later restack/fullscreen signals.
+        s.connect(wm, 'destroy', (_wm, actor) =>
+            this._onCoveringWindowLeaving(actor?.meta_window));
+        s.connect(wm, 'minimize', (_wm, actor) =>
+            this._onCoveringWindowLeaving(actor?.meta_window));
         s.connect(wm, 'size-change', () => this.queueIntellihide());
 
         s.connect(global.workspace_manager, 'active-workspace-changed', () => this.queueIntellihide());
@@ -158,10 +168,7 @@ export class AutohideManager {
         // Fullscreen owns visibility on the dock's monitor. Cancelling here
         // also stops a reveal armed just before the fullscreen transition.
         if (this._fullscreenBlocksDock()) {
-            this._cancelHide();
-            this._cancelReveal();
-            this._cancelDebounce();
-            this._setHidden(true, false);
+            this._forceFullscreenHidden();
             return;
         }
         if (mode === 'never' || Main.overview.visible || this._host.isInteractionActive?.()) {
@@ -269,25 +276,84 @@ export class AutohideManager {
     }
 
     // ── Fullscreen policy ────────────────────────────────────────────────────
+    _forceFullscreenHidden() {
+        this._cancelHide();
+        this._cancelReveal();
+        this._cancelDebounce();
+        this._setHidden(true, false);
+    }
+
+    _onCoveringWindowLeaving(window) {
+        if (!this._enabled || Main.overview.visible || !window) return;
+
+        const monitor = this._host.getMonitorIndex?.() ?? -1;
+        if (monitor < 0) return;
+
+        let workspace;
+        try {
+            workspace = global.workspace_manager.get_active_workspace();
+            if (window.get_monitor?.() !== monitor) return;
+            if (workspace && typeof window.located_on_workspace === 'function' &&
+                !window.located_on_workspace(workspace))
+                return;
+        } catch {
+            return;
+        }
+
+        // Meta.Display.list_all_windows() keeps Meta.Window objects independent
+        // of compositor actor visibility. Exclude the window that is leaving:
+        // only a different fullscreen window underneath should pre-hide us.
+        let windows = null;
+        try { windows = global.display?.list_all_windows?.() ?? null; }
+        catch { windows = null; }
+        if (!windows) {
+            try { windows = workspace?.list_windows?.() ?? null; }
+            catch { windows = null; }
+        }
+        if (!windows) return;
+
+        for (const candidate of windows) {
+            if (candidate === window) continue;
+            if (!windowKeepsDockHidden(candidate, monitor, workspace)) continue;
+            this._fullscreenBlocked = true;
+            this._cancelFullscreenClear();
+            this._forceFullscreenHidden();
+            return;
+        }
+    }
+
     _rawFullscreenBlocksDock() {
         const monitor = this._host.getMonitorIndex?.() ?? -1;
         if (monitor < 0) return false;
         if (monitorInFullscreen(monitor)) return true;
 
-        // Mutter can briefly clear its monitor flag while restacking windows.
-        // A still-fullscreen window on this monitor/workspace remains decisive.
+        let workspace = null;
+        try { workspace = global.workspace_manager.get_active_workspace(); }
+        catch { }
+
+        // list_all_windows() is the stable Meta.Window inventory. Unlike actor
+        // lists, it is not tied to whether a window is currently mapped/painted.
         try {
-            const workspace = global.workspace_manager.get_active_workspace();
-            let windows = workspace?.list_windows?.();
-            if (!windows) {
-                windows = global.get_window_actors()
-                    .map(actor => actor.meta_window)
-                    .filter(Boolean);
+            const windows = global.display?.list_all_windows?.();
+            if (windows) return hasFullscreenWindow(windows, monitor, workspace);
+        } catch { }
+
+        // Compatibility fallback for Shell versions where the display inventory
+        // is unavailable. Keep the old workspace/actor sources as a last resort.
+        try {
+            const windows = workspace?.list_windows?.();
+            if (windows && hasFullscreenWindow(windows, monitor, workspace))
+                return true;
+        } catch { }
+        try {
+            const actors = global.get_window_actors?.() ?? [];
+            for (const actor of actors) {
+                if (windowKeepsDockHidden(actor?.meta_window, monitor, workspace))
+                    return true;
             }
-            return hasFullscreenWindow(windows, monitor, workspace);
-        } catch {
-            return false;
-        }
+        } catch { }
+
+        return false;
     }
 
     _fullscreenBlocksDock() {
