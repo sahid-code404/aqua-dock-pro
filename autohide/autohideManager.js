@@ -43,6 +43,8 @@ export class AutohideManager {
         this._idleId = 0;
         this._fullscreenClearId = 0;
         this._fullscreenBlocked = false;
+        this._windowTransitions = new Map();
+        this._transitionReleaseId = 0;
         this._enabled = false;
     }
 
@@ -62,12 +64,14 @@ export class AutohideManager {
         this._cancelReveal();
         this._cancelDebounce();
         this._cancelFullscreenClear();
+        this._clearWindowTransitions();
         this._timers.removeAll();
         this._hideId = 0;
         this._revealId = 0;
         this._debounceId = 0;
         this._idleId = 0;
         this._fullscreenClearId = 0;
+        this._transitionReleaseId = 0;
         this._fullscreenBlocked = false;
         this._signals.disconnectAll();
         this._setHidden(false, false);   // show before tearing down
@@ -100,6 +104,7 @@ export class AutohideManager {
     // ── Pointer hooks called by the controller ───────────────────────────────
     onDockActivity() {
         this._cancelHide();
+        if (this._transitionBlocksReveal()) return;
         if (this._vis.hidden && !this._pointerButtonDown())
             this._setHidden(false, true);
     }
@@ -136,13 +141,15 @@ export class AutohideManager {
         s.connect(d, 'in-fullscreen-changed', () => this.updateIntellihide());
 
         const wm = global.window_manager;
-        // Shell.WM emits destroy/minimize before the compositor effect has
-        // completed. If that window is covering a fullscreen window, pre-hide
-        // now rather than waiting for the later restack/fullscreen signals.
-        s.connect(wm, 'destroy', (_wm, actor) =>
-            this._onCoveringWindowLeaving(actor?.meta_window));
-        s.connect(wm, 'minimize', (_wm, actor) =>
-            this._onCoveringWindowLeaving(actor?.meta_window));
+        // Hold an already-hidden dock through the compositor's destroy/minimize
+        // effect. WM/focus/restack signals can otherwise observe a half-updated
+        // actor list and briefly reveal the dock before the next window settles.
+        const onWindowLeaving = actor => {
+            this._beginWindowTransition(actor);
+            this._onCoveringWindowLeaving(actor?.meta_window);
+        };
+        s.connect(wm, 'destroy', (_wm, actor) => onWindowLeaving(actor));
+        s.connect(wm, 'minimize', (_wm, actor) => onWindowLeaving(actor));
         s.connect(wm, 'size-change', () => this.queueIntellihide());
 
         s.connect(global.workspace_manager, 'active-workspace-changed', () => this.queueIntellihide());
@@ -171,6 +178,16 @@ export class AutohideManager {
             this._forceFullscreenHidden();
             return;
         }
+
+        // A hidden dock must not be revealed from an intermediate WM snapshot.
+        // Wait for every concurrent destroy/minimize effect on this monitor to
+        // finish, then re-evaluate once on the next idle turn.
+        if (this._transitionBlocksReveal()) {
+            this._cancelHide();
+            this._cancelReveal();
+            return;
+        }
+
         if (mode === 'never' || Main.overview.visible || this._host.isInteractionActive?.()) {
             this._cancelHide();
             this._setHidden(false, true);
@@ -232,7 +249,8 @@ export class AutohideManager {
 
     _beginReveal() {
         this._cancelReveal();
-        if (this._fullscreenBlocksDock() || this._pointerButtonDown()) return;
+        if (this._transitionBlocksReveal() ||
+            this._fullscreenBlocksDock() || this._pointerButtonDown()) return;
         const cfg = this._host.getConfig();
         if (cfg.pressureSense) { this._pressure.begin(); return; }
         if (cfg.revealPressure <= 0) { this._setHidden(false, true); return; }
@@ -248,7 +266,8 @@ export class AutohideManager {
     }
 
     _reveal() {
-        if (this._fullscreenBlocksDock() || this._pointerButtonDown()) return;
+        if (this._transitionBlocksReveal() ||
+            this._fullscreenBlocksDock() || this._pointerButtonDown()) return;
         this._cancelHide();
         this._setHidden(false, true);
     }
@@ -258,6 +277,7 @@ export class AutohideManager {
         const cfg = this._host.getConfig();
         const fullscreen = this._fullscreenBlocksDock();
         if (fullscreen) hidden = true;
+        else if (!hidden && this._transitionBlocksReveal()) hidden = true;
         else if (cfg.autoHideMode === 'never' && hidden) hidden = false;
         const geom = this._host.getGeom();
         if (!geom) return;
@@ -273,6 +293,83 @@ export class AutohideManager {
         } else {
             this._host.chrome.applyEdgeZone(geom.edgeZone);
         }
+    }
+
+    // ── Window-transition guard ───────────────────────────────────────────────
+    _beginWindowTransition(actor) {
+        if (!this._enabled || Main.overview.visible || !actor ||
+            this._windowTransitions.has(actor)) return;
+
+        const window = actor.meta_window;
+        const monitor = this._host.getMonitorIndex?.() ?? -1;
+        if (!window || monitor < 0) return;
+        try {
+            if (window.get_monitor?.() !== monitor) return;
+        } catch {
+            return;
+        }
+
+        if (this._transitionReleaseId) {
+            this._timers.remove(this._transitionReleaseId);
+            this._transitionReleaseId = 0;
+        }
+
+        const ids = [];
+        const finish = () => this._finishWindowTransition(actor);
+        try {
+            const id = actor.connect('effects-completed', finish);
+            if (id) ids.push(id);
+        } catch { }
+        try {
+            const id = actor.connect('hide', finish);
+            if (id) ids.push(id);
+        } catch { }
+        try {
+            const id = actor.connect('destroy', finish);
+            if (id) ids.push(id);
+        } catch { }
+        if (!ids.length) return;
+
+        this._windowTransitions.set(actor, ids);
+        if (this._vis.hidden) this._cancelReveal();
+    }
+
+    _finishWindowTransition(actor) {
+        const ids = this._windowTransitions.get(actor);
+        if (!ids) return;
+        this._windowTransitions.delete(actor);
+        for (const id of ids) {
+            try { actor.disconnect(id); } catch { }
+        }
+
+        if (!this._windowTransitions.size && this._enabled && !this._transitionReleaseId) {
+            // Effects are complete, but focus/restack/input-region notifications
+            // from the same compositor turn may still be queued. One idle turn
+            // gives those notifications a consistent final window snapshot.
+            this._transitionReleaseId = this._timers.addIdle(() => {
+                this._transitionReleaseId = 0;
+                this.updateIntellihide();
+                return false;
+            });
+        }
+    }
+
+    _clearWindowTransitions() {
+        if (this._transitionReleaseId) {
+            this._timers.remove(this._transitionReleaseId);
+            this._transitionReleaseId = 0;
+        }
+        for (const [actor, ids] of this._windowTransitions) {
+            for (const id of ids) {
+                try { actor.disconnect(id); } catch { }
+            }
+        }
+        this._windowTransitions.clear();
+    }
+
+    _transitionBlocksReveal() {
+        return this._enabled && !Main.overview.visible && this._vis.hidden &&
+            (this._windowTransitions.size > 0 || this._transitionReleaseId !== 0);
     }
 
     // ── Fullscreen policy ────────────────────────────────────────────────────

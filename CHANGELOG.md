@@ -1,5 +1,21 @@
 # Changelog
 
+## 247
+
+- Hold an already-hidden dock through concurrent window destroy/minimize compositor effects and re-evaluate visibility only after those effects finish.
+- Prevent focus, restack, pointer, and dodge-intellihide updates from briefly revealing the dock from an intermediate window snapshot.
+- Release the transition guard on the next idle turn after Mutter reports all pending window effects completed, with no continuous polling.
+
+## 246
+
+- Pre-hide the dock when a covering window starts closing or minimizing and a fullscreen window remains underneath on the same monitor/workspace.
+- Use the display's complete Meta.Window inventory before workspace/actor fallbacks for fullscreen ownership checks.
+
+## 245
+
+- Stabilize fullscreen ownership across restacks by combining Mutter's monitor fullscreen state with live fullscreen Meta.Window checks.
+- Confirm a fullscreen-clear transition before allowing normal auto-hide visibility to resume.
+
 ## 244
 
 - Extend app scroll actions through the full invisible magnification area above and beside dock icons.
