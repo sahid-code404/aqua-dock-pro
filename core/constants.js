@@ -7,7 +7,6 @@ export const LOG_PREFIX = 'AquaDockPro';
 // These describe the resting dock metrics before the user's dock-scale factor
 // is applied. They are intentionally small integers so derived geometry stays
 // pixel-aligned after rounding.
-export const CELL_PAD = 6;       // horizontal padding inside one icon cell
 export const ICON_BOT = 8;       // gap between a resting icon and the pill bottom
 export const BG_PAD_X = 10;      // padding between the end chips and the pill edge
 export const DOT_SIZE = 5;       // running-indicator dot size
@@ -38,6 +37,9 @@ export const STRUCTURAL_KEYS = Object.freeze(new Set([
     'show-downloads',
     'show-custom-folder',
     'custom-folder-uri',
+    'use-folder-metadata-icons',
+    'show-custom-dock-items',
+    'custom-dock-items',
     'show-mounted-devices',
     'show-removable-devices',
     'show-network-devices',

@@ -3,11 +3,13 @@ dock/dockItem.js
 downloads/downloadManager.js
 downloads/downloadsStack.js
 downloads/fanView.js
+downloads/fileItemMenu.js
 downloads/panelView.js
 interactions/dragManager.js
 menus/menuActions.js
 menus/menuManager.js
 prefs/pages/aboutPage.js
+prefs/pages/accessibilityPage.js
 prefs/pages/behaviorPage.js
 prefs/pages/devicesPage.js
 prefs/pages/dockPage.js
@@ -16,5 +18,6 @@ prefs/pages/motionPage.js
 prefs/pages/popupsPage.js
 prefs/supportTools.js
 prefs/widgets/rows.js
+prefs/widgets/customItems.js
 services/appTracker.js
 ui/preview/previewManager.js

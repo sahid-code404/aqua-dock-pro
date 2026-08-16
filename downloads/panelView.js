@@ -9,8 +9,11 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import { animationsEnabled, clamp, launchUri } from '../core/utils.js';
 import { _, format, ngettext } from '../core/i18n.js';
 import { iconForInfo } from './fileEnumerator.js';
+import { FileItemMenu } from './fileItemMenu.js';
+import { STACK_CLEARANCE, sideFanX } from './fanGeometry.js';
 import { applyTileStyle } from './tileStyle.js';
 import { SelectionModel } from './keyboardNav.js';
+import { buildPlaceIcon } from './placeIcon.js';
 
 const GRID_COLS = 2;
 const CONTENT_GAP = 12;
@@ -24,6 +27,7 @@ export class PanelView {
         this._actor = null;
         this._cols = this._view === 'grid' ? GRID_COLS : 1;
         this._reduce = false;
+        this._fileMenu = new FileItemMenu(opts.mon, opts.cfg);
     }
 
     get actor() { return this._actor; }
@@ -43,7 +47,9 @@ export class PanelView {
         const thumbH = Math.round(thumbSz * 0.72);
         const tileH = Math.max(thumbH, 32) + 20;
         const rowSpacing = 6;
-        const panelGap = Math.max(40 - tileH / 2, 2) + 18;
+        // Preserve the small-icon compensation while adding a little more
+        // air between the folder icon and the opened panel.
+        const panelGap = Math.max(40 - tileH / 2, 2) + STACK_CLEARANCE + 6;
 
         const originX = this.origin.x, ay = this.origin.y;
         const headerH = 60;
@@ -65,6 +71,8 @@ export class PanelView {
             reactive: true,
             can_focus: true,
         });
+        this._actor = panel;
+        if (cfg.highContrast) panel.add_style_class_name('aqua-high-contrast');
         panel.add_child(this._header(folder, files.length));
         panel.add_child(new St.Widget({ style_class: 'aqua-dl-divider' }));
 
@@ -99,22 +107,28 @@ export class PanelView {
         panel.set_width(panelW);
         const a = clamp(cfg.bgOpacity, 0.1, 1.0).toFixed(2);
         const radius = cfg.downloadsBorderRadius ?? clamp((cfg.dockRadius ?? 16) + 2, 0, 26);
-        const bw = cfg.downloadsBorderWidth ?? cfg.borderWidth ?? 1;
-        const bc = cfg.downloadsBorderColor ?? cfg.borderColor ?? 'rgba(255,255,255,0.16)';
+        const bw = cfg.highContrast ? Math.max(2, cfg.downloadsBorderWidth ?? 1)
+            : (cfg.downloadsBorderWidth ?? cfg.borderWidth ?? 1);
+        const bc = cfg.highContrast ? '#ffffff'
+            : (cfg.downloadsBorderColor ?? cfg.borderColor ?? 'rgba(255,255,255,0.16)');
         const border = bw > 0 ? `${bw}px solid ${bc}` : 'none';
-        const fill = cfg.downloadsPillColor ?? cfg.pillColor ?? `rgba(28,28,32,${a})`;
+        const fill = cfg.highContrast ? 'rgba(0,0,0,0.96)'
+            : (cfg.downloadsPillColor ?? cfg.pillColor ?? `rgba(28,28,32,${a})`);
         panel.set_style(`border-radius: ${radius}px; background-color: ${fill}; border: ${border};`);
         panel.set_pivot_point(0.5, 1.0);
         panel.opacity = 0;
 
         Main.uiGroup.add_child(panel);
+        this._fileMenu.bind(panel);
         const [, natH] = panel.get_preferred_height(panelW);
-        const px = clamp(Math.round(originX - panelW / 2), mon.x + 8, mon.x + mon.width - panelW - 8);
-        const py = Math.max(Math.round(ay - natH - panelGap), mon.y + 8);
+        const sideX = sideFanX(cfg.position, originX, cfg.dockH, panelW);
+        const targetX = sideX ?? originX - panelW / 2;
+        const targetY = cfg.vertical ? ay - natH / 2 : ay - natH - panelGap;
+        const px = clamp(Math.round(targetX), mon.x + 8, mon.x + mon.width - panelW - 8);
+        const py = clamp(Math.round(targetY), mon.y + 8, mon.y + mon.height - natH - 8);
         panel.set_position(px, py);
 
         this._model.setRows(tiles);
-        this._actor = panel;
         this._animateOpen(panel, tiles, view);
         return panel;
     }
@@ -122,24 +136,32 @@ export class PanelView {
     _header(folder, count) {
         const header = new St.BoxLayout({ style_class: 'aqua-dl-header' });
         header.get_layout_manager().set_spacing(10);
-        header.add_child(new St.Icon({
-            gicon: this.gicon ?? Gio.ThemedIcon.new('folder-download'), icon_size: 22, style_class: 'aqua-dl-hdr-icon',
-        }));
+        header.add_child(buildPlaceIcon(
+            this.gicon ?? Gio.ThemedIcon.new('folder-download'),
+            22,
+            this.cfg.placeIconSourceSize,
+            'aqua-dl-hdr-icon'));
         const titleBox = new St.BoxLayout({
             orientation: Clutter.Orientation.VERTICAL,
             x_expand: true,
             y_align: Clutter.ActorAlign.CENTER,
         });
-        titleBox.add_child(new St.Label({
+        const title = new St.Label({
             text: this.title ?? _('Downloads'),
             style_class: 'aqua-dl-hdr-label',
-        }));
-        titleBox.add_child(new St.Label({
+        });
+        title.set_style(`font-size: ${(12.5 * (this.cfg.interfaceTextScale ?? 1)).toFixed(2)}pt;`);
+        titleBox.add_child(title);
+        const countLabel = new St.Label({
             text: format(ngettext('%d item', '%d items', count), count),
             style_class: 'aqua-dl-hdr-sub',
-        }));
+        });
+        countLabel.set_style(`font-size: ${(8.5 * (this.cfg.interfaceTextScale ?? 1)).toFixed(2)}pt;`);
+        titleBox.add_child(countLabel);
         header.add_child(titleBox);
         const openBtn = new St.Button({ label: _('Open Folder'), style_class: 'aqua-dl-open-btn' });
+        openBtn.set_style(
+            `font-size: ${(9.5 * (this.cfg.interfaceTextScale ?? 1)).toFixed(2)}pt;`);
         openBtn.connect('clicked', () => { launchUri(folder.get_uri()); this.close(); });
         header.add_child(openBtn);
         return header;
@@ -203,6 +225,7 @@ export class PanelView {
 
     _row(info, view, thumbSz) {
         const { row, box } = this._tile(view);
+        const file = this.folder.get_child(info.get_name());
         const { thumb, thumbW, thumbH, thumbRadius } = this._thumbBin(thumbSz);
         thumb.set_child(new St.Icon({
             gicon: iconForInfo(info), icon_size: Math.round(Math.min(thumbW, thumbH) * 0.78),
@@ -211,13 +234,14 @@ export class PanelView {
         box.add_child(thumb);
         box.add_child(this._contentGap());
         const { labelPill, label } = this._labelPill(info.get_display_name());
+        row.accessible_name = info.get_display_name();
         box.add_child(labelPill);
         row.set_child(box);
         row._thumb = thumb;
         row._updatePillStyle = hover => applyTileStyle(this.cfg, labelPill, label, thumb, thumbRadius, hover, '4px 12px');
         row._updatePillStyle(false);
-        row._activate = () => { launchUri(this.folder.get_child(info.get_name()).get_uri()); this.close(); };
-        row.connect('clicked', row._activate);
+        row._activate = () => { launchUri(file.get_uri()); this.close(); };
+        this._fileMenu.attach(row, file, row._activate);
         this._wireHover(row);
         return row;
     }
@@ -288,6 +312,13 @@ export class PanelView {
         if (sym === Clutter.KEY_Escape) { this.close(); return Clutter.EVENT_STOP; }
         if (!tiles.length) return Clutter.EVENT_PROPAGATE;
         const cols = this._cols, i = this._model.index, last = tiles.length - 1;
+        const menuKey = sym === Clutter.KEY_Menu ||
+            (sym === Clutter.KEY_F10 &&
+                ((ev.get_state?.() ?? 0) & Clutter.ModifierType.SHIFT_MASK));
+        if (menuKey && this._model.current?._openFileMenu) {
+            this._model.current._openFileMenu();
+            return Clutter.EVENT_STOP;
+        }
         if (sym === Clutter.KEY_Up) { this._model.select(i < 0 ? 0 : Math.max(0, i - cols)); return Clutter.EVENT_STOP; }
         if (sym === Clutter.KEY_Down) { this._model.select(i < 0 ? 0 : Math.min(last, i + cols)); return Clutter.EVENT_STOP; }
         if (cols > 1 && sym === Clutter.KEY_Left) { this._model.select(i < 0 ? 0 : Math.max(0, i - 1)); return Clutter.EVENT_STOP; }

@@ -17,6 +17,8 @@ export function buildBehaviorPage(window, s) {
     hide.add(spinRow(s, 'reveal-pressure', _('Reveal delay'),
         _('Wait at the screen edge before revealing (milliseconds); 0 is instant'),
         0, 1000, 25, 0));
+    hide.add(switchRow(s, 'show-autohide-handle', _('Hidden dock rim'),
+        _("Leave the dock pill's screen-facing border visible while hidden")));
     p.add(hide);
 
     // ── Pressure reveal ──

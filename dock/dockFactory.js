@@ -26,7 +26,7 @@ export class DockFactory {
         if (this._isSameLayout(entries)) {
             for (let i = 0; i < entries.length; i++) {
                 const e = entries[i];
-                if (e.kind === 'separator') continue;
+                if (e.kind === 'separator' || e.kind === 'spacer') continue;
                 const item = this._chips[i]?.item;
                 if (!item) continue;
                 item.entry = e;
@@ -43,7 +43,8 @@ export class DockFactory {
         if (entries.length !== this._chips.length) return false;
         const chips = this._chips;
         for (let i = 0, len = entries.length; i < len; i++)
-            if (chips[i].entry?.key !== entries[i].key) return false;
+            if (chips[i].entry?.key !== entries[i].key ||
+                chips[i].entry?.kind !== entries[i].kind) return false;
         return true;
     }
 
@@ -51,27 +52,40 @@ export class DockFactory {
         const oldByKey = new Map(this._items.map(item => [item.entry.key, item]));
         const nextItems = [];
         const nextChips = [];
+        const createdActors = [];
 
-        for (const entry of entries) {
-            if (entry.kind === 'separator') {
-                const sep = new St.Widget({ style_class: 'aqua-separator' });
-                this._container.add_child(sep);
-                nextChips.push({ entry, actor: sep, item: null, w: SEP_TOTAL });
-                continue;
+        try {
+            for (const entry of entries) {
+                if (entry.kind === 'separator' || entry.kind === 'spacer') {
+                    const sep = new St.Widget({
+                        style_class: entry.kind === 'spacer' ? 'aqua-spacer' : 'aqua-separator',
+                        reactive: false,
+                    });
+                    createdActors.push(sep);
+                    this._container.add_child(sep);
+                    nextChips.push({ entry, actor: sep, item: null, w: SEP_TOTAL });
+                    continue;
+                }
+                let item = oldByKey.get(entry.key);
+                if (item) {
+                    oldByKey.delete(entry.key);
+                    item.entry = entry;
+                    if (!sameIcon(item.gicon, entry.gicon)) item.setGicon(entry.gicon);
+                    item.refresh();
+                } else {
+                    item = new DockItem(entry, cfg);
+                    createdActors.push(item);
+                    this._container.add_child(item);
+                    this._onItemCreated?.(item);
+                }
+                nextItems.push(item);
+                nextChips.push({ entry, actor: item, item, w: cfg.cellW });
             }
-            let item = oldByKey.get(entry.key);
-            if (item) {
-                oldByKey.delete(entry.key);
-                item.entry = entry;
-                if (!sameIcon(item.gicon, entry.gicon)) item.setGicon(entry.gicon);
-                item.refresh();
-            } else {
-                item = new DockItem(entry, cfg);
-                this._container.add_child(item);
-                this._onItemCreated?.(item);
+        } catch (error) {
+            for (let i = createdActors.length - 1; i >= 0; i--) {
+                try { createdActors[i].destroy(); } catch { }
             }
-            nextItems.push(item);
-            nextChips.push({ entry, actor: item, item, w: cfg.cellW });
+            throw error;
         }
 
         // Destroy items that vanished and any old separators.

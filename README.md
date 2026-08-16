@@ -86,12 +86,12 @@ rm -rf "$tmpdir"
 |---|---|
 | **Dock** | Bottom / left / right, start / center / end alignment, floating spacing, custom size and styling |
 | **Motion** | Gaussian magnification, spring physics, hover lift, launch / attention / download bounce |
-| **Windows** | Live previews, Genie-style minimize/restore, monitor and workspace isolation |
+| **Windows** | Live and paged previews, optional window actions, Genie-style minimize/restore, monitor and workspace isolation |
 | **Hide modes** | Never, Intellihide, Always, plus pressure reveal |
-| **Files** | Downloads stack, custom folder stack, Trash and mounted devices |
+| **Files** | Multiple folder stacks, file/link shortcuts, separators, spacers, Trash and mounted devices |
 | **Interaction** | Mouse actions, keyboard navigation, drag-and-drop, context menus |
 | **Appearance** | Notification badges, 6 running indicator styles, colors, borders, radius and opacity |
-| **Settings** | GTK 4 / Libadwaita preferences, backup/restore and reset |
+| **Settings** | GTK 4 / Libadwaita preferences, accessibility controls, backup/restore and reset |
 
 ---
 
@@ -103,6 +103,8 @@ rm -rf "$tmpdir"
 | **← / →** | Move across a horizontal dock |
 | **↑ / ↓** | Move across a vertical dock |
 | **Enter / Space** | Open or activate the selected item |
+| **Page Up / Page Down** | Move between paged window previews |
+| **Menu / Shift + F10** | Open an available item or window action menu |
 | **Escape** | Exit focus mode or close an open popup/stack |
 
 ---
@@ -116,7 +118,10 @@ rm -rf "$tmpdir"
 - Independent dock on each monitor
 - Optional monitor/workspace isolation
 - Icon size **24–128 px**
+- Adjustable spacing between neighbouring dock icons
 - Dock scale **0.5×–2.0×**
+- Optional automatic shrinking when the configured dock would not fit the monitor
+- Optional live pill rim while the dock is auto-hidden
 - Corner radius **0–40 px**
 - Custom pill color, opacity, border and spacing
 - Gaussian magnification up to **3.5×**
@@ -131,6 +136,8 @@ rm -rf "$tmpdir"
 - Minimized/hidden window previews
 - Cross-workspace previews
 - Optional close button on preview thumbnails
+- Optional monitor-aware pages for apps with many windows
+- Keyboard navigation and optional preview actions for activation, workspace, monitor and close
 - Genie-style minimize and restore animation
 - Never / Intellihide / Always hide modes
 - Reveal and hide delays
@@ -140,9 +147,13 @@ rm -rf "$tmpdir"
 
 - Downloads stack
 - Optional custom folder stack
+- Optional additional folder stacks, files and web links
+- User-arranged separators and spacers for the locations section
+- Real standard/custom folder artwork with an optional theme-icon fallback
 - Fan / Grid / List views
 - Sort by Newest / Name / Type
 - Thumbnails and file-type icons
+- Right-click file Copy action using the standard desktop file-list clipboard format
 - Live file watching
 - Trash full/empty state and Empty Trash action
 - Mounted USB drives, phones, cameras and network mounts
@@ -169,7 +180,15 @@ rm -rf "$tmpdir"
 - Pin / Unpin
 - Window list
 - Quit Application
-- Downloads / Trash context actions
+- Stack-file Copy and Downloads / Trash context actions
+
+### Accessibility
+
+- Honors GNOME’s animation setting and provides an additional Reduce Motion override
+- Optional high-contrast dock, menus, previews and folder stacks
+- Adjustable text size for dock interfaces
+- Keyboard access to dock items, stack items and paged previews
+- Screen-reader names can include open-window and notification counts
 
 ---
 
@@ -182,9 +201,10 @@ Aqua Dock Pro uses a native **GTK 4 / Libadwaita** preferences window.
 | **Dock** | Position, alignment, size, scale, spacing, opacity, radius, borders |
 | **Motion** | Magnification, spring tuning, hover lift, animation timing |
 | **Behavior** | Auto-hide, pressure reveal, click/scroll actions, workspace/monitor behavior |
-| **Widgets** | Badges, indicators, previews, tooltips |
-| **Downloads** | Stack view, sorting, thumbnails, custom folder |
+| **Widgets** | Badges, indicators, paged previews, window actions, tooltips |
+| **Downloads** | Stack view, sorting, custom folders/items, links, separators, spacers and folder icons |
 | **Devices** | Mounted-device behavior |
+| **Accessibility** | Reduced motion, high contrast, interface text size and screen-reader status |
 | **About** | Version and project information |
 
 Settings can also be **exported/imported as JSON** or reset to defaults.

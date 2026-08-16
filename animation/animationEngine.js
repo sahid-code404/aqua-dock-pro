@@ -93,6 +93,7 @@ export class AnimationEngine {
         this._cachedBg = model.bg;
         this._cachedMagZone = model.magZone;
         this._cachedMagConst = geom.magZone;
+        this._mzX = this._mzY = this._mzW = this._mzH = NaN;
 
         const fresh = !model.items.length;
         if (fresh) {
@@ -124,11 +125,7 @@ export class AnimationEngine {
 
     kick() {
         if (!this._scheduler || this._suspended) return;
-        if (!this._scheduler.isRunning()) {
-            // Use the value cached by setModel() so we avoid
-            // St.Settings.get() on every pointer-motion kick.
-            if (!this._animate) return;
-        }
+        if (!this._animate && !this._scheduler.isRunning()) return;
         this._scheduler.start();
     }
 
@@ -151,7 +148,13 @@ export class AnimationEngine {
         const chips = this._cachedChips;
         const prop = this._transProp;
         for (const item of items) { item.vel = 0; item.scaleTarget = 1; item.scaleCurrent = 1; item.setScale(1); }
-        for (const chip of chips) { try { chip.actor.remove_transition(prop); chip.actor[prop] = 0; } catch { } }
+        for (const chip of chips) {
+            try {
+                chip.actor.remove_transition(prop);
+                chip.actor[prop] = 0;
+                chip.spreadOffset = 0;
+            } catch { }
+        }
         this._bgCurrentX = this._bgTargetX = this._bgBaseX;
         this._bgCurrentW = this._bgTargetW = this._bgBaseW;
         this._bgLastA = this._bgLastB = NaN;
@@ -175,6 +178,7 @@ export class AnimationEngine {
         }
         for (const chip of chips) {
             try {
+                chip.spreadOffset = NaN;
                 chip.actor.remove_transition(prop);
                 chip.actor.ease({ [prop]: 0, duration, mode: Clutter.AnimationMode.EASE_OUT_QUAD });
             } catch { }
@@ -195,7 +199,6 @@ export class AnimationEngine {
         if (!this._model || this._suspended) return false;
         this._lastDt = dt;
         const chips = this._cachedChips;
-        const items = this._cachedItems;
         const cfg = this._cachedCfg;
         const geom = this._cachedGeom;
 
@@ -238,35 +241,44 @@ export class AnimationEngine {
 
         const s = this._scratch;
         const zoomMax = this._zoomMax;
+        const cellW = this._cellW;
+        let total = 0;
+        let maxScale = 1;
         let anyUnsettled = false;
         for (const chip of chips) {
             const item = chip.item;
-            if (!item) continue;
+            if (!item) {
+                chip.extra = 0;
+                continue;
+            }
             let target = 1;
             if (inBand) {
-                const center = chip.baseX + chip.w / 2;
-                target = gaussianTarget(Math.abs(magMain - center), m);
+                target = gaussianTarget(Math.abs(magMain - chip.center), m);
             }
             // Right-click menu holds its icon at peak zoom until the menu closes.
             if (item === this._heldItem) target = zoomMax;
             item.scaleTarget = target;
-            if (item._landing) continue;
-            if (!this._animate) {
-                item.vel = 0;
-                item.setScale(target);
-                continue;
+            if (!item._landing) {
+                if (!this._animate) {
+                    item.vel = 0;
+                    item.setScale(target);
+                } else if (item.vel !== 0 || item.scaleCurrent !== target) {
+                    s.cur = item.scaleCurrent;
+                    s.vel = item.vel;
+                    integrateSpring(s, target, m.tension, dampPow, st, nSteps);
+                    item.vel = s.vel;
+                    item.setScale(s.cur);
+                    if (s.vel !== 0 || s.cur !== target) anyUnsettled = true;
+                }
             }
-            if (target === 1 && item.vel === 0 && item.scaleCurrent === 1) continue;
-            s.cur = item.scaleCurrent;
-            s.vel = item.vel;
-            integrateSpring(s, target, m.tension, dampPow, st, nSteps);
-            item.vel = s.vel;
-            item.setScale(s.cur);
-            // Track settle state inline — avoids a second O(items) pass.
-            if (s.vel !== 0 || s.cur !== target) anyUnsettled = true;
+
+            const scale = item.scaleCurrent;
+            chip.extra = cellW * (scale - 1);
+            total += chip.extra;
+            if (scale > maxScale) maxScale = scale;
         }
 
-        this._applySpread(!this._animate);
+        this._applySpread(!this._animate, total, maxScale);
         if (this._frameHook) this._frameHook();
 
         if (!this._animate) return false;
@@ -278,27 +290,28 @@ export class AnimationEngine {
             return false;
         return true;
     }
-
-
-
-    _applySpread(snap) {
+    _applySpread(snap, total = null, maxScale = 1) {
         const chips = this._cachedChips;
         const vert = this._vert;
-        const cellW = this._cellW;
-        let total = 0;
-        let maxScale = 1;
-        for (const chip of chips) {
-            const scale = chip.item?.scaleCurrent ?? 1;
-            chip.extra = chip.item ? cellW * (scale - 1) : 0;
-            if (scale > maxScale) maxScale = scale;
-            total += chip.extra;
+        if (total === null) {
+            total = 0;
+            const cellW = this._cellW;
+            for (const chip of chips) {
+                const scale = chip.item?.scaleCurrent ?? 1;
+                chip.extra = chip.item ? cellW * (scale - 1) : 0;
+                if (scale > maxScale) maxScale = scale;
+                total += chip.extra;
+            }
         }
         const shift = -total / 2;
         let prefix = 0;
         const prop = this._transProp;
         for (const chip of chips) {
             const off = chip.item ? shift + prefix + chip.extra / 2 : shift + prefix;
-            chip.actor[prop] = off;
+            if (chip.spreadOffset !== off) {
+                chip.actor[prop] = off;
+                chip.spreadOffset = off;
+            }
             prefix += chip.extra;
         }
         this._bgTargetX = this._bgBaseX + shift;

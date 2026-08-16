@@ -20,10 +20,14 @@ export function buildDockPage(window, s) {
         _('Display a dock on every connected monitor')));
     layout.add(switchRow(s, 'isolate-monitors', _('Isolate windows by monitor'),
         _('Each dock shows and controls running windows on its own monitor')));
+    layout.add(switchRow(s, 'auto-shrink-to-fit', _('Shrink dock to fit'),
+        _('Automatically reduce the dock when its configured size would not fit its monitor')));
     layout.add(spinRow(s, 'dock-scale', _('Overall scale'),
         _('Scales icons, padding and pill together'), 0.5, 2.0, 0.05, 2));
     layout.add(spinRow(s, 'icon-size', _('Icon size'),
         _('Resting icon size in pixels'), 24, 128, 2, 0));
+    layout.add(spinRow(s, 'icon-spacing', _('Icon spacing'),
+        _('Gap between neighbouring dock icons in pixels'), 0, 48, 1, 0));
     layout.add(spinRow(s, 'edge-margin', _('Edge gap'),
         _('Space between the dock and the screen edge (pixels)'), 0, 14, 1, 0));
     p.add(layout);

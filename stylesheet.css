@@ -24,6 +24,10 @@
     box-shadow:       none;
 }
 
+.aqua-autohide-handle {
+    box-shadow:       none;
+}
+
 /* ── Icon slot ────────────────────────────────────────────────────────────── */
 .aqua-item {
     background-color: transparent;
@@ -40,6 +44,13 @@
     border:           1px solid rgba(255, 255, 255, 0.42);
     border-radius:    999px;
     box-shadow:       none;
+}
+.aqua-high-contrast .aqua-focus-pill {
+    background-color: rgba(255, 255, 255, 0.24);
+    border:           2px solid #ffffff;
+}
+.aqua-high-contrast .aqua-separator {
+    background-color: #ffffff;
 }
 
 /* ── Running indicators (positioned/sized from JS) ────────────────────────── */
@@ -73,6 +84,9 @@
 .aqua-separator {
     background-color: rgba(255, 255, 255, 0.22);
     border-radius:    1px;
+}
+.aqua-spacer {
+    background-color: transparent;
 }
 
 /* ── App-name tooltip (colours/radius/border set inline) ──────────────────── */
@@ -115,6 +129,20 @@
 }
 .aqua-menu .popup-menu-item:active {
     background-color: rgba(255, 255, 255, 0.16);
+}
+.aqua-menu.aqua-file-item-menu .popup-menu-content {
+    min-width: 0;
+    max-width: 220px;
+    padding:   4px 0;
+}
+.aqua-menu.aqua-file-item-menu {
+    min-width:       0;
+    max-width:       220px;
+    -boxpointer-gap: 4px;
+}
+.aqua-menu.aqua-file-item-menu .popup-menu-item {
+    padding: 6px 10px;
+    margin:  0 4px;
 }
 .aqua-menu .popup-separator-menu-item { padding: 0; }
 .aqua-menu .popup-separator-menu-item .popup-separator-menu-item-separator {
@@ -176,6 +204,38 @@
     color: rgba(240, 240, 244, 0.78);
     font-size: 9pt;
     padding: 0 8px;
+}
+.aqua-preview-navigation {
+    padding: 2px 4px 0 4px;
+}
+.aqua-preview-page-button {
+    background-color: rgba(20, 20, 24, 0.94);
+    color:            #ffffff;
+    border:           1px solid rgba(255, 255, 255, 0.28);
+    border-radius:    999px;
+    padding:          2px 10px;
+    font-size:        12pt;
+}
+.aqua-preview-page-button:hover,
+.aqua-preview-page-button:focus {
+    background-color: rgba(255, 255, 255, 0.18);
+    border-color:     rgba(255, 255, 255, 0.62);
+}
+.aqua-preview-page-status {
+    color:       rgba(245, 245, 248, 0.94);
+    font-size:   9pt;
+    min-width:   72px;
+    text-align:  center;
+}
+.aqua-preview-box.aqua-high-contrast .aqua-preview-col:focus,
+.aqua-preview-box.aqua-high-contrast .aqua-preview-page-button:focus {
+    border: 2px solid #ffffff;
+}
+.aqua-preview-box.aqua-high-contrast .aqua-preview-thumb,
+.aqua-dl-panel.aqua-high-contrast,
+.aqua-high-contrast .aqua-dl-fan-label-pill,
+.aqua-high-contrast .aqua-dl-fan-thumb {
+    border-color: #ffffff;
 }
 
 /* ── Notification badge ───────────────────────────────────────────────────── */

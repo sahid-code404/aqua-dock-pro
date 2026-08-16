@@ -42,6 +42,10 @@ export class VisibilityController {
     }
 
     destroy() {
+        try {
+            this._container?.remove_transition('x');
+            this._container?.remove_transition('y');
+        } catch { }
         this._container = null;
     }
 }

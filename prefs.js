@@ -9,6 +9,7 @@ import { buildPopupsPage } from './prefs/pages/popupsPage.js';
 import { buildDownloadsPage } from './prefs/pages/downloadsPage.js';
 import { buildDevicesPage } from './prefs/pages/devicesPage.js';
 import { buildAboutPage } from './prefs/pages/aboutPage.js';
+import { buildAccessibilityPage } from './prefs/pages/accessibilityPage.js';
 
 export default class AquaDockProPreferences extends ExtensionPreferences {
     fillPreferencesWindow(window) {
@@ -26,6 +27,7 @@ export default class AquaDockProPreferences extends ExtensionPreferences {
         buildPopupsPage(window, s);
         buildDownloadsPage(window, s);
         buildDevicesPage(window, s);
+        buildAccessibilityPage(window, s);
         buildAboutPage(window, s, this.metadata);
 
         window.connect('close-request', () => {

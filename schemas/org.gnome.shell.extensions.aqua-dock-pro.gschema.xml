@@ -16,6 +16,12 @@
       <summary>Resting icon size in pixels</summary>
     </key>
 
+    <key name="icon-spacing" type="i">
+      <default>12</default>
+      <range min="0" max="48"/>
+      <summary>Resting gap between neighbouring dock icons in pixels</summary>
+    </key>
+
     <key name="magnification" type="d">
       <default>2.6</default>
       <range min="1.0" max="3.5"/>
@@ -105,6 +111,11 @@
       <summary>Overall dock scale multiplier (scales icons, padding and pill together)</summary>
     </key>
 
+    <key name="auto-shrink-to-fit" type="b">
+      <default>true</default>
+      <summary>Automatically shrink the dock when its configured size would not fit the monitor</summary>
+    </key>
+
     <!-- ── Behavior ───────────────────────────────────────────────────── -->
     <key name="auto-hide-mode" type="s">
       <default>'dodge'</default>
@@ -126,6 +137,11 @@
       <default>200</default>
       <range min="0" max="1000"/>
       <summary>Reveal pressure threshold in milliseconds; 0 = immediate</summary>
+    </key>
+
+    <key name="show-autohide-handle" type="b">
+      <default>true</default>
+      <summary>Leave the dock pill's screen-facing border visible while hidden</summary>
     </key>
 
     <key name="pressure-sense" type="b">
@@ -231,6 +247,21 @@
     <key name="custom-folder-uri" type="s">
       <default>''</default>
       <summary>URI of the user-selected folder stack</summary>
+    </key>
+
+    <key name="use-folder-metadata-icons" type="b">
+      <default>true</default>
+      <summary>Use each folder's standard or custom metadata icon when available</summary>
+    </key>
+
+    <key name="show-custom-dock-items" type="b">
+      <default>false</default>
+      <summary>Show user-defined folders, files, links, separators, and spacers</summary>
+    </key>
+
+    <key name="custom-dock-items" type="as">
+      <default>[]</default>
+      <summary>Validated JSON records describing user-defined dock items</summary>
     </key>
 
     <key name="show-mounted-devices" type="b">
@@ -430,6 +461,31 @@
       <summary>Show a close button on each window preview</summary>
     </key>
 
+    <key name="preview-overflow-mode" type="s">
+      <default>'summary'</default>
+      <choices>
+        <choice value='summary'/>
+        <choice value='pages'/>
+      </choices>
+      <summary>Show a compact overflow count or keyboard-accessible preview pages</summary>
+    </key>
+
+    <key name="preview-page-size" type="i">
+      <default>4</default>
+      <range min="1" max="8"/>
+      <summary>Maximum windows shown on each preview page</summary>
+    </key>
+
+    <key name="preview-keyboard-navigation" type="b">
+      <default>true</default>
+      <summary>Move keyboard focus into previews opened from the focused dock</summary>
+    </key>
+
+    <key name="preview-window-actions" type="b">
+      <default>false</default>
+      <summary>Enable a preview context menu for workspace, monitor, activation, and close actions</summary>
+    </key>
+
     <!-- ── Badges ─────────────────────────────────────────────────────── -->
     <key name="show-badges" type="b">
       <default>true</default>
@@ -536,6 +592,28 @@
       <default>2</default>
       <range min="0" max="6"/>
       <summary>Dock and all pills border width in pixels; 0 disables border</summary>
+    </key>
+
+    <!-- ── Accessibility ─────────────────────────────────────────────── -->
+    <key name="reduce-motion" type="b">
+      <default>false</default>
+      <summary>Disable dock animations in addition to respecting the system animation setting</summary>
+    </key>
+
+    <key name="high-contrast" type="b">
+      <default>false</default>
+      <summary>Use stronger contrast and outlines throughout the dock UI</summary>
+    </key>
+
+    <key name="interface-text-scale" type="d">
+      <default>1.0</default>
+      <range min="1.0" max="1.6"/>
+      <summary>Scale text in dock tooltips, menus, previews, and folder stacks</summary>
+    </key>
+
+    <key name="announce-item-status" type="b">
+      <default>true</default>
+      <summary>Include running-window and notification status in accessible dock item names</summary>
     </key>
 
     <!-- ── Misc ──────────────────────────────────────────────────────── -->

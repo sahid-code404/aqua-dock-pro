@@ -43,43 +43,49 @@ export class MenuManager {
         const anchor = item._icon ?? item;
 
         this._menu = new PopupMenu.PopupMenu(anchor, 0.5, side);
-        this._menu.actor.add_style_class_name('aqua-menu');
-        if (!this._manager) this._manager = new PopupMenu.PopupMenuManager(this._host.container);
-        this._manager.addMenu(this._menu);
-        Main.uiGroup.add_child(this._menu.actor);
-        this._style();
-        this._menu.actor.hide();
+        try {
+            this._menu.actor.add_style_class_name('aqua-menu');
+            if (!this._manager)
+                this._manager = new PopupMenu.PopupMenuManager(this._host.container);
+            this._manager.addMenu(this._menu);
+            Main.uiGroup.add_child(this._menu.actor);
+            this._style();
+            this._menu.actor.hide();
 
-        this._heldItem = item;
-        this._host.holdItem?.(item);
+            this._heldItem = item;
+            this._host.holdItem?.(item);
 
-        this._stateId = this._menu.connect('open-state-changed', (m, open) => {
-            this._active = open;
-            if (open) {
-                this._host.onOpen?.();
-                return;
-            }
-            this._releaseHeldItem();
-            this._scheduleClose(m);
-        });
+            this._stateId = this._menu.connect('open-state-changed', (m, open) => {
+                this._active = open;
+                if (open) {
+                    this._host.onOpen?.();
+                    return;
+                }
+                this._releaseHeldItem();
+                this._scheduleClose(m);
+            });
 
-        populateMenu(this._menu, item.entry, {
-            onTrashEmptied: this._host.onTrashEmptied,
-            onEmptyTrash: callback => this._confirmEmptyTrash(callback),
-            isLayoutLocked: () => this._host.isLayoutLocked?.() ??
-                this._host.getConfig().layoutLocked,
-            onToggleLayoutLock: this._host.onToggleLayoutLock,
-            appWindowsFor: app => {
-                const cfg = this._host.getConfig();
-                return appWindowsForConfig(app, cfg);
-            },
-            isWindowIsolationActive: () => {
-                const cfg = this._host.getConfig();
-                return cfg.isolateWS || cfg.isolateMonitors;
-            },
-        });
-        this._styleItems();
-        this._menu.open();
+            populateMenu(this._menu, item.entry, {
+                onTrashEmptied: this._host.onTrashEmptied,
+                onEmptyTrash: callback => this._confirmEmptyTrash(callback),
+                isLayoutLocked: () => this._host.isLayoutLocked?.() ??
+                    this._host.getConfig().layoutLocked,
+                onToggleLayoutLock: this._host.onToggleLayoutLock,
+                appWindowsFor: app => {
+                    const cfg = this._host.getConfig();
+                    return appWindowsForConfig(app, cfg);
+                },
+                isWindowIsolationActive: () => {
+                    const cfg = this._host.getConfig();
+                    return cfg.isolateWS || cfg.isolateMonitors;
+                },
+            });
+            this._styleItems();
+            this._menu.open();
+        } catch (error) {
+            this._destroyMenu();
+            throw error;
+        }
     }
 
     _scheduleClose(m) {
@@ -174,10 +180,14 @@ export class MenuManager {
     _style() {
         const cfg = this._host.getConfig();
         const radius = cfg.menuRadius ?? 12;
-        const bg = cfg.menuBg || 'rgba(35,36,40,0.94)';
-        const fg = cfg.menuFg || 'rgba(235,235,240,0.90)';
-        const bw = cfg.menuBorderWidth ?? 1;
-        const bc = cfg.menuBorderColor || 'rgba(255,255,255,0.12)';
+        const bg = cfg.highContrast ? 'rgba(0,0,0,0.98)'
+            : (cfg.menuBg || 'rgba(35,36,40,0.94)');
+        const fg = cfg.highContrast ? '#ffffff'
+            : (cfg.menuFg || 'rgba(235,235,240,0.90)');
+        const bw = cfg.highContrast ? Math.max(2, cfg.menuBorderWidth ?? 1)
+            : (cfg.menuBorderWidth ?? 1);
+        const bc = cfg.highContrast ? '#ffffff'
+            : (cfg.menuBorderColor || 'rgba(255,255,255,0.12)');
         const border = bw > 0 ? `${bw}px solid ${bc}` : 'none';
 
         const box = this._menu.box;
@@ -185,13 +195,14 @@ export class MenuManager {
             box.set_style(`background-color: ${bg}; border-radius: ${radius}px; border: ${border};`);
 
         this._menuTextColor = fg;
+        this._menuTextSize = (10.5 * (cfg.interfaceTextScale ?? 1)).toFixed(2);
     }
 
     _styleItems() {
         const color = this._menuTextColor;
         if (!color) return;
         for (const item of this._menu?.box?.get_children?.() ?? []) {
-            try { item.label?.set_style(`color: ${color};`); } catch { }
+            try { item.label?.set_style(`color: ${color}; font-size: ${this._menuTextSize}pt;`); } catch { }
         }
     }
 
@@ -205,5 +216,6 @@ export class MenuManager {
         if (this._manager) { try { this._manager.destroy?.(); } catch { } this._manager = null; }
         this._host = null;
         this._menuTextColor = null;
+        this._menuTextSize = null;
     }
 }

@@ -1,4 +1,4 @@
-import { peakTierThresholds, usePeakTier } from '../dock/iconResolution.js';
+import { peakTierThresholds, stableArtworkSourceSize, usePeakTier } from '../dock/iconResolution.js';
 
 function assert(condition, message) {
     if (!condition) throw new Error(message);
@@ -24,5 +24,8 @@ assert(!usePeakTier(1, narrow, true), 'a narrow zoom range must return to its re
 const reused = {};
 assert(peakTierThresholds(zoom, reused) === reused,
     'relayout should update thresholds without allocating');
+assert(stableArtworkSourceSize(16, 156) === 156 &&
+    stableArtworkSourceSize(22, 0) === 32,
+    'place icons must not switch to small legacy theme artwork');
 
 print('iconResolution: ok');

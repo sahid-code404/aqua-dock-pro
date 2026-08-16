@@ -7,10 +7,11 @@ import Shell from 'gi://Shell';
 import St from 'gi://St';
 
 import { animationsEnabled, clamp, appWindowsForConfig } from '../core/utils.js';
-import { _ } from '../core/i18n.js';
-import { DOT_SIZE, SETTLE_EPS } from '../core/constants.js';
+import { _, format, ngettext } from '../core/i18n.js';
+import { SETTLE_EPS } from '../core/constants.js';
 import { Bounce } from '../animation/bounce.js';
-import { peakTierThresholds, usePeakTier } from './iconResolution.js';
+import { peakTierThresholds, stableArtworkSourceSize, usePeakTier } from './iconResolution.js';
+import { indicatorMetrics, indicatorPosition } from './dockLayout.js';
 
 export const DockItem = GObject.registerClass({
     GTypeName: 'AquaDockProDockItem',
@@ -39,8 +40,8 @@ class DockItem extends St.Widget {
         this.scaleCurrent = 1;
         this.vel = 0;
 
-        // Lifecycle flags: while any is set, setScale() records but does not
-        // write the icon transform, so the owning animation keeps full control.
+        // While an owned transition runs, setScale() records but does not write
+        // the icon transform.
         this._landing = false;
         this._pulsing = false;
 
@@ -55,6 +56,9 @@ class DockItem extends St.Widget {
         // is painted; Shell's normal icon filtering and HiDPI resource scale are
         // left untouched.
         this._gicon = entry.gicon;
+        this._stableArtwork = entry.kind === 'downloads' || entry.kind === 'folder';
+        this._peakSourceSize = this._stableArtwork
+            ? stableArtworkSourceSize(cfg.iconSize, cfg.placeIconSourceSize) : cfg.renderSize;
         this._icon = new St.Widget({
             style_class: 'aqua-icon-stack',
             reactive: false,
@@ -74,17 +78,19 @@ class DockItem extends St.Widget {
         });
         this._peakIcon = new St.Icon({
             gicon: this._gicon,
-            icon_size: cfg.renderSize,
+            icon_size: this._peakSourceSize,
             reactive: false,
-            opacity: 0,
+            opacity: this._stableArtwork ? 255 : 0,
         });
         this._peakIcon.set_pivot_point(0, 0);
-        this._peakIcon.set_scale(cfg.invZoom, cfg.invZoom);
+        const sourceScale = cfg.iconSize / Math.max(1, this._peakSourceSize);
+        this._peakIcon.set_scale(sourceScale, sourceScale);
         this._icon.add_child(this._focusPill);
         this._icon.add_child(this._restIcon);
         this._icon.add_child(this._peakIcon);
         this._peakTierThresholds = peakTierThresholds(cfg.zoomMax);
-        this._usingPeakTier = false;
+        this._usingPeakTier = this._stableArtwork;
+        if (this._stableArtwork) this._restIcon.opacity = 0;
         this.add_child(this._icon);
 
         this._indicator = new St.Widget({
@@ -124,6 +130,7 @@ class DockItem extends St.Widget {
     }
 
     _syncTextureTier(scale, force = false) {
+        if (this._stableArtwork) return;
         const peak = usePeakTier(
             scale, this._peakTierThresholds, this._usingPeakTier, force);
         if (peak === this._usingPeakTier) return;
@@ -137,6 +144,7 @@ class DockItem extends St.Widget {
             case 'apps': return _('Applications');
             case 'downloads': return _('Downloads');
             case 'folder': return this.entry.name ?? _('Folder');
+            case 'location': return this.entry.name ?? _('Location');
             case 'mount': return this.entry.name ?? _('Mounted device');
             case 'trash': return _('Trash');
             default: return this.entry.app?.get_name?.() ?? '';
@@ -147,7 +155,7 @@ class DockItem extends St.Widget {
     relayout(cfg, containerHeadroom) {
         this._cfg = cfg;
         this._containerHeadroom = containerHeadroom ?? cfg.headroom;
-        this._refreshForce = true;
+        const previousIndicatorGeometry = this._rIndGeometry;
 
         // Cache position flags to avoid string comparisons in per-frame paths.
         const vert = cfg.vertical;
@@ -170,14 +178,15 @@ class DockItem extends St.Widget {
             restSize - pillX * 2,
             restSize - pillY * 2);
         this._restIcon.icon_size = restSize;
-        this._peakIcon.icon_size = cfg.renderSize;
+        this._peakSourceSize = this._stableArtwork
+            ? stableArtworkSourceSize(restSize, cfg.placeIconSourceSize) : cfg.renderSize;
+        this._peakIcon.icon_size = this._peakSourceSize;
         this._restIcon.set_position(0, 0);
         this._peakIcon.set_position(0, 0);
-        this._peakIcon.set_scale(cfg.invZoom, cfg.invZoom);
+        const sourceScale = restSize / Math.max(1, this._peakSourceSize);
+        this._peakIcon.set_scale(sourceScale, sourceScale);
         peakTierThresholds(cfg.zoomMax, this._peakTierThresholds);
         const restGap = Math.round((cfg.dockH - restSize) / 2);
-        this._restGap = restGap;
-
         if (!vert) {
             const iconBottomY = this._containerHeadroom + cfg.dockH - restGap;
             this._icon.set_pivot_point(0.5, 1.0);
@@ -206,6 +215,8 @@ class DockItem extends St.Widget {
                 w: restSize, h: restSize,
             };
         }
+        this._iconBaseX = this._restRect.x;
+        this._iconBaseY = this._restRect.y;
 
         // Per-frame constants — recomputed only here.
         this._liftProp = vert ? 'translation_x' : 'translation_y';
@@ -225,32 +236,33 @@ class DockItem extends St.Widget {
         // Preserve current magnification lift through relayout (no 1-frame drop).
         this._icon.set_scale(this.scaleCurrent, this.scaleCurrent);
         this._syncTextureTier(this.scaleCurrent, true);
-        this._icon.translation_x = vert ? this._baseLift() : 0;
-        this._icon.translation_y = vert ? 0 : this._baseLift();
+        const lift = this._baseLift();
+        this._icon.translation_x = vert ? lift : 0;
+        this._icon.translation_y = vert ? 0 : lift;
+        this._iconLift = lift;
 
-        this._positionIndicator();
+        const indicatorGeometry = this._indicatorGeometryKey(cfg);
+        if (this._rRunning && indicatorGeometry !== previousIndicatorGeometry) {
+            this._indicator.destroy_all_children();
+            this._indicatorMetrics = null;
+            this._buildIndicatorDots(this._rCount);
+            this._rIndSize = cfg.indicatorSize;
+            this._rStyle = cfg.indicatorStyle;
+        } else {
+            this._positionIndicator();
+        }
+        this._rIndGeometry = indicatorGeometry;
         this._positionBadge();
     }
 
     _positionIndicator() {
-        if (!this._cfg) return;
+        if (!this._cfg || !this._rRunning) return;
         const cfg = this._cfg;
-        const iw = this._indicW || DOT_SIZE;
-        const ih = this._indicH || DOT_SIZE;
-        const GAP = 4;
-        const restGap = this._restGap;
-        const rest = this._restRect;
-        const cx = rest ? rest.x + rest.w / 2 : cfg.cellW / 2;
-        const cy = rest ? rest.y + rest.h / 2 : cfg.cellW / 2;
-        if (!this._vert) {
-            const iconBottom = this._containerHeadroom + cfg.dockH - restGap;
-            this._indicator.set_position(Math.round(cx - iw / 2), Math.round(iconBottom + GAP));
-        } else if (!this._isRight) {
-            this._indicator.set_position(Math.max(2, restGap - GAP - iw), Math.round(cy - ih / 2));
-        } else {
-            const iconRight = this._containerHeadroom + cfg.dockH - restGap;
-            this._indicator.set_position(Math.round(iconRight + GAP), Math.round(cy - ih / 2));
-        }
+        const metrics = this._indicatorMetrics ?? indicatorMetrics(
+            cfg, Math.max(1, this._rCount ?? 1));
+        const pos = indicatorPosition(
+            cfg, metrics, this._restRect, this._containerHeadroom);
+        this._indicator.set_position(pos.x, pos.y);
     }
 
     _positionBadge() {
@@ -265,8 +277,9 @@ class DockItem extends St.Widget {
         const baseSize = this._baseIconSize;
         const s = this.scaleCurrent;
         const drawn = baseSize * s;
-        const ix = this._icon.x + (this._icon.translation_x || 0);
-        const iy = this._icon.y + (this._icon.translation_y || 0);
+        const lift = this._iconLift ?? 0;
+        const ix = this._iconBaseX + (this._vert ? lift : 0);
+        const iy = this._iconBaseY + (this._vert ? 0 : lift);
         const drawnX = ix + baseSize * this._pivotX * (1 - s);
         const drawnY = iy + baseSize * this._pivotY * (1 - s);
         const cornerX = (this._vert && this._isRight) ? drawnX : drawnX + drawn;
@@ -282,17 +295,17 @@ class DockItem extends St.Widget {
     // ── Running indicator + badge ───────────────────────────────────────────
     // notifMap: optional Map<appId, count> for O(1) lookup (built once per
     // refresh batch by the controller). Falls back to per-item lookup.
-    refresh(notifMap) {
+    refresh(notifMap, activeWorkspace = undefined) {
         const cfg = this._cfg;
-        this.accessible_name = this.label();
         const app = this.entry.app;
-        const windows = app ? appWindowsForConfig(app, cfg) : [];
+        const windows = app ? appWindowsForConfig(app, cfg, activeWorkspace) : null;
+        const windowCount = windows?.length ?? 0;
         const running = cfg.isolateMonitors || cfg.isolateWS
-            ? windows.length > 0
+            ? windowCount > 0
             : app?.get_state?.() === Shell.AppState.RUNNING;
         const multiStyle = cfg.indicatorStyle === 'dots' || cfg.indicatorStyle === 'glow-dots';
         const count = running && multiStyle && cfg.showWindowCount
-            ? clamp(Math.max(1, windows.length), 1, 4)
+            ? clamp(Math.max(1, windowCount), 1, 4)
             : (running ? 1 : 0);
 
         // A model-only refresh does not have a notification snapshot. Preserve
@@ -303,18 +316,17 @@ class DockItem extends St.Widget {
         if (cfg.showBadges && app?.get_id && notifMap) {
             notif = notifMap.get(app.get_id()) ?? 0;
         }
+        this._updateAccessibleName(running, windowCount, notif);
 
-        // Skip rebuild when nothing visible changed (runs for every item on
-        // every window map/minimize/destroy/tray change).
-        if (!this._refreshForce &&
-            running === this._rRunning && count === this._rCount && notif === this._rNotif &&
-            cfg.indicatorStyle === this._rStyle && cfg.indicatorColor === this._rColor &&
-            cfg.showBadges === this._rBadges && cfg.badgeColor === this._rBadgeColor &&
-            cfg.badgeTextColor === this._rBadgeTextColor &&
-            cfg.showWindowCount === this._rWinCount &&
-            cfg.indicatorSize === this._rIndSize)
-            return;
-        this._refreshForce = false;
+        this._rIndGeometry ??= this._indicatorGeometryKey(cfg);
+        const indicatorChanged = running !== this._rRunning || count !== this._rCount ||
+            cfg.indicatorStyle !== this._rStyle || cfg.indicatorColor !== this._rColor ||
+            cfg.showWindowCount !== this._rWinCount || cfg.indicatorSize !== this._rIndSize;
+        const badgeChanged = notif !== this._rNotif || cfg.showBadges !== this._rBadges ||
+            cfg.badgeColor !== this._rBadgeColor ||
+            cfg.badgeTextColor !== this._rBadgeTextColor;
+        if (!indicatorChanged && !badgeChanged) return;
+
         this._rRunning = running; this._rCount = count; this._rNotif = notif;
         this._rStyle = cfg.indicatorStyle; this._rColor = cfg.indicatorColor;
         this._rBadges = cfg.showBadges; this._rBadgeColor = cfg.badgeColor;
@@ -322,44 +334,61 @@ class DockItem extends St.Widget {
         this._rWinCount = cfg.showWindowCount;
         this._rIndSize = cfg.indicatorSize;
 
-        this._indicator.visible = !!running;
-        this._indicator.destroy_all_children();
-
-        if (notif > 0) {
-            const newText = notif > 99 ? '99+' : String(notif);
-            if (newText !== this._badge.text) {
-                this._badge.text = newText;
-                this._badgeW = null; // invalidate layout cache only when text changes
+        if (badgeChanged) {
+            if (notif > 0) {
+                const newText = notif > 99 ? '99+' : String(notif);
+                if (newText !== this._badge.text) {
+                    this._badge.text = newText;
+                    this._badgeW = null;
+                }
+                const bc = cfg.badgeColor;
+                const btc = cfg.badgeTextColor;
+                let style = '';
+                if (bc) style += `background-color: ${bc};`;
+                if (btc) style += ` color: ${btc};`;
+                this._badge.set_style(style);
+                this._badge.visible = true;
+                this._positionBadge();
+            } else {
+                this._badge.visible = false;
             }
-            // Apply configurable badge colours via inline style override.
-            const bc = cfg.badgeColor;
-            const btc = cfg.badgeTextColor;
-            let style = '';
-            if (bc) style += `background-color: ${bc};`;
-            if (btc) style += ` color: ${btc};`;
-            this._badge.set_style(style);
-            this._badge.visible = true;
-            this._positionBadge();
-        } else {
-            this._badge.visible = false;
         }
-        if (!running) return;
 
-        this._buildIndicatorDots(count);
+        if (indicatorChanged) {
+            this._indicator.visible = !!running;
+            this._indicator.destroy_all_children();
+            this._indicatorMetrics = null;
+            if (running) this._buildIndicatorDots(count);
+        }
+    }
+
+    _updateAccessibleName(running, windowCount, notifications) {
+        const name = this.label();
+        if (!this._cfg.announceItemStatus || this.entry.kind !== 'app') {
+            if (this.accessible_name !== name) this.accessible_name = name;
+            return;
+        }
+        const status = [name];
+        if (running) {
+            status.push(windowCount > 0
+                ? format(ngettext('%d open window', '%d open windows', windowCount), windowCount)
+                : _('running'));
+        }
+        if (notifications > 0)
+            status.push(format(ngettext('%d notification', '%d notifications', notifications), notifications));
+        const accessibleName = status.join(', ');
+        if (this.accessible_name !== accessibleName)
+            this.accessible_name = accessibleName;
     }
 
     _buildIndicatorDots(count) {
         const cfg = this._cfg;
         const vert = this._vert;
         const style = cfg.indicatorStyle;
-        const sz = cfg.indicatorSize ?? DOT_SIZE;
-        const ratio = sz / DOT_SIZE;
-        const spacing = (style === 'dots' || style === 'glow-dots') ? 4 : 0;
-        let dw = sz, dh = sz;
-        if (style === 'line') [dw, dh] = [Math.round(24 * ratio), Math.max(2, Math.round(3 * ratio))];
-        else if (style === 'pill') [dw, dh] = [Math.round(18 * ratio), Math.max(2, Math.round(4 * ratio))];
-        else if (style === 'glow') [dw, dh] = [Math.round(28 * ratio), Math.max(3, Math.round(6 * ratio))];
-        if (vert && style !== 'dots' && style !== 'glow-dots') [dw, dh] = [dh, dw];
+        const metrics = indicatorMetrics(cfg, count);
+        const dw = metrics.width;
+        const dh = metrics.height;
+        const spacing = metrics.spacing;
 
         const step = (vert ? dh : dw) + spacing;
         const dotClass = `aqua-dot aqua-indic-${style}`;
@@ -373,7 +402,8 @@ class DockItem extends St.Widget {
         // static layers provide a soft falloff without involving Mutter's shadow
         // renderer or doing any work during magnification.
         if (style === 'glow' || style === 'glow-dots')
-            this._addIndicatorGlow(positions, dw, dh, cfg.indicatorColor, style);
+            this._addIndicatorGlow(
+                positions, dw, dh, cfg.indicatorColor, metrics.glowPads);
 
         for (const [x, y] of positions) {
             const dot = new St.Widget({ style_class: dotClass });
@@ -382,25 +412,29 @@ class DockItem extends St.Widget {
             dot.set_position(x, y);
             this._indicator.add_child(dot);
         }
-        const run = count * (vert ? dh : dw) + Math.max(0, count - 1) * spacing;
-        this._indicW = vert ? dw : run;
-        this._indicH = vert ? run : dh;
-        this._indicator.set_size(this._indicW, this._indicH);
+        this._indicatorMetrics = metrics;
+        this._indicator.set_size(metrics.indicW, metrics.indicH);
         this._positionIndicator();
     }
 
-    _addIndicatorGlow(positions, width, height, color, style) {
-        const shortEdge = Math.min(width, height);
-        const dotGlow = style === 'glow-dots';
-        const outerPad = dotGlow
-            ? Math.min(6, Math.max(3, Math.round(shortEdge * 0.55)))
-            : Math.min(7, Math.max(4, Math.round(shortEdge * 0.65)));
-        const middlePad = Math.max(2, Math.round(outerPad * 0.6));
-        const innerPad = Math.max(1, Math.round(outerPad * 0.3));
+    _indicatorGeometryKey(cfg) {
+        return [
+            cfg.indicatorSize,
+            cfg.autoShrinkFactor ?? 1,
+            cfg.shrunk === true ? 1 : 0,
+            cfg.iconSize,
+            cfg.cellW,
+            cfg.dockH,
+            cfg.indicatorStyle,
+            cfg.vertical ? 1 : 0,
+        ].join(':');
+    }
+
+    _addIndicatorGlow(positions, width, height, color, glowPads) {
         const layers = [
-            [outerPad, 6],
-            [middlePad, 12],
-            [innerPad, 24],
+            [glowPads[0] ?? 0, 6],
+            [glowPads[1] ?? 0, 12],
+            [glowPads[2] ?? 0, 24],
         ];
 
         // Add every halo before the solid indicators so overlapping glows can
@@ -428,7 +462,9 @@ class DockItem extends St.Widget {
         if (this._bounce?.active || this._pulsing) return;
         this._syncTextureTier(scale);
         this._icon.set_scale(scale, scale);
-        this._icon[this._liftProp] = this._baseLift();
+        const lift = this._baseLift();
+        this._icon[this._liftProp] = lift;
+        this._iconLift = lift;
         if (this._badge?.visible) this._positionBadge();
     }
 
@@ -449,6 +485,7 @@ class DockItem extends St.Widget {
         this._icon.remove_all_transitions();
         this._icon.translation_x = 0;
         this._icon.translation_y = 0;
+        this._iconLift = 0;
         if (!animationsEnabled()) {
             this._syncTextureTier(1, true);
             this._icon.set_scale(restScale, restScale);
@@ -476,7 +513,7 @@ class DockItem extends St.Widget {
         }
         this._icon.set_scale(restScale * 0.4, restScale * 0.4);
         this._icon.opacity = 0;
-        this._landing = true;     // set before ease so the first tick skips setScale
+        this._landing = true;     // first engine tick must leave the ease in control
         this._icon.ease({
             scale_x: restScale, scale_y: restScale, opacity: 255, duration,
             mode: Clutter.AnimationMode.EASE_OUT_BACK,
@@ -505,7 +542,9 @@ class DockItem extends St.Widget {
         const magScale = this.scaleCurrent;
         this._syncTextureTier(this.scaleCurrent);
         this._icon.set_scale(magScale * sx, magScale * sy);
-        this._icon[this._liftProp] = this._baseLift() + this._liftSign * (heightPx || 0);
+        const lift = this._baseLift() + this._liftSign * (heightPx || 0);
+        this._icon[this._liftProp] = lift;
+        this._iconLift = lift;
         if (this._badge?.visible) this._positionBadge();
         this.onComposed?.();
     }

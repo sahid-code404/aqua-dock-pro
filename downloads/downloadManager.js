@@ -37,20 +37,26 @@ export class DownloadManager {
     enable() {
         if (!this._host.getConfig().showDownloads) return;
         if (this._monitor) return;
+        let monitor = null;
         try {
-            this._monitor = downloadsDir().monitor_directory(Gio.FileMonitorFlags.NONE, null);
-            this._monitorId = this._monitor.connect('changed', (_m, file, _o, evt) => {
+            monitor = downloadsDir().monitor_directory(Gio.FileMonitorFlags.NONE, null);
+            const monitorId = monitor.connect('changed', (_m, file, _o, evt) => {
                 if (evt !== Gio.FileMonitorEvent.CREATED && evt !== Gio.FileMonitorEvent.MOVED_IN) return;
                 const name = file?.get_basename?.() ?? '';
                 if (name.startsWith('.') || name.endsWith('.part') ||
                     name.endsWith('.crdownload') || name.endsWith('.tmp')) return;
                 this._scheduleArrival(file);
             });
-        } catch (e) { logError(e, 'downloads monitor'); }
+            this._monitor = monitor;
+            this._monitorId = monitorId;
+        } catch (e) {
+            try { monitor?.cancel(); } catch { }
+            logError(e, 'downloads monitor');
+        }
     }
 
     openStack(item) {
-        this.openFolderStack(item, downloadsDir(), _('Downloads'), Gio.ThemedIcon.new('folder-download'));
+        this.openFolderStack(item, downloadsDir(), _('Downloads'), item.gicon);
     }
 
     openFolderStack(item, folder, title = _('Folder'), gicon = null) {

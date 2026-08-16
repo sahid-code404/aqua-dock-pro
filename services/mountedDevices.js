@@ -1,7 +1,6 @@
 // Mounted device discovery and dock entry representation via VolumeMonitor.
 
 import Gio from 'gi://Gio';
-import GLib from 'gi://GLib';
 
 import { TimeoutGroup } from '../core/utils.js';
 

@@ -33,6 +33,10 @@ export function populateMenu(menu, entry, {
             menu.addAction(format(_('Open %s'), entry.name ?? _('Folder')),
                 () => launchUri(entry.uri));
             break;
+        case 'location':
+            menu.addAction(format(_('Open %s'), entry.name ?? _('Location')),
+                () => launchUri(entry.uri));
+            break;
         case 'mount':
             menu.addAction(format(_('Open %s'), entry.name ?? _('Mounted device')),
                 () => launchUri(entry.uri));

@@ -70,7 +70,8 @@ export function emptyTrash(onDone = null) {
         }
     }).finally(() => {
         result.cancelled = cancellable.is_cancelled();
-        onDone?.(result);
+        try { onDone?.(result); }
+        catch (error) { logError(error, 'emptyTrash completion'); }
     });
     return cancellable;
 }

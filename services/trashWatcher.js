@@ -22,13 +22,19 @@ export class TrashWatcher {
 
     enable() {
         if (!this._host.getConfig().showTrash) return;
-        // Query after the first actor sync without blocking GNOME Shell.
-        this._timers.addOnce(0, () => this._refresh());
         if (this._monitor) return;
+        // Query after the first actor sync even if monitoring is unavailable.
+        this._timers.addOnce(0, () => this._refresh());
+        let monitor = null;
         try {
-            this._monitor = trashDir().monitor_directory(Gio.FileMonitorFlags.NONE, null);
-            this._monitorId = this._monitor.connect('changed', () => this._schedule());
-        } catch (e) { logError(e, 'trash monitor'); }
+            monitor = trashDir().monitor_directory(Gio.FileMonitorFlags.NONE, null);
+            const monitorId = monitor.connect('changed', () => this._schedule());
+            this._monitor = monitor;
+            this._monitorId = monitorId;
+        } catch (e) {
+            try { monitor?.cancel(); } catch { }
+            logError(e, 'trash monitor');
+        }
     }
 
     _schedule() {

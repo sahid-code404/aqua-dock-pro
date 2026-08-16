@@ -28,11 +28,16 @@ function insertAppsButton(favorites, appsChip, position) {
 }
 
 function movableChipsFor(chips, favorites, appsPosition) {
-    const favoriteChips = chips.filter(chip => {
+    const favoriteChips = [];
+    let appsChip = null;
+    for (const chip of chips) {
+        if (chip.item?.entry?.kind === 'apps') {
+            if (!appsChip) appsChip = chip;
+            continue;
+        }
         const id = chipAppId(chip);
-        return id && favorites.isFavorite(id);
-    });
-    const appsChip = chips.find(chip => chip.item?.entry?.kind === 'apps') ?? null;
+        if (id && favorites.isFavorite(id)) favoriteChips.push(chip);
+    }
     return {
         favoriteChips,
         appsChip,
@@ -41,7 +46,7 @@ function movableChipsFor(chips, favorites, appsPosition) {
 }
 
 export class DragManager {
-    // host: { getConfig, getGeom, getChips, getItems, container, engine,
+    // host: { getConfig, getGeom, getChips, container, engine,
     //         setAppsButtonPosition, onDragStart, onDragEnd }
     constructor(host) {
         this._host = host;
@@ -50,19 +55,22 @@ export class DragManager {
         this._externalDnD = false;
         this._dropGapPos = -1;
         this._dropTimer = 0;
+        this._flyers = new Set();
+        this._appFavorites = null;
     }
 
     get reordering() { return !!this._reorder; }
     get externalDnD() { return this._externalDnD; }
 
     // ── In-dock reorder ───────────────────────────────────────────────────────
-    maybeStart(press, px, py) {
+    maybeStart(press, px, py, distance = null) {
         if (!press || press.button !== 1) return false;
-        if (Math.hypot(px - press.sx, py - press.sy) < START_THRESHOLD) return false;
+        if ((distance ?? Math.hypot(px - press.sx, py - press.sy)) < START_THRESHOLD)
+            return false;
         const item = press.item;
         const isAppsButton = item?.entry?.kind === 'apps';
         const app = item?.entry?.app;
-        const favs = AppFavorites.getAppFavorites();
+        const favs = this._favorites();
         if (!isAppsButton && (!app?.get_id || !favs.isFavorite(app.get_id()))) return false;
         const cfg = this._host.getConfig();
         // Locking protects layout changes, not drag-to-open.  The launcher has
@@ -89,6 +97,7 @@ export class DragManager {
         item._dragging = true;
 
         const flyer = new St.Icon({ gicon: app?.get_icon?.() ?? item.entry.gicon, icon_size: size });
+        this._flyers.add(flyer);
         flyer.set_pivot_point(0.5, 0.5);
         Main.uiGroup.add_child(flyer);
         try { Main.uiGroup.set_child_above_sibling(flyer, this._host.container); } catch { }
@@ -115,7 +124,8 @@ export class DragManager {
         this._reorder = {
             item, app, isAppsButton, movableChips, appsChip, previewSlots,
             fromIndex, toIndex: fromIndex, flyer, badge, size,
-            canReorder, mode: canReorder ? 'move' : 'open',
+            badgeW: this._badgeWidth(badge), canReorder,
+            mode: canReorder ? 'move' : 'open',
         };
         this._connectGlobalCapture();
         this._positionFlyer(px, py);
@@ -126,6 +136,12 @@ export class DragManager {
         const r = this._reorder;
         if (!r) return;
         this._positionFlyer(px, py);
+        const geom = this._host.getGeom();
+        if (r.lastUpdateX === px && r.lastUpdateY === py && r.lastUpdateGeom === geom)
+            return;
+        r.lastUpdateX = px;
+        r.lastUpdateY = py;
+        r.lastUpdateGeom = geom;
 
         // Layout lock leaves the visual order untouched; this drag exists only
         // to let the app be released outside the dock and opened.
@@ -135,7 +151,7 @@ export class DragManager {
         }
 
         // When the flyer is outside the pill, clear the reorder preview.
-        if (!this._isInsidePill(px, py)) {
+        if (!this._isInsidePill(px, py, geom)) {
             this._setBadgeMode(r, 'open');
             if (r.toIndex !== r.fromIndex) {
                 r.toIndex = r.fromIndex;
@@ -155,7 +171,7 @@ export class DragManager {
 
         let to = r.movableChips.length - 1;
         for (let i = 0; i < r.movableChips.length; i++) {
-            if (main < r.movableChips[i].baseX + r.movableChips[i].w / 2) { to = i; break; }
+            if (main < r.movableChips[i].center) { to = i; break; }
         }
         if (to === r.toIndex) return;
         r.toIndex = to;
@@ -175,6 +191,7 @@ export class DragManager {
             if (chip.item === r.item) continue;
             const shift = r.previewSlots[i] - chip.baseX;
             try {
+                chip.spreadOffset = NaN;
                 chip.actor.remove_transition(prop);
                 chip.actor.ease({
                     [prop]: shift,
@@ -197,7 +214,7 @@ export class DragManager {
         // The Applications launcher only reorders. Dropping it outside the dock
         // must not try to treat it as a launchable Shell.App.
         if (!insidePill && r.isAppsButton) {
-            try { r.flyer.destroy(); } catch { }
+            this._destroyFlyer(r.flyer);
             this._restoreIcon(r.item, true);
             this._zeroTranslations();
             this._host.engine.setSuspended(false);
@@ -210,7 +227,7 @@ export class DragManager {
         const dragToOpen = this._host.getConfig().dragToOpen;
         if (!insidePill && !dragToOpen) {
             // Feature disabled — just cancel and snap back.
-            try { r.flyer.destroy(); } catch { }
+            this._destroyFlyer(r.flyer);
             this._restoreIcon(r.item, true);
             this._zeroTranslations();
             this._host.engine.setSuspended(false);
@@ -224,9 +241,9 @@ export class DragManager {
                 r.flyer.ease({
                     opacity: 0, scale_x: 0.5, scale_y: 0.5, duration: 200,
                     mode: Clutter.AnimationMode.EASE_OUT_QUAD,
-                    onComplete: () => { try { r.flyer.destroy(); } catch { } },
+                    onComplete: () => this._destroyFlyer(r.flyer),
                 });
-            } catch { try { r.flyer.destroy(); } catch { } }
+            } catch { this._destroyFlyer(r.flyer); }
             this._restoreIcon(r.item, true);
             this._zeroTranslations();
             this._host.engine.setSuspended(false);
@@ -263,9 +280,9 @@ export class DragManager {
                 y: Math.round(ty + (targetChip.actor.height - r.size) / 2),
                 scale_x: 1, scale_y: 1, opacity: 0, duration: 220,
                 mode: Clutter.AnimationMode.EASE_OUT_CUBIC,
-                onComplete: () => { try { r.flyer.destroy(); } catch { } },
+                onComplete: () => this._destroyFlyer(r.flyer),
             });
-        } else { try { r.flyer.destroy(); } catch { } }
+        } else { this._destroyFlyer(r.flyer); }
 
         this._restoreIcon(r.item, true);
         this._zeroTranslations();
@@ -287,7 +304,7 @@ export class DragManager {
                 const appPosition = reordered
                     .filter(chip => chip !== r.appsChip)
                     .findIndex(chip => chip.item === r.item);
-                try { AppFavorites.getAppFavorites().moveFavoriteToPos(r.app.get_id(), appPosition); }
+                try { this._favorites().moveFavoriteToPos(r.app.get_id(), appPosition); }
                 catch (e) { logError(e, 'reorder commit'); }
             }
         }
@@ -297,9 +314,9 @@ export class DragManager {
     }
 
     // Check if stage coordinates fall within the dock pill region.
-    _isInsidePill(sx, sy) {
+    _isInsidePill(sx, sy, geom = null) {
         if (sx == null || sy == null) return true;   // fallback: treat as inside
-        const geom = this._host.getGeom();
+        geom ??= this._host.getGeom();
         if (!geom) return true;
         return sx >= geom.x && sx < geom.x + geom.width &&
                sy >= geom.y && sy < geom.y + geom.height;
@@ -315,6 +332,8 @@ export class DragManager {
             r.badge.text = `↕  ${_('Move')}`;
             r.badge.ease({ scale_x: 1.0, scale_y: 1.0, duration: 180, mode: Clutter.AnimationMode.EASE_OUT_QUAD });
         }
+        r.badgeW = this._badgeWidth(r.badge);
+        r.badgeX = NaN;
     }
 
     _destroyBadge(r) {
@@ -330,7 +349,7 @@ export class DragManager {
         if (r) {
             this._disconnectGlobalCapture();
             this._destroyBadge(r);
-            try { r.flyer.destroy(); } catch { }
+            this._destroyFlyer(r.flyer);
             this._restoreIcon(r.item, false);
             this._zeroTranslations();
             this._host.engine.setSuspended(false);
@@ -372,14 +391,34 @@ export class DragManager {
     _positionFlyer(px, py) {
         const r = this._reorder;
         if (!r) return;
-        r.flyer.set_position(Math.round(px - r.size / 2), Math.round(py - r.size / 2));
+        const flyerX = Math.round(px - r.size / 2);
+        const flyerY = Math.round(py - r.size / 2);
+        if (flyerX !== r.flyerX || flyerY !== r.flyerY) {
+            r.flyer.set_position(flyerX, flyerY);
+            r.flyerX = flyerX;
+            r.flyerY = flyerY;
+        }
         // Badge sits above the flyer.
         if (r.badge) {
-            const [, bw] = r.badge.get_preferred_width(-1);
-            r.badge.set_position(
-                Math.round(px - (bw || 0) / 2),
-                Math.round(py - r.size / 2 - 28));
+            const badgeX = Math.round(px - r.badgeW / 2);
+            const badgeY = Math.round(py - r.size / 2 - 28);
+            if (badgeX !== r.badgeX || badgeY !== r.badgeY) {
+                r.badge.set_position(badgeX, badgeY);
+                r.badgeX = badgeX;
+                r.badgeY = badgeY;
+            }
         }
+    }
+
+    _badgeWidth(badge) {
+        try { return badge?.get_preferred_width(-1)?.[1] ?? 0; }
+        catch { return 0; }
+    }
+
+    _destroyFlyer(flyer) {
+        if (!flyer) return;
+        this._flyers.delete(flyer);
+        try { flyer.remove_all_transitions(); flyer.destroy(); } catch { }
     }
 
     _restoreIcon(item, animate) {
@@ -396,7 +435,11 @@ export class DragManager {
     _zeroTranslations() {
         const prop = this._host.getConfig().vertical ? 'translation_y' : 'translation_x';
         for (const c of this._host.getChips()) {
-            try { c.actor.remove_transition(prop); c.actor[prop] = 0; } catch { }
+            try {
+                c.actor.remove_transition(prop);
+                c.actor[prop] = 0;
+                c.spreadOffset = 0;
+            } catch { }
         }
     }
 
@@ -406,37 +449,36 @@ export class DragManager {
         return app?.get_id ? app : null;
     }
 
-    _dropSlot(main) {
-        const favs = AppFavorites.getAppFavorites();
-        const cfg = this._host.getConfig();
+    _dropSlot(main, cfg = this._host.getConfig()) {
+        const favs = this._favorites();
         const { visibleChips } = movableChipsFor(
             this._host.getChips(), favs, cfg.appsButtonPosition);
         let slot = 0;
         for (const chip of visibleChips) {
-            if (main > chip.baseX + chip.w / 2) slot++;
+            if (main > chip.center) slot++;
         }
         return slot;
     }
 
     handleDragOver(source, _actor, x, y, _time) {
-        if (this._host.getConfig().layoutLocked)
+        const cfg = this._host.getConfig();
+        if (cfg.layoutLocked)
             return DND.DragMotionResult.NO_DROP;
         if (!this._dragApp(source)) return DND.DragMotionResult.CONTINUE;
-        this._host.onDragStart?.();
         if (!this._externalDnD) {
+            this._host.onDragStart?.();
             this._externalDnD = true;
             this._host.engine.setSuspended(true);
             this._host.engine.snapToRest();
             this._dropGapPos = -1;
         }
-        const vert = this._host.getConfig().vertical;
-        const slot = this._dropSlot(vert ? y : x);
+        const slot = this._dropSlot(cfg.vertical ? y : x, cfg);
         if (slot !== this._dropGapPos) { this._dropGapPos = slot; this._showDropGap(slot); }
         return DND.DragMotionResult.COPY_DROP;
     }
 
     _showDropGap(slot) {
-        const favs = AppFavorites.getAppFavorites();
+        const favs = this._favorites();
         const cfg = this._host.getConfig();
         const prop = cfg.vertical ? 'translation_y' : 'translation_x';
         const gap = Math.round(cfg.cellW * 0.6);
@@ -449,24 +491,28 @@ export class DragManager {
         for (let index = 0; index < visibleChips.length; index++) {
             const chip = visibleChips[index];
             const shift = index >= slot ? gap : 0;
-            try { chip.actor.remove_transition(prop); chip.actor.ease({ [prop]: shift, duration: 180, mode: Clutter.AnimationMode.EASE_OUT_QUAD }); } catch { }
+            try {
+                chip.spreadOffset = NaN;
+                chip.actor.remove_transition(prop);
+                chip.actor.ease({ [prop]: shift, duration: 180, mode: Clutter.AnimationMode.EASE_OUT_QUAD });
+            } catch { }
         }
     }
 
     acceptDrop(source, _actor, x, y, _time) {
-        if (this._host.getConfig().layoutLocked) {
+        const cfg = this._host.getConfig();
+        if (cfg.layoutLocked) {
             this.clearDrop();
             return false;
         }
         const app = this._dragApp(source);
         if (!app) return false;
         const id = app.get_id();
-        const favs = AppFavorites.getAppFavorites();
-        const vert = this._host.getConfig().vertical;
-        const cfg = this._host.getConfig();
+        const favs = this._favorites();
+        const vert = cfg.vertical;
         const { appsChip, visibleChips } = movableChipsFor(
             this._host.getChips(), favs, cfg.appsButtonPosition);
-        const slot = this._dropSlot(vert ? y : x);
+        const slot = this._dropSlot(vert ? y : x, cfg);
 
         this._externalDnD = false;
         this._dropGapPos = -1;
@@ -535,12 +581,19 @@ export class DragManager {
         this._host.onDragEnd?.();
     }
 
+    _favorites() {
+        return (this._appFavorites ??= AppFavorites.getAppFavorites());
+    }
+
     destroy() {
+        this.cancel();
         this._timers.removeAll();
         this._dragPollId = 0;
         this._dropTimer = 0;
-        this.cancel();
+        for (const flyer of this._flyers) this._destroyFlyer(flyer);
+        this._flyers.clear();
         this._externalDnD = false;
+        this._appFavorites = null;
         this._host = null;
     }
 }

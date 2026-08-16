@@ -7,7 +7,7 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import { EventBus } from './eventBus.js';
 import { SettingsManager } from './settingsManager.js';
-import { clearRuntimeWarnings, log, logError } from './utils.js';
+import { clearRuntimeWarnings, log, logError, setReduceMotionOverride } from './utils.js';
 import { DockController } from '../dock/dockController.js';
 import { cancelMountedDeviceOperations } from '../services/mountedDevices.js';
 
@@ -27,6 +27,7 @@ export class ExtensionManager {
             // Construction order = dependency order. Bus first, then settings.
             this._bus = new EventBus();
             this._settings = new SettingsManager(this._extension.getSettings(), this._bus);
+            setReduceMotionOverride(this._settings.config.reduceMotion);
 
             // A structural settings change rebuilds the dock; anything else is a
             // cheap in-place refresh so dragging a slider never tears it down.
@@ -143,6 +144,7 @@ export class ExtensionManager {
     }
 
     _onSettingsChanged({ structural }) {
+        setReduceMotionOverride(this._settings.config.reduceMotion);
         if (structural || !this._docks.length) {
             this._rebuildDocks();
             return;
@@ -173,6 +175,7 @@ export class ExtensionManager {
 
         this._settings?.destroy();
         this._settings = null;
+        setReduceMotionOverride(false);
 
         this._bus?.clear();
         this._bus = null;

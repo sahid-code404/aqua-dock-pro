@@ -81,16 +81,14 @@ export class OverlapDetector {
                 'unmanaging', () => this._untrack(win),
                 this);
             this._tracked.add(win);
-        } catch { }
+        } catch {
+            try { win.disconnectObject(this); } catch { }
+        }
     }
 
     _untrack(win) {
-        try {
-            if (win && this._tracked.has(win)) {
-                win.disconnectObject(this);
-                this._tracked.delete(win);
-            }
-        } catch { /* already destroyed */ }
+        if (!win || !this._tracked.delete(win)) return;
+        try { win.disconnectObject(this); } catch { }
     }
 
     destroy() {

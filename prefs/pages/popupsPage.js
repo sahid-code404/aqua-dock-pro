@@ -73,5 +73,14 @@ export function buildPopupsPage(window, s) {
         [_('Hidden windows'), _('All windows')], ['hidden', 'all']));
     prev.add(switchRow(s, 'preview-close-buttons', _('Close buttons'),
         _('Show a close button beside every window title')));
+    prev.add(comboRow(window, s, 'preview-overflow-mode', _('Many windows'),
+        _('Keep the compact count or browse every window in pages'),
+        [_('Compact count'), _('Paged previews')], ['summary', 'pages']));
+    prev.add(spinRow(s, 'preview-page-size', _('Windows per page'),
+        _('Maximum previews on one page; the monitor width may reduce it'), 1, 8, 1, 0));
+    prev.add(switchRow(s, 'preview-keyboard-navigation', _('Keyboard preview navigation'),
+        _('Move focus into previews opened from the keyboard')));
+    prev.add(switchRow(s, 'preview-window-actions', _('Window action menu'),
+        _('Right-click a preview for activation, workspace, monitor, and close actions')));
     p.add(prev);
 }

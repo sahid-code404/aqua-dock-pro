@@ -39,12 +39,17 @@ fi
 mapfile -t js_files < <(find . -type f -name '*.js' -not -path './.git/*' | sort)
 gjs -c '
     const GLib = imports.gi.GLib;
-    for (const file of ARGV) {
-        const [, bytes] = GLib.file_get_contents(file);
-        Reflect.parse(new TextDecoder().decode(bytes), {
-            source: file,
-            target: "module",
-        });
+    try {
+        for (const file of ARGV) {
+            const [, bytes] = GLib.file_get_contents(file);
+            Reflect.parse(new TextDecoder().decode(bytes), {
+                source: file,
+                target: "module",
+            });
+        }
+    } catch (error) {
+        printerr(error);
+        imports.system.exit(1);
     }
 ' "${js_files[@]}"
 
@@ -67,8 +72,14 @@ export GSETTINGS_BACKEND=memory
 gjs -m tests/springSolver.test.js
 gjs -m tests/iconResolution.test.js
 gjs -m tests/layout.test.js
+gjs -m tests/fullscreenPolicy.test.js
 gjs -m tests/settings.test.js
 gjs -m tests/fileEnumerator.test.js
+gjs -m tests/fileClipboard.test.js
+gjs -m tests/fanGeometry.test.js
+gjs -m tests/customItems.test.js
+gjs -m tests/previewPaging.test.js
+gjs -m tests/locationResolver.test.js
 gjs -m tests/mountedDevices.test.js
 gjs -m tests/windowFilter.test.js
 

@@ -22,6 +22,8 @@ export class TooltipManager {
         this._w = null;
         this._h = null;
         this._mon = null;
+        this._x = NaN;
+        this._y = NaN;
     }
 
     get shown() { return this._shown; }
@@ -31,13 +33,18 @@ export class TooltipManager {
     style() {
         const cfg = this._getConfig();
         const radius = cfg.tooltipRadius ?? 9;
-        const bg = cfg.tooltipBg || 'rgba(32,32,36,0.92)';
-        const fg = cfg.tooltipFg || 'rgba(242,242,244,1.0)';
-        const bw = cfg.tooltipBorderWidth ?? cfg.borderWidth ?? 1;
-        const bc = cfg.tooltipBorderColor ?? cfg.borderColor ?? 'rgba(255,255,255,0.16)';
+        const bg = cfg.highContrast ? 'rgba(0,0,0,0.98)'
+            : (cfg.tooltipBg || 'rgba(32,32,36,0.92)');
+        const fg = cfg.highContrast ? '#ffffff'
+            : (cfg.tooltipFg || 'rgba(242,242,244,1.0)');
+        const bw = cfg.highContrast ? Math.max(2, cfg.tooltipBorderWidth ?? 1)
+            : (cfg.tooltipBorderWidth ?? cfg.borderWidth ?? 1);
+        const bc = cfg.highContrast ? '#ffffff'
+            : (cfg.tooltipBorderColor ?? cfg.borderColor ?? 'rgba(255,255,255,0.16)');
         const border = bw > 0 ? `${bw}px solid ${bc}` : 'none';
         this._label.set_style(
-            `background-color: ${bg}; color: ${fg}; border-radius: ${radius}px; border: ${border};`);
+            `background-color: ${bg}; color: ${fg}; border-radius: ${radius}px; ` +
+            `border: ${border}; font-size: ${(10 * (cfg.interfaceTextScale ?? 1)).toFixed(2)}pt;`);
         this._w = null;   // border/padding shift the metrics
     }
 
@@ -110,7 +117,11 @@ export class TooltipManager {
             ty = Math.max(mon.y + 4, Math.min(ty, monB - th - 4));
 
             const nx = Math.round(tx), ny = Math.round(ty);
-            if (nx !== this._label.x || ny !== this._label.y) this._label.set_position(nx, ny);
+            if (nx !== this._x || ny !== this._y) {
+                this._label.set_position(nx, ny);
+                this._x = nx;
+                this._y = ny;
+            }
         } catch (e) { logError(e, 'tooltip.position'); }
     }
 
@@ -131,6 +142,8 @@ export class TooltipManager {
         this._showId = 0;
         this._pendingItem = null;
         this._pendingGeom = null;
+        this._x = NaN;
+        this._y = NaN;
         if (this._label) { try { this._label.destroy(); } catch { } this._label = null; }
         this._getConfig = this._getHoverItem = this._getMonitor = null;
     }

@@ -3,6 +3,7 @@ import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 
 import { buildAboutPage } from '../prefs/pages/aboutPage.js';
+import { buildAccessibilityPage } from '../prefs/pages/accessibilityPage.js';
 import { buildBehaviorPage } from '../prefs/pages/behaviorPage.js';
 import { buildDevicesPage } from '../prefs/pages/devicesPage.js';
 import { buildDockPage } from '../prefs/pages/dockPage.js';
@@ -28,6 +29,7 @@ buildBehaviorPage(window, settings);
 buildPopupsPage(window, settings);
 buildDownloadsPage(window, settings);
 buildDevicesPage(window, settings);
+buildAccessibilityPage(window, settings);
 buildAboutPage(window, settings, {
     uuid: 'aqua-dock-pro@shaque',
     version: 221,

@@ -6,6 +6,8 @@ import * as AppFavorites from 'resource:///org/gnome/shell/ui/appFavorites.js';
 
 import { SignalGroup, appWindowsForConfig } from '../core/utils.js';
 import { _ } from '../core/i18n.js';
+import { downloadsDir } from './fileService.js';
+import { LocationResolver } from './locationResolver.js';
 
 export class AppTracker {
     // getConfig: () => current config snapshot (for the section/isolate flags).
@@ -15,18 +17,21 @@ export class AppTracker {
         this._signals = new SignalGroup();
         this._onChanged = null;
         this._dlGicon = null;
-        this._folderGicon = null;
         this._trashFull = null;
         this._trashEmpty = null;
         this._windowSignals = new Map();
+        this._locationIcons = new Map();
+        this._favorites = null;
+        this._appSystem = null;
+        this._locations = new LocationResolver(() => this._onChanged?.());
         // TrashWatcher fills this asynchronously after the first actor sync.
         this._trashIsFull = false;
     }
 
     start(onChanged) {
         this._onChanged = onChanged;
-        const favs = AppFavorites.getAppFavorites();
-        const sys = Shell.AppSystem.get_default();
+        const favs = (this._favorites ??= AppFavorites.getAppFavorites());
+        const sys = (this._appSystem ??= Shell.AppSystem.get_default());
         const fire = () => this._onChanged?.();
         this._signals.connect(favs, 'changed', fire);
         this._signals.connect(sys, 'installed-changed', fire);
@@ -82,14 +87,21 @@ export class AppTracker {
 
     getEntries() {
         const cfg = this._getConfig();
-        const favsList = AppFavorites.getAppFavorites().getFavorites();
+        const favs = (this._favorites ??= AppFavorites.getAppFavorites());
+        const appSystem = (this._appSystem ??= Shell.AppSystem.get_default());
+        const favsList = favs.getFavorites();
         const favIds = new Set();
         for (const a of favsList) favIds.add(a.get_id());
-        const running = Shell.AppSystem.get_default().get_running();
+        const running = appSystem.get_running();
+        let activeWorkspace;
+        if (cfg.isolateWS) {
+            try { activeWorkspace = global.workspace_manager.get_active_workspace(); }
+            catch { }
+        }
         const runningExtra = [];
         for (const app of running) {
             if (favIds.has(app.get_id())) continue;
-            const windows = appWindowsForConfig(app, cfg);
+            const windows = appWindowsForConfig(app, cfg, activeWorkspace);
             if ((cfg.isolateWS || cfg.isolateMonitors) && !windows.length) continue;
             runningExtra.push(app);
         }
@@ -110,20 +122,55 @@ export class AppTracker {
         for (const app of runningExtra)
             entries.push({ key: `app:${app.get_id()}`, kind: 'app', app, gicon: app.get_icon() });
         const systemEntries = [];
-        if (cfg.showDownloads)
-            systemEntries.push({ key: 'downloads', kind: 'downloads', gicon: this._downloadsGicon() });
+        if (cfg.showDownloads) {
+            const fallback = { name: _('Downloads'), gicon: this._downloadsGicon() };
+            const resolved = cfg.useFolderMetadataIcons
+                ? this._locations.resolve(downloadsDir().get_uri(), fallback.name, fallback.gicon)
+                : fallback;
+            systemEntries.push({ key: 'downloads', kind: 'downloads', gicon: resolved.gicon });
+        }
         if (cfg.showCustomFolder && cfg.customFolderUri) {
             try {
                 const folder = Gio.File.new_for_uri(cfg.customFolderUri);
-                const name = folder.get_basename() || _('Folder');
+                const fallbackName = folder.get_basename() || _('Folder');
+                const fallbackIcon = this._iconForLocation('folder');
+                const resolved = cfg.useFolderMetadataIcons
+                    ? this._locations.resolve(cfg.customFolderUri, fallbackName, fallbackIcon)
+                    : { name: fallbackName, gicon: fallbackIcon };
                 systemEntries.push({
                     key: `folder:${cfg.customFolderUri}`,
                     kind: 'folder',
-                    name,
+                    name: resolved.name,
                     uri: cfg.customFolderUri,
-                    gicon: (this._folderGicon ??= Gio.ThemedIcon.new('folder')),
+                    gicon: resolved.gicon,
                 });
             } catch { }
+        }
+        if (cfg.showCustomDockItems) {
+            for (const definition of cfg.customDockItems ?? []) {
+                if (definition.type === 'separator' || definition.type === 'spacer') {
+                    systemEntries.push({
+                        key: `custom:${definition.id}`,
+                        kind: definition.type,
+                    });
+                    continue;
+                }
+                const fallbackName = definition.name || this._locationBasename(definition.uri);
+                const fallbackIcon = this._iconForLocation(definition.type);
+                const resolveMetadata = definition.type !== 'url' &&
+                    (definition.type !== 'folder' || cfg.useFolderMetadataIcons);
+                const resolved = !resolveMetadata
+                    ? { name: fallbackName, gicon: fallbackIcon }
+                    : this._locations.resolve(definition.uri, fallbackName, fallbackIcon);
+                systemEntries.push({
+                    key: `custom:${definition.id}`,
+                    kind: definition.type === 'folder' ? 'folder' : 'location',
+                    locationType: definition.type,
+                    name: definition.name || resolved.name,
+                    uri: definition.uri,
+                    gicon: resolved.gicon,
+                });
+            }
         }
         if (cfg.showMountedDevices)
             systemEntries.push(...(this._getMountedEntries?.() ?? []));
@@ -139,6 +186,20 @@ export class AppTracker {
     // in the chip diff, and getEntries() runs on every app launch/quit.
     _downloadsGicon() {
         return (this._dlGicon ??= Gio.ThemedIcon.new('folder-download'));
+    }
+
+    _iconForLocation(type) {
+        if (this._locationIcons.has(type)) return this._locationIcons.get(type);
+        const name = type === 'folder' ? 'folder'
+            : (type === 'url' ? 'web-browser-symbolic' : 'text-x-generic');
+        const icon = Gio.ThemedIcon.new(name);
+        this._locationIcons.set(type, icon);
+        return icon;
+    }
+
+    _locationBasename(uri) {
+        try { return Gio.File.new_for_uri(uri).get_basename() || _('Location'); }
+        catch { return _('Location'); }
     }
 
     trashGicon(full) {
@@ -169,11 +230,16 @@ export class AppTracker {
         this._windowSignals.clear();
         this._onChanged = null;
         this._dlGicon = null;
-        this._folderGicon = null;
+        this._locations?.destroy();
+        this._locations = null;
+        this._locationIcons.clear();
         this._trashFull = null;
         this._trashEmpty = null;
         this._appsGicon = null;
         this._appsIconKey = null;
+        this._favorites = null;
+        this._appSystem = null;
+        this._getConfig = null;
         this._getMountedEntries = null;
     }
 }

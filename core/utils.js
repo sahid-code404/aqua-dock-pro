@@ -14,6 +14,7 @@ function getShell() {
 }
 
 let _St = null;
+let _stSettings = null;
 function getSt() {
     if (!_St) {
         try { _St = imports.gi.St; } catch { _St = null; }
@@ -106,12 +107,19 @@ export function launchUri(uri) {
 
 // Read GNOME's reduced-motion preference only when an animation starts. This
 // adds no signal, timer, or per-frame work.
+let reduceMotionOverride = false;
+
+export function setReduceMotionOverride(enabled) {
+    reduceMotionOverride = enabled === true;
+}
+
 export function animationsEnabled() {
+    if (reduceMotionOverride) return false;
     try {
         const StModule = getSt();
         if (!StModule) return true;
 
-        const settings = StModule.Settings.get();
+        const settings = _stSettings ??= StModule.Settings.get();
         if (!settings.enable_animations) return false;
 
         // GNOME 51 adds a separate reduced-motion preference. Keep this

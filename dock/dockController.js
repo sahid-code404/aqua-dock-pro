@@ -52,6 +52,9 @@ export class DockController {
         this._focusItem = null;
         this._focusLeaveId = 0;
         this._stageCaptureId = 0;
+        this._notificationMap = null;
+        this._refreshNotificationsPending = false;
+        this._notificationSignalsReliable = false;
 
         try { this._build(); }
         catch (e) {
@@ -111,7 +114,7 @@ export class DockController {
             onClose: () => this._autohide?.onDockLeft(),
             holdItem: item => { this._engine.setHeldItem(item); this._engine.kick(); },
             releaseHold: () => { this._engine.setHeldItem(null); this._engine.kick(); },
-            onTrashEmptied: () => this._refreshItems(),
+            onTrashEmptied: () => this._refreshItems(false),
             onToggleLayoutLock: () => {
                 const raw = this._settings.raw;
                 raw.set_boolean('lock-layout', !raw.get_boolean('lock-layout'));
@@ -125,13 +128,13 @@ export class DockController {
             kickEngine: () => this._engine.kick(),
             onStackClosed: () => this._autohide?.onDockLeft(),
         });
-        this._trash = new TrashWatcher({
+        this._trash = this._cfg.showTrash ? new TrashWatcher({
             getConfig: () => this._cfg,
             getTrashItem: () => this._findItem('trash'),
             getTrashGicon: full => this._tracker.trashGicon(full),
             kickEngine: () => this._engine.kick(),
             setTrashFull: full => this._tracker.setTrashFull(full),
-        });
+        }) : null;
         this._genie = new GenieController({
             getConfig: () => this._cfg,
             getGeom: () => this._geom,
@@ -144,7 +147,6 @@ export class DockController {
             getConfig: () => this._cfg,
             getGeom: () => this._geom,
             getChips: () => this._factory.chips,
-            getItems: () => this._factory.items,
             container: this._chrome.container,
             engine: this._engine,
             setAppsButtonPosition: position =>
@@ -175,7 +177,7 @@ export class DockController {
         this._refreshItems();        // seed badges before the first shell event
         this._autohide.enable();
         this._downloads.enable();
-        this._trash.enable();
+        this._trash?.enable();
         if (this._manageDash) this._chrome.hideDash(this._cfg);
         log(`dock built on monitor ${this._monitorIndex}`);
     }
@@ -345,8 +347,8 @@ export class DockController {
         const mz = this._chrome.magZone;
         const ez = this._chrome.edgeZone;
 
-        s.connect(c, 'motion-event', (_a, ev) => this._onMotion(ev, true));
-        s.connect(c, 'enter-event', (_a, ev) => this._onMotion(ev, true));
+        s.connect(c, 'motion-event', (_a, ev) => this._onMotion(ev));
+        s.connect(c, 'enter-event', (_a, ev) => this._onMotion(ev));
         s.connect(c, 'leave-event', () => this._onContainerLeave());
         s.connect(c, 'captured-event', (_a, ev) => this._onCaptured(ev));
         s.connect(c, 'scroll-event', (_a, ev) => this._onScroll(ev));
@@ -356,6 +358,7 @@ export class DockController {
         s.connect(mz, 'leave-event', () => this._onMagLeave());
         s.connect(mz, 'button-press-event', (_a, ev) => this._onMagPress(ev));
         s.connect(mz, 'button-release-event', (_a, ev) => this._onMagRelease(ev));
+        s.connect(mz, 'scroll-event', (_a, ev) => this._onScroll(ev));
 
         // Edge zone: the gap between the dock pill and the screen edge.
         // Forwards pointer tracking (for magnification), clicks (to activate
@@ -370,7 +373,10 @@ export class DockController {
 
         const wm = global.window_manager;
         for (const sig of ['map', 'destroy', 'minimize', 'unminimize'])
-            s.connect(wm, sig, () => { this._scheduleRefreshItems(); this._autohide?.queueIntellihide(); });
+            s.connect(wm, sig, () => {
+                this._scheduleRefreshItems(false);
+                this._autohide?.queueIntellihide();
+            });
         s.connect(global.display, 'window-created', (_d, win) => this._genie.onWindowCreated(win));
         for (const sig of ['item-drag-end', 'item-drag-cancelled'])
             s.connect(Main.overview, sig, () => this._drag.clearDrop());
@@ -390,7 +396,8 @@ export class DockController {
         const tray = messageTray();
         if (tray) {
             this._traySourceSignals = new Map();
-            const onTray = () => this._scheduleRefreshItems();
+            this._notificationSignalsReliable = true;
+            const onTray = () => this._scheduleRefreshItems(true);
 
             const watchSource = src => {
                 if (!src || this._traySourceSignals.has(src)) return;
@@ -398,9 +405,15 @@ export class DockController {
                 // GNOME 50: Source emits notify::count when notifications
                 // change, and notification-added/notification-removed for
                 // individual events. Subscribe to all for maximum coverage.
-                try { ids.push(src.connect('notify::count', onTray)); } catch { }
-                try { ids.push(src.connect('notification-added', onTray)); } catch { }
-                try { ids.push(src.connect('notification-removed', onTray)); } catch { }
+                let countId = 0, addedId = 0, removedId = 0;
+                try { countId = src.connect('notify::count', onTray); } catch { }
+                try { addedId = src.connect('notification-added', onTray); } catch { }
+                try { removedId = src.connect('notification-removed', onTray); } catch { }
+                if (countId) ids.push(countId);
+                if (addedId) ids.push(addedId);
+                if (removedId) ids.push(removedId);
+                if (!countId && !(addedId && removedId))
+                    this._notificationSignalsReliable = false;
                 if (ids.length) this._traySourceSignals.set(src, ids);
             };
             const unwatchSource = src => {
@@ -439,23 +452,41 @@ export class DockController {
         else this._engine.kick();
     }
 
-    _refreshItems() {
+    _refreshItems(refreshNotifications = true) {
         // Message-tray traversal is unnecessary when badges are disabled.
         // Passing null also tells DockItem to preserve its cached count until
         // the feature is enabled and the next snapshot is requested.
-        const notifMap = this._cfg.showBadges ? buildNotificationMap() : null;
+        let notifMap = null;
+        if (this._cfg.showBadges) {
+            if (refreshNotifications || !this._notificationMap ||
+                !this._notificationSignalsReliable)
+                this._notificationMap = buildNotificationMap();
+            notifMap = this._notificationMap;
+        } else {
+            this._notificationMap = null;
+        }
+        let activeWorkspace;
+        if (this._cfg.isolateWS) {
+            try { activeWorkspace = global.workspace_manager.get_active_workspace(); }
+            catch { }
+        }
         for (const item of this._factory.items) {
-            try { item.refresh(notifMap); } catch (e) { logError(e, 'item.refresh'); }
+            if (item.entry.kind !== 'app') continue;
+            try { item.refresh(notifMap, activeWorkspace); }
+            catch (e) { logError(e, 'item.refresh'); }
         }
     }
 
     // Coalesced version: rapid-fire WM signals (map/destroy/minimize) produce
     // one refresh pass per 60ms window instead of one per signal.
-    _scheduleRefreshItems() {
+    _scheduleRefreshItems(notificationsChanged = false) {
+        if (notificationsChanged) this._refreshNotificationsPending = true;
         if (this._refreshId) return;
         this._refreshId = this._timers.addOnce(60, () => {
             this._refreshId = 0;
-            this._refreshItems();
+            const refreshNotifications = this._refreshNotificationsPending;
+            this._refreshNotificationsPending = false;
+            this._refreshItems(refreshNotifications);
         });
     }
 
@@ -471,11 +502,9 @@ export class DockController {
         this._chrome.applyContainer(geom, this._autohide?.hidden ?? false);
         this._chrome.applyPill(geom);
         this._chrome.applyPillStyle(pillStyle(cfg));
+        this._chrome.applyAccessibility(cfg);
         this._chrome.applyStrut(geom.strut);
-        this._chrome.applyStrip(geom.strip);
         this._chrome.applyMagZoneConst();
-        if (this._autohide?.hidden) this._chrome.hideEdgeZone();
-        else this._chrome.applyEdgeZone(geom.edgeZone);
 
         for (const chip of this._factory.chips) {
             if (chip.item) {
@@ -539,9 +568,9 @@ export class DockController {
         return Clutter.EVENT_PROPAGATE;
     }
 
-    _onMotion(ev, inContainer) {
+    _onMotion(ev) {
         const [x, y] = ev.get_coords();
-        if (inContainer) this._pointerInContainer = true;
+        this._pointerInContainer = true;
         // A reorder drag takes over: it owns the chip translations and the flyer.
         if (this._drag.reordering) { this._drag.update(x, y); return Clutter.EVENT_STOP; }
         if (this._updatePressedDrag(x, y)) return Clutter.EVENT_STOP;
@@ -684,11 +713,13 @@ export class DockController {
         let best = null, bestDist = Infinity;
         for (const chip of chips) {
             if (!chip.item) continue;
-            const tt = chip.actor[transProp] ?? 0;
+            const tt = Number.isFinite(chip.spreadOffset)
+                ? chip.spreadOffset
+                : (chip.actor[transProp] ?? 0);
             const bx = chip.baseX + tt;
             if (bx - 12 > main) break;
             if (main > bx + chip.w + 12) continue;
-            const dist = Math.abs(main - (bx + chip.w * 0.5));
+            const dist = Math.abs(main - (chip.center + tt));
             if (dist < bestDist) { best = chip.item; bestDist = dist; }
         }
         return best;
@@ -775,8 +806,9 @@ export class DockController {
     _updatePressedDrag(x, y) {
         const press = this._press;
         if (!press) return false;
-        if (this._drag.maybeStart(press, x, y)) return true;
-        if (Math.hypot(x - press.sx, y - press.sy) > MOVE_THRESHOLD)
+        const distance = Math.hypot(x - press.sx, y - press.sy);
+        if (this._drag.maybeStart(press, x, y, distance)) return true;
+        if (distance > MOVE_THRESHOLD)
             this._press = null;
         return false;
     }
@@ -844,6 +876,9 @@ export class DockController {
         this._refreshId = 0;
         this._endHoverId = 0;
         this._focusLeaveId = 0;
+        this._refreshNotificationsPending = false;
+        this._notificationSignalsReliable = false;
+        this._notificationMap = null;
         this._focusItem = null;
         this._disableFocusPointerExit();
         // Disconnect per-source tray signals before the bulk disconnectAll().

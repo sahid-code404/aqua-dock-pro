@@ -21,7 +21,6 @@ export class DownloadsStack {
         this._opening = false;
         this._showGen = 0;
         this._onClose = null;
-        this._keyId = 0;
         this._cancellable = null;
     }
 
@@ -50,7 +49,7 @@ export class DownloadsStack {
 
         const mon = this._getMonitor?.();
         if (!mon) { this.hide(); return; }
-        const origin = this._origin(anchor, mon);
+        const origin = this._origin(anchor, mon, cfg);
 
         const blocker = new St.Widget({ reactive: true, opacity: 0 });
         blocker.set_position(mon.x, mon.y);
@@ -81,11 +80,20 @@ export class DownloadsStack {
         }
 
         let actor;
-        try { actor = view.build(); }
-        catch (e) { logError(e, 'downloads view.build'); this.hide(); return; }
         this._view = view;
-        this._keyId = actor.connect('key-press-event', (_a, ev) => view.handleKey(ev));
-        actor.grab_key_focus();
+        try {
+            actor = view.build();
+            actor.connect('key-press-event', (_a, ev) => view.handleKey(ev));
+            actor.grab_key_focus();
+        }
+        catch (e) {
+            logError(e, 'downloads view.build');
+            this._destroyNow();
+            const close = this._onClose;
+            this._onClose = null;
+            if (close) { try { close(); } catch (error) { logError(error, 'downloads onClose'); } }
+            return;
+        }
     }
 
     hide() {
@@ -99,7 +107,6 @@ export class DownloadsStack {
         this._view = null;
         this._blocker = null;
         this._onClose = null;
-        this._keyId = 0;
 
         if (blocker) { try { blocker.destroy(); } catch { } }
         if (onClose) { try { onClose(); } catch (e) { logError(e, 'downloads onClose'); } }
@@ -134,7 +141,7 @@ export class DownloadsStack {
         this._getMonitor = null;
     }
 
-    _origin(anchor, mon) {
+    _origin(anchor, mon, cfg) {
         try {
             const [ax, ay] = anchor.get_transformed_position();
             const tx = anchor.translation_x || 0;
@@ -147,7 +154,12 @@ export class DownloadsStack {
             // horizontal centering (avoids rounding drift from restRect math).
             let cx;
             const icon = anchor._icon;
-            if (icon) {
+            if (cfg.vertical && rest) {
+                // A side-dock icon magnifies into the screen. Its transformed
+                // centre therefore moves away from the pill; anchor side
+                // popups to the stable resting centre instead.
+                cx = rx + rest.x + rest.w / 2;
+            } else if (icon) {
                 const [ix] = icon.get_transformed_position();
                 const [iw] = icon.get_transformed_size();
                 cx = ix - tx + iw / 2;
@@ -158,11 +170,18 @@ export class DownloadsStack {
             // Y: use restRect (the icon's visual top at rest), NOT the icon
             // actor's transformed Y which is the allocation top before pivot
             // scaling and doesn't match the visual position.
-            const cy = rest ? ry + rest.y : ry;
+            const cy = rest
+                ? ry + rest.y + (cfg.vertical ? rest.h / 2 : 0)
+                : ry + (cfg.vertical ? anchor.height / 2 : 0);
 
             return { x: cx, y: cy };
         } catch {
-            return { x: (mon?.x ?? 0) + (mon?.width ?? 0) / 2, y: (mon?.y ?? 0) + (mon?.height ?? 0) };
+            return {
+                x: (mon?.x ?? 0) + (mon?.width ?? 0) / 2,
+                y: cfg.vertical
+                    ? (mon?.y ?? 0) + (mon?.height ?? 0) / 2
+                    : (mon?.y ?? 0) + (mon?.height ?? 0),
+            };
         }
     }
 }

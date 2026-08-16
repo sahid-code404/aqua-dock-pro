@@ -3,6 +3,7 @@
 import { page, group, spinRow, switchRow, comboRow, colorRow, folderChooserRow }
     from '../widgets/rows.js';
 import { _ } from '../../core/i18n.js';
+import { buildCustomItemsEditor } from '../widgets/customItems.js';
 
 export function buildDownloadsPage(window, s) {
     const p = page(_('Downloads'), 'folder-download-symbolic');
@@ -28,7 +29,16 @@ export function buildDownloadsPage(window, s) {
         _('Display the selected folder as another stack')));
     custom.add(folderChooserRow(window, s, 'custom-folder-uri', _('Folder'),
         _('The folder whose recent files appear in the stack')));
+    custom.add(switchRow(s, 'use-folder-metadata-icons', _('Use folder’s own icon'),
+        _('Prefer custom and standard folder artwork; disable for theme fallback icons')));
     p.add(custom);
+
+    const dockItems = group(_('Dock locations and shortcuts'),
+        _('Add and arrange folders, files, links, separators, and spacers.'));
+    dockItems.add(switchRow(s, 'show-custom-dock-items', _('Show custom dock items'),
+        _('Display the configured items in the dock’s locations section')));
+    buildCustomItemsEditor(window, s, dockItems);
+    p.add(dockItems);
 
     const panelStyle = group(_('Panel colours and border'), _('The stack panel styling.'));
     panelStyle.add(colorRow(window, s, 'downloads-pill-color', _('Panel background'),

@@ -9,6 +9,7 @@ import { SignalGroup, TimeoutGroup } from '../core/utils.js';
 import { VisibilityController } from './visibilityController.js';
 import { OverlapDetector } from './overlapDetector.js';
 import { PressureBarrier } from './pressureBarrier.js';
+import { hasFullscreenWindow } from './fullscreenPolicy.js';
 import { monitorInFullscreen } from '../compat/shell.js';
 
 const DEBOUNCE_HIDE_MS = 200;
@@ -64,6 +65,7 @@ export class AutohideManager {
         this._idleId = 0;
         this._signals.disconnectAll();
         this._setHidden(false, false);   // show before tearing down
+        this._host.chrome.setAutohideHandleVisible(false, false);
     }
 
     destroy() {
@@ -80,6 +82,10 @@ export class AutohideManager {
         const geom = this._host.getGeom();
         if (!geom) return;
         this._host.chrome.applyStrip(geom.strip);
+        this._host.chrome.applyAutohideHandle(geom.autohideHandle);
+        this._host.chrome.setAutohideHandleVisible(
+            this._vis.hidden && this._host.getConfig().showAutohideHandle &&
+            !this._fullscreenBlocksDock(), false);
         if (this._vis.hidden) this._host.chrome.hideEdgeZone();
         else this._host.chrome.applyEdgeZone(geom.edgeZone);
         this.queueIntellihide();
@@ -100,7 +106,6 @@ export class AutohideManager {
     _connect() {
         const s = this._signals;
         const strip = this._host.chrome.strip;
-        const edge = this._host.chrome.edgeZone;
 
         s.connect(strip, 'enter-event', () => { this._cancelHide(); this._beginReveal(); });
         // Keep a pending hide cancelled while the pointer rides the edge; the
@@ -112,10 +117,6 @@ export class AutohideManager {
         // When the pointer leaves the strip (moved off-edge), queue a hide
         // check — if it didn't land on the dock/edge-zone, auto-hide fires.
         s.connect(strip, 'leave-event', () => { this._cancelReveal(); this._debounceCheckHide(); });
-
-        s.connect(edge, 'enter-event', () => this.onDockActivity());
-        s.connect(edge, 'motion-event', () => this.onDockActivity());
-        s.connect(edge, 'leave-event', () => this.onDockLeft());
 
         const d = global.display;
         s.connect(d, 'restacked', () => this.queueIntellihide());
@@ -240,11 +241,14 @@ export class AutohideManager {
     // ── Slide + side effects ──────────────────────────────────────────────────
     _setHidden(hidden, animate) {
         const cfg = this._host.getConfig();
-        if (this._fullscreenBlocksDock()) hidden = true;
+        const fullscreen = this._fullscreenBlocksDock();
+        if (fullscreen) hidden = true;
         else if (cfg.autoHideMode === 'never' && hidden) hidden = false;
         const geom = this._host.getGeom();
         if (!geom) return;
 
+        this._host.chrome.setAutohideHandleVisible(
+            hidden && cfg.showAutohideHandle && !fullscreen, animate);
         const changed = this._vis.setHidden(hidden, geom, animate, () => this._host.kickEngine());
         if (!changed) return;
 
@@ -260,7 +264,25 @@ export class AutohideManager {
     _fullscreenBlocksDock() {
         if (!this._enabled || Main.overview.visible) return false;
         const monitor = this._host.getMonitorIndex?.() ?? -1;
-        return monitor >= 0 && monitorInFullscreen(monitor);
+        if (monitor < 0) return false;
+        if (monitorInFullscreen(monitor)) return true;
+
+        // `get_monitor_in_fullscreen()` can briefly turn false while Mutter
+        // restacks windows after a covering app closes. Consult the actual
+        // active-workspace windows as a stable fallback so the dock never
+        // flashes over a fullscreen app that is still present underneath.
+        try {
+            const workspace = global.workspace_manager.get_active_workspace();
+            let windows = workspace?.list_windows?.();
+            if (!windows) {
+                windows = global.get_window_actors()
+                    .map(actor => actor.meta_window)
+                    .filter(Boolean);
+            }
+            return hasFullscreenWindow(windows, monitor, workspace);
+        } catch {
+            return false;
+        }
     }
 
     _pointerButtonDown() {

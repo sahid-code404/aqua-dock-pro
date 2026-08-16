@@ -2,7 +2,7 @@
 
 import Clutter from 'gi://Clutter';
 
-import { clamp } from '../core/utils.js';
+import { animationsEnabled, clamp } from '../core/utils.js';
 
 export class SelectionModel {
     constructor(selClass = 'aqua-dl-row-sel') {
@@ -20,8 +20,10 @@ export class SelectionModel {
         if (!this._rows.length) return;
         i = clamp(i, 0, this._rows.length - 1);
         if (i === this._i) return;
-        if (this._i >= 0 && this._i < this._rows.length) this._paint(this._rows[this._i], false);
-        this._paint(this._rows[i], true);
+        const animate = animationsEnabled();
+        if (this._i >= 0 && this._i < this._rows.length)
+            this._paint(this._rows[this._i], false, animate);
+        this._paint(this._rows[i], true, animate);
         this._i = i;
     }
 
@@ -31,12 +33,16 @@ export class SelectionModel {
         else if (row) { try { row.emit('clicked', 0); } catch { } }
     }
 
-    _paint(row, on) {
+    _paint(row, on, animate) {
         if (!row) return;
         if (on) row.add_style_class_name(this._selClass);
         else row.remove_style_class_name(this._selClass);
         row._updatePillStyle?.(on);
         if (row._thumb) {
+            if (!animate) {
+                row._thumb.set_scale(on ? 1.10 : 1, on ? 1.10 : 1);
+                return;
+            }
             row._thumb.ease({
                 scale_x: on ? 1.10 : 1, scale_y: on ? 1.10 : 1, duration: 180,
                 mode: on ? Clutter.AnimationMode.EASE_OUT_BACK : Clutter.AnimationMode.EASE_OUT_QUAD,

@@ -32,6 +32,7 @@ export class AppActions {
             return;
         }
         if (entry.kind === 'mount') { this._openUri(item, entry.uri); return; }
+        if (entry.kind === 'location') { this._openUri(item, entry.uri); return; }
         if (entry.kind === 'trash') { this._openUri(item, 'trash:///'); return; }
         if (entry.kind !== 'app' || !entry.app) return;
         this._activateApp(entry.app, item, button);
@@ -57,7 +58,8 @@ export class AppActions {
         const focusApp = getFocusedAppSafe();
         const ws = global.workspace_manager.get_active_workspace();
         const onHere = windows.filter(w => !w.minimized && (!ws || w.located_on_workspace(ws)));
-        const focusedHere = focusApp === app && onHere.some(w => w.has_focus());
+        const focusedIndex = focusApp === app ? onHere.findIndex(w => w.has_focus()) : -1;
+        const focusedHere = focusedIndex >= 0;
 
         if (windows.length === 0) {
             if (app.get_state() === Shell.AppState.STARTING || this._launching.has(app)) {
@@ -85,12 +87,11 @@ export class AppActions {
             this._raise(windows, item); this._lastClickKey = clickKey; return;
         }
         if (focusedHere && onHere.length > 1) {
-            const cur = onHere.findIndex(w => w.has_focus());
-            onHere[(cur + 1) % onHere.length].activate(global.get_current_time());
+            onHere[(focusedIndex + 1) % onHere.length].activate(global.get_current_time());
             this._lastClickKey = clickKey; return;
         }
         if (cfg.clickToMinimize && (focusedHere || (repeat && focusApp === app))) {
-            const wins = (onHere.find(w => w.has_focus()) ? [onHere.find(w => w.has_focus())] : onHere);
+            const wins = focusedHere ? [onHere[focusedIndex]] : onHere;
             this._minimize(item, wins);
             item.bounce(Math.max(8, Math.round(cfg.bounceHeight * 0.5)), { decay: cfg.bounceDecay });
             this._lastClickKey = null; return;
