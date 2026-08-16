@@ -1,14 +1,4 @@
-// AquaDockPro — magnification math and the per-icon spring integrator.
-//
-// Purpose:   The two pure numerical kernels behind hover magnification:
-//            (1) the Gaussian falloff that maps cursor distance → target scale,
-//            (2) a sub-stepped damped-spring integrator that moves each icon's
-//            current scale toward that target smoothly and frame-rate-independently.
-//            Kept pure (no actors, no allocation) so the engine can call them in
-//            a tight loop and so they are unit-testable in isolation.
-// Ownership: Stateless functions. Per-icon state (cur/vel) lives on the DockItem.
-// Cost:      gaussianTarget: 1 exp + maybe 1 pow. integrateSpring: nSteps cheap
-//            FLOPs (nSteps is 1 at ≤16ms frames). No allocation on any path.
+// Pure numerical kernels for hover magnification (Gaussian falloff and spring integration).
 
 import { clamp } from '../core/utils.js';
 import { SETTLE_EPS } from '../core/constants.js';
@@ -43,10 +33,14 @@ export function gaussianTarget(dist, m) {
 // Number of fixed ~16ms physics sub-steps for a frame delta, and the per-step
 // damping power. Sub-stepping keeps the spring stable when a frame is long
 // (e.g. after a stall) without changing its tuned feel.
-export function subSteps(dtMs, damping) {
+export function subSteps(dtMs, damping, out = {}) {
+    dtMs = Number.isFinite(dtMs) ? clamp(dtMs, 0.1, 64) : 16;
     const nSteps = Math.max(1, Math.ceil(dtMs / 16));
     const st = (dtMs / nSteps) / 16;       // normalized step (1 == 16ms)
-    return { nSteps, st, dampPow: Math.pow(damping, st) };
+    out.nSteps = nSteps;
+    out.st = st;
+    out.dampPow = Math.pow(damping, st);
+    return out;
 }
 
 // Advance one icon's spring toward `target`. Mutates `state` ({cur, vel}) in

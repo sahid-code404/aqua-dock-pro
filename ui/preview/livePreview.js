@@ -1,13 +1,4 @@
-// AquaDockPro — one window's live thumbnail frame.
-//
-// Purpose:   Build a single preview cell: a clipped frame holding a live
-//            Clutter.Clone of the window's compositor actor, scaled to fill
-//            while preserving aspect ratio, with the window FRAME (not its
-//            shadow/buffer) centred. Falls back to the app icon when the
-//            compositor actor isn't available (e.g. window on another monitor).
-// Ownership: Returns a detached actor; the PreviewManager parents and destroys
-//            it. The clone is owned by the frame (destroyed with it).
-// Cost:      One clone (GPU-cheap; shares the window's texture). Built per open.
+// Live window preview thumbnail frame using Clutter.Clone.
 
 import Clutter from 'gi://Clutter';
 import St from 'gi://St';

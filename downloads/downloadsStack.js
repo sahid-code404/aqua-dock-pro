@@ -1,49 +1,55 @@
-// AquaDockPro — the Downloads stack popup controller.
-//
-// Purpose:   Open the right view (fan / grid / list) over a full-screen click
-//            blocker, drive its open/close animation, and tear everything down
-//            cleanly. The async file read is generation-guarded so a stack that
-//            was closed (or the extension disabled) before the read finished
-//            never builds a ghost popup.
-// Ownership: OWNS the blocker, the current view, and any "dying" (animating-out)
-//            actor. hide() animates then destroys; destroy() is synchronous.
-// Cost:      One popup at a time. Enumeration is async (never blocks paint).
+// Controller for the Downloads stack popup views (fan, grid, list).
 
 import Clutter from 'gi://Clutter';
+import Gio from 'gi://Gio';
 import St from 'gi://St';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import { clamp, logError } from '../core/utils.js';
+import { _ } from '../core/i18n.js';
 import { enumerateRecent } from './fileEnumerator.js';
 import { FanView } from './fanView.js';
 import { PanelView } from './panelView.js';
 
 export class DownloadsStack {
-    constructor() {
+    constructor(getMonitor) {
+        this._getMonitor = getMonitor;
         this._blocker = null;
         this._view = null;
         this._dying = null;
+        this._opening = false;
         this._showGen = 0;
         this._onClose = null;
-        this._keyId = 0;
+        this._cancellable = null;
     }
 
-    get isOpen() { return !!(this._blocker || this._view); }
+    get isOpen() { return this._opening || !!(this._blocker || this._view); }
 
-    async show(anchor, folder, cfg, onClose) {
+    async show(anchor, folder, cfg, onClose, { title = _('Downloads'), gicon = null } = {}) {
         this._destroyNow();             // clear any lingering popup synchronously
         this._onClose = onClose;
         const gen = ++this._showGen;
+        this._opening = true;
+        this._cancellable = new Gio.Cancellable();
 
-        let files;
-        try { files = await enumerateRecent(folder); }
-        catch (e) { logError(e, 'enumerateRecent'); return; }
+        const max = clamp(cfg.downloadsMaxFiles ?? 11, 3, 11);
+        let listing;
+        try {
+            listing = await enumerateRecent(
+                folder, this._cancellable, cfg.downloadsSort, max);
+        }
+        catch (e) {
+            logError(e, 'enumerateRecent');
+            if (gen === this._showGen) this.hide();
+            return;
+        }
         if (gen !== this._showGen) return;        // superseded or destroyed
+        this._cancellable = null;
 
-        const mon = Main.layoutManager.primaryMonitor;
-        if (!mon) return;
-        const origin = this._origin(anchor);
+        const mon = this._getMonitor?.();
+        if (!mon) { this.hide(); return; }
+        const origin = this._origin(anchor, mon, cfg);
 
         const blocker = new St.Widget({ reactive: true, opacity: 0 });
         blocker.set_position(mon.x, mon.y);
@@ -51,35 +57,56 @@ export class DownloadsStack {
         blocker.connect('button-press-event', () => { this.hide(); return Clutter.EVENT_STOP; });
         Main.uiGroup.add_child(blocker);
         this._blocker = blocker;
+        this._opening = false;
 
-        const max = clamp(cfg.downloadsMaxFiles ?? 11, 3, 11);
-        const totalFiles = files.length;
-        files = files.slice(0, max);
-        const opts = { folder, cfg, mon, origin, close: () => this.hide() };
+        const files = listing.files;
+        const totalFiles = listing.total;
+        const opts = {
+            folder,
+            files,
+            totalFiles,
+            cfg,
+            mon,
+            origin,
+            title,
+            gicon,
+            close: () => this.hide(),
+        };
         let view;
         if (cfg.downloadsView === 'fan') {
-            view = new FanView({ ...opts, files, overflow: Math.max(0, totalFiles - max) });
+            view = new FanView({ ...opts, overflow: Math.max(0, totalFiles - max) });
         } else {
-            view = new PanelView({ ...opts, files });
+            view = new PanelView(opts);
         }
 
         let actor;
-        try { actor = view.build(); }
-        catch (e) { logError(e, 'downloads view.build'); this.hide(); return; }
         this._view = view;
-        this._keyId = actor.connect('key-press-event', (_a, ev) => view.handleKey(ev));
-        actor.grab_key_focus();
+        try {
+            actor = view.build();
+            actor.connect('key-press-event', (_a, ev) => view.handleKey(ev));
+            actor.grab_key_focus();
+        }
+        catch (e) {
+            logError(e, 'downloads view.build');
+            this._destroyNow();
+            const close = this._onClose;
+            this._onClose = null;
+            if (close) { try { close(); } catch (error) { logError(error, 'downloads onClose'); } }
+            return;
+        }
     }
 
     hide() {
         this._showGen++;                 // invalidate any pending show
+        this._cancellable?.cancel();
+        this._cancellable = null;
+        this._opening = false;
         const view = this._view;
         const blocker = this._blocker;
         const onClose = this._onClose;
         this._view = null;
         this._blocker = null;
         this._onClose = null;
-        this._keyId = 0;
 
         if (blocker) { try { blocker.destroy(); } catch { } }
         if (onClose) { try { onClose(); } catch (e) { logError(e, 'downloads onClose'); } }
@@ -95,6 +122,9 @@ export class DownloadsStack {
     }
 
     _destroyNow() {
+        this._opening = false;
+        this._cancellable?.cancel();
+        this._cancellable = null;
         if (this._view) { this._destroyActor(this._view.actor); this._view = null; }
         if (this._dying) { this._destroyActor(this._dying); this._dying = null; }
         if (this._blocker) { try { this._blocker.destroy(); } catch { } this._blocker = null; }
@@ -108,9 +138,10 @@ export class DownloadsStack {
         this._showGen++;
         this._destroyNow();
         this._onClose = null;
+        this._getMonitor = null;
     }
 
-    _origin(anchor) {
+    _origin(anchor, mon, cfg) {
         try {
             const [ax, ay] = anchor.get_transformed_position();
             const tx = anchor.translation_x || 0;
@@ -123,7 +154,12 @@ export class DownloadsStack {
             // horizontal centering (avoids rounding drift from restRect math).
             let cx;
             const icon = anchor._icon;
-            if (icon) {
+            if (cfg.vertical && rest) {
+                // A side-dock icon magnifies into the screen. Its transformed
+                // centre therefore moves away from the pill; anchor side
+                // popups to the stable resting centre instead.
+                cx = rx + rest.x + rest.w / 2;
+            } else if (icon) {
                 const [ix] = icon.get_transformed_position();
                 const [iw] = icon.get_transformed_size();
                 cx = ix - tx + iw / 2;
@@ -134,12 +170,18 @@ export class DownloadsStack {
             // Y: use restRect (the icon's visual top at rest), NOT the icon
             // actor's transformed Y which is the allocation top before pivot
             // scaling and doesn't match the visual position.
-            const cy = rest ? ry + rest.y : ry;
+            const cy = rest
+                ? ry + rest.y + (cfg.vertical ? rest.h / 2 : 0)
+                : ry + (cfg.vertical ? anchor.height / 2 : 0);
 
             return { x: cx, y: cy };
         } catch {
-            const mon = Main.layoutManager.primaryMonitor;
-            return { x: (mon?.x ?? 0) + (mon?.width ?? 0) / 2, y: (mon?.y ?? 0) + (mon?.height ?? 0) };
+            return {
+                x: (mon?.x ?? 0) + (mon?.width ?? 0) / 2,
+                y: cfg.vertical
+                    ? (mon?.y ?? 0) + (mon?.height ?? 0) / 2
+                    : (mon?.y ?? 0) + (mon?.height ?? 0),
+            };
         }
     }
 }

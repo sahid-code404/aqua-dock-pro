@@ -1,17 +1,9 @@
-// AquaDockPro — intellihide overlap detection.
-//
-// Purpose:   Answer "does any real window on the active workspace overlap the
-//            dock's pill?" and keep the windows it sees tracked so the dock
-//            re-evaluates the instant one is moved/resized (not just on grab
-//            end). This is the dodge-mode brain, extracted from the reference's
-//            _checkOverlap/_trackWindow god-methods.
-// Ownership: OWNS its set of per-window signal connections (via connectObject
-//            with `this` as the disconnect token). destroy() releases all.
-// Cost:      isOverlapped() is O(window actors), run only on coalesced WM/focus
-//            events — never per frame. Early-outs on overview/fullscreen.
+// Intellihide window overlap detector.
+// Tracks active workspace windows to detect dock collision.
 
 import GLib from 'gi://GLib';
 import Meta from 'gi://Meta';
+import { monitorInFullscreen } from '../compat/shell.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 const TOL = 4;   // px tolerance so a window just touching the dock isn't "overlap"
@@ -24,11 +16,12 @@ const HANDLED_TYPES = new Set([
 ]);
 
 export class OverlapDetector {
-    // getGeom: () => layout geom (for the pill rect). onWindowChange: debounced
+    // getGeom: () => layout geom (for the pill rect); getMonitorIndex: () =>
+    // the monitor hosting this dock. onWindowChange is the debounced
     // re-evaluation callback fired when a tracked window moves/resizes.
-    constructor(getGeom, getConfig, onWindowChange) {
+    constructor(getGeom, getMonitorIndex, onWindowChange) {
         this._getGeom = getGeom;
-        this._getConfig = getConfig;
+        this._getMonitorIndex = getMonitorIndex;
         this._onWindowChange = onWindowChange;
         this._tracked = new Set();
     }
@@ -38,8 +31,9 @@ export class OverlapDetector {
         const geom = this._getGeom();
         if (!geom) return false;
 
-        const monIndex = Main.layoutManager.primaryIndex;
-        if (global.display.get_monitor_in_fullscreen(monIndex)) return true;
+        const monIndex = this._getMonitorIndex?.() ?? -1;
+        if (monIndex < 0) return false;
+        if (monitorInFullscreen(monIndex)) return true;
 
         const ws = global.workspace_manager.get_active_workspace();
         if (!ws) return false;
@@ -58,7 +52,7 @@ export class OverlapDetector {
             if (win.get_monitor() !== monIndex) continue;
             if (!HANDLED_TYPES.has(win.get_window_type())) continue;
 
-            if (!win._aquaProTracked) this._track(win);
+            if (!this._tracked.has(win)) this._track(win);
             if (overlapped) continue;   // keep tracking the rest, but answer known
 
             const f = win.get_frame_rect();
@@ -70,7 +64,7 @@ export class OverlapDetector {
     }
 
     _track(win) {
-        if (!win || win._aquaProTracked) return;
+        if (!win || this._tracked.has(win)) return;
         try {
             // Timestamp-based throttle: no timer, no leak, no closure risk.
             // 100_000 µs = 100ms minimum gap between callbacks.
@@ -86,26 +80,24 @@ export class OverlapDetector {
                 'size-changed', onChange,
                 'unmanaging', () => this._untrack(win),
                 this);
-            win._aquaProTracked = true;
             this._tracked.add(win);
-        } catch { }
+        } catch {
+            try { win.disconnectObject(this); } catch { }
+        }
     }
 
     _untrack(win) {
-        try {
-            if (win && win._aquaProTracked) {
-                win.disconnectObject(this);
-                win._aquaProTracked = false;
-                this._tracked.delete(win);
-            }
-        } catch { /* already destroyed */ }
+        if (!win || !this._tracked.delete(win)) return;
+        try { win.disconnectObject(this); } catch { }
     }
 
     destroy() {
         for (const win of this._tracked) {
-            try { win.disconnectObject(this); win._aquaProTracked = false; } catch { }
+            try { win.disconnectObject(this); } catch { }
         }
         this._tracked.clear();
+        this._getGeom = null;
+        this._getMonitorIndex = null;
         this._onWindowChange = null;
     }
 }

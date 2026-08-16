@@ -6,7 +6,8 @@
  * separators and badges. Later phases add their own classes (tooltip, menu,
  * previews, downloads).
  *
- * St CSS note: single box-shadow only (no comma-separated multi-shadows). */
+ * Shadows are intentionally disabled: Mutter handles these moving surfaces
+ * more consistently when they remain flat. */
 
 /* Force-hide the default GNOME dash when AquaDockPro is active. */
 .aqua-dash-hidden,
@@ -23,45 +24,69 @@
     box-shadow:       none;
 }
 
+.aqua-autohide-handle {
+    box-shadow:       none;
+}
+
 /* ── Icon slot ────────────────────────────────────────────────────────────── */
 .aqua-item {
     background-color: transparent;
     border:           none;
     padding:          0;
 }
-.aqua-item:focus { outline: none; }
+.aqua-item:focus {
+    background-color: transparent;
+    border:           none;
+    outline:          none;
+}
+.aqua-focus-pill {
+    background-color: rgba(255, 255, 255, 0.10);
+    border:           1px solid rgba(255, 255, 255, 0.42);
+    border-radius:    999px;
+    box-shadow:       none;
+}
+.aqua-high-contrast .aqua-focus-pill {
+    background-color: rgba(255, 255, 255, 0.24);
+    border:           2px solid #ffffff;
+}
+.aqua-high-contrast .aqua-separator {
+    background-color: #ffffff;
+}
 
 /* ── Running indicators (positioned/sized from JS) ────────────────────────── */
 .aqua-dot {
     background-color: rgba(235, 235, 235, 0.92);
     border-radius:    3px;
-    box-shadow:       0 1px 2px rgba(0, 0, 0, 0.50);
+    box-shadow:       none;
 }
 .aqua-indic-line {
     background-color: rgba(235, 235, 235, 0.92);
     border-radius:    2px;
-    box-shadow:       0 0 4px rgba(255, 255, 255, 0.40);
+    box-shadow:       none;
 }
 .aqua-indic-pill {
     background-color: rgba(235, 235, 235, 0.92);
     border-radius:    4px;
-    box-shadow:       0 0 5px rgba(255, 255, 255, 0.50);
+    box-shadow:       none;
 }
 .aqua-indic-glow {
     background-color: transparent;
-    border-radius:    50%;
-    box-shadow:       0 0 10px 4px rgba(100, 180, 255, 0.65);
+    border-radius:    999px;
+    box-shadow:       none;
 }
 .aqua-indic-glow-dots {
-    border-radius:    50%;
+    border-radius:    999px;
     background-color: rgba(235, 235, 235, 0.95);
-    box-shadow:       0 0 7px 3px rgba(100, 180, 255, 0.65);
+    box-shadow:       none;
 }
 
-/* ── Glass separator ──────────────────────────────────────────────────────── */
+/* ── Section separator ────────────────────────────────────────────────────── */
 .aqua-separator {
-    background-color: rgba(255, 255, 255, 0.30);
-    border-radius:    2px;
+    background-color: rgba(255, 255, 255, 0.22);
+    border-radius:    1px;
+}
+.aqua-spacer {
+    background-color: transparent;
 }
 
 /* ── App-name tooltip (colours/radius/border set inline) ──────────────────── */
@@ -69,11 +94,11 @@
     background-color: rgba(32, 32, 36, 0.92);
     color:            #f2f2f4;
     border-radius:    9px;
-    padding:          5px 14px;
-    font-size:        10.5pt;
+    padding:          6px 12px;
+    font-size:        10pt;
     font-weight:      500;
-    letter-spacing:   0.02em;
-    box-shadow:       0 4px 14px rgba(0, 0, 0, 0.45);
+    letter-spacing:   0.01em;
+    box-shadow:       none;
 }
 
 /* ── Context menu (box colours/radius set inline) ─────────────────────────── */
@@ -86,7 +111,7 @@
     background-color: rgba(35, 36, 40, 0.94);
     border-radius:    12px;
     box-shadow:       none;
-    padding:          4px 0;
+    padding:          5px 0;
     min-width:        220px;
     max-width:        220px;
 }
@@ -100,10 +125,24 @@
 }
 .aqua-menu .popup-menu-item:hover,
 .aqua-menu .popup-menu-item:focus {
-    background-color: rgba(255, 255, 255, 0.11);
+    background-color: rgba(255, 255, 255, 0.12);
 }
 .aqua-menu .popup-menu-item:active {
-    background-color: rgba(255, 255, 255, 0.08);
+    background-color: rgba(255, 255, 255, 0.16);
+}
+.aqua-menu.aqua-file-item-menu .popup-menu-content {
+    min-width: 0;
+    max-width: 220px;
+    padding:   4px 0;
+}
+.aqua-menu.aqua-file-item-menu {
+    min-width:       0;
+    max-width:       220px;
+    -boxpointer-gap: 4px;
+}
+.aqua-menu.aqua-file-item-menu .popup-menu-item {
+    padding: 6px 10px;
+    margin:  0 4px;
 }
 .aqua-menu .popup-separator-menu-item { padding: 0; }
 .aqua-menu .popup-separator-menu-item .popup-separator-menu-item-separator {
@@ -119,26 +158,84 @@
     box-shadow:       none;
     border:           none;
 }
-.aqua-preview-col,
-.aqua-preview-col:hover,
-.aqua-preview-col:focus,
-.aqua-preview-col:active {
+.aqua-preview-col {
+    background-color: transparent;
+    box-shadow:       none;
+    border:           1px solid transparent;
+    border-radius:    14px;
+    padding:          4px;
+    transition:       background-color 100ms ease, border-color 100ms ease;
+}
+.aqua-preview-content {
     background-color: transparent;
     box-shadow:       none;
     border:           none;
 }
+.aqua-preview-col:hover,
+.aqua-preview-col:focus {
+    background-color: rgba(255, 255, 255, 0.08);
+    border-color:     rgba(255, 255, 255, 0.14);
+}
+.aqua-preview-col:active {
+    background-color: rgba(255, 255, 255, 0.13);
+    border-color:     rgba(255, 255, 255, 0.18);
+}
 .aqua-preview-thumb {
     background-color: rgba(14, 14, 18, 0.92);
-    border:           1px solid rgba(255, 255, 255, 0.16);
+    border:           1px solid rgba(255, 255, 255, 0.18);
     border-radius:    12px;
     box-shadow:       none;
     overflow:         hidden;
 }
 .aqua-preview-title {
-    color:      rgba(235, 235, 240, 0.82);
-    font-size:  8.5pt;
+    color:      rgba(240, 240, 244, 0.88);
+    font-size:  9pt;
     max-width:  200px;
     text-align: center;
+}
+.aqua-preview-close {
+    background-color: rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    padding: 0 6px;
+}
+.aqua-preview-close:hover,
+.aqua-preview-close:focus { background-color: rgba(255, 255, 255, 0.16); }
+.aqua-preview-more {
+    color: rgba(240, 240, 244, 0.78);
+    font-size: 9pt;
+    padding: 0 8px;
+}
+.aqua-preview-navigation {
+    padding: 2px 4px 0 4px;
+}
+.aqua-preview-page-button {
+    background-color: rgba(20, 20, 24, 0.94);
+    color:            #ffffff;
+    border:           1px solid rgba(255, 255, 255, 0.28);
+    border-radius:    999px;
+    padding:          2px 10px;
+    font-size:        12pt;
+}
+.aqua-preview-page-button:hover,
+.aqua-preview-page-button:focus {
+    background-color: rgba(255, 255, 255, 0.18);
+    border-color:     rgba(255, 255, 255, 0.62);
+}
+.aqua-preview-page-status {
+    color:       rgba(245, 245, 248, 0.94);
+    font-size:   9pt;
+    min-width:   72px;
+    text-align:  center;
+}
+.aqua-preview-box.aqua-high-contrast .aqua-preview-col:focus,
+.aqua-preview-box.aqua-high-contrast .aqua-preview-page-button:focus {
+    border: 2px solid #ffffff;
+}
+.aqua-preview-box.aqua-high-contrast .aqua-preview-thumb,
+.aqua-dl-panel.aqua-high-contrast,
+.aqua-high-contrast .aqua-dl-fan-label-pill,
+.aqua-high-contrast .aqua-dl-fan-thumb {
+    border-color: #ffffff;
 }
 
 /* ── Notification badge ───────────────────────────────────────────────────── */
@@ -152,8 +249,8 @@
     min-width:        16px;
     min-height:       16px;
     text-align:       center;
-    box-shadow:       0 1px 3px rgba(0, 0, 0, 0.50);
-    border:           1.5px solid rgba(255, 255, 255, 0.25);
+    box-shadow:       none;
+    border:           1px solid rgba(255, 255, 255, 0.30);
 }
 
 /* ── Downloads stack ──────────────────────────────────────────────────────── */
@@ -182,7 +279,7 @@
     transition-duration: 120ms;
 }
 .aqua-dl-fan-row-sel { background-color: rgba(255, 255, 255, 0.16); }
-.aqua-dl-fan-row-inner { padding: 0; }
+.aqua-dl-fan-row-inner { padding: 0 6px; }
 .aqua-dl-fan-thumb { transition-duration: 140ms; }
 .aqua-dl-fan-label {
     color:          #f2f2f5;
@@ -215,6 +312,11 @@
     box-shadow:       none;
 }
 .aqua-dl-open-btn:hover { background-color: rgba(255, 255, 255, 0.20); }
+.aqua-dl-open-btn:focus {
+    background-color: rgba(255, 255, 255, 0.18);
+    border-color:     rgba(255, 255, 255, 0.28);
+}
+.aqua-dl-open-btn:active { background-color: rgba(255, 255, 255, 0.24); }
 .aqua-dl-divider {
     background-color: rgba(255, 255, 255, 0.10);
     height:           1px;

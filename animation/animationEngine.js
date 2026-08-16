@@ -1,24 +1,12 @@
-// AquaDockPro — the per-frame magnification + pill-spread engine.
-//
-// Purpose:   The single owner of the dock's frame loop. Each frame it maps the
-//            pointer into dock-local space, computes every icon's target scale
-//            from the Gaussian falloff, integrates each icon's spring toward it,
-//            spreads the background pill to wrap the magnified row, and resizes
-//            the click-catching magnification zone. It self-stops the moment
-//            everything settles (zero idle cost at rest).
-// Ownership: OWNS one FrameScheduler. Borrows the model (chips/items/cfg/geom/
-//            actors) the controller hands it via setModel(); owns no actors.
-// Cleanup:   destroy() releases the scheduler and drops references.
-// Perf:      No per-frame allocation — one reused scratch spring state, cached
-//            stage→local mapping (skips matrix invert on settle-tail frames),
-//            dirty-checked pill edge writes, and magnification constants
-//            precomputed in the layout. Loop stops on settle.
+// Frame loop engine for magnification and background pill spreading.
+// Computes icon scales per frame and self-stops when animations settle.
 
 import Clutter from 'gi://Clutter';
 
-import { clamp, logError } from '../core/utils.js';
+import { animationsEnabled, clamp, logError } from '../core/utils.js';
+import { magnifiedOverflow } from '../dock/dockLayout.js';
 import { smoothFactor } from './easing.js';
-import { gaussianTarget, subSteps, integrateSpring } from './springSolver.js';
+import { gaussianTarget, integrateSpring, subSteps } from './springSolver.js';
 import { FrameScheduler } from './frameScheduler.js';
 
 export class AnimationEngine {
@@ -44,10 +32,12 @@ export class AnimationEngine {
 
         this._magZoneActive = false;
         this._scratch = { cur: 0, vel: 0 };
+        this._stepScratch = { nSteps: 1, st: 1, dampPow: 1 };
         this._lastDt = 16;
         this._heldItem = null;   // pinned to peak zoom while its menu is open
         this._frameHook = null;  // optional () => void run at the end of each frame
         this._suspended = false; // a drag owns the chip translations
+        this._animate = true;
 
         // Frame-loop invariants, cached on setModel() to avoid property lookups
         // on the model/cfg/geom objects every tick.
@@ -69,11 +59,14 @@ export class AnimationEngine {
         this._scheduler = new FrameScheduler(container, dt => this._frame(dt));
     }
 
-    // Pin an item to peak magnification (right-click menu hold). null releases.
+    // Autohide uses this to avoid sliding the entire dock while its pill is
+    // still contracting. The scheduler is stopped as soon as it settles.
+    get animating() { return this._scheduler?.isRunning() ?? false; }
+
+    // Keep the menu item magnified while its menu is open.
     setHeldItem(item) { this._heldItem = item; }
 
-    // Run `fn` at the end of every frame (used to track the tooltip to the
-    // hovered icon while it magnifies — costs nothing once the loop settles).
+    // Keep the tooltip aligned while the icon magnifies.
     setFrameHook(fn) { this._frameHook = fn; }
 
     // Called after every relayout. Seeds pill spread from current icon scales so
@@ -100,6 +93,7 @@ export class AnimationEngine {
         this._cachedBg = model.bg;
         this._cachedMagZone = model.magZone;
         this._cachedMagConst = geom.magZone;
+        this._mzX = this._mzY = this._mzW = this._mzH = NaN;
 
         const fresh = !model.items.length;
         if (fresh) {
@@ -116,6 +110,7 @@ export class AnimationEngine {
         this._bgLastA = this._bgLastB = NaN;
         this._bgSnap = fresh;
         this._magZoneActive = false;
+        this._animate = animationsEnabled();
 
         // Apply the spread once now so a rebuild never shows a one-frame snap.
         this._applySpread(this._bgSnap);
@@ -129,7 +124,9 @@ export class AnimationEngine {
     }
 
     kick() {
-        if (this._scheduler && !this._suspended) this._scheduler.start();
+        if (!this._scheduler || this._suspended) return;
+        if (!this._animate && !this._scheduler.isRunning()) return;
+        this._scheduler.start();
     }
 
     stop() {
@@ -151,7 +148,13 @@ export class AnimationEngine {
         const chips = this._cachedChips;
         const prop = this._transProp;
         for (const item of items) { item.vel = 0; item.scaleTarget = 1; item.scaleCurrent = 1; item.setScale(1); }
-        for (const chip of chips) { try { chip.actor.remove_transition(prop); chip.actor[prop] = 0; } catch { } }
+        for (const chip of chips) {
+            try {
+                chip.actor.remove_transition(prop);
+                chip.actor[prop] = 0;
+                chip.spreadOffset = 0;
+            } catch { }
+        }
         this._bgCurrentX = this._bgTargetX = this._bgBaseX;
         this._bgCurrentW = this._bgTargetW = this._bgBaseW;
         this._bgLastA = this._bgLastB = NaN;
@@ -163,6 +166,7 @@ export class AnimationEngine {
     demagnify(duration = 220) {
         this.stop();
         if (!this._model) return;
+        if (!animationsEnabled()) { this.snapToRest(); return; }
         const items = this._cachedItems;
         const chips = this._cachedChips;
         const vert = this._vert;
@@ -174,6 +178,7 @@ export class AnimationEngine {
         }
         for (const chip of chips) {
             try {
+                chip.spreadOffset = NaN;
                 chip.actor.remove_transition(prop);
                 chip.actor.ease({ [prop]: 0, duration, mode: Clutter.AnimationMode.EASE_OUT_QUAD });
             } catch { }
@@ -194,7 +199,6 @@ export class AnimationEngine {
         if (!this._model || this._suspended) return false;
         this._lastDt = dt;
         const chips = this._cachedChips;
-        const items = this._cachedItems;
         const cfg = this._cachedCfg;
         const geom = this._cachedGeom;
 
@@ -227,35 +231,57 @@ export class AnimationEngine {
         const m = cfg.mag;
         const inBand = haveLocal &&
             crossCoord >= geom.band.low && crossCoord <= geom.band.high;
-        const { nSteps, st, dampPow } = subSteps(dt, m.damping);
+        let nSteps = 1, st = 1, dampPow = 1;
+        if (this._animate) {
+            const step = subSteps(dt, m.damping, this._stepScratch);
+            nSteps = step.nSteps;
+            st = step.st;
+            dampPow = step.dampPow;
+        }
 
         const s = this._scratch;
         const zoomMax = this._zoomMax;
+        const cellW = this._cellW;
+        let total = 0;
+        let maxScale = 1;
         let anyUnsettled = false;
         for (const chip of chips) {
             const item = chip.item;
-            if (!item) continue;
+            if (!item) {
+                chip.extra = 0;
+                continue;
+            }
             let target = 1;
             if (inBand) {
-                const center = chip.baseX + chip.w / 2;
-                target = gaussianTarget(Math.abs(magMain - center), m);
+                target = gaussianTarget(Math.abs(magMain - chip.center), m);
             }
             // Right-click menu holds its icon at peak zoom until the menu closes.
             if (item === this._heldItem) target = zoomMax;
             item.scaleTarget = target;
-            if (item._landing) continue;
-            if (target === 1 && item.vel === 0 && item.scaleCurrent === 1) continue;
-            s.cur = item.scaleCurrent;
-            s.vel = item.vel;
-            integrateSpring(s, target, m.tension, dampPow, st, nSteps);
-            item.vel = s.vel;
-            item.setScale(s.cur);
-            // Track settle state inline — avoids a second O(items) pass.
-            if (s.vel !== 0 || s.cur !== target) anyUnsettled = true;
+            if (!item._landing) {
+                if (!this._animate) {
+                    item.vel = 0;
+                    item.setScale(target);
+                } else if (item.vel !== 0 || item.scaleCurrent !== target) {
+                    s.cur = item.scaleCurrent;
+                    s.vel = item.vel;
+                    integrateSpring(s, target, m.tension, dampPow, st, nSteps);
+                    item.vel = s.vel;
+                    item.setScale(s.cur);
+                    if (s.vel !== 0 || s.cur !== target) anyUnsettled = true;
+                }
+            }
+
+            const scale = item.scaleCurrent;
+            chip.extra = cellW * (scale - 1);
+            total += chip.extra;
+            if (scale > maxScale) maxScale = scale;
         }
 
-        this._applySpread(false);
+        this._applySpread(!this._animate, total, maxScale);
         if (this._frameHook) this._frameHook();
+
+        if (!this._animate) return false;
 
         // Items settled check was done inline above; only pill spread remains.
         if (!anyUnsettled &&
@@ -264,24 +290,28 @@ export class AnimationEngine {
             return false;
         return true;
     }
-
-
-
-    _applySpread(snap) {
+    _applySpread(snap, total = null, maxScale = 1) {
         const chips = this._cachedChips;
         const vert = this._vert;
-        const cellW = this._cellW;
-        let total = 0;
-        for (const chip of chips) {
-            chip.extra = chip.item ? cellW * (chip.item.scaleCurrent - 1) : 0;
-            total += chip.extra;
+        if (total === null) {
+            total = 0;
+            const cellW = this._cellW;
+            for (const chip of chips) {
+                const scale = chip.item?.scaleCurrent ?? 1;
+                chip.extra = chip.item ? cellW * (scale - 1) : 0;
+                if (scale > maxScale) maxScale = scale;
+                total += chip.extra;
+            }
         }
         const shift = -total / 2;
         let prefix = 0;
         const prop = this._transProp;
         for (const chip of chips) {
             const off = chip.item ? shift + prefix + chip.extra / 2 : shift + prefix;
-            chip.actor[prop] = off;
+            if (chip.spreadOffset !== off) {
+                chip.actor[prop] = off;
+                chip.spreadOffset = off;
+            }
             prefix += chip.extra;
         }
         this._bgTargetX = this._bgBaseX + shift;
@@ -291,9 +321,24 @@ export class AnimationEngine {
             this._bgCurrentX = this._bgTargetX;
             this._bgCurrentW = this._bgTargetW;
         } else {
-            const k = smoothFactor(this._lastDt, 70);   // ~70ms time constant
+            const dw = this._bgTargetW - this._bgCurrentW;
+            // Expanding: smooth with tau=70 for snappy hover response.
+            // Contracting: track the actual icon spread directly — the
+            // icons' own springs already provide smooth deceleration, so
+            // adding a second heavy smoother produces frame-skipping
+            // jitter. Use only a minimal tau=20 softener to absorb
+            // sub-pixel rounding noise from Math.round().
+            const tau = dw > 0.5 ? 70 : 20;
+            const k = smoothFactor(this._lastDt, tau);
             this._bgCurrentX += (this._bgTargetX - this._bgCurrentX) * k;
-            this._bgCurrentW += (this._bgTargetW - this._bgCurrentW) * k;
+            this._bgCurrentW += dw * k;
+            // Snap to target once within sub-pixel distance so the tail
+            // doesn't leave the frame loop running for invisible motion.
+            if (Math.abs(this._bgTargetX - this._bgCurrentX) < 0.3 &&
+                Math.abs(this._bgTargetW - this._bgCurrentW) < 0.3) {
+                this._bgCurrentX = this._bgTargetX;
+                this._bgCurrentW = this._bgTargetW;
+            }
         }
 
         const bg = this._cachedBg;
@@ -309,42 +354,38 @@ export class AnimationEngine {
             if (w !== this._bgLastB) { bg.set_width(w); this._bgLastB = w; }
         }
 
-        this._updateMagZone();
+        this._updateMagZone(maxScale);
     }
 
     // Resize the click-catching zone to cover icon overflow above the pill.
     // Collapses to 0×0 when icons are at rest.
-    _updateMagZone() {
+    _updateMagZone(maxScale) {
         const magZone = this._cachedMagZone;
         const mc = this._cachedMagConst;
         if (!magZone) return;
-
-        const items = this._cachedItems;
-        let maxScale = 1;
-        for (const item of items)
-            if (item.scaleCurrent > maxScale) maxScale = item.scaleCurrent;
 
         if (maxScale <= 1.005) {
             if (this._magZoneActive) { magZone.set_size(0, 0); this._magZoneActive = false; }
             return;
         }
-        const oh = Math.ceil(mc.headroom * (maxScale - 1) * mc.scaleDiv);
+        const oh = magnifiedOverflow(mc, maxScale);
         if (oh <= 2) {
             if (this._magZoneActive) { magZone.set_size(0, 0); this._magZoneActive = false; }
             return;
         }
         this._magZoneActive = true;
-        const pillX = Math.round(this._bgCurrentX);
-        const pillW = Math.round(this._bgCurrentX + this._bgCurrentW) - pillX;
         const geom = this._cachedGeom;
         const sx = geom.x, sy = geom.y;
+        const mainPad = mc.mainPad;
+        const mainStart = -mainPad;
+        const mainLength = geom.mainLen + mainPad * 2;
         let mx, my, mw, mh;
         if (mc.side === 'left') {
-            mx = sx + mc.dockH; my = sy + pillX; mw = oh; mh = pillW;
+            mx = sx + mc.dockH; my = sy + mainStart; mw = oh; mh = mainLength;
         } else if (mc.side === 'right') {
-            mx = sx - oh; my = sy + pillX; mw = oh; mh = pillW;
+            mx = sx - oh; my = sy + mainStart; mw = oh; mh = mainLength;
         } else {
-            mx = sx + pillX; my = sy - oh; mw = pillW; mh = oh;
+            mx = sx + mainStart; my = sy - oh; mw = mainLength; mh = oh;
         }
         // Only write actor properties when they actually changed.
         if (mx !== this._mzX || my !== this._mzY) { magZone.set_position(mx, my); this._mzX = mx; this._mzY = my; }
@@ -362,5 +403,9 @@ export class AnimationEngine {
         this._cachedBg = null;
         this._cachedMagZone = null;
         this._cachedMagConst = null;
+        this._heldItem = null;
+        this._frameHook = null;
+        this._scratch = null;
+        this._stepScratch = null;
     }
 }

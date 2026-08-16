@@ -1,33 +1,15 @@
-// AquaDockPro — settings ownership and the derived configuration snapshot.
-//
-// Purpose:   Wrap the extension's Gio.Settings into one authority that (1) owns
-//            the single `changed` connection, (2) debounces bursts, (3) derives
-//            an immutable, fully-computed `config` snapshot (sizes, geometry,
-//            colours, behaviour flags) so consumers never re-read raw keys or
-//            recompute geometry on hot paths, and (4) announces changes through
-//            the EventBus with a `structural` flag for rebuild-vs-refresh.
-// Ownership: OWNS the `changed` signal id and the debounce timeout id, plus the
-//            cached config object. The raw Gio.Settings is owned by the GNOME
-//            Extension base; we only borrow and disconnect our own handler.
-// Cleanup:   destroy() removes the timeout, disconnects the signal, drops refs.
-// Caching:   `config` is recomputed only on flush (post-debounce), never per
-//            read. Consumers hold the reference and re-read fields for free.
-//            Pre-computed derived constants (invZoom, liftDenom) eliminate
-//            repeated division in per-frame hot paths.
-// Cost:      One signal, at most one live timeout. Recompute is ~80 key reads,
-//            amortised to once per settle of a slider drag.
-
-import GLib from 'gi://GLib';
+// Gio.Settings wrapper and derived configuration snapshot generator.
 
 import { clamp, logError, TimeoutGroup } from './utils.js';
 import {
-    CELL_PAD,
     ICON_BOT,
     SETTINGS_DEBOUNCE_MS,
     STRUCTURAL_KEYS,
 } from './constants.js';
+import { migrateSettings } from './settingsMigration.js';
+import { parseCustomItems } from '../services/customItems.js';
 
-// Pill thickness derived from icon size when auto mode is on: a constant ~28 px
+// Pill thickness derived from icon size when auto mode is on: 25 px
 // of vertical breathing room around the icon, clamped to the schema's range.
 function autoPillThickness(iconSize) {
     return Math.max(36, Math.min(120, iconSize + 25));
@@ -46,7 +28,14 @@ function computeConfig(s) {
         : s.get_int('pill-thickness');
     const dockH = Math.round(pillThickness * scale);
     const hoverLift = Math.round(s.get_int('hover-lift') * scale);
-    const cellPad = Math.round(CELL_PAD * scale);
+    const requestedSpacing = s.get_int('icon-spacing');
+    // The original dock used two independently rounded 6px side paddings.
+    // Preserve that exact geometry for the new 12px default at fractional
+    // scales, while user-selected values retain exact single-pixel steps.
+    const iconSpacing = requestedSpacing === 12
+        ? Math.round(requestedSpacing * scale / 2) * 2
+        : Math.round(requestedSpacing * scale);
+    const cellPad = iconSpacing / 2;
     const iconTopAtRest = dockH - ICON_BOT - iconSize;
     const headroom = Math.max(0, renderSize - iconSize + hoverLift - iconTopAtRest) + 10;
     const position = s.get_string('dock-position');
@@ -59,8 +48,10 @@ function computeConfig(s) {
         iconSize,
         zoomMax,
         renderSize,
-        cellW: iconSize + cellPad * 2,
+        placeIconSourceSize: Math.max(32, renderSize),
+        cellW: iconSize + iconSpacing,
         cellPad,
+        iconSpacing,
         dockH,
         headroom,
         hitH: headroom + dockH,
@@ -69,6 +60,10 @@ function computeConfig(s) {
         invZoom: 1 / zoomMax,
         liftDenom: 1 / Math.max(0.001, zoomMax - 1),
         position,
+        alignment: s.get_string('dock-alignment'),
+        multiMonitor: s.get_boolean('multi-monitor'),
+        isolateMonitors: s.get_boolean('isolate-monitors'),
+        autoShrink: s.get_boolean('auto-shrink-to-fit'),
         zoomRange: Math.round(s.get_int('zoom-range') * scale),
         magnificationCurve: s.get_double('magnification-curve'),
         edgeMargin: s.get_int('edge-margin'),
@@ -83,11 +78,26 @@ function computeConfig(s) {
 
         // ── Sections / behaviour ──
         showApps: s.get_boolean('show-apps-button'),
+        appsButtonPosition: s.get_int('apps-button-position'),
         appsIcon: s.get_string('apps-button-icon'),
         showDownloads: s.get_boolean('show-downloads'),
+        showCustomFolder: s.get_boolean('show-custom-folder'),
+        customFolderUri: s.get_string('custom-folder-uri'),
+        useFolderMetadataIcons: s.get_boolean('use-folder-metadata-icons'),
+        showCustomDockItems: s.get_boolean('show-custom-dock-items'),
+        customDockItems: parseCustomItems(s.get_strv('custom-dock-items')),
+        showMountedDevices: s.get_boolean('show-mounted-devices'),
+        showRemovableDevices: s.get_boolean('show-removable-devices'),
+        showNetworkDevices: s.get_boolean('show-network-devices'),
+        showFixedDevices: s.get_boolean('show-fixed-devices'),
+        hiddenMountedDevices: s.get_strv('hidden-mounted-devices'),
         showTrash: s.get_boolean('show-trash'),
         clickToMinimize: s.get_boolean('click-to-minimize'),
+        leftClickAction: s.get_string('left-click-action'),
+        middleClickAction: s.get_string('middle-click-action'),
+        scrollAction: s.get_string('scroll-action'),
         dragToOpen: s.get_boolean('drag-to-open'),
+        layoutLocked: s.get_boolean('lock-layout'),
         isolateWS: s.get_boolean('isolate-workspaces'),
 
         // ── Auto-hide ──
@@ -95,6 +105,7 @@ function computeConfig(s) {
         autoHideActive: autoHideMode !== 'never',
         hideDelay: s.get_int('hide-delay'),
         revealPressure: s.get_int('reveal-pressure'),
+        showAutohideHandle: s.get_boolean('show-autohide-handle'),
         pressureSense: s.get_boolean('pressure-sense'),
         pressureSenseSensitivity: s.get_double('pressure-sense-sensitivity'),
 
@@ -129,6 +140,12 @@ function computeConfig(s) {
         showPreviews: s.get_boolean('show-previews'),
         previewDelay: s.get_int('preview-delay'),
         previewSize: Math.round(s.get_int('preview-size') * scale),
+        previewWindowMode: s.get_string('preview-window-mode'),
+        previewCloseButtons: s.get_boolean('preview-close-buttons'),
+        previewOverflowMode: s.get_string('preview-overflow-mode'),
+        previewPageSize: s.get_int('preview-page-size'),
+        previewKeyboardNavigation: s.get_boolean('preview-keyboard-navigation'),
+        previewWindowActions: s.get_boolean('preview-window-actions'),
 
         // ── Indicators / badges ──
         indicatorStyle: s.get_string('indicator-style'),
@@ -142,6 +159,7 @@ function computeConfig(s) {
         // ── Downloads stack ──
         downloadsView: s.get_string('downloads-view'),
         downloadsMaxFiles: s.get_int('downloads-max-files'),
+        downloadsSort: s.get_string('downloads-sort'),
         downloadsPillColor: s.get_string('downloads-pill-color'),
         downloadsBorderRadius: s.get_int('downloads-border-radius'),
         downloadsBorderColor: s.get_string('downloads-border-color'),
@@ -153,6 +171,12 @@ function computeConfig(s) {
         dlItemThumbColor: s.get_string('downloads-item-thumb-color'),
         dlItemFontColor: s.get_string('downloads-item-font-color'),
 
+        // ── Accessibility ──
+        reduceMotion: s.get_boolean('reduce-motion'),
+        highContrast: s.get_boolean('high-contrast'),
+        interfaceTextScale: s.get_double('interface-text-scale'),
+        announceItemStatus: s.get_boolean('announce-item-status'),
+
     };
 }
 
@@ -160,6 +184,7 @@ export class SettingsManager {
     constructor(settings, bus) {
         this._settings = settings;
         this._bus = bus;
+        migrateSettings(settings);
         this._config = computeConfig(settings);
 
         this._pendingStructural = false;
@@ -175,8 +200,8 @@ export class SettingsManager {
         return this._config;
     }
 
-    // Escape hatch for the rare consumer that needs a raw key not promoted into
-    // the snapshot (e.g. prefs round-trips). Prefer `config` everywhere else.
+    // Escape hatch for consumers that must register a keybinding or write a
+    // setting. Prefer `config` everywhere else.
     get raw() {
         return this._settings;
     }
@@ -194,9 +219,9 @@ export class SettingsManager {
 
     _flush() {
         const structural = this._pendingStructural;
-        const keys = this._pendingKeys;
+        const keys = new Set(this._pendingKeys);
         this._pendingStructural = false;
-        this._pendingKeys = new Set();
+        this._pendingKeys.clear();
 
         try { this._config = computeConfig(this._settings); }
         catch (e) { logError(e, 'computeConfig'); return; }

@@ -1,20 +1,7 @@
-// AquaDockPro — physics-driven icon bounce.
-//
-// Purpose:   One engine drives every bounce (launch / attention / minimize /
-//            downloads) as a damped ballistic projectile integrated on the
-//            icon's frame clock (refresh-rate independent). It NEVER owns the
-//            full icon transform — each frame it hands (heightPx, squashX,
-//            squashY) to a `compose` callback so hover-magnification keeps
-//            tracking the cursor while the icon bounces. Extracted from the
-//            reference's DockItem god-method so the item stays small and the
-//            physics is independently testable.
-// Ownership: OWNS one FrameScheduler (its own timeline). cancel()/destroy()
-//            stops + releases it; the owning DockItem calls cancel() on destroy.
-// Cleanup:   cancel() is idempotent and detaches the actor binding.
-// Cost:      Active only while bouncing; integrates in fixed 2ms sub-steps and
-//            paints one pose per frame. Zero cost at rest (scheduler stopped).
+// Physics-driven icon bounce animation.
+// Integrates as a damped ballistic projectile on the icon's frame clock.
 
-import { clamp } from '../core/utils.js';
+import { animationsEnabled, clamp } from '../core/utils.js';
 import { FrameScheduler } from './frameScheduler.js';
 
 const GRAVITY = 1900;                       // px/s²
@@ -55,6 +42,12 @@ export class Bounce {
     // height px; opts: { state, repeat, decay, softness }.
     start(height = 24, opts = {}) {
         if (height <= 0 || !this._actor) return;
+        if (!animationsEnabled()) {
+            this.cancel();
+            this._compose?.(0, 1, 1);
+            this._onSettle?.();
+            return;
+        }
         this._state = opts.state ?? 'once';
         this._peak = height;
         this._launchActive = opts.repeat ?? null;
@@ -97,6 +90,7 @@ export class Bounce {
         this._scheduler = null;
         this._actor = null;
         this._compose = null;
+        this._onSettle = null;
     }
 
     _launchProjectile(height) {

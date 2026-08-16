@@ -1,15 +1,5 @@
-// AquaDockPro — compositor-aligned frame driver.
-//
-// Purpose:   Wrap a single Clutter.Timeline bound to an actor's frame clock so
-//            callers get a clean start()/stop() loop that ticks once per monitor
-//            refresh (60/120/144/VRR) and self-stops the instant there's no work.
-//            A long, non-repeating timeline avoids any restart hitch; we stop it
-//            explicitly when the per-frame callback reports "settled".
-// Ownership: OWNS the Clutter.Timeline and its one `new-frame` connection.
-//            destroy() stops it, disconnects, and detaches the actor binding so
-//            a stopped timeline can't pin a soon-to-be-destroyed actor.
-// Cleanup:   destroy() — idempotent.
-// Cost:      Zero cost when stopped (no idle wakeups). One signal while running.
+// Frame scheduler used by dock animations.
+// Wraps Clutter.Timeline and stops when there is no more work.
 
 import Clutter from 'gi://Clutter';
 
@@ -41,7 +31,7 @@ export class FrameScheduler {
         this._frameId = this._timeline.connect('new-frame', () => {
             // Frame-clock delta in ms; clamp pathological gaps (resume/stall).
             let dt = this._timeline.get_delta();
-            dt = Math.min(64, dt || 16);
+            dt = Number.isFinite(dt) && dt > 0 ? Math.min(64, dt) : 16;
             let keep = false;
             try { keep = this._onFrame(dt); }
             catch (e) { logError(e, 'FrameScheduler.onFrame'); keep = false; }
