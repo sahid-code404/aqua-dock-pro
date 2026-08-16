@@ -50,12 +50,12 @@ function canEject(mount) {
 }
 
 function logActionError(action, error) {
-    try { console.error(`AquaDockPro: [${action}] ${error?.message ?? error}`); }
-    catch { }
+    console.error(`AquaDockPro: [${action}] ${error?.message ?? error}`);
 }
 
 const busyMounts = new WeakSet();
 const activeOperations = new Set();
+const monitorHubs = new Map();
 
 function operationCancelled(cancellable, error) {
     if (cancellable?.is_cancelled()) return true;
@@ -102,9 +102,73 @@ function mountAction(mount, candidates, action, onDone) {
     return null;
 }
 
-// Device actions can outlive the popup that launched them. The extension owns
-// their cancellables at module scope so disable() can stop every outstanding
-// backend request without retaining a destroyed menu or emitting a late notice.
+class VolumeMonitorHub {
+    constructor(monitor) {
+        this._monitor = monitor;
+        this._callbacks = new Set();
+        this._signalIds = [];
+    }
+
+    get empty() { return this._callbacks.size === 0; }
+
+    subscribe(callback) {
+        this._callbacks.add(callback);
+        if (this._callbacks.size === 1) this._connect();
+
+        let live = true;
+        return () => {
+            if (!live) return;
+            live = false;
+            this._callbacks.delete(callback);
+            if (this._callbacks.size === 0) this._disconnect();
+        };
+    }
+
+    _connect() {
+        const changed = () => {
+            for (const callback of [...this._callbacks])
+                callback();
+        };
+        for (const signal of [
+            'mount-added',
+            'mount-removed',
+            'mount-changed',
+            'volume-changed',
+            'drive-changed',
+        ]) {
+            const id = safely(() => this._monitor.connect(signal, changed), 0);
+            if (id) this._signalIds.push(id);
+        }
+    }
+
+    _disconnect() {
+        for (const id of this._signalIds)
+            safely(() => this._monitor.disconnect(id));
+        this._signalIds = [];
+    }
+
+    destroy() {
+        this._disconnect();
+        this._callbacks.clear();
+        this._monitor = null;
+    }
+}
+
+function acquireMonitorHub(monitor) {
+    let hub = monitorHubs.get(monitor);
+    if (!hub) {
+        hub = new VolumeMonitorHub(monitor);
+        monitorHubs.set(monitor, hub);
+    }
+    return hub;
+}
+
+function releaseMonitorHub(monitor, hub) {
+    if (!hub.empty || monitorHubs.get(monitor) !== hub) return;
+    hub.destroy();
+    monitorHubs.delete(monitor);
+}
+
 export function cancelMountedDeviceOperations() {
     for (const cancellable of activeOperations) {
         try { cancellable.cancel(); } catch { }
@@ -112,8 +176,6 @@ export function cancelMountedDeviceOperations() {
     activeOperations.clear();
 }
 
-// Prefer the mount itself: Gio will unmount it cleanly before ejecting when
-// necessary. Some backends expose eject only on the owning volume or drive.
 export function ejectMountedDevice(mount, onDone = null) {
     const volume = safely(() => mount?.get_volume());
     const drive = driveForMount(mount);
@@ -244,8 +306,6 @@ export function buildMountedDeviceEntries(mounts, config = null) {
 
     entries.sort(compareEntries);
 
-    // UUIDs are expected to be unique, but cloned filesystems do exist. Keep
-    // every mount addressable without weakening the stable per-device ID.
     const totals = new Map();
     for (const entry of entries)
         totals.set(entry.deviceId, (totals.get(entry.deviceId) ?? 0) + 1);
@@ -297,10 +357,11 @@ export class MountedDevices {
         this._monitor = monitor ?? Gio.VolumeMonitor.get();
         this._entries = listMountedDevices(this._monitor, this._getConfig?.());
         this._fingerprint = entriesFingerprint(this._entries);
-        this._signalIds = [];
         this._timers = new TimeoutGroup();
         this._refreshId = 0;
         this._onChanged = null;
+        this._hub = null;
+        this._unsubscribe = null;
     }
 
     get entries() {
@@ -309,19 +370,10 @@ export class MountedDevices {
 
     start(onChanged) {
         this._onChanged = onChanged;
-        if (this._signalIds.length || !this._monitor) return;
+        if (this._unsubscribe || !this._monitor) return;
 
-        for (const signal of [
-            'mount-added',
-            'mount-removed',
-            'mount-changed',
-            'volume-changed',
-            'drive-changed',
-        ]) {
-            const id = safely(() => this._monitor.connect(signal, () => this._queueRefresh()), 0);
-            if (id) this._signalIds.push(id);
-        }
-
+        this._hub = acquireMonitorHub(this._monitor);
+        this._unsubscribe = this._hub.subscribe(() => this._queueRefresh());
         this._refresh();
     }
 
@@ -354,17 +406,15 @@ export class MountedDevices {
         this._timers.removeAll();
         this._refreshId = 0;
 
-        if (this._monitor) {
-            for (const id of this._signalIds) {
-                try {
-                    this._monitor.disconnect(id);
-                } catch {
-                    // The backend may already have gone away.
-                }
-            }
+        if (this._unsubscribe) {
+            this._unsubscribe();
+            this._unsubscribe = null;
+        }
+        if (this._hub && this._monitor) {
+            releaseMonitorHub(this._monitor, this._hub);
+            this._hub = null;
         }
 
-        this._signalIds = [];
         this._entries = [];
         this._fingerprint = '';
         this._onChanged = null;

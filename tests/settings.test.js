@@ -2,6 +2,7 @@ import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 
 import { SettingsManager } from '../core/settingsManager.js';
+import { STRUCTURAL_KEYS } from '../core/constants.js';
 import { animationsEnabled, setReduceMotionOverride } from '../core/utils.js';
 
 function assert(condition, message) {
@@ -40,6 +41,8 @@ assert(cfg.useFolderMetadataIcons,
     'folder metadata icons should be used by default');
 assert(!cfg.reduceMotion && !cfg.highContrast && cfg.interfaceTextScale === 1 &&
     cfg.announceItemStatus, 'accessibility defaults changed');
+assert(!STRUCTURAL_KEYS.has('auto-hide-mode'),
+    'changing auto-hide mode should update in place instead of rebuilding every dock');
 
 for (const key of schema.list_keys())
     assert(settings.get_user_value(key) === null, `construction wrote setting ${key}`);

@@ -9,63 +9,100 @@ import { _ } from '../core/i18n.js';
 import { downloadsDir } from './fileService.js';
 import { LocationResolver } from './locationResolver.js';
 
-export class AppTracker {
-    // getConfig: () => current config snapshot (for the section/isolate flags).
-    constructor(getConfig, getMountedEntries = () => []) {
-        this._getConfig = getConfig;
-        this._getMountedEntries = getMountedEntries;
-        this._signals = new SignalGroup();
-        this._onChanged = null;
-        this._dlGicon = null;
-        this._trashFull = null;
-        this._trashEmpty = null;
+let sharedAppState = null;
+let sharedLocations = null;
+let sharedLocationUsers = 0;
+
+class AppStateHub {
+    constructor() {
+        this._favorites = AppFavorites.getAppFavorites();
+        this._appSystem = Shell.AppSystem.get_default();
+        this._subscribers = new Set();
+        this._baseSignals = new SignalGroup();
+        this._optionalSignals = new SignalGroup();
         this._windowSignals = new Map();
-        this._locationIcons = new Map();
-        this._favorites = null;
-        this._appSystem = null;
-        this._locations = new LocationResolver(() => this._onChanged?.());
-        // TrashWatcher fills this asynchronously after the first actor sync.
-        this._trashIsFull = false;
+        this._optionalActive = false;
+
+        this._baseSignals.connect(this._favorites, 'changed', () => this._emitAll());
+        this._baseSignals.connect(this._appSystem, 'installed-changed', () => this._emitAll());
+        this._baseSignals.connect(this._appSystem, 'app-state-changed', () => this._emitAll());
     }
 
-    start(onChanged) {
-        this._onChanged = onChanged;
-        const favs = (this._favorites ??= AppFavorites.getAppFavorites());
-        const sys = (this._appSystem ??= Shell.AppSystem.get_default());
-        const fire = () => this._onChanged?.();
-        this._signals.connect(favs, 'changed', fire);
-        this._signals.connect(sys, 'installed-changed', fire);
-        this._signals.connect(sys, 'app-state-changed', fire);
+    get favorites() { return this._favorites; }
+    get appSystem() { return this._appSystem; }
+    get empty() { return this._subscribers.size === 0; }
 
-        const cfg = this._getConfig();
-        if (cfg.isolateWS)
-            this._signals.connect(global.workspace_manager, 'active-workspace-changed', fire);
-        if (cfg.isolateWS || cfg.isolateMonitors) {
-            this._signals.connect(global.display, 'window-created', (_display, window) => {
-                this._trackWindow(window, fire);
-                fire();
-            });
-            for (const actor of global.get_window_actors?.() ?? [])
-                this._trackWindow(actor.meta_window, fire);
-        }
-        if (cfg.isolateMonitors) {
-            const onMonitorChanged = (_display, monitorIndex) => {
-                if (monitorIndex === this._getConfig()?.monitorIndex) fire();
-            };
-            this._signals.connect(global.display, 'window-entered-monitor', onMonitorChanged);
-            this._signals.connect(global.display, 'window-left-monitor', onMonitorChanged);
-        }
+    subscribe(callback, config) {
+        const record = {
+            callback,
+            isolateWS: config.isolateWS === true,
+            isolateMonitors: config.isolateMonitors === true,
+            monitorIndex: config.monitorIndex ?? -1,
+        };
+        this._subscribers.add(record);
+        this._syncOptionalSignals();
+
+        let live = true;
+        return () => {
+            if (!live) return;
+            live = false;
+            this._subscribers.delete(record);
+            this._syncOptionalSignals();
+        };
     }
 
-    _trackWindow(window, onChanged) {
+    _needsWorkspaceSignals() {
+        for (const record of this._subscribers)
+            if (record.isolateWS) return true;
+        return false;
+    }
+
+    _needsMonitorSignals() {
+        for (const record of this._subscribers)
+            if (record.isolateMonitors) return true;
+        return false;
+    }
+
+    _syncOptionalSignals() {
+        const needsWorkspace = this._needsWorkspaceSignals();
+        const needsMonitor = this._needsMonitorSignals();
+        const needsWindows = needsWorkspace || needsMonitor;
+
+        if (!needsWindows) {
+            if (this._optionalActive) {
+                this._optionalSignals.disconnectAll();
+                this._clearWindowSignals();
+                this._optionalActive = false;
+            }
+            return;
+        }
+
+        if (this._optionalActive) return;
+        this._optionalActive = true;
+
+        this._optionalSignals.connect(global.display, 'window-created', (_display, window) => {
+            this._trackWindow(window);
+            this._emitOptional();
+        });
+        this._optionalSignals.connect(global.workspace_manager, 'active-workspace-changed',
+            () => this._emitWorkspace());
+        this._optionalSignals.connect(global.display, 'window-entered-monitor',
+            (_display, monitorIndex) => this._emitMonitor(monitorIndex));
+        this._optionalSignals.connect(global.display, 'window-left-monitor',
+            (_display, monitorIndex) => this._emitMonitor(monitorIndex));
+
+        for (const actor of global.get_window_actors?.() ?? [])
+            this._trackWindow(actor.meta_window);
+    }
+
+    _trackWindow(window) {
         if (!window || this._windowSignals.has(window)) return;
         const ids = [];
         try {
-            if (this._getConfig()?.isolateWS)
-                ids.push(window.connect('workspace-changed', onChanged));
+            ids.push(window.connect('workspace-changed', () => this._emitWorkspace()));
             ids.push(window.connect('unmanaging', () => {
                 this._untrackWindow(window);
-                onChanged();
+                this._emitOptional();
             }));
         } catch {
             for (const id of ids) {
@@ -85,19 +122,127 @@ export class AppTracker {
         }
     }
 
+    _clearWindowSignals() {
+        for (const window of [...this._windowSignals.keys()])
+            this._untrackWindow(window);
+        this._windowSignals.clear();
+    }
+
+    _emitAll() {
+        for (const record of [...this._subscribers])
+            record.callback();
+    }
+
+    _emitWorkspace() {
+        for (const record of [...this._subscribers])
+            if (record.isolateWS) record.callback();
+    }
+
+    _emitMonitor(monitorIndex) {
+        for (const record of [...this._subscribers])
+            if (record.isolateMonitors && record.monitorIndex === monitorIndex)
+                record.callback();
+    }
+
+    _emitOptional() {
+        for (const record of [...this._subscribers])
+            if (record.isolateWS || record.isolateMonitors)
+                record.callback();
+    }
+
+    destroy() {
+        this._optionalSignals.disconnectAll();
+        this._baseSignals.disconnectAll();
+        this._clearWindowSignals();
+        this._subscribers.clear();
+        this._favorites = null;
+        this._appSystem = null;
+    }
+}
+
+function acquireAppState() {
+    return (sharedAppState ??= new AppStateHub());
+}
+
+function releaseAppState(hub) {
+    if (sharedAppState !== hub || !hub.empty) return;
+    hub.destroy();
+    sharedAppState = null;
+}
+
+function acquireLocations(onChanged) {
+    const resolver = (sharedLocations ??= new LocationResolver());
+    sharedLocationUsers++;
+    return {
+        resolver,
+        unsubscribe: resolver.subscribe(onChanged),
+    };
+}
+
+function releaseLocations(resolver, unsubscribe) {
+    unsubscribe?.();
+    if (sharedLocations !== resolver) return;
+    sharedLocationUsers = Math.max(0, sharedLocationUsers - 1);
+    if (sharedLocationUsers !== 0) return;
+    resolver.destroy();
+    sharedLocations = null;
+}
+
+export class AppTracker {
+    constructor(getConfig, getMountedEntries = () => []) {
+        this._getConfig = getConfig;
+        this._getMountedEntries = getMountedEntries;
+        this._onChanged = null;
+        this._dlGicon = null;
+        this._trashFull = null;
+        this._trashEmpty = null;
+        this._locationIcons = new Map();
+        this._favorites = null;
+        this._appSystem = null;
+        this._stateHub = null;
+        this._stateUnsubscribe = null;
+        this._locationUnsubscribe = null;
+        this._locations = null;
+        this._trashIsFull = false;
+
+        const shared = acquireLocations(() => this._onChanged?.());
+        this._locations = shared.resolver;
+        this._locationUnsubscribe = shared.unsubscribe;
+    }
+
+    start(onChanged) {
+        this._onChanged = onChanged;
+        if (this._stateUnsubscribe) return;
+
+        const hub = acquireAppState();
+        const cfg = this._getConfig();
+        this._stateHub = hub;
+        this._favorites = hub.favorites;
+        this._appSystem = hub.appSystem;
+        this._stateUnsubscribe = hub.subscribe(
+            () => this._onChanged?.(),
+            {
+                isolateWS: cfg.isolateWS,
+                isolateMonitors: cfg.isolateMonitors,
+                monitorIndex: cfg.monitorIndex,
+            });
+    }
+
     getEntries() {
         const cfg = this._getConfig();
-        const favs = (this._favorites ??= AppFavorites.getAppFavorites());
-        const appSystem = (this._appSystem ??= Shell.AppSystem.get_default());
+        const favs = this._favorites ?? AppFavorites.getAppFavorites();
+        const appSystem = this._appSystem ?? Shell.AppSystem.get_default();
         const favsList = favs.getFavorites();
         const favIds = new Set();
-        for (const a of favsList) favIds.add(a.get_id());
+        for (const app of favsList) favIds.add(app.get_id());
+
         const running = appSystem.get_running();
         let activeWorkspace;
         if (cfg.isolateWS) {
             try { activeWorkspace = global.workspace_manager.get_active_workspace(); }
             catch { }
         }
+
         const runningExtra = [];
         for (const app of running) {
             if (favIds.has(app.get_id())) continue;
@@ -112,15 +257,19 @@ export class AppTracker {
             app,
             gicon: app.get_icon(),
         }));
+
         if (cfg.showApps) {
             const appsEntry = { key: 'apps', kind: 'apps', gicon: this._resolveAppsIcon(cfg) };
             const appsIndex = Math.max(0, Math.min(cfg.appsButtonPosition ?? 0, entries.length));
             entries.splice(appsIndex, 0, appsEntry);
         }
+
         if (runningExtra.length && favsList.length)
             entries.push({ key: 'sep:running', kind: 'separator' });
+
         for (const app of runningExtra)
             entries.push({ key: `app:${app.get_id()}`, kind: 'app', app, gicon: app.get_icon() });
+
         const systemEntries = [];
         if (cfg.showDownloads) {
             const fallback = { name: _('Downloads'), gicon: this._downloadsGicon() };
@@ -129,6 +278,7 @@ export class AppTracker {
                 : fallback;
             systemEntries.push({ key: 'downloads', kind: 'downloads', gicon: resolved.gicon });
         }
+
         if (cfg.showCustomFolder && cfg.customFolderUri) {
             try {
                 const folder = Gio.File.new_for_uri(cfg.customFolderUri);
@@ -146,6 +296,7 @@ export class AppTracker {
                 });
             } catch { }
         }
+
         if (cfg.showCustomDockItems) {
             for (const definition of cfg.customDockItems ?? []) {
                 if (definition.type === 'separator' || definition.type === 'spacer') {
@@ -155,6 +306,7 @@ export class AppTracker {
                     });
                     continue;
                 }
+
                 const fallbackName = definition.name || this._locationBasename(definition.uri);
                 const fallbackIcon = this._iconForLocation(definition.type);
                 const resolveMetadata = definition.type !== 'url' &&
@@ -162,6 +314,7 @@ export class AppTracker {
                 const resolved = !resolveMetadata
                     ? { name: fallbackName, gicon: fallbackIcon }
                     : this._locations.resolve(definition.uri, fallbackName, fallbackIcon);
+
                 systemEntries.push({
                     key: `custom:${definition.id}`,
                     kind: definition.type === 'folder' ? 'folder' : 'location',
@@ -172,6 +325,7 @@ export class AppTracker {
                 });
             }
         }
+
         if (cfg.showMountedDevices)
             systemEntries.push(...(this._getMountedEntries?.() ?? []));
         if (cfg.showTrash)
@@ -182,8 +336,6 @@ export class AppTracker {
         return entries;
     }
 
-    // Static gicons, built once — re-allocating defeats the icon-identity check
-    // in the chip diff, and getEntries() runs on every app launch/quit.
     _downloadsGicon() {
         return (this._dlGicon ??= Gio.ThemedIcon.new('folder-download'));
     }
@@ -208,8 +360,6 @@ export class AppTracker {
         return full ? this._trashFull : this._trashEmpty;
     }
 
-    // Called by TrashWatcher whenever the trash full/empty state changes so
-    // subsequent getEntries() calls produce the correct icon.
     setTrashFull(full) {
         this._trashIsFull = full;
     }
@@ -225,13 +375,23 @@ export class AppTracker {
     }
 
     destroy() {
-        this._signals.disconnectAll();
-        for (const window of this._windowSignals.keys()) this._untrackWindow(window);
-        this._windowSignals.clear();
+        if (this._stateUnsubscribe) {
+            this._stateUnsubscribe();
+            this._stateUnsubscribe = null;
+        }
+        if (this._stateHub) {
+            releaseAppState(this._stateHub);
+            this._stateHub = null;
+        }
+
+        if (this._locations) {
+            releaseLocations(this._locations, this._locationUnsubscribe);
+            this._locations = null;
+            this._locationUnsubscribe = null;
+        }
+
         this._onChanged = null;
         this._dlGicon = null;
-        this._locations?.destroy();
-        this._locations = null;
         this._locationIcons.clear();
         this._trashFull = null;
         this._trashEmpty = null;

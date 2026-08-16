@@ -1,5 +1,12 @@
 # Changelog
 
+## 248
+
+- Share app/window tracking, location metadata resolution, mounted-device signals, Downloads monitoring, and Trash state work across dock instances to reduce multi-monitor idle overhead.
+- Coalesce asynchronous location metadata completion and retry transient lookup failures after a bounded cooldown instead of keeping a session-long failure.
+- Apply auto-hide mode changes in place instead of rebuilding every dock.
+- Declare both user-initiated clipboard features in metadata and add EGO-oriented runtime/prefs separation checks plus package-content auditing in CI.
+
 ## 247
 
 - Hold an already-hidden dock through concurrent window destroy/minimize compositor effects and re-evaluate visibility only after those effects finish.

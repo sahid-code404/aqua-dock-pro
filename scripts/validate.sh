@@ -11,8 +11,32 @@ glib-compile-schemas --strict --targetdir="$schema_dir" schemas
 jq -e '
     .uuid == "aqua-dock-pro@shaque" and
     (.version | type == "number") and
-    ."shell-version" == ["50", "51.beta"]
+    ."shell-version" == ["50", "51.beta"] and
+    (.description | contains("clipboard"))
 ' metadata.json >/dev/null
+
+mapfile -t js_files < <(find . -type f -name '*.js' -not -path './.git/*' | sort)
+mapfile -t runtime_js < <(
+    find extension.js animation autohide compat core dock downloads effects interactions menus services ui \
+        -type f -name '*.js' 2>/dev/null | sort
+)
+mapfile -t prefs_js < <(find prefs.js prefs -type f -name '*.js' 2>/dev/null | sort)
+
+if grep -nE "from ['\"]gi://(Gtk|Gdk|Adw)" "${runtime_js[@]}"; then
+    printf 'GTK/GDK/Adwaita import found in the GNOME Shell runtime.\n' >&2
+    exit 1
+fi
+
+if grep -nE "from ['\"]gi://(Clutter|Meta|St|Shell)" "${prefs_js[@]}"; then
+    printf 'GNOME Shell/Clutter import found in the preferences process.\n' >&2
+    exit 1
+fi
+
+if grep -nE 'imports\.(ByteArray|byteArray|Lang|lang|Mainloop|mainloop)|run_dispose[[:space:]]*\(' \
+    "${js_files[@]}"; then
+    printf 'Deprecated or reviewer-hostile GJS API usage found.\n' >&2
+    exit 1
+fi
 
 if command -v rg >/dev/null; then
     if rg -n 'vertical[[:space:]]*:' downloads ui --glob '*.js'; then
@@ -36,7 +60,6 @@ if command -v xgettext >/dev/null && [[ -f po/aqua-dock-pro.pot ]]; then
     }
 fi
 
-mapfile -t js_files < <(find . -type f -name '*.js' -not -path './.git/*' | sort)
 gjs -c '
     const GLib = imports.gi.GLib;
     try {

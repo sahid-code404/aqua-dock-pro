@@ -16,10 +16,15 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install validation dependencies
-        run: dnf install -y gjs glib2 gettext jq gnome-shell libadwaita xorg-x11-server-Xvfb
+        run: dnf install -y gjs glib2 gettext jq gnome-shell libadwaita unzip xorg-x11-server-Xvfb
 
       - name: Static and unit checks
         run: scripts/validate.sh
 
       - name: Preferences smoke test
         run: xvfb-run -a env AQUA_RUN_PREFS_SMOKE=1 scripts/validate.sh
+
+      - name: Package and audit EGO bundle
+        run: |
+          scripts/package.sh dist
+          scripts/audit-package.sh dist/aqua-dock-pro@shaque.shell-extension.zip
