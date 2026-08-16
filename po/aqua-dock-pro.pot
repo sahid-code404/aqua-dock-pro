@@ -22,19 +22,20 @@ msgstr ""
 msgid "Applications"
 msgstr ""
 
-#: dock/dockItem.js:145 downloads/downloadManager.js:59
+#: dock/dockItem.js:145 downloads/downloadManager.js:119
 #: downloads/downloadsStack.js:29 downloads/panelView.js:150
-#: prefs/pages/downloadsPage.js:9 services/appTracker.js:126
+#: prefs/pages/downloadsPage.js:9 services/appTracker.js:275
 msgid "Downloads"
 msgstr ""
 
-#: dock/dockItem.js:146 downloads/downloadManager.js:62 menus/menuActions.js:33
-#: prefs/pages/downloadsPage.js:30 services/appTracker.js:135
+#: dock/dockItem.js:146 downloads/downloadManager.js:122
+#: menus/menuActions.js:33 prefs/pages/downloadsPage.js:30
+#: services/appTracker.js:285
 msgid "Folder"
 msgstr ""
 
-#: dock/dockItem.js:147 menus/menuActions.js:37 services/appTracker.js:201
-#: services/appTracker.js:202
+#: dock/dockItem.js:147 menus/menuActions.js:37 services/appTracker.js:353
+#: services/appTracker.js:354
 msgid "Location"
 msgstr ""
 
