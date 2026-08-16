@@ -13,6 +13,7 @@ import { hasFullscreenWindow } from './fullscreenPolicy.js';
 import { monitorInFullscreen } from '../compat/shell.js';
 
 const DEBOUNCE_HIDE_MS = 200;
+const FULLSCREEN_CLEAR_CONFIRM_MS = 120;
 const POINTER_BUTTON_MASK =
     Clutter.ModifierType.BUTTON1_MASK |
     Clutter.ModifierType.BUTTON2_MASK |
@@ -40,6 +41,8 @@ export class AutohideManager {
         this._revealId = 0;
         this._debounceId = 0;
         this._idleId = 0;
+        this._fullscreenClearId = 0;
+        this._fullscreenBlocked = false;
         this._enabled = false;
     }
 
@@ -58,11 +61,14 @@ export class AutohideManager {
         this._cancelHide();
         this._cancelReveal();
         this._cancelDebounce();
+        this._cancelFullscreenClear();
         this._timers.removeAll();
         this._hideId = 0;
         this._revealId = 0;
         this._debounceId = 0;
         this._idleId = 0;
+        this._fullscreenClearId = 0;
+        this._fullscreenBlocked = false;
         this._signals.disconnectAll();
         this._setHidden(false, false);   // show before tearing down
         this._host.chrome.setAutohideHandleVisible(false, false);
@@ -122,6 +128,8 @@ export class AutohideManager {
         s.connect(d, 'restacked', () => this.queueIntellihide());
         s.connect(d, 'notify::focus-window', () => this.queueIntellihide());
         s.connect(d, 'grab-op-end', () => this.queueIntellihide());
+        // Positive fullscreen transitions must hide immediately. A transient
+        // negative reading is held by _fullscreenBlocksDock() until confirmed.
         s.connect(d, 'in-fullscreen-changed', () => this.updateIntellihide());
 
         const wm = global.window_manager;
@@ -261,16 +269,13 @@ export class AutohideManager {
     }
 
     // ── Fullscreen policy ────────────────────────────────────────────────────
-    _fullscreenBlocksDock() {
-        if (!this._enabled || Main.overview.visible) return false;
+    _rawFullscreenBlocksDock() {
         const monitor = this._host.getMonitorIndex?.() ?? -1;
         if (monitor < 0) return false;
         if (monitorInFullscreen(monitor)) return true;
 
-        // `get_monitor_in_fullscreen()` can briefly turn false while Mutter
-        // restacks windows after a covering app closes. Consult the actual
-        // active-workspace windows as a stable fallback so the dock never
-        // flashes over a fullscreen app that is still present underneath.
+        // Mutter can briefly clear its monitor flag while restacking windows.
+        // A still-fullscreen window on this monitor/workspace remains decisive.
         try {
             const workspace = global.workspace_manager.get_active_workspace();
             let windows = workspace?.list_windows?.();
@@ -283,6 +288,48 @@ export class AutohideManager {
         } catch {
             return false;
         }
+    }
+
+    _fullscreenBlocksDock() {
+        if (!this._enabled || Main.overview.visible) return false;
+
+        if (this._rawFullscreenBlocksDock()) {
+            this._fullscreenBlocked = true;
+            this._cancelFullscreenClear();
+            return true;
+        }
+
+        // Leaving fullscreen is the only ambiguous edge. Window destruction,
+        // focus changes and restacking can make both Mutter's monitor flag and
+        // the workspace window list temporarily report no fullscreen window.
+        // Keep the previous fullscreen ownership until one short recheck agrees.
+        if (this._fullscreenBlocked) {
+            this._scheduleFullscreenClear();
+            return true;
+        }
+        return false;
+    }
+
+    _scheduleFullscreenClear() {
+        if (this._fullscreenClearId || !this._enabled) return;
+        this._fullscreenClearId = this._timers.addOnce(FULLSCREEN_CLEAR_CONFIRM_MS, () => {
+            this._fullscreenClearId = 0;
+            if (!this._enabled) return;
+
+            if (this._rawFullscreenBlocksDock()) {
+                this._fullscreenBlocked = true;
+                return;
+            }
+
+            this._fullscreenBlocked = false;
+            this.updateIntellihide();
+        });
+    }
+
+    _cancelFullscreenClear() {
+        if (!this._fullscreenClearId) return;
+        this._timers.remove(this._fullscreenClearId);
+        this._fullscreenClearId = 0;
     }
 
     _pointerButtonDown() {
