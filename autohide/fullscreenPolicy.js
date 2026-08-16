@@ -1,6 +1,6 @@
-// Stable fullscreen policy. Mutter's monitor flag can briefly lag behind
-// restacking/focus changes, so a still-fullscreen window on the active
-// workspace must remain authoritative even while another window covers it.
+// Stable fullscreen policy. Mutter's monitor flag and workspace window list can
+// briefly disagree during restacking, so any still-live fullscreen window on
+// the active workspace remains authoritative.
 
 function isFullscreen(win) {
     try {
@@ -29,10 +29,32 @@ export function windowKeepsDockHidden(win, monitorIndex, workspace = null) {
     return isFullscreen(win);
 }
 
-export function hasFullscreenWindow(windows, monitorIndex, workspace = null) {
+function listHasFullscreenWindow(windows, monitorIndex, workspace) {
     if (!windows) return false;
     for (const win of windows) {
         if (windowKeepsDockHidden(win, monitorIndex, workspace)) return true;
     }
+    return false;
+}
+
+export function hasFullscreenWindow(windows, monitorIndex, workspace = null) {
+    if (listHasFullscreenWindow(windows, monitorIndex, workspace)) return true;
+
+    // workspace.list_windows() can transiently omit the underlying fullscreen
+    // Meta.Window while Mutter removes a covering window. Window actors usually
+    // remain stable across that restack, so consult them as a second independent
+    // source instead of allowing one incomplete snapshot to reveal the dock.
+    try {
+        if (typeof global !== 'undefined' &&
+            typeof global.get_window_actors === 'function') {
+            for (const actor of global.get_window_actors()) {
+                if (windowKeepsDockHidden(actor?.meta_window, monitorIndex, workspace))
+                    return true;
+            }
+        }
+    } catch {
+        // The caller's snapshot remains authoritative if Shell is tearing down.
+    }
+
     return false;
 }
