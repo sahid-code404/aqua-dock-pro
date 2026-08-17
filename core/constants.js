@@ -69,6 +69,8 @@ export const GEOMETRY_KEYS = Object.freeze(new Set([
     'bounce-height',
     'bounce-decay',
     'hover-lift',
+    'border-width',
+    'interface-text-scale',
     'high-contrast',
 ]));
 
@@ -76,7 +78,6 @@ export const STYLE_KEYS = Object.freeze(new Set([
     'background-opacity',
     'pill-color',
     'border-color',
-    'border-width',
 ]));
 
 export const AUTOHIDE_KEYS = Object.freeze(new Set([
@@ -95,7 +96,6 @@ export const TOOLTIP_KEYS = Object.freeze(new Set([
     'tooltip-text-color',
     'tooltip-border-color',
     'tooltip-border-width',
-    'interface-text-scale',
 ]));
 
 export const ITEM_REFRESH_KEYS = Object.freeze(new Set([
@@ -157,7 +157,6 @@ export const SETTING_CONFIG_PROPERTIES = Object.freeze({
     'background-opacity': ['bgOpacity'],
     'pill-color': ['pillColor'],
     'border-color': ['borderColor'],
-    'border-width': ['borderWidth'],
 
     'hide-delay': ['hideDelay'],
     'reveal-pressure': ['revealPressure'],
@@ -172,7 +171,6 @@ export const SETTING_CONFIG_PROPERTIES = Object.freeze({
     'tooltip-text-color': ['tooltipFg'],
     'tooltip-border-color': ['tooltipBorderColor'],
     'tooltip-border-width': ['tooltipBorderWidth'],
-    'interface-text-scale': ['interfaceTextScale'],
 
     'indicator-style': ['indicatorStyle'],
     'indicator-size': ['indicatorSize'],

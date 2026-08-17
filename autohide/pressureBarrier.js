@@ -21,18 +21,18 @@ export class PressureBarrier {
         this._timers = new TimeoutGroup();
         this._pollId = 0;
         this._dwell = 0;
-        this._last = null;
+        this._anchorLateral = null;
     }
 
     begin() {
         this._dwell = 0;
-        this._last = null;
+        this._anchorLateral = null;
         if (this._pollId) return;
         this._pollId = this._timers.add(POLL_MS, () => {
             if (!this._canReveal()) {
                 this._pollId = 0;
                 this._dwell = 0;
-                this._last = null;
+                this._anchorLateral = null;
                 return GLib.SOURCE_REMOVE;
             }
             this._sample();
@@ -47,7 +47,7 @@ export class PressureBarrier {
     cancel() {
         if (this._pollId) { this._timers.remove(this._pollId); this._pollId = 0; }
         this._dwell = 0;
-        this._last = null;
+        this._anchorLateral = null;
     }
 
     destroy() {
@@ -71,26 +71,37 @@ export class PressureBarrier {
         const side = cfg.position;
         const monR = mon.x + mon.width;
         const monB = mon.y + mon.height;
-        let edgeHit = false;
+        let onEdge = false;
+        let lateral = 0;
         if (side === 'left' || side === 'right') {
-            // Vertical dock: lateral drift is on Y axis.
-            const ddy = this._last ? (p[1] - this._last[1]) : 0;
-            const dy = ddy * ddy;
+            lateral = p[1];
             const withinY = p[1] >= mon.y && p[1] < monB;
-            edgeHit = side === 'left'
-                ? withinY && dy < LATERAL_AREA && p[0] >= mon.x && p[0] < mon.x + EDGE_PX
-                : withinY && dy < LATERAL_AREA && p[0] >= monR - EDGE_PX && p[0] < monR;
+            onEdge = side === 'left'
+                ? withinY && p[0] >= mon.x && p[0] < mon.x + EDGE_PX
+                : withinY && p[0] >= monR - EDGE_PX && p[0] < monR;
         } else {
-            // Bottom dock: lateral drift is on X axis.
-            const ddx = this._last ? (p[0] - this._last[0]) : 0;
-            const dx = ddx * ddx;
+            lateral = p[0];
             const withinX = p[0] >= mon.x && p[0] < monR;
-            edgeHit = withinX && dx < LATERAL_AREA &&
-                p[1] >= monB - EDGE_PX && p[1] < monB;
+            onEdge = withinX && p[1] >= monB - EDGE_PX && p[1] < monB;
         }
 
-        this._last = p;
-        this._dwell = edgeHit ? this._dwell + 1 : 0;
+        if (!onEdge) {
+            this._anchorLateral = null;
+            this._dwell = 0;
+            return;
+        }
+
+        if (this._anchorLateral === null) this._anchorLateral = lateral;
+        const delta = lateral - this._anchorLateral;
+        if (delta * delta >= LATERAL_AREA) {
+            // Pressure is a dwell gesture, not a slow edge swipe. Reset the
+            // dwell origin once the pointer drifts too far along the edge.
+            this._anchorLateral = lateral;
+            this._dwell = 0;
+            return;
+        }
+
+        this._dwell++;
 
         // sensitivity 0 → 80 frames, 1 → 20 frames.
         const need = 80 - 60 * (cfg.pressureSenseSensitivity ?? 0.5);

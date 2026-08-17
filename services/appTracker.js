@@ -23,6 +23,8 @@ class AppStateHub {
         this._windowSignals = new Map();
         this._iconCache = new Map();
         this._optionalActive = false;
+        this._optionalWorkspace = false;
+        this._optionalMonitor = false;
 
         this._baseSignals.connect(this._favorites, 'changed', () => this._emitAll());
         this._baseSignals.connect(this._appSystem, 'installed-changed', () => {
@@ -49,7 +51,10 @@ class AppStateHub {
         if (this._iconCache.has(id)) return this._iconCache.get(id);
         let icon = null;
         try { icon = app.get_icon(); } catch { }
-        this._iconCache.set(id, icon);
+        // A transient Shell lookup failure should not poison the shared cache
+        // for the rest of the session. Successful icons remain stable until the
+        // desktop-file set changes.
+        if (icon) this._iconCache.set(id, icon);
         return icon;
     }
 
@@ -93,24 +98,44 @@ class AppStateHub {
             if (this._optionalActive) {
                 this._optionalSignals.disconnectAll();
                 this._clearWindowSignals();
-                this._optionalActive = false;
             }
+            this._optionalActive = false;
+            this._optionalWorkspace = false;
+            this._optionalMonitor = false;
             return;
         }
 
-        if (this._optionalActive) return;
+        // During a structural rebuild old and replacement docks overlap briefly.
+        // If their isolation requirements differ, rebuild the optional signal set
+        // instead of keeping the broader previous subscriptions alive.
+        if (this._optionalActive &&
+            this._optionalWorkspace === needsWorkspace &&
+            this._optionalMonitor === needsMonitor)
+            return;
+
+        if (this._optionalActive) {
+            this._optionalSignals.disconnectAll();
+            this._clearWindowSignals();
+        }
+
         this._optionalActive = true;
+        this._optionalWorkspace = needsWorkspace;
+        this._optionalMonitor = needsMonitor;
 
         this._optionalSignals.connect(global.display, 'window-created', (_display, window) => {
             this._trackWindow(window);
             this._emitOptional();
         });
-        this._optionalSignals.connect(global.workspace_manager, 'active-workspace-changed',
-            () => this._emitWorkspace());
-        this._optionalSignals.connect(global.display, 'window-entered-monitor',
-            (_display, monitorIndex) => this._emitMonitor(monitorIndex));
-        this._optionalSignals.connect(global.display, 'window-left-monitor',
-            (_display, monitorIndex) => this._emitMonitor(monitorIndex));
+        if (needsWorkspace) {
+            this._optionalSignals.connect(global.workspace_manager, 'active-workspace-changed',
+                () => this._emitWorkspace());
+        }
+        if (needsMonitor) {
+            this._optionalSignals.connect(global.display, 'window-entered-monitor',
+                (_display, monitorIndex) => this._emitMonitor(monitorIndex));
+            this._optionalSignals.connect(global.display, 'window-left-monitor',
+                (_display, monitorIndex) => this._emitMonitor(monitorIndex));
+        }
 
         for (const actor of global.get_window_actors?.() ?? [])
             this._trackWindow(actor.meta_window);
@@ -120,7 +145,11 @@ class AppStateHub {
         if (!window || this._windowSignals.has(window)) return;
         const ids = [];
         try {
-            ids.push(window.connect('workspace-changed', () => this._emitWorkspace()));
+            if (this._optionalWorkspace)
+                ids.push(window.connect('workspace-changed', () => this._emitWorkspace()));
+            // Monitor-only isolation still needs an unmanage notification when a
+            // local window disappears while the application remains alive on a
+            // different monitor. It does not need workspace-change listeners.
             ids.push(window.connect('unmanaging', () => {
                 this._untrackWindow(window);
                 this._emitOptional();
@@ -182,6 +211,9 @@ class AppStateHub {
         this._clearWindowSignals();
         this._subscribers.clear();
         this._iconCache.clear();
+        this._optionalActive = false;
+        this._optionalWorkspace = false;
+        this._optionalMonitor = false;
         this._favorites = null;
         this._appSystem = null;
     }

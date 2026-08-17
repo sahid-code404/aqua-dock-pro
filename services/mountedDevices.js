@@ -54,7 +54,9 @@ function logActionError(action, error) {
 }
 
 const busyMounts = new WeakSet();
-const activeOperations = new Set();
+// Map<cancellable, cleanup>. The cleanup releases transient ownership such as a
+// mount's busy marker immediately when extension teardown cancels the request.
+const activeOperations = new Map();
 const monitorStores = new Map();
 
 function operationCancelled(cancellable, error) {
@@ -66,7 +68,7 @@ function operationCancelled(cancellable, error) {
 function runAsync(target, method, finish, buildArgs, action, onDone) {
     if (!target || typeof target[method] !== 'function') return null;
     const cancellable = new Gio.Cancellable();
-    activeOperations.add(cancellable);
+    activeOperations.set(cancellable, null);
     try {
         target[method](...buildArgs(cancellable), (source, result) => {
             let error = null;
@@ -96,6 +98,7 @@ function mountAction(mount, candidates, action, onDone) {
         const cancellable = runAsync(target, method, finish, args, action, settled);
         if (cancellable) {
             busyMounts.add(mount);
+            activeOperations.set(cancellable, () => busyMounts.delete(mount));
             return cancellable;
         }
     }
@@ -103,8 +106,9 @@ function mountAction(mount, candidates, action, onDone) {
 }
 
 export function cancelMountedDeviceOperations() {
-    for (const cancellable of activeOperations) {
+    for (const [cancellable, cleanup] of activeOperations) {
         try { cancellable.cancel(); } catch { }
+        try { cleanup?.(); } catch { }
     }
     activeOperations.clear();
 }

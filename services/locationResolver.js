@@ -14,6 +14,7 @@ const ATTRIBUTES = [
 const FAILURE_RETRY_US = 15 * GLib.USEC_PER_SEC;
 const SUCCESS_REFRESH_US = 60 * GLib.USEC_PER_SEC;
 const MAX_CACHE_ENTRIES = 64;
+const MAX_FAILURE_ENTRIES = 64;
 
 function customIcon(info) {
     const value = info.get_attribute_string('metadata::custom-icon')?.trim();
@@ -99,7 +100,7 @@ export class LocationResolver {
                     let info;
                     try { info = source.query_info_finish(result); }
                     catch {
-                        this._failedAt.set(uri, GLib.get_monotonic_time());
+                        this._recordFailure(uri);
                         return;
                     }
 
@@ -117,7 +118,19 @@ export class LocationResolver {
                 });
         } catch {
             this._pending.delete(uri);
-            this._failedAt.set(uri, GLib.get_monotonic_time());
+            this._recordFailure(uri);
+        }
+    }
+
+    _recordFailure(uri) {
+        // Keep failure throttling bounded independently from the successful
+        // metadata cache. Invalid or disconnected URIs must not accumulate for
+        // the whole Shell session.
+        this._failedAt.delete(uri);
+        this._failedAt.set(uri, GLib.get_monotonic_time());
+        while (this._failedAt.size > MAX_FAILURE_ENTRIES) {
+            const oldest = this._failedAt.keys().next().value;
+            this._failedAt.delete(oldest);
         }
     }
 

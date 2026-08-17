@@ -8,10 +8,12 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import { DOCK_NOOP_KEYS } from './constants.js';
 import { EventBus } from './eventBus.js';
 import { SettingsManager } from './settingsManager.js';
-import { clearRuntimeWarnings, log, logError, setReduceMotionOverride } from './utils.js';
+import { TimeoutGroup, clearRuntimeWarnings, log, logError, setReduceMotionOverride } from './utils.js';
 import { DockController } from '../dock/dockController.js';
 import { cancelMountedDeviceOperations } from '../services/mountedDevices.js';
 import { clearNotificationCache } from '../services/notificationService.js';
+
+const REBUILD_RETRY_DELAYS_MS = [250, 750, 1500];
 
 export class ExtensionManager {
     constructor(extension) {
@@ -22,6 +24,10 @@ export class ExtensionManager {
         this._unsubSettings = null;
         this._monitorsChangedId = 0;
         this._keybindingAdded = false;
+        this._timers = new TimeoutGroup();
+        this._rebuildRetryId = 0;
+        this._rebuildRetryCount = 0;
+        this._rebuildRetryReason = '';
     }
 
     enable() {
@@ -147,14 +153,47 @@ export class ExtensionManager {
         catch (e) { logError(e, 'enable replacement dash management'); }
     }
 
-    _onMonitorsChanged() {
-        try { this._rebuildDocks(); }
-        catch (e) {
-            // _createDocks() destroys only the failed candidates. The currently
-            // working set remains installed so a transient construction error
-            // cannot make the whole extension disappear.
-            logError(e, 'monitors-changed → keeping previous docks');
+    _cancelRebuildRetry() {
+        if (this._rebuildRetryId) {
+            this._timers.remove(this._rebuildRetryId);
+            this._rebuildRetryId = 0;
         }
+        this._rebuildRetryCount = 0;
+        this._rebuildRetryReason = '';
+    }
+
+    _scheduleRebuildRetry(reason) {
+        if (this._rebuildRetryId ||
+            this._rebuildRetryCount >= REBUILD_RETRY_DELAYS_MS.length ||
+            !this._settings)
+            return;
+        const delay = REBUILD_RETRY_DELAYS_MS[this._rebuildRetryCount++];
+        this._rebuildRetryReason = reason;
+        this._rebuildRetryId = this._timers.addOnce(delay, () => {
+            this._rebuildRetryId = 0;
+            this._attemptRebuild(this._rebuildRetryReason || reason, false);
+        });
+    }
+
+    _attemptRebuild(reason, resetBudget = true) {
+        if (resetBudget) this._cancelRebuildRetry();
+        try {
+            this._rebuildDocks();
+            this._cancelRebuildRetry();
+            return true;
+        } catch (e) {
+            // Candidate construction is transactional, so the previous dock set
+            // remains usable. Retry transient Shell/monitor construction failures
+            // with a short bounded backoff instead of leaving new structural
+            // settings permanently waiting for an unrelated future change.
+            logError(e, `${reason} → keeping previous docks`);
+            this._scheduleRebuildRetry(reason);
+            return false;
+        }
+    }
+
+    _onMonitorsChanged() {
+        this._attemptRebuild('monitors-changed');
     }
 
     _onSettingsChanged({ structural, keys }) {
@@ -167,18 +206,21 @@ export class ExtensionManager {
             return;
 
         if (structural || !this._docks.length) {
-            this._rebuildDocks();
+            this._attemptRebuild('structural settings change');
             return;
         }
         try {
             for (const dock of this._docks) dock.applySettings(keys);
         } catch (e) {
             logError(e, 'applySettings → rebuilding');
-            this._rebuildDocks();
+            this._attemptRebuild('applySettings fallback');
         }
     }
 
     disable() {
+        this._cancelRebuildRetry();
+        this._timers.removeAll();
+
         if (this._keybindingAdded) {
             try { Main.wm.removeKeybinding('focus-dock-shortcut'); } catch { }
             this._keybindingAdded = false;

@@ -1,5 +1,13 @@
 # Changelog
 
+## 255
+
+- Reclassify border width and interface text scale through the full geometry/update path so the hidden auto-hide rim and already-open popup typography cannot remain stale.
+- Add bounded dock-rebuild retries, dynamically narrow shared app/window subscriptions, avoid caching transient null app icons, and reconcile/poll notification sources only when Shell signals are incomplete.
+- Bound failed location-metadata throttling, release mounted-device busy ownership immediately on extension cancellation, and make pressure reveal require a true dwell instead of allowing slow edge drift.
+- Close stale app window menu actions when their Meta.Window disappears and avoid double-counting recursive Trash deletion failures.
+- Keep the existing magnification curve, spring physics, bounce/Genie timings, CSS, icon sizing, and normal popup geometry unchanged.
+
 ## 254
 
 - Make Reduce Motion apply every pointer and held-item target synchronously, and prevent stale preview generations or invalid external DnD sources from disrupting current UI state.

@@ -76,8 +76,10 @@ async function deleteChildren(dir, cancellable, result) {
     } catch (e) {
         if (!cancellable.is_cancelled() && !e.matches?.(Gio.io_error_quark(), Gio.IOErrorEnum.NOT_FOUND))
             result.failed++;
-        return;
+        return false;
     }
+
+    let complete = true;
     for (;;) {
         let infos;
         try {
@@ -87,22 +89,39 @@ async function deleteChildren(dir, cancellable, result) {
                 result.failed++;
                 logError(error, 'emptyTrash enumerate');
             }
+            complete = false;
             break;
         }
         if (!infos.length) break;
         for (const info of infos) {
-            if (cancellable.is_cancelled()) break;
+            if (cancellable.is_cancelled()) {
+                complete = false;
+                break;
+            }
             const child = dir.get_child(info.get_name());
-            if (info.get_file_type() === Gio.FileType.DIRECTORY)
-                await deleteChildren(child, cancellable, result);
+            if (info.get_file_type() === Gio.FileType.DIRECTORY) {
+                const emptied = await deleteChildren(child, cancellable, result);
+                if (!emptied) {
+                    // A descendant already recorded the meaningful failure.
+                    // Do not attempt the now-known non-empty parent and count the
+                    // same underlying problem a second time.
+                    complete = false;
+                    continue;
+                }
+            }
             try {
                 await child.delete_async(GLib.PRIORITY_DEFAULT, cancellable);
                 result.deleted++;
             } catch {
                 if (!cancellable.is_cancelled()) result.failed++;
+                complete = false;
             }
         }
-        if (cancellable.is_cancelled()) break;
+        if (cancellable.is_cancelled()) {
+            complete = false;
+            break;
+        }
     }
     try { await en.close_async(GLib.PRIORITY_DEFAULT, null); } catch { }
+    return complete && !cancellable.is_cancelled();
 }

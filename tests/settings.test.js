@@ -55,6 +55,14 @@ assert(!cfg.reduceMotion && !cfg.highContrast && cfg.interfaceTextScale === 1 &&
 assert(GEOMETRY_KEYS.has('auto-hide-mode') &&
     !hasKnownDirectSettingImpact('auto-hide-mode'),
     'auto-hide mode must relayout so reserved strut geometry stays in sync');
+assert(GEOMETRY_KEYS.has('border-width') &&
+    !STYLE_KEYS.has('border-width') &&
+    !hasKnownDirectSettingImpact('border-width'),
+    'border width must relayout because it controls the hidden auto-hide rim clip');
+assert(GEOMETRY_KEYS.has('interface-text-scale') &&
+    !TOOLTIP_KEYS.has('interface-text-scale') &&
+    !hasKnownDirectSettingImpact('interface-text-scale'),
+    'interface text scale must use the full update path for already-open popups');
 assert(DOCK_NOOP_KEYS.has('focus-dock-shortcut') &&
     DOCK_NOOP_KEYS.has('settings-version'),
     'non-visual settings must not trigger dock-wide relayout work');

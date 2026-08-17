@@ -5,6 +5,9 @@ import {
     messageTraySources,
     notificationSourceApp,
 } from '../compat/shell.js';
+import { TimeoutGroup, logError } from '../core/utils.js';
+
+const FALLBACK_PROBE_MS = 2500;
 
 let cachedSources = [];
 let cachedCounts = [];
@@ -46,10 +49,12 @@ function resetSnapshot() {
 // Build a Map<appId, count> from all tray sources in a single pass. Source
 // identity/count/app-ID caching makes repeated probes cheap when Shell state is
 // stable while still noticing a source whose policy/app identity changes.
-export function buildNotificationMap() {
-    let sources;
-    try { sources = messageTraySources(); }
-    catch { sources = []; }
+export function buildNotificationMap(sourceSnapshot = null) {
+    let sources = sourceSnapshot;
+    if (!sources) {
+        try { sources = messageTraySources(); }
+        catch { sources = []; }
+    }
 
     const counts = new Array(sources.length);
     const ids = new Array(sources.length);
@@ -90,6 +95,8 @@ class NotificationHub {
         this._baseReliable = Boolean(this._tray);
         this._reliable = this._baseReliable;
         this._map = buildNotificationMap();
+        this._timers = new TimeoutGroup();
+        this._fallbackId = 0;
 
         if (this._tray) this._connect();
     }
@@ -100,21 +107,23 @@ class NotificationHub {
 
     subscribe(callback) {
         this._callbacks.add(callback);
+        this._syncFallbackProbe();
         let live = true;
         return () => {
             if (!live) return;
             live = false;
             this._callbacks.delete(callback);
+            this._syncFallbackProbe();
         };
     }
 
     probe() {
-        this._refresh(true);
+        this._refresh(true, true);
         return this._map;
     }
 
     _connect() {
-        const changed = () => this._refresh(true);
+        const changed = () => this._refresh(true, true);
         let addedId = 0;
         let removedId = 0;
         try {
@@ -139,12 +148,13 @@ class NotificationHub {
             this._baseReliable = false;
         }
         this._updateReliability();
+        this._syncFallbackProbe();
     }
 
     _watchSource(source) {
         if (!source || this._sourceSignals.has(source)) return;
         const ids = [];
-        const changed = () => this._refresh(true);
+        const changed = () => this._refresh(true, true);
         let countId = 0;
         let addedId = 0;
         let removedId = 0;
@@ -169,6 +179,15 @@ class NotificationHub {
         this._updateReliability();
     }
 
+    _reconcileSources(sources) {
+        const live = new Set(sources ?? []);
+        for (const source of [...this._sourceSignals.keys()]) {
+            if (!live.has(source)) this._unwatchSource(source);
+        }
+        for (const source of sources ?? []) this._watchSource(source);
+        this._updateReliability();
+    }
+
     _updateReliability() {
         if (!this._baseReliable) {
             this._reliable = false;
@@ -183,19 +202,49 @@ class NotificationHub {
         this._reliable = true;
     }
 
-    _refresh(notify) {
+    _syncFallbackProbe() {
+        const shouldProbe = !this._reliable && this._callbacks.size > 0;
+        if (!shouldProbe) {
+            if (this._fallbackId) {
+                this._timers.remove(this._fallbackId);
+                this._fallbackId = 0;
+            }
+            return;
+        }
+        if (this._fallbackId) return;
+        this._fallbackId = this._timers.addOnce(FALLBACK_PROBE_MS, () => {
+            this._fallbackId = 0;
+            if (this._callbacks.size === 0) return;
+            this._refresh(true, true);
+            this._syncFallbackProbe();
+        });
+    }
+
+    _refresh(notify, reconcile = false) {
         const previous = this._map;
-        const next = buildNotificationMap();
+        let sources = null;
+        if (reconcile) {
+            try {
+                sources = messageTraySources();
+                this._reconcileSources(sources);
+            } catch {
+                sources = null;
+            }
+        }
+        const next = buildNotificationMap(sources);
         this._map = next;
+        this._syncFallbackProbe();
         if (!notify || sameMap(previous, next)) return;
 
         for (const callback of [...this._callbacks]) {
             try { callback(); }
-            catch { }
+            catch (error) { logError(error, 'notification subscriber'); }
         }
     }
 
     destroy() {
+        this._timers.removeAll();
+        this._fallbackId = 0;
         for (const source of [...this._sourceSignals.keys()])
             this._unwatchSource(source);
         this._sourceSignals.clear();

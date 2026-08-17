@@ -12,6 +12,13 @@ import { downloadsUri } from '../services/fileService.js';
 import { ejectMountedDevice, unmountMountedDevice } from '../services/mountedDevices.js';
 import { notifyUser } from '../compat/shell.js';
 
+function activateWindowSafe(win) {
+    try {
+        if (!win) return;
+        win.activate(global.get_current_time());
+    } catch { }
+}
+
 export function populateMenu(menu, entry, {
     onTrashEmptied = null,
     onEmptyTrash = null,
@@ -124,10 +131,20 @@ function populateAppMenu(menu, app, isLayoutLocked, onToggleLayoutLock,
     if (wins.length) {
         menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
         for (const win of wins) {
-            const title = win.get_title() || app.get_name() || _('Window');
+            let title;
+            try { title = win.get_title() || app.get_name() || _('Window'); }
+            catch { continue; }
             const label = title.length > 30 ? title.slice(0, 29).trimEnd() + '…' : title;
-            const itm = menu.addAction(label, () => win.activate(global.get_current_time()));
+            const itm = menu.addAction(label, () => activateWindowSafe(win));
             try { itm.label?.clutter_text?.set_ellipsize?.(3); } catch { }
+            // If a listed window disappears while the menu is open, close the
+            // popup instead of leaving a stale action target behind. Ownership
+            // follows the menu actor, so teardown disconnects automatically.
+            try {
+                win.connectObject('unmanaging', () => {
+                    try { menu.close(); } catch { }
+                }, menu.actor);
+            } catch { }
         }
     }
 
