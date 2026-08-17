@@ -16,6 +16,30 @@ import {
 const LAUNCH_LOCK_US = 1200 * 1000;
 const LAUNCH_WATCH_MS = 8000;
 
+function windowMinimized(win) {
+    try { return Boolean(win?.minimized); }
+    catch { return false; }
+}
+
+function windowVisibleOnWorkspace(win, workspace) {
+    try {
+        if (!win || win.minimized) return false;
+        return !workspace || Boolean(win.located_on_workspace?.(workspace));
+    } catch {
+        return false;
+    }
+}
+
+function windowHasFocus(win) {
+    try { return Boolean(win?.has_focus?.()); }
+    catch { return false; }
+}
+
+function windowUserTime(win) {
+    try { return win?.get_user_time?.() ?? 0; }
+    catch { return 0; }
+}
+
 export class AppActions {
     constructor(getConfig, genie = null) {
         this._getConfig = getConfig;
@@ -56,9 +80,10 @@ export class AppActions {
 
         const windows = appWindowsForConfig(app, cfg);
         const focusApp = getFocusedAppSafe();
-        const ws = global.workspace_manager.get_active_workspace();
-        const onHere = windows.filter(w => !w.minimized && (!ws || w.located_on_workspace(ws)));
-        const focusedIndex = focusApp === app ? onHere.findIndex(w => w.has_focus()) : -1;
+        let ws = null;
+        try { ws = global.workspace_manager.get_active_workspace(); } catch { }
+        const onHere = windows.filter(w => windowVisibleOnWorkspace(w, ws));
+        const focusedIndex = focusApp === app ? onHere.findIndex(windowHasFocus) : -1;
         const focusedHere = focusedIndex >= 0;
 
         if (windows.length === 0) {
@@ -69,7 +94,7 @@ export class AppActions {
         }
 
         if (action === 'minimize') {
-            const visible = windows.filter(w => !w.minimized);
+            const visible = windows.filter(w => !windowMinimized(w));
             if (visible.length) this._minimize(item, visible);
             else this._raise(windows, item);
             this._lastClickKey = null;
@@ -87,13 +112,15 @@ export class AppActions {
             this._raise(windows, item); this._lastClickKey = clickKey; return;
         }
         if (focusedHere && onHere.length > 1) {
-            onHere[(focusedIndex + 1) % onHere.length].activate(global.get_current_time());
+            try { onHere[(focusedIndex + 1) % onHere.length].activate(global.get_current_time()); }
+            catch { }
             this._lastClickKey = clickKey; return;
         }
         if (cfg.clickToMinimize && (focusedHere || (repeat && focusApp === app))) {
             const wins = focusedHere ? [onHere[focusedIndex]] : onHere;
             this._minimize(item, wins);
-            item.bounce(Math.max(8, Math.round(cfg.bounceHeight * 0.5)), { decay: cfg.bounceDecay });
+            try { item.bounce(Math.max(8, Math.round(cfg.bounceHeight * 0.5)), { decay: cfg.bounceDecay }); }
+            catch { }
             this._lastClickKey = null; return;
         }
         this._raise(windows, item); this._lastClickKey = clickKey;
@@ -101,12 +128,12 @@ export class AppActions {
 
     _cycle(windows, backwards = false) {
         if (!windows.length) return;
-        const focused = windows.findIndex(w => w.has_focus?.());
+        const focused = windows.findIndex(windowHasFocus);
         const start = focused >= 0 ? focused : (backwards ? 0 : windows.length - 1);
         const offset = backwards ? -1 : 1;
         const target = windows[(start + offset + windows.length) % windows.length];
         try {
-            if (target.minimized) target.unminimize();
+            if (windowMinimized(target)) target.unminimize();
             Main.activateWindow(target, global.get_current_time());
         } catch { try { target.activate(global.get_current_time()); } catch { } }
     }
@@ -128,16 +155,16 @@ export class AppActions {
 
     _raise(windows, item = null) {
         const t = global.get_current_time();
-        const sorted = windows.slice().sort((a, b) =>
-            (b.get_user_time?.() ?? 0) - (a.get_user_time?.() ?? 0));
+        const sorted = windows.slice().sort((a, b) => windowUserTime(b) - windowUserTime(a));
         const target = sorted[0];
         if (!target) { if (Main.overview.visible) Main.overview.hide(); return; }
+        const minimized = windowMinimized(target);
         const doRaise = () => {
-            try { if (target.minimized) target.unminimize(); Main.activateWindow(target, t); }
+            try { if (windowMinimized(target)) target.unminimize(); Main.activateWindow(target, t); }
             catch { try { target.activate(t); } catch { } }
         };
         // Restore genies out of the icon when un-minimizing a hidden window.
-        if (this._genie?.enabled && target.minimized && item) {
+        if (this._genie?.enabled && minimized && item) {
             this._genie.setIconGeometry(item, [target]);
             this._genie.withDuration(doRaise);
         } else {

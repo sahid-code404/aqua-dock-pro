@@ -18,12 +18,26 @@ export function messageTray() {
     return tray;
 }
 
-export function messageTraySources() {
-    try { return messageTray()?.getSources?.() ?? []; }
-    catch {
-        warnOnce('message-tray-sources', 'Notification source enumeration failed; badges are disabled.');
-        return [];
+// Returns null when Shell cannot provide a trustworthy source snapshot. Callers
+// that maintain cached state can then preserve the last known-good data instead
+// of treating a transient enumeration failure as an empty notification tray.
+export function messageTraySourcesSnapshot() {
+    const tray = messageTray();
+    if (!tray) return null;
+    try {
+        if (typeof tray.getSources !== 'function') {
+            warnOnce('message-tray-sources', 'Notification source enumeration is unavailable; badge polling will use the last valid snapshot.');
+            return null;
+        }
+        return tray.getSources() ?? [];
+    } catch {
+        warnOnce('message-tray-sources', 'Notification source enumeration failed; badge polling will use the last valid snapshot.');
+        return null;
     }
+}
+
+export function messageTraySources() {
+    return messageTraySourcesSnapshot() ?? [];
 }
 
 export function notificationSourceApp(source) {

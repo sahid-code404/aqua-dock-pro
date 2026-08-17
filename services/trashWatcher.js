@@ -7,6 +7,7 @@ import { trashDir, trashHasFiles } from './fileService.js';
 
 const DEBOUNCE_MS = 250;
 const WATCH_RETRY_MS = 5000;
+const QUERY_RETRY_MS = 1500;
 
 let sharedTrashState = null;
 
@@ -18,6 +19,7 @@ class TrashStateStore {
         this._monitorId = 0;
         this._debounceId = 0;
         this._retryId = 0;
+        this._queryRetryId = 0;
         this._query = null;
         this._initialized = false;
         this._hasFiles = false;
@@ -71,6 +73,14 @@ class TrashStateStore {
         });
     }
 
+    _scheduleQueryRetry() {
+        if (this._queryRetryId || this._callbacks.size === 0) return;
+        this._queryRetryId = this._timers.addOnce(QUERY_RETRY_MS, () => {
+            this._queryRetryId = 0;
+            this._refresh();
+        });
+    }
+
     _schedule() {
         if (this._debounceId) this._timers.remove(this._debounceId);
         this._debounceId = this._timers.addOnce(DEBOUNCE_MS, () => {
@@ -80,6 +90,10 @@ class TrashStateStore {
     }
 
     _refresh() {
+        if (this._queryRetryId) {
+            this._timers.remove(this._queryRetryId);
+            this._queryRetryId = 0;
+        }
         this._query?.cancel();
         const query = new Gio.Cancellable();
         this._query = query;
@@ -99,7 +113,10 @@ class TrashStateStore {
             }
         }).catch(error => {
             if (this._query === query) this._query = null;
-            if (!query.is_cancelled()) logError(error, 'trash state');
+            if (!query.is_cancelled()) {
+                logError(error, 'trash state');
+                this._scheduleQueryRetry();
+            }
         });
     }
 
@@ -114,6 +131,10 @@ class TrashStateStore {
         if (this._retryId) {
             this._timers.remove(this._retryId);
             this._retryId = 0;
+        }
+        if (this._queryRetryId) {
+            this._timers.remove(this._queryRetryId);
+            this._queryRetryId = 0;
         }
         this._timers.removeAll();
 

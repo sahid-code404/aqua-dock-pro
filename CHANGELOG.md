@@ -1,5 +1,13 @@
 # Changelog
 
+## 256
+
+- Harden live Meta.Window access in intellihide, app activation/cycling, and preview construction so windows disappearing mid-callback cannot abort the remaining update path.
+- Pay the configured auto-hide delay only once while magnification contracts, then use short bounded rechecks so the dock hides promptly after the visual dependency settles.
+- Preserve the last valid notification snapshot when Shell source enumeration temporarily fails, retry transient Trash state reads, and retry stock-dash takeover without disabling an otherwise healthy dock set.
+- Restore Genie’s process-global animation slowdown immediately when the effect is disabled, make controller teardown failure-isolated, clear stale drop delegates, and keep dash ownership retryable after a failed hand-off.
+- Avoid redundant tooltip restyling for delay-only changes and unnecessary autohide geometry work for timing/sensitivity-only settings while keeping the existing magnification curve, spring physics, popup visuals, and normal interaction timings unchanged.
+
 ## 255
 
 - Reclassify border width and interface text scale through the full geometry/update path so the hidden auto-hide rim and already-open popup typography cannot remain stale.

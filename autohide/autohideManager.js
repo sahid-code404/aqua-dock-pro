@@ -14,6 +14,7 @@ import { monitorInFullscreen } from '../compat/shell.js';
 
 const DEBOUNCE_HIDE_MS = 200;
 const FULLSCREEN_CLEAR_CONFIRM_MS = 120;
+const MAGNIFICATION_RECHECK_MS = 50;
 const POINTER_BUTTON_MASK =
     Clutter.ModifierType.BUTTON1_MASK |
     Clutter.ModifierType.BUTTON2_MASK |
@@ -243,15 +244,20 @@ export class AutohideManager {
     }
 
     // ── Hide / reveal timers ──────────────────────────────────────────────────
-    _scheduleHide() {
+    _scheduleHide(delayMs = null) {
         const cfg = this._host.getConfig();
         if (this._hideId || cfg.autoHideMode === 'never') return;
-        this._hideId = this._timers.addOnce(cfg.hideDelay, () => {
+        const delay = delayMs ?? cfg.hideDelay;
+        this._hideId = this._timers.addOnce(delay, () => {
             this._hideId = 0;
             if (this._pointerReallyInside() || this._host.isInteractionActive?.()) return;
-            // Continue waiting in short, bounded checks while magnification
-            // finishes; the next check applies the normal hide policy.
-            if (this._host.isMagnifying?.()) { this._scheduleHide(); return; }
+            // The configured hide delay is paid once. If magnification is still
+            // contracting afterwards, poll only that visual dependency at a
+            // short bounded cadence instead of repeatedly charging hideDelay.
+            if (this._host.isMagnifying?.()) {
+                this._scheduleHide(MAGNIFICATION_RECHECK_MS);
+                return;
+            }
             const live = this._host.getConfig();
             if (live.autoHideMode === 'dodge' && !this._overlap.isOverlapped()) return;
             this._setHidden(true, true);

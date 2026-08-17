@@ -43,23 +43,36 @@ export class OverlapDetector {
         const rw = vert ? geom.thick : geom.width;
         const rh = vert ? geom.height : geom.thick;
 
+        let actors;
+        try { actors = global.get_window_actors?.() ?? []; }
+        catch { return false; }
+
         let overlapped = false;
         const active = new Set();
-        const actors = global.get_window_actors();
         for (let i = 0, len = actors.length; i < len; i++) {
-            const win = actors[i].meta_window;
-            if (!win || win.minimized || win.is_hidden?.()) continue;
-            if (!win.located_on_workspace(ws)) continue;
-            if (win.get_monitor() !== monIndex) continue;
-            if (!HANDLED_TYPES.has(win.get_window_type())) continue;
+            const win = actors[i]?.meta_window;
+            if (!win) continue;
+
+            let frame;
+            try {
+                // Meta.Window can become invalid between get_window_actors() and
+                // this scan. Treat a disappearing window as out of scope instead
+                // of aborting the whole intellihide pass and retaining stale state.
+                if (win.minimized || win.is_hidden?.()) continue;
+                if (!win.located_on_workspace(ws)) continue;
+                if (win.get_monitor() !== monIndex) continue;
+                if (!HANDLED_TYPES.has(win.get_window_type())) continue;
+                frame = win.get_frame_rect();
+            } catch {
+                continue;
+            }
 
             active.add(win);
             if (!this._tracked.has(win)) this._track(win);
-            if (overlapped) continue;   // keep tracking the rest, but answer known
+            if (overlapped || !frame) continue;   // keep tracking the rest, but answer known
 
-            const f = win.get_frame_rect();
-            if (f.x + TOL < rx + rw && f.x + f.width - TOL > rx &&
-                f.y + TOL < ry + rh && f.y + f.height - TOL > ry)
+            if (frame.x + TOL < rx + rw && frame.x + frame.width - TOL > rx &&
+                frame.y + TOL < ry + rh && frame.y + frame.height - TOL > ry)
                 overlapped = true;
         }
 

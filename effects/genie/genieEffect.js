@@ -14,6 +14,11 @@ let slowDownOwner = null;
 let slowDownPrevious = 1;
 let slowDownApplied = null;
 
+function resetSlowDownBookkeeping() {
+    slowDownPrevious = 1;
+    slowDownApplied = null;
+}
+
 function captureExternalSlowDownChange(stSettings) {
     if (!slowDownOwner || slowDownApplied === null) return;
     try {
@@ -29,8 +34,7 @@ function restoreSlowDown(stSettings) {
         if (slowDownApplied === null || stSettings.slow_down_factor === slowDownApplied)
             stSettings.slow_down_factor = slowDownPrevious;
     } catch { }
-    slowDownPrevious = 1;
-    slowDownApplied = null;
+    resetSlowDownBookkeeping();
 }
 
 export class GenieController {
@@ -118,7 +122,9 @@ export class GenieController {
     // configured genie duration, then restore the user's speed.
     withDuration(fn) {
         if (!this.enabled) { fn(); return; }
-        const stSettings = St.Settings.get();
+        let stSettings;
+        try { stSettings = St.Settings.get(); }
+        catch { fn(); return; }
         const dur = clamp(this._host.getConfig().genieDuration ?? 120, 50, 1000);
         const factor = clamp(dur / 250, 0.4, 4.0);
 
@@ -157,7 +163,8 @@ export class GenieController {
         if (slowDownOwner !== this) return;
         slowDownOwner = null;
         this._cancelSlowDownRestore();
-        restoreSlowDown(St.Settings.get());
+        try { restoreSlowDown(St.Settings.get()); }
+        catch { resetSlowDownBookkeeping(); }
     }
 
     _cancelSlowDownRestore() {
@@ -171,7 +178,8 @@ export class GenieController {
         // else changed that process-global setting while the override was live.
         if (slowDownOwner === this) {
             slowDownOwner = null;
-            restoreSlowDown(St.Settings.get());
+            try { restoreSlowDown(St.Settings.get()); }
+            catch { resetSlowDownBookkeeping(); }
         }
         this._timers.removeAll();
         this._restoreId = 0;

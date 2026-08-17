@@ -14,6 +14,7 @@ import { cancelMountedDeviceOperations } from '../services/mountedDevices.js';
 import { clearNotificationCache } from '../services/notificationService.js';
 
 const REBUILD_RETRY_DELAYS_MS = [250, 750, 1500];
+const DASH_RETRY_DELAYS_MS = [250, 750, 1500];
 
 export class ExtensionManager {
     constructor(extension) {
@@ -28,6 +29,8 @@ export class ExtensionManager {
         this._rebuildRetryId = 0;
         this._rebuildRetryCount = 0;
         this._rebuildRetryReason = '';
+        this._dashRetryId = 0;
+        this._dashRetryCount = 0;
     }
 
     enable() {
@@ -87,7 +90,12 @@ export class ExtensionManager {
     }
 
     _buildDocks() {
-        this._docks = this._createDocks(true);
+        // Build all controllers before taking ownership of the stock dash. This
+        // makes initial startup use the same transactional dash hand-off as a
+        // monitor/settings rebuild and lets a transient Shell failure be retried
+        // without disabling the whole extension.
+        this._docks = this._createDocks(false);
+        this._enablePrimaryDash();
     }
 
     _destroyDocks() {
@@ -137,6 +145,7 @@ export class ExtensionManager {
     }
 
     _rebuildDocks() {
+        this._cancelDashRetry();
         const previous = this._docks;
         // Build the complete replacement before touching the working docks.
         // Candidate docks deliberately do not own the stock dash yet; otherwise
@@ -149,8 +158,45 @@ export class ExtensionManager {
             try { previous[i]?.destroy(); }
             catch (e) { logError(e, `destroy replaced dock on monitor ${i}`); }
         }
-        try { this._docks[0]?.enableDashManagement(); }
-        catch (e) { logError(e, 'enable replacement dash management'); }
+        this._enablePrimaryDash();
+    }
+
+    _cancelDashRetry() {
+        if (this._dashRetryId) {
+            this._timers.remove(this._dashRetryId);
+            this._dashRetryId = 0;
+        }
+        this._dashRetryCount = 0;
+    }
+
+    _scheduleDashRetry() {
+        if (this._dashRetryId ||
+            this._dashRetryCount >= DASH_RETRY_DELAYS_MS.length ||
+            !this._settings || !this._docks.length)
+            return;
+        const delay = DASH_RETRY_DELAYS_MS[this._dashRetryCount++];
+        this._dashRetryId = this._timers.addOnce(delay, () => {
+            this._dashRetryId = 0;
+            this._enablePrimaryDash(false);
+        });
+    }
+
+    _enablePrimaryDash(resetBudget = true) {
+        if (resetBudget) this._cancelDashRetry();
+        const dock = this._docks[0];
+        if (!dock) {
+            this._cancelDashRetry();
+            return true;
+        }
+        try {
+            dock.enableDashManagement();
+            this._cancelDashRetry();
+            return true;
+        } catch (e) {
+            logError(e, 'enable replacement dash management');
+            this._scheduleDashRetry();
+            return false;
+        }
     }
 
     _cancelRebuildRetry() {
@@ -218,6 +264,7 @@ export class ExtensionManager {
     }
 
     disable() {
+        this._cancelDashRetry();
         this._cancelRebuildRetry();
         this._timers.removeAll();
 

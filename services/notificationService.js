@@ -2,7 +2,7 @@
 
 import {
     messageTray,
-    messageTraySources,
+    messageTraySourcesSnapshot,
     notificationSourceApp,
 } from '../compat/shell.js';
 import { TimeoutGroup, logError } from '../core/utils.js';
@@ -51,9 +51,11 @@ function resetSnapshot() {
 // stable while still noticing a source whose policy/app identity changes.
 export function buildNotificationMap(sourceSnapshot = null) {
     let sources = sourceSnapshot;
-    if (!sources) {
-        try { sources = messageTraySources(); }
-        catch { sources = []; }
+    if (sources === null) {
+        sources = messageTraySourcesSnapshot();
+        // A temporary Shell enumeration failure is not evidence that every
+        // notification disappeared. Preserve the last known-good normalized map.
+        if (sources === null) return cachedMap;
     }
 
     const counts = new Array(sources.length);
@@ -142,12 +144,12 @@ class NotificationHub {
         if (removedId) this._trayIds.push(removedId);
         if (!addedId || !removedId) this._baseReliable = false;
 
-        try {
-            for (const source of messageTraySources()) this._watchSource(source);
-        } catch {
-            this._baseReliable = false;
+        const sources = messageTraySourcesSnapshot();
+        if (sources !== null) {
+            for (const source of sources) this._watchSource(source);
         }
         this._updateReliability();
+        if (sources === null) this._reliable = false;
         this._syncFallbackProbe();
     }
 
@@ -223,15 +225,17 @@ class NotificationHub {
     _refresh(notify, reconcile = false) {
         const previous = this._map;
         let sources = null;
+        let enumerationFailed = false;
         if (reconcile) {
-            try {
-                sources = messageTraySources();
+            sources = messageTraySourcesSnapshot();
+            if (sources === null) {
+                enumerationFailed = true;
+                this._reliable = false;
+            } else {
                 this._reconcileSources(sources);
-            } catch {
-                sources = null;
             }
         }
-        const next = buildNotificationMap(sources);
+        const next = enumerationFailed ? previous : buildNotificationMap(sources);
         this._map = next;
         this._syncFallbackProbe();
         if (!notify || sameMap(previous, next)) return;

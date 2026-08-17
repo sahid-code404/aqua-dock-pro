@@ -83,13 +83,23 @@ export class PreviewManager {
     _previewableWindows(item, forceAll = false) {
         const cfg = this._getConfig();
         const showAll = forceAll || cfg.previewWindowMode === 'all';
-        const ws = global.workspace_manager.get_active_workspace();
-        return appWindowsForConfig(item.entry.app, cfg, ws).filter(w => {
-            if (!showAll && !w.minimized && !(ws && !w.located_on_workspace(ws))) return false;
-            let actor = null, rect = null;
-            try { actor = w.get_compositor_private?.(); } catch { }
-            try { rect = w.get_frame_rect(); } catch { }
-            return actor && rect && rect.width > 0 && rect.height > 0;
+        let ws = null;
+        try { ws = global.workspace_manager.get_active_workspace(); } catch { }
+        return appWindowsForConfig(item.entry.app, cfg, ws).filter(win => {
+            try {
+                // Meta.Window may begin unmanaging after appWindowsForConfig()
+                // returns. Keep every live read inside one guard so one dying
+                // window cannot abort popup construction for the remaining ones.
+                if (!showAll) {
+                    const onWorkspace = !ws || Boolean(win.located_on_workspace?.(ws));
+                    if (!win.minimized && onWorkspace) return false;
+                }
+                const actor = win.get_compositor_private?.();
+                const rect = win.get_frame_rect();
+                return Boolean(actor && rect && rect.width > 0 && rect.height > 0);
+            } catch {
+                return false;
+            }
         });
     }
 
@@ -147,11 +157,14 @@ export class PreviewManager {
             box.add_child(tiles);
         }
         const focusables = [];
-        const fallbackIcon = item.entry.app.get_icon();
+        let fallbackIcon = null;
+        try { fallbackIcon = item.entry.app.get_icon(); } catch { }
         const titleStyle =
             `font-size: ${(9 * (cfg.interfaceTextScale ?? 1)).toFixed(2)}pt;`;
         for (const win of shown) {
-            const windowTitle = win.get_title() || item.label();
+            let windowTitle;
+            try { windowTitle = win.get_title() || item.label(); }
+            catch { continue; }
             const btn = new St.Button({
                 style_class: 'aqua-preview-col',
                 reactive: true,
@@ -225,6 +238,11 @@ export class PreviewManager {
             }
             tiles.add_child(btn);
             focusables.push(btn);
+        }
+        if (!focusables.length) {
+            try { box.destroy(); } catch { }
+            this.hide(true);
+            return;
         }
         if (!paged && wins.length > shown.length) {
             box.add_child(new St.Label({

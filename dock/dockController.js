@@ -6,7 +6,6 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import { SignalGroup, TimeoutGroup, appWindowsForConfig, logError, log } from '../core/utils.js';
 import {
-    AUTOHIDE_KEYS,
     GEOMETRY_KEYS,
     ITEM_REFRESH_KEYS,
     SETTING_CONFIG_PROPERTIES,
@@ -209,8 +208,10 @@ export class DockController {
 
     enableDashManagement() {
         if (this._manageDash || !this._chrome) return;
-        this._manageDash = true;
+        // Commit ownership only after hideDash succeeds. A transient Shell error
+        // must leave this controller retryable instead of permanently no-oping.
         this._chrome.hideDash(this._cfg);
+        this._manageDash = true;
     }
 
     _isDockBusy() {
@@ -564,8 +565,12 @@ export class DockController {
         let menuChanged = false;
         for (const key of changed) {
             styleChanged ||= STYLE_KEYS.has(key);
-            autohideChanged ||= AUTOHIDE_KEYS.has(key);
-            tooltipChanged ||= TOOLTIP_KEYS.has(key);
+            // Timing/sensitivity values are read lazily by AutohideManager and
+            // PressureBarrier. Only the visible rim needs immediate actor work.
+            autohideChanged ||= key === 'show-autohide-handle';
+            // tooltip-delay is consumed when a new show timer is scheduled; it
+            // does not change CSS or current tooltip geometry.
+            tooltipChanged ||= TOOLTIP_KEYS.has(key) && key !== 'tooltip-delay';
             itemsChanged ||= ITEM_REFRESH_KEYS.has(key);
             previewChanged ||= key === 'show-previews' || key.startsWith('preview-');
             downloadsChanged ||= key.startsWith('downloads-');
@@ -589,8 +594,12 @@ export class DockController {
             this._refreshItems(changed.has('show-badges'));
         if (tooltipChanged)
             this._tooltip?.style();
-        if (changed.has('enable-genie-effect') && this._cfg.enableGenieEffect)
-            this._genie?.updateAllIconGeometry();
+        if (changed.has('enable-genie-effect')) {
+            if (this._cfg.enableGenieEffect)
+                this._genie?.updateAllIconGeometry();
+            else
+                this._genie?.settleMotion();
+        }
         if (changed.has('reduce-motion')) {
             if (this._cfg.reduceMotion) {
                 for (const item of this._factory.items)
@@ -935,7 +944,8 @@ export class DockController {
 
     // ── Teardown ────────────────────────────────────────────────────────────
     destroy() {
-        // Cancel coalesced timers.
+        // Cancel coalesced timers first so no new work can be queued while
+        // subsystems are being released.
         this._timers.removeAll();
         this._refreshId = 0;
         this._endHoverId = 0;
@@ -943,26 +953,46 @@ export class DockController {
         this._refreshNotificationsPending = false;
         this._notificationMap = null;
         if (this._notificationUnsubscribe) {
-            this._notificationUnsubscribe();
+            const unsubscribe = this._notificationUnsubscribe;
             this._notificationUnsubscribe = null;
+            try { unsubscribe(); }
+            catch (e) { logError(e, 'destroy notification subscription'); }
         }
         this._focusItem = null;
         this._disableFocusPointerExit();
         this._signals.disconnectAll();
-        this._drag?.destroy(); this._drag = null;
-        this._appActions?.destroy(); this._appActions = null;
-        this._genie?.destroy(); this._genie = null;
-        this._downloads?.destroy(); this._downloads = null;
-        this._trash?.destroy(); this._trash = null;
-        this._menu?.destroy(); this._menu = null;
-        this._preview?.destroy(); this._preview = null;
-        this._tooltip?.destroy(); this._tooltip = null;
-        this._autohide?.destroy(); this._autohide = null;
-        this._engine?.destroy(); this._engine = null;
-        this._tracker?.destroy(); this._tracker = null;
-        this._mountedDevices?.destroy(); this._mountedDevices = null;
-        this._factory?.destroyAll(); this._factory = null;
-        this._chrome?.destroy(); this._chrome = null;
+        try { setDropDelegate(this._chrome?.container, null); } catch { }
+
+        // A destructor should normally never throw, but teardown must remain
+        // complete even if one subsystem encounters a stale Shell actor/object.
+        // Clear our reference before invoking it so a second destroy is safe.
+        const destroyPart = (key, method = 'destroy') => {
+            const value = this[key];
+            this[key] = null;
+            if (!value) return;
+            try { value[method]?.(); }
+            catch (e) { logError(e, `destroy ${key.slice(1)}`); }
+        };
+
+        destroyPart('_drag');
+        destroyPart('_appActions');
+        destroyPart('_genie');
+        destroyPart('_downloads');
+        destroyPart('_trash');
+        destroyPart('_menu');
+        destroyPart('_preview');
+        destroyPart('_tooltip');
+        destroyPart('_autohide');
+        destroyPart('_engine');
+        destroyPart('_tracker');
+        destroyPart('_mountedDevices');
+        destroyPart('_factory', 'destroyAll');
+        destroyPart('_chrome');
+
+        this._settings = null;
+        this._cfg = null;
         this._geom = null;
+        this._press = null;
+        this._hoverItem = null;
     }
 }
