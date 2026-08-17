@@ -5,7 +5,11 @@ import Gio from 'gi://Gio';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import { SignalGroup, TimeoutGroup, appWindowsForConfig, logError, log } from '../core/utils.js';
-import { buildNotificationMap } from '../services/notificationService.js';
+import {
+    currentNotificationMap,
+    notificationSignalsReliable,
+    subscribeNotificationChanges,
+} from '../services/notificationService.js';
 import { AppTracker } from '../services/appTracker.js';
 import { MountedDevices } from '../services/mountedDevices.js';
 import { AnimationEngine } from '../animation/animationEngine.js';
@@ -22,8 +26,6 @@ import { DockChrome } from './dock.js';
 import { DockFactory } from './dockFactory.js';
 import { computeLayout, pillStyle } from './dockLayout.js';
 import {
-    messageTray,
-    messageTraySources,
     monitorInFullscreen,
     setDropDelegate,
 } from '../compat/shell.js';
@@ -53,8 +55,8 @@ export class DockController {
         this._focusLeaveId = 0;
         this._stageCaptureId = 0;
         this._notificationMap = null;
+        this._notificationUnsubscribe = null;
         this._refreshNotificationsPending = false;
-        this._notificationSignalsReliable = false;
 
         try { this._build(); }
         catch (e) {
@@ -171,6 +173,7 @@ export class DockController {
         });
 
         this._connectSignals();
+        this._syncNotificationSubscription();
         this._mountedDevices?.start(() => this._onEntriesChanged());
         this._tracker.start(() => this._onEntriesChanged());
         this._onEntriesChanged();    // initial sync + first layout
@@ -388,53 +391,22 @@ export class DockController {
         s.connect(Main.overview, 'item-drag-begin', () => {
             this._chrome.enforceDashGap(this._cfg);
         });
+    }
 
-        // ── Notification badge refresh ────────────────────────────────────
-        // Subscribe to messageTray so badges update in real time when
-        // notifications arrive or are dismissed. Each source's count
-        // signal is tracked individually for clean disconnection.
-        const tray = messageTray();
-        if (tray) {
-            this._traySourceSignals = new Map();
-            this._notificationSignalsReliable = true;
-            const onTray = () => this._scheduleRefreshItems(true);
-
-            const watchSource = src => {
-                if (!src || this._traySourceSignals.has(src)) return;
-                const ids = [];
-                // GNOME 50: Source emits notify::count when notifications
-                // change, and notification-added/notification-removed for
-                // individual events. Subscribe to all for maximum coverage.
-                let countId = 0, addedId = 0, removedId = 0;
-                try { countId = src.connect('notify::count', onTray); } catch { }
-                try { addedId = src.connect('notification-added', onTray); } catch { }
-                try { removedId = src.connect('notification-removed', onTray); } catch { }
-                if (countId) ids.push(countId);
-                if (addedId) ids.push(addedId);
-                if (removedId) ids.push(removedId);
-                if (!countId && !(addedId && removedId))
-                    this._notificationSignalsReliable = false;
-                if (ids.length) this._traySourceSignals.set(src, ids);
-            };
-            const unwatchSource = src => {
-                const ids = this._traySourceSignals?.get(src);
-                if (!ids) return;
-                for (const id of ids) { try { src.disconnect(id); } catch { } }
-                this._traySourceSignals.delete(src);
-            };
-            s.connect(tray, 'source-added', (_t, src) => {
-                watchSource(src);
-                onTray();
-            });
-            s.connect(tray, 'source-removed', (_t, src) => {
-                unwatchSource(src);
-                onTray();
-            });
-            // Pick up any sources that already exist when the dock starts.
-            try {
-                for (const src of messageTraySources()) watchSource(src);
-            } catch { }
+    _syncNotificationSubscription() {
+        if (this._cfg.showBadges) {
+            if (!this._notificationUnsubscribe) {
+                this._notificationUnsubscribe = subscribeNotificationChanges(
+                    () => this._scheduleRefreshItems(true));
+            }
+            return;
         }
+
+        if (this._notificationUnsubscribe) {
+            this._notificationUnsubscribe();
+            this._notificationUnsubscribe = null;
+        }
+        this._notificationMap = null;
     }
 
     // ── Entry / layout ────────────────────────────────────────────────────
@@ -458,9 +430,14 @@ export class DockController {
         // the feature is enabled and the next snapshot is requested.
         let notifMap = null;
         if (this._cfg.showBadges) {
-            if (refreshNotifications || !this._notificationMap ||
-                !this._notificationSignalsReliable)
-                this._notificationMap = buildNotificationMap();
+            const reliable = notificationSignalsReliable();
+            if (refreshNotifications || !this._notificationMap || !reliable) {
+                // Reliable tray signals refresh the shared snapshot before
+                // subscribers run. Only probe Shell directly as a compatibility
+                // fallback when those signals are incomplete.
+                this._notificationMap = currentNotificationMap(
+                    !reliable && !refreshNotifications);
+            }
             notifMap = this._notificationMap;
         } else {
             this._notificationMap = null;
@@ -535,6 +512,7 @@ export class DockController {
         if (next.layoutLocked && !this._cfg.layoutLocked)
             this._drag?.cancelLayoutChanges();
         this.relayout();
+        this._syncNotificationSubscription();
         this._refreshItems();
         this._tooltip?.style();
         if (this._manageDash) this._chrome.enforceDashGap(this._cfg);
@@ -877,18 +855,13 @@ export class DockController {
         this._endHoverId = 0;
         this._focusLeaveId = 0;
         this._refreshNotificationsPending = false;
-        this._notificationSignalsReliable = false;
         this._notificationMap = null;
+        if (this._notificationUnsubscribe) {
+            this._notificationUnsubscribe();
+            this._notificationUnsubscribe = null;
+        }
         this._focusItem = null;
         this._disableFocusPointerExit();
-        // Disconnect per-source tray signals before the bulk disconnectAll().
-        if (this._traySourceSignals) {
-            for (const [src, ids] of this._traySourceSignals) {
-                for (const id of ids) { try { src.disconnect(id); } catch { } }
-            }
-            this._traySourceSignals.clear();
-            this._traySourceSignals = null;
-        }
         this._signals.disconnectAll();
         this._drag?.destroy(); this._drag = null;
         this._appActions?.destroy(); this._appActions = null;

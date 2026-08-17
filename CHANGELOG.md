@@ -1,5 +1,11 @@
 # Changelog
 
+## 250
+
+- Centralize GNOME MessageTray and notification-source signal ownership so multi-monitor docks share one set of notification listeners instead of wiring the same global sources once per dock.
+- Fan out only meaningful normalized badge-count changes while preserving the existing app-ID counting rules and conservative fallback for Shell sources without reliable change signals.
+- Release all shared notification callbacks, source signal IDs, cached source references, and snapshots when the last dock unsubscribes or the extension is disabled.
+
 ## 249
 
 - Reuse notification snapshots across dock instances when Shell notification sources and counts are unchanged, reducing repeated app-ID resolution and map allocation on multi-monitor refreshes.
