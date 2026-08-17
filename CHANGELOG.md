@@ -1,5 +1,13 @@
 # Changelog
 
+## 257
+
+- Keep runtime GSettings writes immediate across settings migrations by avoiding Gio.Settings.delay() on the long-lived SettingsManager object and advancing migration state only after each step succeeds.
+- Make stock-Dash takeover transactional so failed property enforcement restores the original Dash state and reaches the existing bounded retry path instead of being reported as a false success.
+- Make app launch-watch setup transactional and close preview window-action menus as soon as their Meta.Window begins unmanaging, eliminating the remaining rare subscription/stale-action failure paths.
+- Acquire the shared location-metadata resolver only while Downloads, custom folders, or custom dock locations actually need metadata, releasing its cache/subscription when those features are inactive.
+- Preserve the existing magnification curve, spring/bounce/Genie physics, popup geometry, icon sizing, styling, and normal interaction timings; profiling-dependent global Shell event consolidation remains intentionally unchanged.
+
 ## 256
 
 - Harden live Meta.Window access in intellihide, app activation/cycling, and preview construction so windows disappearing mid-callback cannot abort the remaining update path.

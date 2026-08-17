@@ -432,6 +432,15 @@ export class PreviewManager {
             for (const child of menu.box.get_children?.() ?? [])
                 child.label?.set_style(`color: ${foreground}; font-size: ${fontSize}pt;`);
 
+            // The secondary action menu owns a live Meta.Window too. Tie that
+            // relationship to the menu actor so an unmanaging window removes its
+            // stale actions immediately instead of waiting for pointer dismissal.
+            try {
+                win.connectObject('unmanaging', () => {
+                    if (this._windowMenu === menu) this._destroyWindowMenu();
+                }, menu.actor);
+            } catch { }
+
             this._windowMenuManager = new PopupMenu.PopupMenuManager(owner);
             this._windowMenuManager.addMenu(menu);
             Main.uiGroup.add_child(menu.actor);

@@ -238,17 +238,21 @@ export class DockChrome {
     // at the default position (workspace previews don't shift down).
     hideDash(cfg) {
         const dash = overviewDash();
-        if (!dash) return;
+        if (!dash) throw new Error('GNOME overview dash is unavailable');
+
         this._dash = dash;
         this._dashWasVisible = dash.visible;
         this._dashHeight = dash.height;
         this._dashOpacity = dash.opacity;
         this._dashReactive = dash.reactive;
         this._dashCfg = cfg;
-        this._enforceDash(cfg);
-        // Monitor for GNOME resetting dash properties (overview DnD does this).
         this._dashNotifyIds = [];
+
         try {
+            // Initial ownership must be strict: if any Dash property cannot be
+            // applied, restore the captured baseline and let ExtensionManager's
+            // bounded retry path observe the failure.
+            this._enforceDash(cfg, true);
             this._dashNotifyIds.push(
                 dash.connect('notify::opacity', () => this._enforceDash()));
             this._dashNotifyIds.push(
@@ -259,9 +263,9 @@ export class DockChrome {
         }
     }
 
-    _enforceDash(cfg = null) {
+    _enforceDash(cfg = null, strict = false) {
         const dash = this._dash;
-        if (!dash) return;
+        if (!dash) return false;
         if (cfg) this._dashCfg = cfg;
         const current = this._dashCfg;
         try {
@@ -270,13 +274,17 @@ export class DockChrome {
             dash.add_style_class_name('aqua-dash-hidden');
             const gap = clamp((current?.dockH ?? 48) + (current?.edgeMargin ?? 0) + 42, 90, 170);
             dash.set_height(gap);
-        } catch { }
+            return true;
+        } catch (error) {
+            if (strict) throw error;
+            return false;
+        }
     }
 
     // Re-assert the dash override (GNOME sometimes resets properties during
     // overview transitions).
     enforceDashGap(cfg) {
-        this._enforceDash(cfg);
+        return this._enforceDash(cfg);
     }
 
     // Restore the dash to its original state when the extension is disabled.

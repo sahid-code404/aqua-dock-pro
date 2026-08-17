@@ -47,6 +47,8 @@ export class AppActions {
         this._timers = new TimeoutGroup();
         this._launching = new Map();   // app -> { item, stateId, itemDestroyId, timeoutId }
         this._lastClickKey = null;
+        this._launchLockApp = null;
+        this._launchLockAt = 0;
     }
 
     activate(item, button) {
@@ -191,10 +193,8 @@ export class AppActions {
     _beginLaunchWatch(app, item) {
         if (this._launching.has(app)) return;
         const cfg = this._getConfig();
-        const launching = () => this._launching.has(app);
-        item.bounce(cfg.bounceHeight, { state: 'launch', repeat: launching, decay: cfg.bounceDecay });
-
         const rec = { item, stateId: 0, itemDestroyId: 0, timeoutId: 0 };
+        const launching = () => this._launching.has(app);
         const stop = (itemDestroyed = false) => {
             if (!this._launching.has(app)) return;
             this._launching.delete(app);
@@ -205,13 +205,32 @@ export class AppActions {
             }
             rec.stateId = rec.itemDestroyId = rec.timeoutId = 0;
             rec.item = null;
-            if (!itemDestroyed) item.stopBounce();
+            if (!itemDestroyed) {
+                try { item.stopBounce(); } catch { }
+            }
         };
-        rec.stateId = app.connect('windows-changed', () => { if (appWindows(app).length) stop(); });
-        rec.itemDestroyId = item.connect('destroy', () => stop(true));
-        rec.timeoutId = this._timers.addOnce(LAUNCH_WATCH_MS, () => { rec.timeoutId = 0; stop(); });
+
+        // Publish ownership before connecting anything. If any later setup step
+        // throws, stop() can reliably unwind every earlier signal/timer instead
+        // of leaving a partially registered launch watch behind.
         this._launching.set(app, rec);
-        if (appWindows(app).length > 0) stop();
+        try {
+            rec.stateId = app.connect('windows-changed', () => {
+                if (appWindows(app).length) stop();
+            });
+            rec.itemDestroyId = item.connect('destroy', () => stop(true));
+            rec.timeoutId = this._timers.addOnce(LAUNCH_WATCH_MS, () => {
+                rec.timeoutId = 0;
+                stop();
+            });
+            item.bounce(cfg.bounceHeight, {
+                state: 'launch', repeat: launching, decay: cfg.bounceDecay,
+            });
+            if (appWindows(app).length > 0) stop();
+        } catch (error) {
+            stop();
+            logError(error, 'launch watch');
+        }
     }
 
     destroy() {

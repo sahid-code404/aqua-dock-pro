@@ -263,10 +263,6 @@ export class AppTracker {
         this._locationUnsubscribe = null;
         this._locations = null;
         this._trashIsFull = false;
-
-        const shared = acquireLocations(() => this._onChanged?.());
-        this._locations = shared.resolver;
-        this._locationUnsubscribe = shared.unsubscribe;
     }
 
     start(onChanged) {
@@ -287,8 +283,40 @@ export class AppTracker {
             });
     }
 
+    _needsLocationMetadata(cfg) {
+        if (cfg.showDownloads && cfg.useFolderMetadataIcons) return true;
+        if (cfg.showCustomFolder && cfg.customFolderUri && cfg.useFolderMetadataIcons)
+            return true;
+        if (!cfg.showCustomDockItems) return false;
+        for (const definition of cfg.customDockItems ?? []) {
+            if (definition.type === 'url' || definition.type === 'separator' ||
+                definition.type === 'spacer')
+                continue;
+            if (definition.type !== 'folder' || cfg.useFolderMetadataIcons)
+                return true;
+        }
+        return false;
+    }
+
+    _ensureLocations() {
+        if (this._locations) return;
+        const shared = acquireLocations(() => this._onChanged?.());
+        this._locations = shared.resolver;
+        this._locationUnsubscribe = shared.unsubscribe;
+    }
+
+    _releaseLocations() {
+        if (!this._locations) return;
+        releaseLocations(this._locations, this._locationUnsubscribe);
+        this._locations = null;
+        this._locationUnsubscribe = null;
+    }
+
     getEntries() {
         const cfg = this._getConfig();
+        if (this._needsLocationMetadata(cfg)) this._ensureLocations();
+        else this._releaseLocations();
+
         const favs = this._favorites ?? AppFavorites.getAppFavorites();
         const appSystem = this._appSystem ?? Shell.AppSystem.get_default();
         const iconFor = app => this._stateHub?.iconFor(app) ?? app.get_icon();
@@ -444,11 +472,7 @@ export class AppTracker {
             this._stateHub = null;
         }
 
-        if (this._locations) {
-            releaseLocations(this._locations, this._locationUnsubscribe);
-            this._locations = null;
-            this._locationUnsubscribe = null;
-        }
+        this._releaseLocations();
 
         this._onChanged = null;
         this._dlGicon = null;

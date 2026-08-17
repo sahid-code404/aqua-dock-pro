@@ -123,6 +123,7 @@ gjs -m tests/layout.test.js
 gjs -m tests/layoutStructures.test.js
 gjs -m tests/fullscreenPolicy.test.js
 gjs -m tests/settings.test.js
+gjs -m tests/settingsMigration.test.js
 gjs -m tests/animationEngine.test.js
 gjs -m tests/fileService.test.js
 gjs -m tests/fileEnumerator.test.js
