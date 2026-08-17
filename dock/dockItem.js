@@ -43,6 +43,7 @@ class DockItem extends St.Widget {
         // While an owned transition runs, setScale() records but does not write
         // the icon transform.
         this._landing = false;
+        this._landingScale = null;
         this._pulsing = false;
 
         // Optional hooks set by the controller (kept null when unused so the
@@ -457,7 +458,10 @@ class DockItem extends St.Widget {
 
     // ── Magnification visual ────────────────────────────────────────────────
     setScale(scale) {
-        if (this._landing) return;
+        if (this._landing) {
+            this._landingScale = scale;
+            return;
+        }
         this.scaleCurrent = scale;
         if (this._bounce?.active || this._pulsing) return;
         this._syncTextureTier(scale);
@@ -504,6 +508,7 @@ class DockItem extends St.Widget {
         const restScale = 1;
         this._icon.remove_all_transitions();
         this._syncTextureTier(1, true);
+        this._landingScale = null;
         if (!animationsEnabled()) {
             this._landing = false;
             this._icon.set_scale(restScale, restScale);
@@ -518,10 +523,33 @@ class DockItem extends St.Widget {
             scale_x: restScale, scale_y: restScale, opacity: 255, duration,
             mode: Clutter.AnimationMode.EASE_OUT_BACK,
             onComplete: () => {
+                const pending = this._landingScale;
                 this._landing = false;
+                this._landingScale = null;
+                if (pending !== null) this.setScale(pending);
                 this.onAnimationSettled?.();
             },
         });
+    }
+
+    settleMotion() {
+        if (!this._icon || this._dragging) return;
+        try { this._icon.remove_all_transitions(); } catch { }
+        this._bounce?.cancel();
+        this._landing = false;
+        this._landingScale = null;
+        this._pulsing = false;
+        this.vel = 0;
+        this.scaleCurrent = this.scaleTarget;
+        this._syncTextureTier(this.scaleCurrent, true);
+        this._icon.opacity = 255;
+        this._icon.set_scale(this.scaleCurrent, this.scaleCurrent);
+        const lift = this._baseLift();
+        this._icon.translation_x = this._vert ? lift : 0;
+        this._icon.translation_y = this._vert ? 0 : lift;
+        this._iconLift = lift;
+        if (this._badge?.visible) this._positionBadge();
+        this.onAnimationSettled?.();
     }
 
     // ── Bounce + pulse ──────────────────────────────────────────────────────

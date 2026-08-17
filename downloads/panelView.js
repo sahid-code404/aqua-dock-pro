@@ -330,6 +330,24 @@ export class PanelView {
         return Clutter.EVENT_PROPAGATE;
     }
 
+    settleAnimations() {
+        const actor = this._actor;
+        if (!actor) return;
+        try {
+            actor.remove_all_transitions();
+            actor.opacity = 255;
+            actor.translation_y = 0;
+            actor.set_scale(1, 1);
+        } catch { }
+        for (const tile of this._model.rows) {
+            try {
+                tile.remove_all_transitions();
+                tile.opacity = 255;
+                tile.translation_y = 0;
+            } catch { }
+        }
+    }
+
     animateClose(onDone) {
         const actor = this._actor;
         if (!actor) { onDone(); return; }

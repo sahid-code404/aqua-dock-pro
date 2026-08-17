@@ -31,13 +31,14 @@ export class DownloadsStack {
         this._onClose = onClose;
         const gen = ++this._showGen;
         this._opening = true;
-        this._cancellable = new Gio.Cancellable();
+        const cancellable = new Gio.Cancellable();
+        this._cancellable = cancellable;
 
         const max = clamp(cfg.downloadsMaxFiles ?? 11, 3, 11);
         let listing;
         try {
             listing = await enumerateRecent(
-                folder, this._cancellable, cfg.downloadsSort, max);
+                folder, cancellable, cfg.downloadsSort, max);
         }
         catch (e) {
             logError(e, 'enumerateRecent');
@@ -45,6 +46,13 @@ export class DownloadsStack {
             return;
         }
         if (gen !== this._showGen) return;        // superseded or destroyed
+        if (listing.error) {
+            this._cancellable = null;
+            if (!cancellable.is_cancelled())
+                logError(listing.error, 'enumerateRecent');
+            if (gen === this._showGen) this.hide();
+            return;
+        }
         this._cancellable = null;
 
         const mon = this._getMonitor?.();
@@ -119,6 +127,14 @@ export class DownloadsStack {
             if (this._dying === view.actor) this._dying = null;
             this._destroyActor(view.actor);
         });
+    }
+
+    settleAnimations() {
+        try { this._view?.settleAnimations?.(); } catch { }
+        if (this._dying) {
+            this._destroyActor(this._dying);
+            this._dying = null;
+        }
     }
 
     _destroyNow() {

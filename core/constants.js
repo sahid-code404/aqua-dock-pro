@@ -47,8 +47,8 @@ export const STRUCTURAL_KEYS = Object.freeze(new Set([
 ]));
 
 // Changes that can affect monitor-fit calculations, actor geometry, animation
-// model inputs, or cross-cutting accessibility styling keep the proven full
-// relayout path.
+// model inputs, reserved work-area geometry, or cross-cutting accessibility
+// styling keep the proven full relayout path.
 export const GEOMETRY_KEYS = Object.freeze(new Set([
     'icon-size',
     'icon-spacing',
@@ -62,6 +62,7 @@ export const GEOMETRY_KEYS = Object.freeze(new Set([
     'pill-thickness-auto',
     'dock-scale',
     'auto-shrink-to-fit',
+    'auto-hide-mode',
     'animation-smoothness',
     'spring-tension',
     'spring-damping',
@@ -79,7 +80,6 @@ export const STYLE_KEYS = Object.freeze(new Set([
 ]));
 
 export const AUTOHIDE_KEYS = Object.freeze(new Set([
-    'auto-hide-mode',
     'hide-delay',
     'reveal-pressure',
     'show-autohide-handle',
@@ -159,7 +159,6 @@ export const SETTING_CONFIG_PROPERTIES = Object.freeze({
     'border-color': ['borderColor'],
     'border-width': ['borderWidth'],
 
-    'auto-hide-mode': ['autoHideMode', 'autoHideActive'],
     'hide-delay': ['hideDelay'],
     'reveal-pressure': ['revealPressure'],
     'show-autohide-handle': ['showAutohideHandle'],

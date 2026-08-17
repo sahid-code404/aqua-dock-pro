@@ -26,7 +26,10 @@ class TrashStateStore {
     subscribe(callback) {
         this._callbacks.add(callback);
         if (this._callbacks.size === 1) this._start();
-        if (this._initialized) callback(this._hasFiles);
+        if (this._initialized) {
+            try { callback(this._hasFiles); }
+            catch (error) { logError(error, 'trash subscriber'); }
+        }
 
         let live = true;
         return () => {
@@ -73,8 +76,10 @@ class TrashStateStore {
             this._initialized = true;
             if (!changed) return;
 
-            for (const callback of [...this._callbacks])
-                callback(hasFiles);
+            for (const callback of [...this._callbacks]) {
+                try { callback(hasFiles); }
+                catch (error) { logError(error, 'trash subscriber'); }
+            }
         }).catch(error => {
             if (this._query === query) this._query = null;
             if (!query.is_cancelled()) logError(error, 'trash state');

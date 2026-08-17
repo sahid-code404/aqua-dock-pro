@@ -24,14 +24,35 @@ export class DockFactory {
     // must relayout); false if it was a pure in-place refresh.
     sync(entries, cfg) {
         if (this._isSameLayout(entries)) {
-            for (let i = 0; i < entries.length; i++) {
-                const e = entries[i];
-                if (e.kind === 'separator' || e.kind === 'spacer') continue;
-                const item = this._chips[i]?.item;
-                if (!item) continue;
-                item.entry = e;
-                if (!sameIcon(item.gicon, e.gicon)) item.setGicon(e.gicon);
-                item.refresh();
+            const touched = [];
+            try {
+                for (let i = 0; i < entries.length; i++) {
+                    const e = entries[i];
+                    if (e.kind === 'separator' || e.kind === 'spacer') continue;
+                    const item = this._chips[i]?.item;
+                    if (!item) continue;
+                    touched.push({
+                        item,
+                        previousEntry: item.entry,
+                        previousGicon: item.gicon,
+                    });
+                    item.entry = e;
+                    if (!sameIcon(item.gicon, e.gicon)) item.setGicon(e.gicon);
+                    item.refresh();
+                }
+            } catch (error) {
+                // A model-only refresh should be just as transactional as a full
+                // rebuild. Restore every item already touched so callers never
+                // observe a dock containing a mixture of old and new entries.
+                for (let i = touched.length - 1; i >= 0; i--) {
+                    const { item, previousEntry, previousGicon } = touched[i];
+                    try {
+                        item.entry = previousEntry;
+                        if (!sameIcon(item.gicon, previousGicon)) item.setGicon(previousGicon);
+                        item.refresh();
+                    } catch { }
+                }
+                throw error;
             }
             return false;
         }

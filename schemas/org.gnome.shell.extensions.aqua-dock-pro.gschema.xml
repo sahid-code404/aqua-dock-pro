@@ -12,7 +12,7 @@
     <!-- ── Appearance ────────────────────────────────────────────────── -->
     <key name="icon-size" type="i">
       <default>60</default>
-      <range min="24" max="128"/>
+      <range min="26" max="128"/>
       <summary>Resting icon size in pixels</summary>
     </key>
 

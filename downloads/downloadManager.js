@@ -7,13 +7,14 @@ import St from 'gi://St';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
-import { TimeoutGroup, logError } from '../core/utils.js';
+import { TimeoutGroup, animationsEnabled, logError } from '../core/utils.js';
 import { _ } from '../core/i18n.js';
 import { downloadsDir } from '../services/fileService.js';
 import { DownloadsStack } from './downloadsStack.js';
 
 const COOLDOWN_US = 1200 * 1000;
 const DEBOUNCE_MS = 80;
+const WATCH_RETRY_MS = 5000;
 const FLY_DISTANCE = 220;
 
 let sharedWatcher = null;
@@ -21,15 +22,17 @@ let sharedWatcher = null;
 class DownloadsWatcher {
     constructor() {
         this._callbacks = new Set();
+        this._timers = new TimeoutGroup();
         this._monitor = null;
         this._monitorId = 0;
+        this._retryId = 0;
     }
 
     get empty() { return this._callbacks.size === 0; }
 
     subscribe(callback) {
         this._callbacks.add(callback);
-        if (!this._monitor) this._start();
+        if (!this._monitor && !this._retryId) this._start();
 
         let live = true;
         return () => {
@@ -41,6 +44,12 @@ class DownloadsWatcher {
     }
 
     _start() {
+        if (this._monitor || this._callbacks.size === 0) return;
+        if (this._retryId) {
+            this._timers.remove(this._retryId);
+            this._retryId = 0;
+        }
+
         let monitor = null;
         try {
             monitor = downloadsDir().monitor_directory(Gio.FileMonitorFlags.NONE, null);
@@ -54,24 +63,41 @@ class DownloadsWatcher {
                     name.endsWith('.crdownload') || name.endsWith('.tmp'))
                     return;
 
-                for (const callback of [...this._callbacks])
-                    callback(file);
+                for (const callback of [...this._callbacks]) {
+                    try { callback(file); }
+                    catch (error) { logError(error, 'downloads subscriber'); }
+                }
             });
             this._monitor = monitor;
         } catch (error) {
             if (monitor) monitor.cancel();
             logError(error, 'downloads monitor');
+            this._scheduleRetry();
         }
     }
 
+    _scheduleRetry() {
+        if (this._retryId || this._callbacks.size === 0) return;
+        this._retryId = this._timers.addOnce(WATCH_RETRY_MS, () => {
+            this._retryId = 0;
+            this._start();
+        });
+    }
+
     _stop() {
-        if (!this._monitor) return;
-        if (this._monitorId) {
-            this._monitor.disconnect(this._monitorId);
-            this._monitorId = 0;
+        if (this._retryId) {
+            this._timers.remove(this._retryId);
+            this._retryId = 0;
         }
-        this._monitor.cancel();
-        this._monitor = null;
+        if (this._monitor) {
+            if (this._monitorId) {
+                this._monitor.disconnect(this._monitorId);
+                this._monitorId = 0;
+            }
+            this._monitor.cancel();
+            this._monitor = null;
+        }
+        this._timers.removeAll();
     }
 
     destroy() {
@@ -135,6 +161,20 @@ export class DownloadManager {
         this._stack?.hide();
     }
 
+    settleAnimations() {
+        this._gen++;
+        this._iconQuery?.cancel();
+        this._iconQuery = null;
+        if (this._flyer) {
+            try {
+                this._flyer.remove_all_transitions();
+                this._flyer.destroy();
+            } catch { }
+            this._flyer = null;
+        }
+        this._stack?.settleAnimations();
+    }
+
     _scheduleArrival(file) {
         const now = GLib.get_monotonic_time();
         if (this._lastArrivalAt && now - this._lastArrivalAt < COOLDOWN_US) return;
@@ -148,7 +188,7 @@ export class DownloadManager {
 
     _playArrival(file) {
         const item = this._host.getDownloadsItem();
-        if (!item) return;
+        if (!item || !animationsEnabled()) return;
         const cfg = this._host.getConfig();
         const gen = ++this._gen;
         const live = () => (this._gen === gen ? this._host.getDownloadsItem() : null);
@@ -178,7 +218,7 @@ export class DownloadManager {
 
         const spawn = gicon => {
             const target = live();
-            if (!target) return;
+            if (!target || !animationsEnabled()) return;
 
             let tx, ty;
             try { [tx, ty] = target.get_transformed_position(); }
@@ -223,11 +263,11 @@ export class DownloadManager {
                     });
 
                     const folder = live();
-                    if (!folder) return;
+                    if (!folder || !animationsEnabled()) return;
                     try {
                         folder.pulseScale(1.18, () => {
                             const current = live();
-                            if (current) bounceOnly(current);
+                            if (current && animationsEnabled()) bounceOnly(current);
                         });
                     } catch { }
                 },

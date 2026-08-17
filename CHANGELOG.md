@@ -1,5 +1,12 @@
 # Changelog
 
+## 253
+
+- Harden dock rebuilds, DnD hand-offs, preview refreshes, shared Trash/Downloads callbacks, and same-layout item reconciliation so transient failures cannot leave stale or partially updated runtime state.
+- Make Reduce Motion settle active dock, folder-stack, preview, autohide, bounce/pulse, and custom Genie motion immediately while keeping all normal animation physics and timings unchanged.
+- Retry transient Downloads monitor startup failures, surface folder-enumeration errors instead of treating them as empty folders, preserve failed settings batches for the next valid retry, and align the icon-size schema minimum with the 26px Preferences limit.
+- Restore full relayout for auto-hide mode changes so reserved work-area struts always match the current visibility policy.
+
 ## 252
 
 - Classify every GSettings key by structural, geometry, style, autohide, tooltip, item-refresh, passive, or internal impact so non-structural updates can take the smallest safe path.

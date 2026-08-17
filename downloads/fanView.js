@@ -247,12 +247,30 @@ export class FanView {
         return Clutter.EVENT_PROPAGATE;
     }
 
+    settleAnimations() {
+        const actor = this._actor;
+        if (!actor) return;
+        try {
+            actor.remove_all_transitions();
+            actor.opacity = 255;
+        } catch { }
+        for (const row of this._model.rows) {
+            try {
+                row.remove_all_transitions();
+                row.translation_x = 0;
+                row.translation_y = 0;
+                row.set_scale(1, 1);
+                row.opacity = 255;
+            } catch { }
+        }
+    }
+
     // onDone() is called when the close animation finishes (or immediately if
     // animations are off). The DownloadsStack then destroys the actor.
     animateClose(onDone) {
         const actor = this._actor;
         if (!actor) { onDone(); return; }
-        if (this._reduce || !this._collapse) {
+        if (this._reduce || !this._collapse || !animationsEnabled()) {
             onDone();
             return;
         }

@@ -61,14 +61,14 @@ export class ExtensionManager {
         return indexes;
     }
 
-    _buildDocks() {
+    _createDocks(manageDash = true) {
         const indexes = this._monitorIndexes();
         const built = [];
         try {
             for (let i = 0; i < indexes.length; i++) {
                 built.push(new DockController(this._settings, {
                     monitorIndex: indexes[i],
-                    manageDash: i === 0,
+                    manageDash: manageDash && i === 0,
                 }));
             }
         } catch (e) {
@@ -77,7 +77,11 @@ export class ExtensionManager {
             }
             throw e;
         }
-        this._docks = built;
+        return built;
+    }
+
+    _buildDocks() {
+        this._docks = this._createDocks(true);
     }
 
     _destroyDocks() {
@@ -127,15 +131,29 @@ export class ExtensionManager {
     }
 
     _rebuildDocks() {
-        this._destroyDocks();
-        this._buildDocks();
+        const previous = this._docks;
+        // Build the complete replacement before touching the working docks.
+        // Candidate docks deliberately do not own the stock dash yet; otherwise
+        // they could capture the previous controller's already-hidden dash as
+        // their restoration baseline.
+        const next = this._createDocks(false);
+        this._docks = next;
+
+        for (let i = previous.length - 1; i >= 0; i--) {
+            try { previous[i]?.destroy(); }
+            catch (e) { logError(e, `destroy replaced dock on monitor ${i}`); }
+        }
+        try { this._docks[0]?.enableDashManagement(); }
+        catch (e) { logError(e, 'enable replacement dash management'); }
     }
 
     _onMonitorsChanged() {
         try { this._rebuildDocks(); }
         catch (e) {
-            logError(e, 'monitors-changed → rebuilding');
-            this._destroyDocks();
+            // _createDocks() destroys only the failed candidates. The currently
+            // working set remains installed so a transient construction error
+            // cannot make the whole extension disappear.
+            logError(e, 'monitors-changed → keeping previous docks');
         }
     }
 

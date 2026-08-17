@@ -12,25 +12,31 @@ export function enumerateRecent(folder, cancellable = null, sort = 'newest', lim
         const out = [];
         let total = 0;
         let en = null;
+        let done = false;
         limit = Math.max(1, Math.trunc(limit) || 11);
         const compare = sort === 'name'
             ? (a, b) => a.name.localeCompare(b.name)
             : sort === 'type'
                 ? (a, b) => a.type.localeCompare(b.type) || a.name.localeCompare(b.name)
                 : (a, b) => b.mtime - a.mtime;
-        const finish = () => {
+        const finish = (error = null) => {
+            if (done) return;
+            done = true;
             out.sort(compare);
             if (out.length > limit) out.length = limit;
-            resolve({ files: out.map(entry => entry.info), total });
+            resolve({ files: out.map(entry => entry.info), total, error });
+        };
+        const closeAndFinish = error => {
+            try { en?.close_async(GLib.PRIORITY_DEFAULT, null, null); } catch { }
+            finish(error);
         };
         const readBatch = () => {
             en.next_files_async(64, GLib.PRIORITY_DEFAULT, cancellable, (e, res) => {
                 let infos;
                 try { infos = e.next_files_finish(res); }
-                catch { try { en.close_async(GLib.PRIORITY_DEFAULT, null, null); } catch { } finish(); return; }
+                catch (error) { closeAndFinish(error); return; }
                 if (!infos || infos.length === 0) {
-                    try { en.close_async(GLib.PRIORITY_DEFAULT, null, null); } catch { }
-                    finish();
+                    closeAndFinish(null);
                     return;
                 }
                 for (const info of infos) {
@@ -54,10 +60,10 @@ export function enumerateRecent(folder, cancellable = null, sort = 'newest', lim
                 ATTRS, Gio.FileQueryInfoFlags.NONE, GLib.PRIORITY_DEFAULT, cancellable,
                 (f, res) => {
                     try { en = f.enumerate_children_finish(res); }
-                    catch { resolve({ files: [], total: 0 }); return; }
+                    catch (error) { finish(error); return; }
                     readBatch();
                 });
-        } catch { resolve({ files: [], total: 0 }); }
+        } catch (error) { finish(error); }
     });
 }
 

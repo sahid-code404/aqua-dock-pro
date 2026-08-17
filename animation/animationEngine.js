@@ -272,18 +272,21 @@ export class AnimationEngine {
             // Right-click menu holds its icon at peak zoom until the menu closes.
             if (item === this._heldItem) target = zoomMax;
             item.scaleTarget = target;
-            if (!item._landing) {
-                if (!this._animate) {
-                    item.vel = 0;
-                    item.setScale(target);
-                } else if (item.vel !== 0 || item.scaleCurrent !== target) {
-                    s.cur = item.scaleCurrent;
-                    s.vel = item.vel;
-                    integrateSpring(s, target, m.tension, dampPow, st, nSteps);
-                    item.vel = s.vel;
-                    item.setScale(s.cur);
-                    if (s.vel !== 0 || s.cur !== target) anyUnsettled = true;
-                }
+            if (item._landing) {
+                // The landing ease owns the actor transform, but DockItem records
+                // the latest target so it can hand off without a stale-scale jump.
+                item.vel = 0;
+                item.setScale(target);
+            } else if (!this._animate) {
+                item.vel = 0;
+                item.setScale(target);
+            } else if (item.vel !== 0 || item.scaleCurrent !== target) {
+                s.cur = item.scaleCurrent;
+                s.vel = item.vel;
+                integrateSpring(s, target, m.tension, dampPow, st, nSteps);
+                item.vel = s.vel;
+                item.setScale(s.cur);
+                if (s.vel !== 0 || s.cur !== target) anyUnsettled = true;
             }
 
             const scale = item.scaleCurrent;

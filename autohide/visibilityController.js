@@ -41,6 +41,18 @@ export class VisibilityController {
         return true;
     }
 
+    settle(geom) {
+        if (!this._container || !geom) return;
+        const x = this._hidden ? geom.hiddenX : geom.x;
+        const y = this._hidden ? geom.hiddenY : geom.y;
+        try {
+            this._container.remove_transition('x');
+            this._container.remove_transition('y');
+            if (x !== undefined && y !== undefined)
+                this._container.set_position(x, y);
+        } catch { }
+    }
+
     destroy() {
         try {
             this._container?.remove_transition('x');

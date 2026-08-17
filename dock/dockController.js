@@ -207,6 +207,12 @@ export class DockController {
     get monitorIndex() { return this._monitorIndex; }
     get keyboardFocusActive() { return Boolean(this._focusItem); }
 
+    enableDashManagement() {
+        if (this._manageDash || !this._chrome) return;
+        this._manageDash = true;
+        this._chrome.hideDash(this._cfg);
+    }
+
     _isDockBusy() {
         return Boolean(
             this._drag?.reordering ||
@@ -585,8 +591,17 @@ export class DockController {
             this._tooltip?.style();
         if (changed.has('enable-genie-effect') && this._cfg.enableGenieEffect)
             this._genie?.updateAllIconGeometry();
-        if (changed.has('reduce-motion'))
+        if (changed.has('reduce-motion')) {
+            if (this._cfg.reduceMotion) {
+                for (const item of this._factory.items)
+                    item.settleMotion?.();
+                this._preview?.settleAnimations();
+                this._downloads?.settleAnimations();
+                this._autohide?.settleMotion();
+                this._genie?.settleMotion();
+            }
             this._engine?.kick();
+        }
     }
 
     // ── Pointer ─────────────────────────────────────────────────────────────

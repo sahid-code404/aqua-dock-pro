@@ -62,6 +62,12 @@ export class DragManager {
     get reordering() { return !!this._reorder; }
     get externalDnD() { return this._externalDnD; }
 
+    _cancelDropResume() {
+        if (!this._dropTimer) return;
+        this._timers.remove(this._dropTimer);
+        this._dropTimer = 0;
+    }
+
     // ── In-dock reorder ───────────────────────────────────────────────────────
     maybeStart(press, px, py, distance = null) {
         if (!press || press.button !== 1) return false;
@@ -86,6 +92,10 @@ export class DragManager {
 
         const previewSlots = movableChips.map(chip => chip.baseX);
 
+        // A previous successful external drop can leave a short delayed resume
+        // pending while favourites rebuild. Once a new drag owns translations,
+        // that old callback must never re-enable the engine underneath it.
+        this._cancelDropResume();
         this._host.onDragStart?.();
         const liftScale = item.scaleCurrent;
         const [iconX, iconY] = item._icon.get_transformed_position();
@@ -466,6 +476,7 @@ export class DragManager {
             return DND.DragMotionResult.NO_DROP;
         if (!this._dragApp(source)) return DND.DragMotionResult.CONTINUE;
         if (!this._externalDnD) {
+            this._cancelDropResume();
             this._host.onDragStart?.();
             this._externalDnD = true;
             this._host.engine.setSuspended(true);
@@ -518,9 +529,12 @@ export class DragManager {
         this._dropGapPos = -1;
         // Keep the engine suspended briefly so the favourites-changed rebuild
         // doesn't magnify-flicker the new icons; resume after it settles.
-        if (this._dropTimer) this._timers.remove(this._dropTimer);
+        this._cancelDropResume();
         this._dropTimer = this._timers.addOnce(400, () => {
             this._dropTimer = 0;
+            // A newer drag may have started while this old settle window was
+            // pending. That newer drag owns suspension and will resume itself.
+            if (this._reorder || this._externalDnD) return;
             this._host.engine.setSuspended(false);
             this._host.engine.kick();
         });
@@ -559,7 +573,7 @@ export class DragManager {
             else favs.addFavoriteAtPos(id, favoritePosition);
         } catch (e) {
             logError(e, 'pin-on-drop');
-            if (this._dropTimer) { this._timers.remove(this._dropTimer); this._dropTimer = 0; }
+            this._cancelDropResume();
             this._zeroTranslations();
             this._host.engine.setSuspended(false);
             this._host.engine.kick();

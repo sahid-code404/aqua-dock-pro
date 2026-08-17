@@ -101,6 +101,15 @@ export class AutohideManager {
         this.queueIntellihide();
     }
 
+    settleMotion() {
+        const geom = this._host.getGeom();
+        if (!geom) return;
+        this._vis.settle(geom);
+        const cfg = this._host.getConfig();
+        this._host.chrome.setAutohideHandleVisible(
+            this._vis.hidden && cfg.showAutohideHandle && !this._fullscreenBlocksDock(), false);
+    }
+
     // ── Pointer hooks called by the controller ───────────────────────────────
     onDockActivity() {
         this._cancelHide();

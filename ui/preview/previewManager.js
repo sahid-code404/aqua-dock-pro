@@ -94,7 +94,10 @@ export class PreviewManager {
     }
 
     _queueWindowRefresh(item, box, forceAll, page, focusPreview) {
-        if (this._windowRefreshId) return;
+        // A new popup generation supersedes any refresh captured for an older
+        // box. Replace the pending idle instead of letting an old callback block
+        // the current popup from scheduling its own update.
+        this._cancelWindowRefresh();
         this._windowRefreshId = this._timers.addIdle(() => {
             this._windowRefreshId = 0;
             if (this._box === box)
@@ -104,6 +107,7 @@ export class PreviewManager {
     }
 
     _build(item, reuse, forceAll = false, requestedPage = 0, focusPreview = false) {
+        this._cancelWindowRefresh();
         this._destroyWindowMenu();
         this._cancelGrace();
         // Re-filter at build time to avoid stale window state from schedule().
@@ -476,6 +480,7 @@ export class PreviewManager {
 
     _hideNow() {
         this._cancelGrace();
+        this._cancelWindowRefresh();
         this._destroyWindowMenu();
         if (this._dying) { this._destroyBox(this._dying); this._dying = null; }
         const box = this._box;
@@ -503,6 +508,19 @@ export class PreviewManager {
         catch (e) { logError(e, 'preview.onClose'); }
     }
 
+    settleAnimations() {
+        if (this._dying) {
+            this._destroyBox(this._dying);
+            this._dying = null;
+        }
+        if (!this._box) return;
+        try {
+            this._box.remove_all_transitions();
+            this._box.opacity = 255;
+            this._box.translation_y = 0;
+        } catch { }
+    }
+
     _deactivateBox(box) {
         const pending = [box];
         while (pending.length) {
@@ -527,7 +545,14 @@ export class PreviewManager {
         if (this._graceId) { this._timers.remove(this._graceId); this._graceId = 0; }
     }
 
+    _cancelWindowRefresh() {
+        if (!this._windowRefreshId) return;
+        this._timers.remove(this._windowRefreshId);
+        this._windowRefreshId = 0;
+    }
+
     destroy() {
+        this._cancelWindowRefresh();
         this._timers.removeAll();
         this._openId = 0;
         this._graceId = 0;

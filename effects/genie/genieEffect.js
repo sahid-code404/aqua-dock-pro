@@ -5,7 +5,7 @@ import Mtk from 'gi://Mtk';
 import Shell from 'gi://Shell';
 import St from 'gi://St';
 
-import { clamp, appWindows, logError, TimeoutGroup } from '../../core/utils.js';
+import { animationsEnabled, clamp, appWindows, logError, TimeoutGroup } from '../../core/utils.js';
 
 // St.Settings.slow_down_factor is process-global. Multiple monitor controllers
 // can start genie animations at once, so the latest controller temporarily owns
@@ -41,7 +41,9 @@ export class GenieController {
         this._restoreId = 0;
     }
 
-    get enabled() { return !!this._host?.getConfig().enableGenieEffect; }
+    get enabled() {
+        return !!this._host?.getConfig().enableGenieEffect && animationsEnabled();
+    }
 
     // The icon's resting on-screen rect (independent of live magnification).
     iconRestRect(item, chip = null) {
@@ -149,6 +151,13 @@ export class GenieController {
             slowDownOwner = null;
             restoreSlowDown(stSettings);
         });
+    }
+
+    settleMotion() {
+        if (slowDownOwner !== this) return;
+        slowDownOwner = null;
+        this._cancelSlowDownRestore();
+        restoreSlowDown(St.Settings.get());
     }
 
     _cancelSlowDownRestore() {

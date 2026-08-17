@@ -220,12 +220,19 @@ export class SettingsManager {
     _flush() {
         const structural = this._pendingStructural;
         const keys = new Set(this._pendingKeys);
+        let nextConfig;
+        try { nextConfig = computeConfig(this._settings); }
+        catch (e) {
+            // Keep the pending key set intact. A later valid settings change can
+            // retry the complete batch instead of silently losing the failed
+            // update and leaving runtime state stale.
+            logError(e, 'computeConfig');
+            return;
+        }
+
         this._pendingStructural = false;
         this._pendingKeys.clear();
-
-        try { this._config = computeConfig(this._settings); }
-        catch (e) { logError(e, 'computeConfig'); return; }
-
+        this._config = nextConfig;
         this._bus.emit('settings-changed', {
             structural,
             keys,

@@ -52,8 +52,9 @@ assert(cfg.useFolderMetadataIcons,
     'folder metadata icons should be used by default');
 assert(!cfg.reduceMotion && !cfg.highContrast && cfg.interfaceTextScale === 1 &&
     cfg.announceItemStatus, 'accessibility defaults changed');
-assert(!STRUCTURAL_KEYS.has('auto-hide-mode'),
-    'changing auto-hide mode should update in place instead of rebuilding every dock');
+assert(GEOMETRY_KEYS.has('auto-hide-mode') &&
+    !hasKnownDirectSettingImpact('auto-hide-mode'),
+    'auto-hide mode must relayout so reserved strut geometry stays in sync');
 assert(DOCK_NOOP_KEYS.has('focus-dock-shortcut') &&
     DOCK_NOOP_KEYS.has('settings-version'),
     'non-visual settings must not trigger dock-wide relayout work');
