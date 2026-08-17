@@ -23,7 +23,7 @@ export function downloadsUri() {
 
 // Use GIO's virtual Trash backend instead of assuming every trashed item lives
 // in $XDG_DATA_HOME/Trash. The same URI is what the dock opens, so state and
-// Empty Trash now cover mounted-volume trash backends as well when GIO exposes
+// Empty Trash cover mounted-volume trash backends as well when GIO exposes
 // them through the desktop Trash implementation.
 export function trashDir() {
     return Gio.File.new_for_uri('trash:///');
@@ -48,80 +48,71 @@ export async function trashHasFiles(cancellable = null) {
     }
 }
 
-// Empty the same virtual Trash collection shown by the desktop. The returned
-// cancellable lets the owning controller stop outstanding I/O during teardown.
+// Use the same native GIO operation exposed by `gio trash --empty` instead of
+// recursively deleting children of trash:///. The latter can fail on some
+// Trash backends even though the native GIO operation succeeds.
+// The returned cancellable lets the owning controller stop the in-flight wait
+// and terminate the helper process during teardown.
 export function emptyTrash(onDone = null) {
     const cancellable = new Gio.Cancellable();
     const result = { deleted: 0, failed: 0, cancelled: false };
-    deleteChildren(trashDir(), cancellable, result).catch(e => {
-        if (!cancellable.is_cancelled()) {
-            result.failed++;
-            logError(e, 'emptyTrash');
-        }
-    }).finally(() => {
-        result.cancelled = cancellable.is_cancelled();
+    const gioPath = GLib.find_program_in_path('gio');
+
+    if (!gioPath) {
+        result.failed = 1;
+        logError(new Error('gio executable not found in PATH'), 'emptyTrash');
         try { onDone?.(result); }
         catch (error) { logError(error, 'emptyTrash completion'); }
-    });
-    return cancellable;
-}
-
-async function deleteChildren(dir, cancellable, result) {
-    let en;
-    try {
-        en = await dir.enumerate_children_async(
-            'standard::name,standard::type',
-            Gio.FileQueryInfoFlags.NOFOLLOW_SYMLINKS,
-            GLib.PRIORITY_DEFAULT, cancellable);
-    } catch (e) {
-        if (!cancellable.is_cancelled() && !e.matches?.(Gio.io_error_quark(), Gio.IOErrorEnum.NOT_FOUND))
-            result.failed++;
-        return false;
+        return cancellable;
     }
 
-    let complete = true;
-    for (;;) {
-        let infos;
-        try {
-            infos = await en.next_files_async(32, GLib.PRIORITY_DEFAULT, cancellable);
-        } catch (error) {
-            if (!cancellable.is_cancelled()) {
-                result.failed++;
-                logError(error, 'emptyTrash enumerate');
+    let process;
+    let cancelId = 0;
+    try {
+        process = Gio.Subprocess.new(
+            [gioPath, 'trash', '--empty'],
+            Gio.SubprocessFlags.STDOUT_SILENCE | Gio.SubprocessFlags.STDERR_SILENCE,
+        );
+
+        cancelId = cancellable.connect(() => {
+            try { process.force_exit(); } catch { }
+        });
+
+        process.wait_check_async(cancellable, (_process, asyncResult) => {
+            if (cancelId) {
+                try { cancellable.disconnect(cancelId); } catch { }
+                cancelId = 0;
             }
-            complete = false;
-            break;
-        }
-        if (!infos.length) break;
-        for (const info of infos) {
-            if (cancellable.is_cancelled()) {
-                complete = false;
-                break;
-            }
-            const child = dir.get_child(info.get_name());
-            if (info.get_file_type() === Gio.FileType.DIRECTORY) {
-                const emptied = await deleteChildren(child, cancellable, result);
-                if (!emptied) {
-                    // A descendant already recorded the meaningful failure.
-                    // Do not attempt the now-known non-empty parent and count the
-                    // same underlying problem a second time.
-                    complete = false;
-                    continue;
+
+            result.cancelled = cancellable.is_cancelled();
+            if (!result.cancelled) {
+                try {
+                    const ok = process.wait_check_finish(asyncResult);
+                    result.failed = ok ? 0 : 1;
+                    if (!ok)
+                        logError(new Error('gio trash --empty failed'), 'emptyTrash');
+                } catch (error) {
+                    result.failed = 1;
+                    logError(error, 'emptyTrash');
                 }
             }
-            try {
-                await child.delete_async(GLib.PRIORITY_DEFAULT, cancellable);
-                result.deleted++;
-            } catch {
-                if (!cancellable.is_cancelled()) result.failed++;
-                complete = false;
-            }
+
+            try { onDone?.(result); }
+            catch (error) { logError(error, 'emptyTrash completion'); }
+        });
+    } catch (error) {
+        if (cancelId) {
+            try { cancellable.disconnect(cancelId); } catch { }
+            cancelId = 0;
         }
-        if (cancellable.is_cancelled()) {
-            complete = false;
-            break;
+        result.cancelled = cancellable.is_cancelled();
+        if (!result.cancelled) {
+            result.failed = 1;
+            logError(error, 'emptyTrash');
         }
+        try { onDone?.(result); }
+        catch (completionError) { logError(completionError, 'emptyTrash completion'); }
     }
-    try { await en.close_async(GLib.PRIORITY_DEFAULT, null); } catch { }
-    return complete && !cancellable.is_cancelled();
+
+    return cancellable;
 }
