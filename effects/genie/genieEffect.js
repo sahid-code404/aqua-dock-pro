@@ -12,6 +12,26 @@ import { clamp, appWindows, logError, TimeoutGroup } from '../../core/utils.js';
 // the override and restores the original value once the final animation ends.
 let slowDownOwner = null;
 let slowDownPrevious = 1;
+let slowDownApplied = null;
+
+function captureExternalSlowDownChange(stSettings) {
+    if (!slowDownOwner || slowDownApplied === null) return;
+    try {
+        const current = stSettings.slow_down_factor;
+        if (current !== slowDownApplied) slowDownPrevious = current;
+    } catch { }
+}
+
+function restoreSlowDown(stSettings) {
+    try {
+        // Do not overwrite a value another Shell component changed while the
+        // genie override was active.
+        if (slowDownApplied === null || stSettings.slow_down_factor === slowDownApplied)
+            stSettings.slow_down_factor = slowDownPrevious;
+    } catch { }
+    slowDownPrevious = 1;
+    slowDownApplied = null;
+}
 
 export class GenieController {
     // host: { getConfig, getGeom, getMonitorIndex, getChips, getItems }
@@ -100,6 +120,11 @@ export class GenieController {
         const dur = clamp(this._host.getConfig().genieDuration ?? 120, 50, 1000);
         const factor = clamp(dur / 250, 0.4, 4.0);
 
+        // If another Shell component changed the global factor while we owned
+        // it, preserve that newer value as the baseline before applying another
+        // genie override.
+        captureExternalSlowDownChange(stSettings);
+
         // Transfer ownership without restoring in between animations. Otherwise
         // a second dock could capture an already-overridden value and leave it
         // behind after both timer callbacks run.
@@ -111,14 +136,18 @@ export class GenieController {
         }
         slowDownOwner = this;
         this._cancelSlowDownRestore();
-        try { stSettings.slow_down_factor = factor; } catch { }
+        try {
+            stSettings.slow_down_factor = factor;
+            slowDownApplied = factor;
+        } catch {
+            slowDownApplied = null;
+        }
         try { fn(); } catch (e) { logError(e, 'genie fn'); }
         this._restoreId = this._timers.addOnce(dur + 60, () => {
             this._restoreId = 0;
             if (slowDownOwner !== this) return;
             slowDownOwner = null;
-            try { stSettings.slow_down_factor = slowDownPrevious; } catch { }
-            slowDownPrevious = 1;
+            restoreSlowDown(stSettings);
         });
     }
 
@@ -129,11 +158,11 @@ export class GenieController {
     }
 
     destroy() {
-        // Restore animation speed before clearing timers.
+        // Restore animation speed before clearing timers, but only if nobody
+        // else changed that process-global setting while the override was live.
         if (slowDownOwner === this) {
             slowDownOwner = null;
-            try { St.Settings.get().slow_down_factor = slowDownPrevious; } catch { }
-            slowDownPrevious = 1;
+            restoreSlowDown(St.Settings.get());
         }
         this._timers.removeAll();
         this._restoreId = 0;

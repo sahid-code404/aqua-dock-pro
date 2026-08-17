@@ -108,9 +108,11 @@ export class DownloadManager {
         this._gen = 0;
     }
 
-    get stackOpen() { return this._stack.isOpen; }
+    get stackOpen() { return this._stack?.isOpen ?? false; }
 
     enable() {
+        if (!this._stack && this._host)
+            this._stack = new DownloadsStack(this._host.getMonitor);
         if (!this._host.getConfig().showDownloads || this._watchUnsubscribe) return;
         this._watchUnsubscribe = subscribeDownloads(file => this._scheduleArrival(file));
     }
@@ -120,10 +122,17 @@ export class DownloadManager {
     }
 
     openFolderStack(item, folder, title = _('Folder'), gicon = null) {
+        if (!this._stack && this._host)
+            this._stack = new DownloadsStack(this._host.getMonitor);
+        if (!this._stack) return;
         const cfg = this._host.getConfig();
         try { item.bounce(Math.round(cfg.bounceHeight * 0.6), { decay: cfg.bounceDecay }); }
         catch { }
         this._stack.show(item, folder, cfg, () => this._host.onStackClosed?.(), { title, gicon });
+    }
+
+    closeStack() {
+        this._stack?.hide();
     }
 
     _scheduleArrival(file) {
@@ -271,7 +280,8 @@ export class DownloadManager {
             } catch { }
             this._flyer = null;
         }
-        this._stack.destroy();
+        this._stack?.destroy();
+        this._stack = null;
     }
 
     destroy() {

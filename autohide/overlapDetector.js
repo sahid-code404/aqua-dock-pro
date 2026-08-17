@@ -44,6 +44,7 @@ export class OverlapDetector {
         const rh = vert ? geom.height : geom.thick;
 
         let overlapped = false;
+        const active = new Set();
         const actors = global.get_window_actors();
         for (let i = 0, len = actors.length; i < len; i++) {
             const win = actors[i].meta_window;
@@ -52,6 +53,7 @@ export class OverlapDetector {
             if (win.get_monitor() !== monIndex) continue;
             if (!HANDLED_TYPES.has(win.get_window_type())) continue;
 
+            active.add(win);
             if (!this._tracked.has(win)) this._track(win);
             if (overlapped) continue;   // keep tracking the rest, but answer known
 
@@ -59,6 +61,13 @@ export class OverlapDetector {
             if (f.x + TOL < rx + rw && f.x + f.width - TOL > rx &&
                 f.y + TOL < ry + rh && f.y + f.height - TOL > ry)
                 overlapped = true;
+        }
+
+        // Windows can stay alive while moving to another workspace/monitor.
+        // Stop retaining their move/resize signals as soon as they leave this
+        // detector's scope; they will be tracked again if they return.
+        for (const win of [...this._tracked]) {
+            if (!active.has(win)) this._untrack(win);
         }
         return overlapped;
     }

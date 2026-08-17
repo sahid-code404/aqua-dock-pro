@@ -526,6 +526,13 @@ export class DockController {
             !GEOMETRY_KEYS.has(key) && hasKnownDirectSettingImpact(key));
 
         if (!direct) {
+            // Popups are anchored to current geometry and cache presentation
+            // settings at construction time. Close transient UI before a full
+            // relayout so nothing keeps an old anchor/style while the dock moves.
+            this._preview?.hide(true);
+            this._downloads?.closeStack();
+            this._menu?.closeNow();
+            this._tooltip?.hide();
             this.relayout();
             this._syncNotificationSubscription();
             this._refreshItems();
@@ -546,12 +553,25 @@ export class DockController {
         let autohideChanged = false;
         let tooltipChanged = false;
         let itemsChanged = false;
+        let previewChanged = false;
+        let downloadsChanged = false;
+        let menuChanged = false;
         for (const key of changed) {
             styleChanged ||= STYLE_KEYS.has(key);
             autohideChanged ||= AUTOHIDE_KEYS.has(key);
             tooltipChanged ||= TOOLTIP_KEYS.has(key);
             itemsChanged ||= ITEM_REFRESH_KEYS.has(key);
+            previewChanged ||= key === 'show-previews' || key.startsWith('preview-');
+            downloadsChanged ||= key.startsWith('downloads-');
+            menuChanged ||= key.startsWith('menu-');
         }
+
+        // Existing transient actors were built from the previous config. Close
+        // them instead of mutating live popup internals mid-animation; the next
+        // open reads the updated config and preserves the established visuals.
+        if (previewChanged) this._preview?.hide(true);
+        if (downloadsChanged) this._downloads?.closeStack();
+        if (menuChanged) this._menu?.closeNow();
 
         if (styleChanged)
             this._chrome.applyPillStyle(pillStyle(this._cfg));

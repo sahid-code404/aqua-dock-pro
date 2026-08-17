@@ -78,7 +78,8 @@ class NotificationHub {
         this._tray = messageTray();
         this._trayIds = [];
         this._sourceSignals = new Map();
-        this._reliable = Boolean(this._tray);
+        this._baseReliable = Boolean(this._tray);
+        this._reliable = this._baseReliable;
         this._map = buildNotificationMap();
 
         if (this._tray) this._connect();
@@ -121,13 +122,14 @@ class NotificationHub {
         } catch { }
         if (addedId) this._trayIds.push(addedId);
         if (removedId) this._trayIds.push(removedId);
-        if (!addedId || !removedId) this._reliable = false;
+        if (!addedId || !removedId) this._baseReliable = false;
 
         try {
             for (const source of messageTraySources()) this._watchSource(source);
         } catch {
-            this._reliable = false;
+            this._baseReliable = false;
         }
+        this._updateReliability();
     }
 
     _watchSource(source) {
@@ -143,17 +145,33 @@ class NotificationHub {
         if (countId) ids.push(countId);
         if (addedId) ids.push(addedId);
         if (removedId) ids.push(removedId);
-        if (!countId && !(addedId && removedId)) this._reliable = false;
-        if (ids.length) this._sourceSignals.set(source, ids);
+        const reliable = Boolean(countId || (addedId && removedId));
+        this._sourceSignals.set(source, { ids, reliable });
+        this._updateReliability();
     }
 
     _unwatchSource(source) {
-        const ids = this._sourceSignals.get(source);
-        if (!ids) return;
+        const record = this._sourceSignals.get(source);
+        if (!record) return;
         this._sourceSignals.delete(source);
-        for (const id of ids) {
+        for (const id of record.ids) {
             try { source.disconnect(id); } catch { }
         }
+        this._updateReliability();
+    }
+
+    _updateReliability() {
+        if (!this._baseReliable) {
+            this._reliable = false;
+            return;
+        }
+        for (const record of this._sourceSignals.values()) {
+            if (!record.reliable) {
+                this._reliable = false;
+                return;
+            }
+        }
+        this._reliable = true;
     }
 
     _refresh(notify) {
@@ -181,6 +199,8 @@ class NotificationHub {
         this._trayIds = [];
         this._callbacks.clear();
         this._tray = null;
+        this._baseReliable = false;
+        this._reliable = false;
         this._map = new Map();
     }
 }

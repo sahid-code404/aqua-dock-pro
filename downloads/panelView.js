@@ -73,7 +73,7 @@ export class PanelView {
         });
         this._actor = panel;
         if (cfg.highContrast) panel.add_style_class_name('aqua-high-contrast');
-        panel.add_child(this._header(folder, files.length));
+        panel.add_child(this._header(folder, this.totalFiles ?? files.length));
         panel.add_child(new St.Widget({ style_class: 'aqua-dl-divider' }));
 
         let box;

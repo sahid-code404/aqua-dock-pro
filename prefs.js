@@ -17,6 +17,7 @@ export default class AquaDockProPreferences extends ExtensionPreferences {
         window._settings = s;
         window._settingsSignalIds = [];
         window._cleanupCallbacks = [];
+        window._dialogCancellables = new Set();
 
         window.set_default_size(740, 820);
         window.set_search_enabled(true);
@@ -31,6 +32,11 @@ export default class AquaDockProPreferences extends ExtensionPreferences {
         buildAboutPage(window, s, this.metadata);
 
         window.connect('close-request', () => {
+            for (const cancellable of (window._dialogCancellables ?? [])) {
+                try { cancellable.cancel(); } catch { }
+            }
+            window._dialogCancellables?.clear();
+
             for (const cleanup of (window._cleanupCallbacks ?? [])) {
                 try { cleanup(); } catch { }
             }

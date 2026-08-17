@@ -36,6 +36,7 @@ export class PreviewManager {
         this._timers = new TimeoutGroup();
         this._openId = 0;
         this._graceId = 0;
+        this._windowRefreshId = 0;
         this._pendingItem = null;
         this._windowMenu = null;
         this._windowMenuManager = null;
@@ -89,6 +90,16 @@ export class PreviewManager {
             try { actor = w.get_compositor_private?.(); } catch { }
             try { rect = w.get_frame_rect(); } catch { }
             return actor && rect && rect.width > 0 && rect.height > 0;
+        });
+    }
+
+    _queueWindowRefresh(item, box, forceAll, page, focusPreview) {
+        if (this._windowRefreshId) return;
+        this._windowRefreshId = this._timers.addIdle(() => {
+            this._windowRefreshId = 0;
+            if (this._box === box)
+                this._build(item, true, forceAll, page, focusPreview);
+            return false;
         });
     }
 
@@ -157,6 +168,15 @@ export class PreviewManager {
                 x_expand: true,
             });
             title.set_style(titleStyle);
+
+            // A window can disappear while its preview is open. Rebuild on the
+            // next idle turn so the clone is never left pointing at a dead
+            // compositor actor. connectObject ties this signal to the popup.
+            try {
+                win.connectObject('unmanaging', () =>
+                    this._queueWindowRefresh(item, box, forceAll, page, focusPreview), box);
+            } catch { }
+
             if (cfg.previewCloseButtons) {
                 const titleRow = new St.BoxLayout({ x_expand: true });
                 titleRow.get_layout_manager().set_spacing(5);
@@ -184,7 +204,8 @@ export class PreviewManager {
                     this._openWindowMenu(btn, win, box);
                     return;
                 }
-                win.activate(global.get_current_time());
+                try { win.activate(global.get_current_time()); }
+                catch (e) { logError(e, 'preview activate window'); }
                 this.hide(true);
             });
             if (cfg.previewWindowActions) {
@@ -510,6 +531,7 @@ export class PreviewManager {
         this._timers.removeAll();
         this._openId = 0;
         this._graceId = 0;
+        this._windowRefreshId = 0;
         this._pendingItem = null;
         this._destroyWindowMenu();
         if (this._dying) { this._destroyBox(this._dying); this._dying = null; }
