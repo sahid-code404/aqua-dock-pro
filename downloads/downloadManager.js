@@ -125,10 +125,14 @@ export class DownloadManager {
     constructor(host) {
         this._host = host;
         this._timers = new TimeoutGroup();
-        this._stack = new DownloadsStack(host.getMonitor);
+        this._stack = null;
         this._watchUnsubscribe = null;
         this._debounceId = 0;
+        this._arrivalDrainId = 0;
+        this._arrivalQueue = [];
+        this._pendingArrivalUris = new Set();
         this._lastArrivalAt = 0;
+        this._lastArrivalUri = null;
         this._flyer = null;
         this._iconQuery = null;
         this._gen = 0;
@@ -165,6 +169,12 @@ export class DownloadManager {
         this._gen++;
         this._iconQuery?.cancel();
         this._iconQuery = null;
+        this._arrivalQueue.length = 0;
+        this._pendingArrivalUris.clear();
+        if (this._arrivalDrainId) {
+            this._timers.remove(this._arrivalDrainId);
+            this._arrivalDrainId = 0;
+        }
         if (this._flyer) {
             try {
                 this._flyer.remove_all_transitions();
@@ -176,14 +186,58 @@ export class DownloadManager {
     }
 
     _scheduleArrival(file) {
-        const now = GLib.get_monotonic_time();
-        if (this._lastArrivalAt && now - this._lastArrivalAt < COOLDOWN_US) return;
+        if (!file) return;
+
+        let uri = null;
+        try { uri = file.get_uri(); } catch { }
+        if (!uri) return;
+
+        if (this._pendingArrivalUris.has(uri)) return;
+        if (this._lastArrivalUri === uri &&
+            GLib.get_monotonic_time() - this._lastArrivalAt < COOLDOWN_US)
+            return;
+
+        this._pendingArrivalUris.add(uri);
+        this._arrivalQueue.push({ file, uri });
+
         if (this._debounceId) this._timers.remove(this._debounceId);
         this._debounceId = this._timers.addOnce(DEBOUNCE_MS, () => {
             this._debounceId = 0;
-            this._lastArrivalAt = GLib.get_monotonic_time();
-            this._playArrival(file);
+            this._drainArrivalQueue();
         });
+    }
+
+    _drainArrivalQueue() {
+        if (this._arrivalDrainId || !this._arrivalQueue.length) return;
+
+        const now = GLib.get_monotonic_time();
+        const wait = this._lastArrivalAt
+            ? Math.max(0, COOLDOWN_US - (now - this._lastArrivalAt))
+            : 0;
+        if (wait > 0) {
+            this._arrivalDrainId = this._timers.addOnce(
+                Math.max(1, Math.ceil(wait / 1000)),
+                () => {
+                    this._arrivalDrainId = 0;
+                    this._drainArrivalQueue();
+                });
+            return;
+        }
+
+        const next = this._arrivalQueue.shift();
+        this._pendingArrivalUris.delete(next.uri);
+        this._lastArrivalAt = now;
+        this._lastArrivalUri = next.uri;
+        this._playArrival(next.file);
+
+        if (this._arrivalQueue.length) {
+            this._arrivalDrainId = this._timers.addOnce(
+                Math.ceil(COOLDOWN_US / 1000),
+                () => {
+                    this._arrivalDrainId = 0;
+                    this._drainArrivalQueue();
+                });
+        }
     }
 
     _playArrival(file) {
@@ -311,7 +365,13 @@ export class DownloadManager {
             this._timers.remove(this._debounceId);
             this._debounceId = 0;
         }
+        if (this._arrivalDrainId) {
+            this._timers.remove(this._arrivalDrainId);
+            this._arrivalDrainId = 0;
+        }
 
+        this._arrivalQueue.length = 0;
+        this._pendingArrivalUris.clear();
         this._timers.removeAll();
         if (this._flyer) {
             try {
