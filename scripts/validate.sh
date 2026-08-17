@@ -51,13 +51,30 @@ else
 fi
 
 if command -v xgettext >/dev/null && [[ -f po/aqua-dock-pro.pot ]]; then
-    pot_before=$(sha256sum po/aqua-dock-pro.pot | cut -d' ' -f1)
-    po/update-pot.sh
-    pot_after=$(sha256sum po/aqua-dock-pro.pot | cut -d' ' -f1)
-    [[ "$pot_before" == "$pot_after" ]] || {
-        printf 'po/aqua-dock-pro.pot was stale; regenerate it with po/update-pot.sh.\n' >&2
+    # Source line numbers in xgettext's '#:' comments change whenever nearby
+    # implementation code moves, even when the translator-visible catalogue is
+    # identical. Validate the actual catalogue payload while ignoring only those
+    # location comments, and restore the checked-in POT so local validation does
+    # not dirty the working tree.
+    pot_before=$(mktemp)
+    pot_after=$(mktemp)
+    cp po/aqua-dock-pro.pot "$pot_before"
+    if ! po/update-pot.sh; then
+        cp "$pot_before" po/aqua-dock-pro.pot
+        rm -f "$pot_before" "$pot_after"
         exit 1
-    }
+    fi
+    cp po/aqua-dock-pro.pot "$pot_after"
+    cp "$pot_before" po/aqua-dock-pro.pot
+
+    if ! diff -u \
+        <(grep -v '^#:' "$pot_before") \
+        <(grep -v '^#:' "$pot_after") >/dev/null; then
+        rm -f "$pot_before" "$pot_after"
+        printf 'po/aqua-dock-pro.pot messages were stale; regenerate it with po/update-pot.sh.\n' >&2
+        exit 1
+    fi
+    rm -f "$pot_before" "$pot_after"
 fi
 
 gjs -c '
