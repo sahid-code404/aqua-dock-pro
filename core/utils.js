@@ -22,6 +22,20 @@ function getSt() {
     return _St;
 }
 
+let _extensionSettings = null;
+function getExtensionSettings() {
+    if (!_extensionSettings) {
+        try {
+            _extensionSettings = new Gio.Settings({
+                schema_id: 'org.gnome.shell.extensions.aqua-dock-pro',
+            });
+        } catch {
+            _extensionSettings = null;
+        }
+    }
+    return _extensionSettings;
+}
+
 // ── Logging ───────────────────────────────────────────────────────────────────
 export function log(msg) {
     console.log(`${LOG_PREFIX}: ${msg}`);
@@ -105,8 +119,9 @@ export function launchUri(uri) {
     catch (e) { logError(e, `launchUri ${uri}`); }
 }
 
-// Read GNOME's reduced-motion preference only when an animation starts. This
-// adds no signal, timer, or per-frame work.
+// Read both Aqua Dock's accessibility override and GNOME's reduced-motion
+// preference whenever an animation is about to start. The GSettings object is
+// cached, so this adds no per-frame setup or signal ownership.
 let reduceMotionOverride = false;
 
 export function setReduceMotionOverride(enabled) {
@@ -116,6 +131,9 @@ export function setReduceMotionOverride(enabled) {
 export function animationsEnabled() {
     if (reduceMotionOverride) return false;
     try {
+        const extensionSettings = getExtensionSettings();
+        if (extensionSettings?.get_boolean('reduce-motion')) return false;
+
         const StModule = getSt();
         if (!StModule) return true;
 
