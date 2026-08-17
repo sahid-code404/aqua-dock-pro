@@ -8,6 +8,7 @@ import {
 
 let cachedSources = [];
 let cachedCounts = [];
+let cachedIds = [];
 let cachedMap = new Map();
 let sharedHub = null;
 
@@ -15,6 +16,16 @@ function sourceCount(source) {
     return typeof source?.count === 'number'
         ? source.count
         : (source?.notifications?.length ?? 0);
+}
+
+function sourceId(source) {
+    const app = notificationSourceApp(source);
+    if (app?.get_id) return app.get_id();
+    if (source?.policy?.id && source.policy.id !== 'generic') {
+        const pid = source.policy.id;
+        return pid.endsWith('.desktop') ? pid : `${pid}.desktop`;
+    }
+    return null;
 }
 
 function sameMap(a, b) {
@@ -28,46 +39,44 @@ function sameMap(a, b) {
 function resetSnapshot() {
     cachedSources = [];
     cachedCounts = [];
+    cachedIds = [];
     cachedMap = new Map();
 }
 
 // Build a Map<appId, count> from all tray sources in a single pass. Source
-// identity/count caching makes repeated probes cheap when Shell state is stable.
+// identity/count/app-ID caching makes repeated probes cheap when Shell state is
+// stable while still noticing a source whose policy/app identity changes.
 export function buildNotificationMap() {
     let sources;
     try { sources = messageTraySources(); }
     catch { sources = []; }
 
     const counts = new Array(sources.length);
+    const ids = new Array(sources.length);
     let unchanged = sources.length === cachedSources.length;
     for (let i = 0; i < sources.length; i++) {
         const source = sources[i];
         const count = sourceCount(source);
+        const id = sourceId(source);
         counts[i] = count;
-        if (unchanged && (source !== cachedSources[i] || count !== cachedCounts[i]))
+        ids[i] = id;
+        if (unchanged && (source !== cachedSources[i] ||
+            count !== cachedCounts[i] || id !== cachedIds[i]))
             unchanged = false;
     }
     if (unchanged) return cachedMap;
 
     const map = new Map();
     for (let i = 0; i < sources.length; i++) {
-        const src = sources[i];
         const count = counts[i];
-        if (!src || count <= 0) continue;
-
-        let srcId = null;
-        const app = notificationSourceApp(src);
-        if (app?.get_id) {
-            srcId = app.get_id();
-        } else if (src.policy?.id && src.policy.id !== 'generic') {
-            const pid = src.policy.id;
-            srcId = pid.endsWith('.desktop') ? pid : `${pid}.desktop`;
-        }
-        if (srcId) map.set(srcId, (map.get(srcId) ?? 0) + count);
+        const id = ids[i];
+        if (!id || count <= 0) continue;
+        map.set(id, (map.get(id) ?? 0) + count);
     }
 
     cachedSources = sources.slice();
     cachedCounts = counts;
+    cachedIds = ids;
     cachedMap = map;
     return map;
 }

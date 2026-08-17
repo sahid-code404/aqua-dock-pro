@@ -100,11 +100,13 @@ export class OverlapDetector {
         try { win.disconnectObject(this); } catch { }
     }
 
+    clear() {
+        for (const win of [...this._tracked])
+            this._untrack(win);
+    }
+
     destroy() {
-        for (const win of this._tracked) {
-            try { win.disconnectObject(this); } catch { }
-        }
-        this._tracked.clear();
+        this.clear();
         this._getGeom = null;
         this._getMonitorIndex = null;
         this._onWindowChange = null;

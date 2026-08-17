@@ -184,29 +184,47 @@ function applyAutoShrink(base, chips, monitor) {
 
     const pad = Math.round(BG_PAD_X * c.scale);
     const sepW = SEP_W + SEP_PAD * 2;
+    const spacerW = Math.max(4, Math.round(12 * c.scale));
     let nIcons = 0, fixedStructures = 0;
     for (const chip of chips) {
         if (chip.item) nIcons++;
-        else fixedStructures += chip.entry?.kind === 'spacer'
-            ? Math.max(4, Math.round(12 * c.scale)) : sepW;
+        else fixedStructures += chip.entry?.kind === 'spacer' ? spacerW : sepW;
     }
-    if (nIcons === 0) return c;
 
     const natural = pad * 2 + nIcons * c.cellW + fixedStructures;
-    const avail = (c.vertical ? monitor.height : monitor.width) - 2 * c.edgeMargin - 8;
+    const avail = Math.max(1,
+        (c.vertical ? monitor.height : monitor.width) - 2 * c.edgeMargin - 8);
     if (natural <= avail) return c;
 
+    // Normally separators/spacers keep their historical pixel sizes. Only when
+    // those fixed structures themselves would consume the space needed for
+    // legible icon cells do we proportionally compress them as a last-resort
+    // screen-fit measure. This also covers structure-only custom layouts.
+    if (fixedStructures > 0) {
+        const iconReserve = nIcons > 0 ? nIcons * 16 : 0;
+        const structureBudget = Math.max(0, avail - pad * 2 - iconReserve);
+        if (fixedStructures > structureBudget)
+            c.structureScale = clamp(structureBudget / fixedStructures, 0, 1);
+    }
+
+    if (nIcons === 0) {
+        c.shrunk = true;
+        c.autoShrinkFactor = 1;
+        return c;
+    }
+
+    const effectiveStructures = fixedStructures * (c.structureScale ?? 1);
     const baseSpacing = c.iconSpacing ?? c.cellPad * 2;
-    const fixed = pad * 2 + fixedStructures;
+    const fixed = pad * 2 + effectiveStructures;
     const naturalCells = nIcons * (c.iconSize + baseSpacing);
     const f = clamp((avail - fixed) / Math.max(1, naturalCells), 0.01, 1.0);
-    if (f >= 0.999) return c;
+    if (f >= 0.999 && c.structureScale === undefined) return c;
 
     const baseIconSize = c.iconSize;
     const baseDockH = c.dockH;
     // Keep icons legible whenever there is room, then relax that floor only
     // for pathological icon counts. This final cell budget guarantees that
-    // screen-fit mode cannot leave the dock wider than its available span.
+    // screen-fit mode cannot leave normal icon-heavy docks beyond their span.
     const cellBudget = Math.max(1, Math.floor((avail - fixed) / nIcons));
     let iconSize = Math.max(16, Math.floor(c.iconSize * f));
     let iconSpacing = Math.min(
@@ -251,8 +269,15 @@ export function computeLayout(base, chips, monitor, monitorFullscreen = false) {
     const vert = cfg.vertical;
     const side = cfg.position;
     const pad = Math.round(BG_PAD_X * cfg.scale);
-    const sepW = SEP_W + SEP_PAD * 2;
-    const spacerW = Math.max(4, Math.round(12 * cfg.scale));
+    const structureScale = cfg.structureScale ?? 1;
+    const sepPad = structureScale < 1
+        ? Math.max(0, Math.floor(SEP_PAD * structureScale)) : SEP_PAD;
+    const sepLine = structureScale < 1
+        ? Math.max(1, Math.round(SEP_W * structureScale)) : SEP_W;
+    const sepW = sepLine + sepPad * 2;
+    const baseSpacerW = Math.max(4, Math.round(12 * cfg.scale));
+    const spacerW = structureScale < 1
+        ? Math.max(1, Math.floor(baseSpacerW * structureScale)) : baseSpacerW;
     const thick = cfg.dockH;
 
     // Main-axis span and per-chip offsets.
@@ -323,9 +348,9 @@ export function computeLayout(base, chips, monitor, monitorFullscreen = false) {
                 ? { x: 0, y: cursor, w: thick, h: chip.w }
                 : { x: cursor, y: 0, w: chip.w, h: thick };
         } else if (!vert) {
-            chip.box = { x: cursor + SEP_PAD, y: sepOff, w: SEP_W, h: sepThick };
+            chip.box = { x: cursor + sepPad, y: sepOff, w: sepLine, h: sepThick };
         } else {
-            chip.box = { x: sepOff, y: cursor + SEP_PAD, w: sepThick, h: SEP_W };
+            chip.box = { x: sepOff, y: cursor + sepPad, w: sepThick, h: sepLine };
         }
         cursor += chip.w;
     }

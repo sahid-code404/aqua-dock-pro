@@ -15,6 +15,14 @@ jq -e '
     (.description | contains("clipboard"))
 ' metadata.json >/dev/null
 
+metadata_version=$(jq -r '.version' metadata.json)
+changelog_version=$(awk '/^## [0-9]+$/ { print $2; exit }' CHANGELOG.md)
+if [[ "$metadata_version" != "$changelog_version" ]]; then
+    printf 'metadata.json version (%s) does not match latest CHANGELOG version (%s).\n' \
+        "$metadata_version" "$changelog_version" >&2
+    exit 1
+fi
+
 mapfile -t js_files < <(find . -type f -name '*.js' -not -path './.git/*' | sort)
 mapfile -t runtime_js < <(
     find extension.js animation autohide compat core dock downloads effects interactions menus services ui \
@@ -112,9 +120,11 @@ export GSETTINGS_BACKEND=memory
 gjs -m tests/springSolver.test.js
 gjs -m tests/iconResolution.test.js
 gjs -m tests/layout.test.js
+gjs -m tests/layoutStructures.test.js
 gjs -m tests/fullscreenPolicy.test.js
 gjs -m tests/settings.test.js
 gjs -m tests/animationEngine.test.js
+gjs -m tests/fileService.test.js
 gjs -m tests/fileEnumerator.test.js
 gjs -m tests/fileClipboard.test.js
 gjs -m tests/fanGeometry.test.js

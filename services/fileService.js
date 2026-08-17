@@ -21,25 +21,18 @@ export function downloadsUri() {
     return downloadsDir().get_uri();
 }
 
-function trashFilesDir() {
-    return Gio.File.new_for_path(
-        GLib.build_filenamev([GLib.get_user_data_dir(), 'Trash', 'files']));
-}
-
-// The trash 'files' dir — exported for the directory monitor.
+// Use GIO's virtual Trash backend instead of assuming every trashed item lives
+// in $XDG_DATA_HOME/Trash. The same URI is what the dock opens, so state and
+// Empty Trash now cover mounted-volume trash backends as well when GIO exposes
+// them through the desktop Trash implementation.
 export function trashDir() {
-    return trashFilesDir();
-}
-
-function trashInfoDir() {
-    return Gio.File.new_for_path(
-        GLib.build_filenamev([GLib.get_user_data_dir(), 'Trash', 'info']));
+    return Gio.File.new_for_uri('trash:///');
 }
 
 export async function trashHasFiles(cancellable = null) {
     let en;
     try {
-        en = await trashFilesDir().enumerate_children_async(
+        en = await trashDir().enumerate_children_async(
             'standard::name', Gio.FileQueryInfoFlags.NONE,
             GLib.PRIORITY_DEFAULT, cancellable);
     } catch (error) {
@@ -55,15 +48,12 @@ export async function trashHasFiles(cancellable = null) {
     }
 }
 
-// Empty the trash off the main loop. The returned cancellable lets the owning
-// controller stop outstanding I/O during extension teardown.
+// Empty the same virtual Trash collection shown by the desktop. The returned
+// cancellable lets the owning controller stop outstanding I/O during teardown.
 export function emptyTrash(onDone = null) {
     const cancellable = new Gio.Cancellable();
     const result = { deleted: 0, failed: 0, cancelled: false };
-    Promise.all([
-        deleteChildren(trashFilesDir(), cancellable, result),
-        deleteChildren(trashInfoDir(), cancellable, result),
-    ]).catch(e => {
+    deleteChildren(trashDir(), cancellable, result).catch(e => {
         if (!cancellable.is_cancelled()) {
             result.failed++;
             logError(e, 'emptyTrash');

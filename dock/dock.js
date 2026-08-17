@@ -19,6 +19,7 @@ export class DockChrome {
         this._strut = null;
         this._handleVisible = false;
         this._bgStyleCache = null;
+        this._handleClipCache = null;
         this._dash = null;
         this._dashWasVisible = true;
         this._dashOpacity = 255;
@@ -106,16 +107,25 @@ export class DockChrome {
         if (parent) parent.set_child_above_sibling(this._container, null);
     }
 
+    _applyRect(actor, x, y, width, height) {
+        if (!actor) return;
+        if (actor.x !== x || actor.y !== y) actor.set_position(x, y);
+        if (actor.width !== width || actor.height !== height) actor.set_size(width, height);
+    }
+
     applyContainer(geom, hidden) {
-        this._container.set_position(hidden ? geom.hiddenX : geom.x, hidden ? geom.hiddenY : geom.y);
-        this._container.set_size(geom.width, geom.height);
+        this._applyRect(
+            this._container,
+            hidden ? geom.hiddenX : geom.x,
+            hidden ? geom.hiddenY : geom.y,
+            geom.width,
+            geom.height);
     }
 
     // Seed the pill rect; the engine takes over per-frame via setPill().
     applyPill(geom) {
-        this._bg.set_position(geom.bg.x, geom.bg.y);
-        this._bg.set_size(geom.bg.w, geom.bg.h);
-        this._bg.opacity = 255;
+        this._applyRect(this._bg, geom.bg.x, geom.bg.y, geom.bg.w, geom.bg.h);
+        if (this._bg.opacity !== 255) this._bg.opacity = 255;
     }
 
     applyPillStyle(style) {
@@ -135,29 +145,37 @@ export class DockChrome {
     }
 
     applyStrut(strut) {
-        if (!strut) { this._strut.set_size(0, 0); return; }
-        this._strut.set_position(strut.x, strut.y);
-        this._strut.set_size(strut.w, strut.h);
+        if (!strut) {
+            if (this._strut.width !== 0 || this._strut.height !== 0)
+                this._strut.set_size(0, 0);
+            return;
+        }
+        this._applyRect(this._strut, strut.x, strut.y, strut.w, strut.h);
     }
 
     applyStrip(strip) {
-        this._strip.set_position(strip.x, strip.y);
-        this._strip.set_size(strip.w, strip.h);
+        this._applyRect(this._strip, strip.x, strip.y, strip.w, strip.h);
     }
 
     applyAutohideHandle(handle) {
         if (!handle) {
-            this._autohideHandle.set_size(0, 0);
-            try { this._autohideHandle.remove_clip(); } catch { }
+            if (this._autohideHandle.width !== 0 || this._autohideHandle.height !== 0)
+                this._autohideHandle.set_size(0, 0);
+            if (this._handleClipCache !== null) {
+                try { this._autohideHandle.remove_clip(); } catch { }
+                this._handleClipCache = null;
+            }
             return;
         }
-        this._autohideHandle.set_position(handle.x, handle.y);
-        this._autohideHandle.set_size(handle.w, handle.h);
+        this._applyRect(this._autohideHandle, handle.x, handle.y, handle.w, handle.h);
         const clip = handle.clip;
+        const clipKey = clip ? `${clip.x}:${clip.y}:${clip.w}:${clip.h}` : '';
+        if (clipKey === this._handleClipCache) return;
         if (clip)
             this._autohideHandle.set_clip(clip.x, clip.y, clip.w, clip.h);
         else
             this._autohideHandle.remove_clip();
+        this._handleClipCache = clipKey;
     }
 
     setAutohideHandleVisible(visible, animate = true) {
@@ -200,16 +218,19 @@ export class DockChrome {
     }
 
     applyEdgeZone(edgeZone) {
-        this._edgeZone.set_position(edgeZone.x, edgeZone.y);
-        this._edgeZone.set_size(edgeZone.w, edgeZone.h);
+        this._applyRect(this._edgeZone, edgeZone.x, edgeZone.y, edgeZone.w, edgeZone.h);
     }
 
     hideEdgeZone() {
-        this._edgeZone.set_size(0, 0);
+        if (this._edgeZone.width !== 0 || this._edgeZone.height !== 0)
+            this._edgeZone.set_size(0, 0);
     }
 
     applyMagZoneConst() {
-        this._magZone.set_size(0, 0);
+        // The animation engine owns this actor while magnification is active,
+        // so compare its live size instead of keeping a separate stale cache.
+        if (this._magZone.width !== 0 || this._magZone.height !== 0)
+            this._magZone.set_size(0, 0);
     }
 
     // ── Dash management ─────────────────────────────────────────────────────
@@ -292,5 +313,6 @@ export class DockChrome {
         }
         this._bg = null;
         this._handleVisible = false;
+        this._handleClipCache = null;
     }
 }

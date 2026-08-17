@@ -1,5 +1,13 @@
 # Changelog
 
+## 254
+
+- Make Reduce Motion apply every pointer and held-item target synchronously, and prevent stale preview generations or invalid external DnD sources from disrupting current UI state.
+- Release dodge-only window subscriptions when intellihide no longer needs them, retry transient Trash monitor and settings-read failures with bounded backoff, and use GIO's desktop Trash backend for consistent state and Empty Trash behavior.
+- Refresh and bound location metadata caches, include notification source identity in snapshot invalidation, and share stable application icons across dock instances to reduce redundant multi-monitor work.
+- Avoid unchanged dock-chrome geometry writes and compress separators/spacers only as a last-resort screen-fit measure for pathological custom layouts, preserving normal layout geometry and animation physics.
+- Add regression coverage for reduced-motion target frames, structure-heavy screen fitting, desktop Trash URI ownership, and enforce metadata/changelog version synchronization in validation.
+
 ## 253
 
 - Harden dock rebuilds, DnD hand-offs, preview refreshes, shared Trash/Downloads callbacks, and same-layout item reconciliation so transient failures cannot leave stale or partially updated runtime state.

@@ -65,6 +65,7 @@ export class AutohideManager {
         this._cancelDebounce();
         this._cancelFullscreenClear();
         this._clearWindowTransitions();
+        this._overlap.clear();
         this._timers.removeAll();
         this._hideId = 0;
         this._revealId = 0;
@@ -91,10 +92,15 @@ export class AutohideManager {
     onRelayout() {
         const geom = this._host.getGeom();
         if (!geom) return;
+        const cfg = this._host.getConfig();
+        // Dodge mode is the only policy that needs live window move/resize
+        // subscriptions. Release them immediately when another policy becomes
+        // active instead of retaining callbacks until the windows disappear.
+        if (cfg.autoHideMode !== 'dodge') this._overlap.clear();
         this._host.chrome.applyStrip(geom.strip);
         this._host.chrome.applyAutohideHandle(geom.autohideHandle);
         this._host.chrome.setAutohideHandleVisible(
-            this._vis.hidden && this._host.getConfig().showAutohideHandle &&
+            this._vis.hidden && cfg.showAutohideHandle &&
             !this._fullscreenBlocksDock(), false);
         if (this._vis.hidden) this._host.chrome.hideEdgeZone();
         else this._host.chrome.applyEdgeZone(geom.edgeZone);

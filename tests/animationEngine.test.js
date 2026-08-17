@@ -16,20 +16,30 @@ const scheduler = {
     destroy() { this.running = false; },
 };
 engine._scheduler = scheduler;
+engine._model = {};
+let snapFrames = 0;
+engine._frame = dt => {
+    assert(dt === 0, 'reduced-motion target frame must be synchronous');
+    snapFrames++;
+    return false;
+};
 
 try {
-    // AnimationEngine starts with an enabled cache. The direct settings path
-    // updates the process-wide override and then calls kick() without setModel().
-    // kick() must refresh that cache and stop immediately.
+    // With reduced motion enabled there is intentionally no running timeline.
+    // Every kick still has to apply one target frame so pointer/held-item changes
+    // cannot leave magnification frozen at an older state.
     setReduceMotionOverride(true);
+    engine.kick();
     engine.kick();
 
     assert(engine._animate === false,
-        'reduce-motion direct update did not refresh the animation mode');
-    assert(scheduler.stopped === 1,
-        'reduce-motion direct update did not stop the active frame scheduler');
+        'reduce-motion did not refresh the animation mode');
+    assert(scheduler.stopped === 2,
+        'each reduced-motion kick should keep the scheduler stopped');
     assert(scheduler.started === 0,
-        'reduce-motion direct update unexpectedly started the frame scheduler');
+        'reduce-motion unexpectedly started the frame scheduler');
+    assert(snapFrames === 2,
+        'reduced-motion did not apply a target frame for every kick');
 } finally {
     setReduceMotionOverride(false);
     engine.destroy();

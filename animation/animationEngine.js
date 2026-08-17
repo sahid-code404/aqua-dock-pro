@@ -127,19 +127,16 @@ export class AnimationEngine {
         if (!this._scheduler || this._suspended) return;
 
         // Reduced-motion can change through the direct settings path without a
-        // relayout. Refresh the cached mode here so that change takes effect on
-        // the very next requested frame rather than waiting for setModel().
-        const animate = animationsEnabled();
-        if (animate !== this._animate) {
-            this._animate = animate;
-            if (!animate) {
-                this._scheduler.stop();
-                if (this._model) this._frame(0); // snap to the current target
-                return;
-            }
+        // relayout. More importantly, while animations remain disabled every
+        // pointer/hold change still needs one synchronous target frame; there is
+        // deliberately no running timeline to apply that state for us.
+        this._animate = animationsEnabled();
+        if (!this._animate) {
+            this._scheduler.stop();
+            if (this._model) this._frame(0);
+            return;
         }
 
-        if (!this._animate && !this._scheduler.isRunning()) return;
         this._scheduler.start();
     }
 
@@ -307,6 +304,7 @@ export class AnimationEngine {
             return false;
         return true;
     }
+
     _applySpread(snap, total = null, maxScale = 1) {
         const chips = this._cachedChips;
         const vert = this._vert;

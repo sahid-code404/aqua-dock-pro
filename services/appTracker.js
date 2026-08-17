@@ -21,16 +21,37 @@ class AppStateHub {
         this._baseSignals = new SignalGroup();
         this._optionalSignals = new SignalGroup();
         this._windowSignals = new Map();
+        this._iconCache = new Map();
         this._optionalActive = false;
 
         this._baseSignals.connect(this._favorites, 'changed', () => this._emitAll());
-        this._baseSignals.connect(this._appSystem, 'installed-changed', () => this._emitAll());
+        this._baseSignals.connect(this._appSystem, 'installed-changed', () => {
+            // Desktop-file updates are the point at which an application's icon
+            // identity can legitimately change. Share stable icons across docks
+            // between those events instead of asking Shell for fresh GIcons on
+            // every multi-monitor entry rebuild.
+            this._iconCache.clear();
+            this._emitAll();
+        });
         this._baseSignals.connect(this._appSystem, 'app-state-changed', () => this._emitAll());
     }
 
     get favorites() { return this._favorites; }
     get appSystem() { return this._appSystem; }
     get empty() { return this._subscribers.size === 0; }
+
+    iconFor(app) {
+        const id = app?.get_id?.();
+        if (!id) {
+            try { return app?.get_icon?.() ?? null; }
+            catch { return null; }
+        }
+        if (this._iconCache.has(id)) return this._iconCache.get(id);
+        let icon = null;
+        try { icon = app.get_icon(); } catch { }
+        this._iconCache.set(id, icon);
+        return icon;
+    }
 
     subscribe(callback, config) {
         const record = {
@@ -160,6 +181,7 @@ class AppStateHub {
         this._baseSignals.disconnectAll();
         this._clearWindowSignals();
         this._subscribers.clear();
+        this._iconCache.clear();
         this._favorites = null;
         this._appSystem = null;
     }
@@ -237,6 +259,7 @@ export class AppTracker {
         const cfg = this._getConfig();
         const favs = this._favorites ?? AppFavorites.getAppFavorites();
         const appSystem = this._appSystem ?? Shell.AppSystem.get_default();
+        const iconFor = app => this._stateHub?.iconFor(app) ?? app.get_icon();
         const favsList = favs.getFavorites();
         const favIds = new Set();
         for (const app of favsList) favIds.add(app.get_id());
@@ -260,7 +283,7 @@ export class AppTracker {
             key: `app:${app.get_id()}`,
             kind: 'app',
             app,
-            gicon: app.get_icon(),
+            gicon: iconFor(app),
         }));
 
         if (cfg.showApps) {
@@ -273,7 +296,7 @@ export class AppTracker {
             entries.push({ key: 'sep:running', kind: 'separator' });
 
         for (const app of runningExtra)
-            entries.push({ key: `app:${app.get_id()}`, kind: 'app', app, gicon: app.get_icon() });
+            entries.push({ key: `app:${app.get_id()}`, kind: 'app', app, gicon: iconFor(app) });
 
         const systemEntries = [];
         if (cfg.showDownloads) {

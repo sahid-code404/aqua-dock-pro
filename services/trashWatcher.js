@@ -6,6 +6,7 @@ import { TimeoutGroup, logError } from '../core/utils.js';
 import { trashDir, trashHasFiles } from './fileService.js';
 
 const DEBOUNCE_MS = 250;
+const WATCH_RETRY_MS = 5000;
 
 let sharedTrashState = null;
 
@@ -16,6 +17,7 @@ class TrashStateStore {
         this._monitor = null;
         this._monitorId = 0;
         this._debounceId = 0;
+        this._retryId = 0;
         this._query = null;
         this._initialized = false;
         this._hasFiles = false;
@@ -41,6 +43,12 @@ class TrashStateStore {
     }
 
     _start() {
+        if (this._monitor || this._callbacks.size === 0) return;
+        if (this._retryId) {
+            this._timers.remove(this._retryId);
+            this._retryId = 0;
+        }
+
         this._timers.addOnce(0, () => this._refresh());
 
         let monitor = null;
@@ -51,7 +59,16 @@ class TrashStateStore {
         } catch (error) {
             if (monitor) monitor.cancel();
             logError(error, 'trash monitor');
+            this._scheduleRetry();
         }
+    }
+
+    _scheduleRetry() {
+        if (this._retryId || this._callbacks.size === 0 || this._monitor) return;
+        this._retryId = this._timers.addOnce(WATCH_RETRY_MS, () => {
+            this._retryId = 0;
+            this._start();
+        });
     }
 
     _schedule() {
@@ -93,6 +110,10 @@ class TrashStateStore {
         if (this._debounceId) {
             this._timers.remove(this._debounceId);
             this._debounceId = 0;
+        }
+        if (this._retryId) {
+            this._timers.remove(this._retryId);
+            this._retryId = 0;
         }
         this._timers.removeAll();
 

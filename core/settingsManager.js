@@ -9,6 +9,8 @@ import {
 import { migrateSettings } from './settingsMigration.js';
 import { parseCustomItems } from '../services/customItems.js';
 
+const SETTINGS_RETRY_DELAYS_MS = [250, 500, 1000, 2000];
+
 // Pill thickness derived from icon size when auto mode is on: 25 px
 // of vertical breathing room around the icon, clamped to the schema's range.
 function autoPillThickness(iconSize) {
@@ -191,6 +193,7 @@ export class SettingsManager {
         this._pendingKeys = new Set();
         this._timers = new TimeoutGroup();
         this._flushId = 0;
+        this._retryCount = 0;
 
         this._changedId = settings.connect('changed', (_s, key) => this._onChanged(key));
     }
@@ -209,9 +212,14 @@ export class SettingsManager {
     _onChanged(key) {
         this._pendingKeys.add(key);
         if (STRUCTURAL_KEYS.has(key)) this._pendingStructural = true;
+        this._retryCount = 0;
 
+        this._scheduleFlush(SETTINGS_DEBOUNCE_MS);
+    }
+
+    _scheduleFlush(delay) {
         if (this._flushId) this._timers.remove(this._flushId);
-        this._flushId = this._timers.addOnce(SETTINGS_DEBOUNCE_MS, () => {
+        this._flushId = this._timers.addOnce(delay, () => {
             this._flushId = 0;
             this._flush();
         });
@@ -223,13 +231,19 @@ export class SettingsManager {
         let nextConfig;
         try { nextConfig = computeConfig(this._settings); }
         catch (e) {
-            // Keep the pending key set intact. A later valid settings change can
-            // retry the complete batch instead of silently losing the failed
-            // update and leaving runtime state stale.
+            // Preserve the failed batch and retry transient GSettings/read
+            // failures a few times with bounded backoff. Permanent failures do
+            // not create an endless timer/log loop; the next real settings
+            // change resets the retry budget and tries the complete batch again.
             logError(e, 'computeConfig');
+            if (this._retryCount < SETTINGS_RETRY_DELAYS_MS.length) {
+                const delay = SETTINGS_RETRY_DELAYS_MS[this._retryCount++];
+                this._scheduleFlush(delay);
+            }
             return;
         }
 
+        this._retryCount = 0;
         this._pendingStructural = false;
         this._pendingKeys.clear();
         this._config = nextConfig;
@@ -243,6 +257,7 @@ export class SettingsManager {
     destroy() {
         this._timers.removeAll();
         this._flushId = 0;
+        this._retryCount = 0;
         if (this._changedId && this._settings) {
             this._settings.disconnect(this._changedId);
             this._changedId = 0;

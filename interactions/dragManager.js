@@ -517,8 +517,15 @@ export class DragManager {
             return false;
         }
         const app = this._dragApp(source);
-        if (!app) return false;
+        if (!app) {
+            this.clearDrop();
+            return false;
+        }
         const id = app.get_id();
+        if (!id) {
+            this.clearDrop();
+            return false;
+        }
         const favs = this._favorites();
         const vert = cfg.vertical;
         const { appsChip, visibleChips } = movableChipsFor(

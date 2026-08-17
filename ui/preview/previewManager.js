@@ -94,9 +94,9 @@ export class PreviewManager {
     }
 
     _queueWindowRefresh(item, box, forceAll, page, focusPreview) {
-        // A new popup generation supersedes any refresh captured for an older
-        // box. Replace the pending idle instead of letting an old callback block
-        // the current popup from scheduling its own update.
+        // Signals from a box that is already fading out must never cancel a
+        // refresh owned by the current popup generation.
+        if (this._box !== box) return;
         this._cancelWindowRefresh();
         this._windowRefreshId = this._timers.addIdle(() => {
             this._windowRefreshId = 0;

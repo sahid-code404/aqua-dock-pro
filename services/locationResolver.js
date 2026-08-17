@@ -3,7 +3,7 @@
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 
-import { TimeoutGroup, logError } from '../core/utils.js';
+import { TimeoutGroup, logError, sameIcon } from '../core/utils.js';
 
 const ATTRIBUTES = [
     Gio.FILE_ATTRIBUTE_STANDARD_DISPLAY_NAME,
@@ -12,6 +12,8 @@ const ATTRIBUTES = [
     'metadata::custom-icon-name',
 ].join(',');
 const FAILURE_RETRY_US = 15 * GLib.USEC_PER_SEC;
+const SUCCESS_REFRESH_US = 60 * GLib.USEC_PER_SEC;
+const MAX_CACHE_ENTRIES = 64;
 
 function customIcon(info) {
     const value = info.get_attribute_string('metadata::custom-icon')?.trim();
@@ -27,11 +29,16 @@ function customIcon(info) {
     return iconName ? Gio.ThemedIcon.new(iconName) : null;
 }
 
+function sameResolved(a, b) {
+    return Boolean(a && b && a.name === b.name && sameIcon(a.gicon, b.gicon));
+}
+
 export class LocationResolver {
     constructor(onChanged = null) {
         this._listeners = new Set();
         if (onChanged) this._listeners.add(onChanged);
         this._cache = new Map();
+        this._resolvedAt = new Map();
         this._pending = new Map();
         this._failedAt = new Map();
         this._timers = new TimeoutGroup();
@@ -52,7 +59,12 @@ export class LocationResolver {
 
     resolve(uri, fallbackName, fallbackIcon) {
         const cached = this._cache.get(uri);
-        if (cached) return cached;
+        if (cached) {
+            const resolvedAt = this._resolvedAt.get(uri) ?? 0;
+            if (GLib.get_monotonic_time() - resolvedAt >= SUCCESS_REFRESH_US)
+                this._query(uri, fallbackName, fallbackIcon);
+            return cached;
+        }
         this._query(uri, fallbackName, fallbackIcon);
         return { name: fallbackName, gicon: fallbackIcon };
     }
@@ -96,12 +108,25 @@ export class LocationResolver {
                         name: info.get_display_name() || fallbackName,
                         gicon: customIcon(info) || info.get_icon() || fallbackIcon,
                     };
+                    const previous = this._cache.get(uri);
+                    this._cache.delete(uri);
                     this._cache.set(uri, next);
-                    this._queueChanged();
+                    this._resolvedAt.set(uri, GLib.get_monotonic_time());
+                    this._trimCache();
+                    if (!sameResolved(previous, next)) this._queueChanged();
                 });
         } catch {
             this._pending.delete(uri);
             this._failedAt.set(uri, GLib.get_monotonic_time());
+        }
+    }
+
+    _trimCache() {
+        while (this._cache.size > MAX_CACHE_ENTRIES) {
+            const oldest = this._cache.keys().next().value;
+            this._cache.delete(oldest);
+            this._resolvedAt.delete(oldest);
+            this._failedAt.delete(oldest);
         }
     }
 
@@ -124,6 +149,7 @@ export class LocationResolver {
         this._timers.removeAll();
         this._notifyId = 0;
         this._cache.clear();
+        this._resolvedAt.clear();
         this._failedAt.clear();
         this._listeners.clear();
     }
