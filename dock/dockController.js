@@ -6,6 +6,15 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import { SignalGroup, TimeoutGroup, appWindowsForConfig, logError, log } from '../core/utils.js';
 import {
+    AUTOHIDE_KEYS,
+    GEOMETRY_KEYS,
+    ITEM_REFRESH_KEYS,
+    SETTING_CONFIG_PROPERTIES,
+    STYLE_KEYS,
+    TOOLTIP_KEYS,
+    hasKnownDirectSettingImpact,
+} from '../core/constants.js';
+import {
     currentNotificationMap,
     notificationSignalsReliable,
     subscribeNotificationChanges,
@@ -506,16 +515,58 @@ export class DockController {
         this._autohide?.onRelayout();
     }
 
-    // In-place refresh for non-structural settings changes.
-    applySettings() {
+    // Route non-structural settings to the smallest proven-safe update path.
+    applySettings(keys = null) {
         const next = this._settings.config;
         if (next.layoutLocked && !this._cfg.layoutLocked)
             this._drag?.cancelLayoutChanges();
-        this.relayout();
-        this._syncNotificationSubscription();
-        this._refreshItems();
-        this._tooltip?.style();
-        if (this._manageDash) this._chrome.enforceDashGap(this._cfg);
+
+        const changed = keys instanceof Set ? keys : new Set(keys ?? []);
+        const direct = changed.size > 0 && [...changed].every(key =>
+            !GEOMETRY_KEYS.has(key) && hasKnownDirectSettingImpact(key));
+
+        if (!direct) {
+            this.relayout();
+            this._syncNotificationSubscription();
+            this._refreshItems();
+            this._tooltip?.style();
+            if (this._manageDash) this._chrome.enforceDashGap(this._cfg);
+            return;
+        }
+
+        // Mutate only non-geometry properties on the current monitor-adjusted
+        // config. DockItem and animation model references already point at this
+        // same object, so they see the new behavior without losing shrink state.
+        for (const key of changed) {
+            for (const property of SETTING_CONFIG_PROPERTIES[key] ?? [])
+                this._cfg[property] = next[property];
+        }
+
+        let styleChanged = false;
+        let autohideChanged = false;
+        let tooltipChanged = false;
+        let itemsChanged = false;
+        for (const key of changed) {
+            styleChanged ||= STYLE_KEYS.has(key);
+            autohideChanged ||= AUTOHIDE_KEYS.has(key);
+            tooltipChanged ||= TOOLTIP_KEYS.has(key);
+            itemsChanged ||= ITEM_REFRESH_KEYS.has(key);
+        }
+
+        if (styleChanged)
+            this._chrome.applyPillStyle(pillStyle(this._cfg));
+        if (autohideChanged)
+            this._autohide?.onRelayout();
+        if (changed.has('show-badges'))
+            this._syncNotificationSubscription();
+        if (itemsChanged)
+            this._refreshItems(changed.has('show-badges'));
+        if (tooltipChanged)
+            this._tooltip?.style();
+        if (changed.has('enable-genie-effect') && this._cfg.enableGenieEffect)
+            this._genie?.updateAllIconGeometry();
+        if (changed.has('reduce-motion'))
+            this._engine?.kick();
     }
 
     // ── Pointer ─────────────────────────────────────────────────────────────

@@ -2,7 +2,18 @@ import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 
 import { SettingsManager } from '../core/settingsManager.js';
-import { DOCK_NOOP_KEYS, STRUCTURAL_KEYS } from '../core/constants.js';
+import {
+    AUTOHIDE_KEYS,
+    DOCK_NOOP_KEYS,
+    GEOMETRY_KEYS,
+    ITEM_REFRESH_KEYS,
+    PASSIVE_CONFIG_KEYS,
+    SETTING_CONFIG_PROPERTIES,
+    STRUCTURAL_KEYS,
+    STYLE_KEYS,
+    TOOLTIP_KEYS,
+    hasKnownDirectSettingImpact,
+} from '../core/constants.js';
 import { animationsEnabled, setReduceMotionOverride } from '../core/utils.js';
 
 function assert(condition, message) {
@@ -46,6 +57,34 @@ assert(!STRUCTURAL_KEYS.has('auto-hide-mode'),
 assert(DOCK_NOOP_KEYS.has('focus-dock-shortcut') &&
     DOCK_NOOP_KEYS.has('settings-version'),
     'non-visual settings must not trigger dock-wide relayout work');
+
+const impactGroups = [
+    DOCK_NOOP_KEYS,
+    STRUCTURAL_KEYS,
+    GEOMETRY_KEYS,
+    STYLE_KEYS,
+    AUTOHIDE_KEYS,
+    TOOLTIP_KEYS,
+    ITEM_REFRESH_KEYS,
+    PASSIVE_CONFIG_KEYS,
+];
+for (const key of schema.list_keys()) {
+    const groups = impactGroups.filter(group => group.has(key));
+    assert(groups.length === 1,
+        `setting ${key} must belong to exactly one impact group (found ${groups.length})`);
+    if (hasKnownDirectSettingImpact(key))
+        assert(Array.isArray(SETTING_CONFIG_PROPERTIES[key]) &&
+            SETTING_CONFIG_PROPERTIES[key].length > 0,
+        `direct setting ${key} is missing runtime config mapping`);
+}
+assert(GEOMETRY_KEYS.has('icon-size') && STYLE_KEYS.has('background-opacity') &&
+    AUTOHIDE_KEYS.has('hide-delay') && TOOLTIP_KEYS.has('tooltip-delay') &&
+    ITEM_REFRESH_KEYS.has('show-badges') && PASSIVE_CONFIG_KEYS.has('preview-delay'),
+    'representative settings impact classifications changed');
+assert(!hasKnownDirectSettingImpact('icon-size') &&
+    hasKnownDirectSettingImpact('background-opacity') &&
+    hasKnownDirectSettingImpact('left-click-action'),
+    'direct settings routing boundary changed');
 
 for (const key of schema.list_keys())
     assert(settings.get_user_value(key) === null, `construction wrote setting ${key}`);

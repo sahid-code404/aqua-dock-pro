@@ -153,7 +153,7 @@ export class ExtensionManager {
             return;
         }
         try {
-            for (const dock of this._docks) dock.applySettings();
+            for (const dock of this._docks) dock.applySettings(keys);
         } catch (e) {
             logError(e, 'applySettings → rebuilding');
             this._rebuildDocks();

@@ -1,5 +1,11 @@
 # Changelog
 
+## 252
+
+- Classify every GSettings key by structural, geometry, style, autohide, tooltip, item-refresh, passive, or internal impact so non-structural updates can take the smallest safe path.
+- Skip full dock relayout, animation-model rebuild, Genie geometry refresh, and unrelated subsystem work for pure style, tooltip, badge/indicator, autohide, and passive behavior/popup settings; geometry and unknown changes retain the previous full apply path.
+- Add schema-wide regression coverage requiring every settings key to belong to exactly one impact group and every direct-update key to declare its runtime config mapping.
+
 ## 251
 
 - Move mounted-device enumeration and mount metadata normalization into one shared VolumeMonitor-backed store so multi-monitor docks no longer repeat `get_mounts()` and Gio mount inspection for the same system event.
