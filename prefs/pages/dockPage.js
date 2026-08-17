@@ -25,7 +25,7 @@ export function buildDockPage(window, s) {
     layout.add(spinRow(s, 'dock-scale', _('Overall scale'),
         _('Scales icons, padding and pill together'), 0.5, 2.0, 0.05, 2));
     layout.add(spinRow(s, 'icon-size', _('Icon size'),
-        _('Resting icon size in pixels'), 24, 128, 2, 0));
+        _('Resting icon size in pixels'), 26, 128, 2, 0));
     layout.add(spinRow(s, 'icon-spacing', _('Icon spacing'),
         _('Gap between neighbouring dock icons in pixels'), 0, 48, 1, 0));
     layout.add(spinRow(s, 'edge-margin', _('Edge gap'),
