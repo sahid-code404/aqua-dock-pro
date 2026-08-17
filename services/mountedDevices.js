@@ -55,7 +55,7 @@ function logActionError(action, error) {
 
 const busyMounts = new WeakSet();
 const activeOperations = new Set();
-const monitorHubs = new Map();
+const monitorStores = new Map();
 
 function operationCancelled(cancellable, error) {
     if (cancellable?.is_cancelled()) return true;
@@ -100,73 +100,6 @@ function mountAction(mount, candidates, action, onDone) {
         }
     }
     return null;
-}
-
-class VolumeMonitorHub {
-    constructor(monitor) {
-        this._monitor = monitor;
-        this._callbacks = new Set();
-        this._signalIds = [];
-    }
-
-    get empty() { return this._callbacks.size === 0; }
-
-    subscribe(callback) {
-        this._callbacks.add(callback);
-        if (this._callbacks.size === 1) this._connect();
-
-        let live = true;
-        return () => {
-            if (!live) return;
-            live = false;
-            this._callbacks.delete(callback);
-            if (this._callbacks.size === 0) this._disconnect();
-        };
-    }
-
-    _connect() {
-        const changed = () => {
-            for (const callback of [...this._callbacks])
-                callback();
-        };
-        for (const signal of [
-            'mount-added',
-            'mount-removed',
-            'mount-changed',
-            'volume-changed',
-            'drive-changed',
-        ]) {
-            const id = safely(() => this._monitor.connect(signal, changed), 0);
-            if (id) this._signalIds.push(id);
-        }
-    }
-
-    _disconnect() {
-        for (const id of this._signalIds)
-            safely(() => this._monitor.disconnect(id));
-        this._signalIds = [];
-    }
-
-    destroy() {
-        this._disconnect();
-        this._callbacks.clear();
-        this._monitor = null;
-    }
-}
-
-function acquireMonitorHub(monitor) {
-    let hub = monitorHubs.get(monitor);
-    if (!hub) {
-        hub = new VolumeMonitorHub(monitor);
-        monitorHubs.set(monitor, hub);
-    }
-    return hub;
-}
-
-function releaseMonitorHub(monitor, hub) {
-    if (!hub.empty || monitorHubs.get(monitor) !== hub) return;
-    hub.destroy();
-    monitorHubs.delete(monitor);
 }
 
 export function cancelMountedDeviceOperations() {
@@ -290,21 +223,27 @@ function compareEntries(a, b) {
     return aKey < bKey ? -1 : aKey > bKey ? 1 : 0;
 }
 
-export function buildMountedDeviceEntries(mounts, config = null) {
+function normalizeMountedDeviceEntries(mounts) {
+    const entries = [];
+    for (const mount of mounts ?? []) {
+        const entry = mountedDeviceEntry(mount);
+        if (entry) entries.push(entry);
+    }
+    entries.sort(compareEntries);
+    return entries;
+}
+
+export function filterMountedDeviceEntries(normalized, config = null) {
     const hidden = config?.hiddenMountedDevices;
     const hiddenIds = hidden instanceof Set
         ? hidden
         : new Set(Array.isArray(hidden) ? hidden : []);
     const entries = [];
 
-    for (const mount of mounts ?? []) {
-        const entry = mountedDeviceEntry(mount);
-        if (!entry || !groupEnabled(entry.group, config) || hiddenIds.has(entry.deviceId))
-            continue;
-        entries.push(entry);
+    for (const raw of normalized ?? []) {
+        if (!groupEnabled(raw.group, config) || hiddenIds.has(raw.deviceId)) continue;
+        entries.push({ ...raw });
     }
-
-    entries.sort(compareEntries);
 
     const totals = new Map();
     for (const entry of entries)
@@ -318,6 +257,10 @@ export function buildMountedDeviceEntries(mounts, config = null) {
     }
 
     return entries;
+}
+
+export function buildMountedDeviceEntries(mounts, config = null) {
+    return filterMountedDeviceEntries(normalizeMountedDeviceEntries(mounts), config);
 }
 
 export function listMountedDevices(monitor, config = null) {
@@ -351,30 +294,47 @@ export function reconcileMountedDeviceEntries(previous, next) {
     });
 }
 
-export class MountedDevices {
-    constructor(getConfig, monitor = null) {
-        this._getConfig = getConfig;
-        this._monitor = monitor ?? Gio.VolumeMonitor.get();
-        this._entries = listMountedDevices(this._monitor, this._getConfig?.());
-        this._fingerprint = entriesFingerprint(this._entries);
+class MountedDeviceStore {
+    constructor(monitor) {
+        this._monitor = monitor;
+        this._callbacks = new Set();
+        this._signalIds = [];
         this._timers = new TimeoutGroup();
         this._refreshId = 0;
-        this._onChanged = null;
-        this._hub = null;
-        this._unsubscribe = null;
+        this._entries = this._readEntries();
     }
 
-    get entries() {
-        return this._entries;
+    get empty() { return this._callbacks.size === 0; }
+    get entries() { return this._entries; }
+
+    subscribe(callback) {
+        this._callbacks.add(callback);
+        if (this._callbacks.size === 1) {
+            this._connect();
+            this._refresh();
+        }
+
+        let live = true;
+        return () => {
+            if (!live) return;
+            live = false;
+            this._callbacks.delete(callback);
+            if (this._callbacks.size === 0) this._disconnect();
+        };
     }
 
-    start(onChanged) {
-        this._onChanged = onChanged;
-        if (this._unsubscribe || !this._monitor) return;
-
-        this._hub = acquireMonitorHub(this._monitor);
-        this._unsubscribe = this._hub.subscribe(() => this._queueRefresh());
-        this._refresh();
+    _connect() {
+        const changed = () => this._queueRefresh();
+        for (const signal of [
+            'mount-added',
+            'mount-removed',
+            'mount-changed',
+            'volume-changed',
+            'drive-changed',
+        ]) {
+            const id = safely(() => this._monitor.connect(signal, changed), 0);
+            if (id) this._signalIds.push(id);
+        }
     }
 
     _queueRefresh() {
@@ -386,10 +346,75 @@ export class MountedDevices {
         });
     }
 
+    _readEntries() {
+        const mounts = safely(() => this._monitor?.get_mounts(), []);
+        return normalizeMountedDeviceEntries(mounts);
+    }
+
     _refresh() {
         if (!this._monitor) return;
+        this._entries = this._readEntries();
+        for (const callback of [...this._callbacks])
+            callback(this._entries);
+    }
 
-        const entries = listMountedDevices(this._monitor, this._getConfig?.());
+    _disconnect() {
+        this._timers.removeAll();
+        this._refreshId = 0;
+        for (const id of this._signalIds)
+            safely(() => this._monitor.disconnect(id));
+        this._signalIds = [];
+    }
+
+    destroy() {
+        this._disconnect();
+        this._callbacks.clear();
+        this._entries = [];
+        this._monitor = null;
+    }
+}
+
+function acquireMountedDeviceStore(monitor) {
+    let store = monitorStores.get(monitor);
+    if (!store) {
+        store = new MountedDeviceStore(monitor);
+        monitorStores.set(monitor, store);
+    }
+    return store;
+}
+
+function releaseMountedDeviceStore(monitor, store) {
+    if (!store.empty || monitorStores.get(monitor) !== store) return;
+    store.destroy();
+    monitorStores.delete(monitor);
+}
+
+export class MountedDevices {
+    constructor(getConfig, monitor = null) {
+        this._getConfig = getConfig;
+        this._monitor = monitor ?? Gio.VolumeMonitor.get();
+        this._store = this._monitor ? acquireMountedDeviceStore(this._monitor) : null;
+        this._entries = filterMountedDeviceEntries(
+            this._store?.entries ?? [], this._getConfig?.());
+        this._fingerprint = entriesFingerprint(this._entries);
+        this._onChanged = null;
+        this._unsubscribe = null;
+    }
+
+    get entries() {
+        return this._entries;
+    }
+
+    start(onChanged) {
+        this._onChanged = onChanged;
+        if (this._unsubscribe || !this._store) return;
+
+        this._unsubscribe = this._store.subscribe(entries => this._refresh(entries));
+        this._refresh(this._store.entries);
+    }
+
+    _refresh(normalized) {
+        const entries = filterMountedDeviceEntries(normalized, this._getConfig?.());
         const fingerprint = entriesFingerprint(entries);
         this._entries = reconcileMountedDeviceEntries(this._entries, entries);
         if (fingerprint === this._fingerprint) return;
@@ -403,16 +428,13 @@ export class MountedDevices {
     }
 
     destroy() {
-        this._timers.removeAll();
-        this._refreshId = 0;
-
         if (this._unsubscribe) {
             this._unsubscribe();
             this._unsubscribe = null;
         }
-        if (this._hub && this._monitor) {
-            releaseMonitorHub(this._monitor, this._hub);
-            this._hub = null;
+        if (this._store && this._monitor) {
+            releaseMountedDeviceStore(this._monitor, this._store);
+            this._store = null;
         }
 
         this._entries = [];

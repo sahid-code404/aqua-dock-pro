@@ -1,5 +1,11 @@
 # Changelog
 
+## 251
+
+- Move mounted-device enumeration and mount metadata normalization into one shared VolumeMonitor-backed store so multi-monitor docks no longer repeat `get_mounts()` and Gio mount inspection for the same system event.
+- Coalesce bursts of mount/volume/drive signals once in the shared store while keeping per-dock visibility filters, stable entry objects, and current mount handles intact.
+- Add regression coverage for per-dock device filtering, hidden-device handling, duplicate stable IDs, and presentation-object isolation.
+
 ## 250
 
 - Centralize GNOME MessageTray and notification-source signal ownership so multi-monitor docks share one set of notification listeners instead of wiring the same global sources once per dock.
