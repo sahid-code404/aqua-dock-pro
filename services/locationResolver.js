@@ -3,7 +3,7 @@
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 
-import { TimeoutGroup } from '../core/utils.js';
+import { TimeoutGroup, logError } from '../core/utils.js';
 
 const ATTRIBUTES = [
     Gio.FILE_ATTRIBUTE_STANDARD_DISPLAY_NAME,
@@ -109,8 +109,10 @@ export class LocationResolver {
         if (this._notifyId) return;
         this._notifyId = this._timers.addIdle(() => {
             this._notifyId = 0;
-            for (const listener of [...this._listeners])
-                listener();
+            for (const listener of [...this._listeners]) {
+                try { listener(); }
+                catch (error) { logError(error, 'LocationResolver listener'); }
+            }
             return GLib.SOURCE_REMOVE;
         });
     }

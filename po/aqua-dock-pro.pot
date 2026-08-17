@@ -22,20 +22,20 @@ msgstr ""
 msgid "Applications"
 msgstr ""
 
-#: dock/dockItem.js:145 downloads/downloadManager.js:119
+#: dock/dockItem.js:145 downloads/downloadManager.js:121
 #: downloads/downloadsStack.js:29 downloads/panelView.js:150
-#: prefs/pages/downloadsPage.js:9 services/appTracker.js:275
+#: prefs/pages/downloadsPage.js:9 services/appTracker.js:280
 msgid "Downloads"
 msgstr ""
 
-#: dock/dockItem.js:146 downloads/downloadManager.js:122
+#: dock/dockItem.js:146 downloads/downloadManager.js:124
 #: menus/menuActions.js:33 prefs/pages/downloadsPage.js:30
-#: services/appTracker.js:285
+#: services/appTracker.js:290
 msgid "Folder"
 msgstr ""
 
-#: dock/dockItem.js:147 menus/menuActions.js:37 services/appTracker.js:353
-#: services/appTracker.js:354
+#: dock/dockItem.js:147 menus/menuActions.js:37 services/appTracker.js:358
+#: services/appTracker.js:359
 msgid "Location"
 msgstr ""
 
@@ -211,7 +211,7 @@ msgid "All items in Trash will be permanently deleted."
 msgstr ""
 
 #: menus/menuManager.js:143 prefs/pages/aboutPage.js:71
-#: prefs/widgets/customItems.js:79
+#: prefs/widgets/customItems.js:84
 msgid "Cancel"
 msgstr ""
 
@@ -1426,231 +1426,231 @@ msgid ""
 "Right-click a preview for activation, workspace, monitor, and close actions"
 msgstr ""
 
-#: prefs/supportTools.js:11
+#: prefs/supportTools.js:12
 msgid "OK"
 msgstr ""
 
-#: prefs/supportTools.js:36
+#: prefs/supportTools.js:37
 msgid "Export AquaDockPro settings"
 msgstr ""
 
-#: prefs/supportTools.js:43 prefs/supportTools.js:59
+#: prefs/supportTools.js:46 prefs/supportTools.js:65
 msgid "Please choose a local file."
 msgstr ""
 
-#: prefs/supportTools.js:46
+#: prefs/supportTools.js:49
 msgid "Settings exported"
 msgstr ""
 
-#: prefs/supportTools.js:48
+#: prefs/supportTools.js:52
 msgid "Export failed"
 msgstr ""
 
-#: prefs/supportTools.js:54
+#: prefs/supportTools.js:58
 msgid "Import AquaDockPro settings"
 msgstr ""
 
-#: prefs/supportTools.js:61
+#: prefs/supportTools.js:67
 msgid "The selected file could not be read."
 msgstr ""
 
-#: prefs/supportTools.js:64
+#: prefs/supportTools.js:70
 msgid "This is not an AquaDockPro settings backup."
 msgstr ""
 
-#: prefs/supportTools.js:72
+#: prefs/supportTools.js:78
 #, javascript-format
 msgid "Setting “%s” has the wrong type."
 msgstr ""
 
-#: prefs/supportTools.js:83
+#: prefs/supportTools.js:89
 #, javascript-format
 msgid "Setting “%s” could not be restored."
 msgstr ""
 
-#: prefs/supportTools.js:92
+#: prefs/supportTools.js:98
 msgid "Settings imported"
 msgstr ""
 
-#: prefs/supportTools.js:93
+#: prefs/supportTools.js:99
 #, javascript-format
 msgid "%d setting was restored."
 msgid_plural "%d settings were restored."
 msgstr[0] ""
 msgstr[1] ""
 
-#: prefs/supportTools.js:96
+#: prefs/supportTools.js:103
 msgid "Import failed"
 msgstr ""
 
-#: prefs/supportTools.js:114
+#: prefs/supportTools.js:121
 msgid "Diagnostics copied"
 msgstr ""
 
-#: prefs/supportTools.js:115
+#: prefs/supportTools.js:122
 msgid "The report is ready to paste into a support request."
 msgstr ""
 
-#: prefs/widgets/rows.js:142
+#: prefs/widgets/rows.js:143
 msgid "Choose an image (PNG, JPEG, SVG…)"
 msgstr ""
 
-#: prefs/widgets/rows.js:146
+#: prefs/widgets/rows.js:147
 msgid "Choose an application icon"
 msgstr ""
 
-#: prefs/widgets/rows.js:147
+#: prefs/widgets/rows.js:148
 msgid "Images"
 msgstr ""
 
-#: prefs/widgets/rows.js:165
+#: prefs/widgets/rows.js:168
 msgid "Use the default icon"
 msgstr ""
 
-#: prefs/widgets/rows.js:177 prefs/widgets/rows.js:182
+#: prefs/widgets/rows.js:180 prefs/widgets/rows.js:185
 msgid "No folder selected"
 msgstr ""
 
-#: prefs/widgets/rows.js:186
+#: prefs/widgets/rows.js:189
 msgid "Choose"
 msgstr ""
 
-#: prefs/widgets/rows.js:188
+#: prefs/widgets/rows.js:191
 msgid "Choose a folder stack"
 msgstr ""
 
-#: prefs/widgets/customItems.js:11
+#: prefs/widgets/customItems.js:12
 msgid "Folder stack"
 msgstr ""
 
-#: prefs/widgets/customItems.js:12
+#: prefs/widgets/customItems.js:13
 msgid "File"
 msgstr ""
 
-#: prefs/widgets/customItems.js:13
+#: prefs/widgets/customItems.js:14
 msgid "Web link"
 msgstr ""
 
-#: prefs/widgets/customItems.js:14
+#: prefs/widgets/customItems.js:15
 msgid "Separator"
 msgstr ""
 
-#: prefs/widgets/customItems.js:15
+#: prefs/widgets/customItems.js:16
 msgid "Spacer"
 msgstr ""
 
-#: prefs/widgets/customItems.js:48
+#: prefs/widgets/customItems.js:49
 msgid "Add dock locations"
 msgstr ""
 
-#: prefs/widgets/customItems.js:49
+#: prefs/widgets/customItems.js:50
 msgid ""
 "Folders open as stacks; files and links open in their default application"
 msgstr ""
 
-#: prefs/widgets/customItems.js:51
+#: prefs/widgets/customItems.js:52
 msgid "Add folder"
 msgstr ""
 
-#: prefs/widgets/customItems.js:52
+#: prefs/widgets/customItems.js:53
 msgid "Add a folder stack"
 msgstr ""
 
-#: prefs/widgets/customItems.js:60
+#: prefs/widgets/customItems.js:63
 msgid "Add file"
 msgstr ""
 
-#: prefs/widgets/customItems.js:61
+#: prefs/widgets/customItems.js:64
 msgid "Add a file"
 msgstr ""
 
-#: prefs/widgets/customItems.js:69
+#: prefs/widgets/customItems.js:74
 msgid "Add web link"
 msgstr ""
 
-#: prefs/widgets/customItems.js:71
+#: prefs/widgets/customItems.js:76
 msgid "Add a web link"
 msgstr ""
 
-#: prefs/widgets/customItems.js:72
+#: prefs/widgets/customItems.js:77
 #, javascript-format
 msgid "Enter a complete address such as %s"
 msgstr ""
 
-#: prefs/widgets/customItems.js:80
+#: prefs/widgets/customItems.js:85
 msgid "Add"
 msgstr ""
 
-#: prefs/widgets/customItems.js:96
+#: prefs/widgets/customItems.js:101
 msgid "Add layout item"
 msgstr ""
 
-#: prefs/widgets/customItems.js:97
+#: prefs/widgets/customItems.js:102
 msgid "Separators draw a line; spacers add a small empty gap"
 msgstr ""
 
-#: prefs/widgets/customItems.js:99
+#: prefs/widgets/customItems.js:104
 msgid "Add separator"
 msgstr ""
 
-#: prefs/widgets/customItems.js:101
+#: prefs/widgets/customItems.js:106
 msgid "Add spacer"
 msgstr ""
 
-#: prefs/widgets/customItems.js:115
+#: prefs/widgets/customItems.js:120
 msgid "Dock item"
 msgstr ""
 
-#: prefs/widgets/customItems.js:119
+#: prefs/widgets/customItems.js:124
 msgid "Move up"
 msgstr ""
 
-#: prefs/widgets/customItems.js:127
+#: prefs/widgets/customItems.js:132
 msgid "Move down"
 msgstr ""
 
-#: prefs/widgets/customItems.js:135
+#: prefs/widgets/customItems.js:140
 msgid "Remove"
 msgstr ""
 
-#: ui/preview/previewManager.js:168
+#: ui/preview/previewManager.js:188
 #, javascript-format
 msgid "Close %s"
 msgstr ""
 
-#: ui/preview/previewManager.js:206
+#: ui/preview/previewManager.js:227
 #, javascript-format
 msgid "+%d more window"
 msgid_plural "+%d more windows"
 msgstr[0] ""
 msgstr[1] ""
 
-#: ui/preview/previewManager.js:223
+#: ui/preview/previewManager.js:244
 msgid "Previous window page"
 msgstr ""
 
-#: ui/preview/previewManager.js:232
+#: ui/preview/previewManager.js:253
 #, javascript-format
 msgid "Page %d of %d"
 msgstr ""
 
-#: ui/preview/previewManager.js:243
+#: ui/preview/previewManager.js:264
 msgid "Next window page"
 msgstr ""
 
-#: ui/preview/previewManager.js:342
+#: ui/preview/previewManager.js:363
 msgid "Activate"
 msgstr ""
 
-#: ui/preview/previewManager.js:351
+#: ui/preview/previewManager.js:372
 msgid "Move to Current Workspace"
 msgstr ""
 
-#: ui/preview/previewManager.js:366
+#: ui/preview/previewManager.js:387
 #, javascript-format
 msgid "Move to Monitor %d"
 msgstr ""
 
-#: ui/preview/previewManager.js:372
+#: ui/preview/previewManager.js:393
 msgid "Close Window"
 msgstr ""

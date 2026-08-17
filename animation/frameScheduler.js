@@ -5,8 +5,8 @@ import Clutter from 'gi://Clutter';
 
 import { logError } from '../core/utils.js';
 
-// Long enough to never naturally complete during a session; we drive by delta
-// and stop on settle, so the absolute duration is irrelevant beyond "huge".
+// The timeline repeats indefinitely while work exists; the scheduler explicitly
+// stops it as soon as the animation engine settles.
 const TIMELINE_DURATION_MS = 3600 * 1000;
 
 export class FrameScheduler {
@@ -27,6 +27,7 @@ export class FrameScheduler {
         this._timeline = new Clutter.Timeline({
             actor: this._actor,
             duration: TIMELINE_DURATION_MS,
+            repeat_count: -1,
         });
         this._frameId = this._timeline.connect('new-frame', () => {
             // Frame-clock delta in ms; clamp pathological gaps (resume/stall).

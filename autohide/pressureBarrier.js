@@ -69,19 +69,24 @@ export class PressureBarrier {
         try { p = global.get_pointer(); } catch { return; }
 
         const side = cfg.position;
+        const monR = mon.x + mon.width;
+        const monB = mon.y + mon.height;
         let edgeHit = false;
         if (side === 'left' || side === 'right') {
             // Vertical dock: lateral drift is on Y axis.
             const ddy = this._last ? (p[1] - this._last[1]) : 0;
             const dy = ddy * ddy;
+            const withinY = p[1] >= mon.y && p[1] < monB;
             edgeHit = side === 'left'
-                ? dy < LATERAL_AREA && p[0] < mon.x + EDGE_PX
-                : dy < LATERAL_AREA && p[0] > mon.x + mon.width - EDGE_PX;
+                ? withinY && dy < LATERAL_AREA && p[0] >= mon.x && p[0] < mon.x + EDGE_PX
+                : withinY && dy < LATERAL_AREA && p[0] >= monR - EDGE_PX && p[0] < monR;
         } else {
             // Bottom dock: lateral drift is on X axis.
             const ddx = this._last ? (p[0] - this._last[0]) : 0;
             const dx = ddx * ddx;
-            edgeHit = dx < LATERAL_AREA && p[1] >= mon.y + mon.height - EDGE_PX;
+            const withinX = p[0] >= mon.x && p[0] < monR;
+            edgeHit = withinX && dx < LATERAL_AREA &&
+                p[1] >= monB - EDGE_PX && p[1] < monB;
         }
 
         this._last = p;

@@ -90,8 +90,15 @@ async function deleteChildren(dir, cancellable, result) {
     }
     for (;;) {
         let infos;
-        try { infos = await en.next_files_async(32, GLib.PRIORITY_DEFAULT, cancellable); }
-        catch { break; }
+        try {
+            infos = await en.next_files_async(32, GLib.PRIORITY_DEFAULT, cancellable);
+        } catch (error) {
+            if (!cancellable.is_cancelled()) {
+                result.failed++;
+                logError(error, 'emptyTrash enumerate');
+            }
+            break;
+        }
         if (!infos.length) break;
         for (const info of infos) {
             if (cancellable.is_cancelled()) break;

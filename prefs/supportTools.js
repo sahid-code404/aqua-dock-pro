@@ -5,6 +5,7 @@ import GLib from 'gi://GLib';
 import Gtk from 'gi://Gtk';
 
 import { _, format, ngettext } from '../core/i18n.js';
+import { beginDialog, endDialog } from './dialogLifecycle.js';
 
 function showMessage(window, heading, body) {
     const dialog = new Adw.MessageDialog({ transient_for: window, modal: true, heading, body });
@@ -36,7 +37,9 @@ export function exportSettings(window, settings, metadata) {
         title: _('Export AquaDockPro settings'),
         initial_name: `aqua-dock-pro-v${metadata.version}-settings.json`,
     });
-    dialog.save(window, null, (source, result) => {
+    const cancellable = beginDialog(window);
+    dialog.save(window, cancellable, (source, result) => {
+        endDialog(window, cancellable);
         try {
             const file = source.save_finish(result);
             const path = file?.get_path();
@@ -45,14 +48,17 @@ export function exportSettings(window, settings, metadata) {
             GLib.file_set_contents(path, text);
             showMessage(window, _('Settings exported'), path);
         } catch (e) {
-            if (!String(e).includes('Dismissed')) showMessage(window, _('Export failed'), e.message);
+            if (!cancellable.is_cancelled() && !String(e).includes('Dismissed'))
+                showMessage(window, _('Export failed'), e.message);
         }
     });
 }
 
 export function importSettings(window, settings, metadata) {
     const dialog = new Gtk.FileDialog({ title: _('Import AquaDockPro settings') });
-    dialog.open(window, null, (source, result) => {
+    const cancellable = beginDialog(window);
+    dialog.open(window, cancellable, (source, result) => {
+        endDialog(window, cancellable);
         try {
             const file = source.open_finish(result);
             const path = file?.get_path();
@@ -93,7 +99,8 @@ export function importSettings(window, settings, metadata) {
                 format(ngettext('%d setting was restored.', '%d settings were restored.',
                     parsed.length), parsed.length));
         } catch (e) {
-            if (!String(e).includes('Dismissed')) showMessage(window, _('Import failed'), e.message);
+            if (!cancellable.is_cancelled() && !String(e).includes('Dismissed'))
+                showMessage(window, _('Import failed'), e.message);
         }
     });
 }

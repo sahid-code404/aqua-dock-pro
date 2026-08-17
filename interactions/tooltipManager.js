@@ -32,6 +32,10 @@ export class TooltipManager {
 
     style() {
         const cfg = this._getConfig();
+        if (!cfg.showTooltip) {
+            this.hide();
+            return;
+        }
         const radius = cfg.tooltipRadius ?? 9;
         const bg = cfg.highContrast ? 'rgba(0,0,0,0.98)'
             : (cfg.tooltipBg || 'rgba(32,32,36,0.92)');
@@ -49,6 +53,7 @@ export class TooltipManager {
     }
 
     scheduleShow(item, geom) {
+        if (!this._getConfig().showTooltip) { this.hide(); return; }
         if (!item) { this.hide(); return; }
         if (this._shown) { this.show(item, geom); return; }
 
@@ -64,13 +69,14 @@ export class TooltipManager {
             const nextGeom = this._pendingGeom;
             this._pendingItem = null;
             this._pendingGeom = null;
-            if (nextItem && (!this._getHoverItem || this._getHoverItem() === nextItem))
+            if (nextItem && this._getConfig().showTooltip &&
+                (!this._getHoverItem || this._getHoverItem() === nextItem))
                 this.show(nextItem, nextGeom);
         });
     }
 
     show(item, geom) {
-        if (!item) return;
+        if (!item || !this._getConfig().showTooltip) return;
         this._label.text = item.label();
         this._w = null;
         this._label.opacity = 255;

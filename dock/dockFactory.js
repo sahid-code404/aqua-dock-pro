@@ -53,8 +53,12 @@ export class DockFactory {
         const nextItems = [];
         const nextChips = [];
         const createdActors = [];
+        const reused = [];
 
         try {
+            // Build the replacement structure first. Existing DockItems are not
+            // mutated until every new actor has been created successfully, so a
+            // constructor/factory failure cannot leave the old layout half-new.
             for (const entry of entries) {
                 if (entry.kind === 'separator' || entry.kind === 'spacer') {
                     const sep = new St.Widget({
@@ -69,9 +73,12 @@ export class DockFactory {
                 let item = oldByKey.get(entry.key);
                 if (item) {
                     oldByKey.delete(entry.key);
-                    item.entry = entry;
-                    if (!sameIcon(item.gicon, entry.gicon)) item.setGicon(entry.gicon);
-                    item.refresh();
+                    reused.push({
+                        item,
+                        entry,
+                        previousEntry: item.entry,
+                        previousGicon: item.gicon,
+                    });
                 } else {
                     item = new DockItem(entry, cfg);
                     createdActors.push(item);
@@ -80,6 +87,28 @@ export class DockFactory {
                 }
                 nextItems.push(item);
                 nextChips.push({ entry, actor: item, item, w: cfg.cellW });
+            }
+
+            // Commit metadata/icon refreshes only after construction succeeded.
+            // If a reused item refresh throws, restore every reused item before
+            // returning control to the still-valid old chip structure.
+            try {
+                for (const record of reused) {
+                    const { item, entry } = record;
+                    item.entry = entry;
+                    if (!sameIcon(item.gicon, entry.gicon)) item.setGicon(entry.gicon);
+                    item.refresh();
+                }
+            } catch (error) {
+                for (let i = reused.length - 1; i >= 0; i--) {
+                    const { item, previousEntry, previousGicon } = reused[i];
+                    try {
+                        item.entry = previousEntry;
+                        if (!sameIcon(item.gicon, previousGicon)) item.setGicon(previousGicon);
+                        item.refresh();
+                    } catch { }
+                }
+                throw error;
             }
         } catch (error) {
             for (let i = createdActors.length - 1; i >= 0; i--) {

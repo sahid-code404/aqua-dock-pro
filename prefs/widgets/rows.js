@@ -6,6 +6,7 @@ import Gio from 'gi://Gio';
 import Gtk from 'gi://Gtk';
 
 import { _ } from '../../core/i18n.js';
+import { beginDialog, endDialog } from '../dialogLifecycle.js';
 
 // Integer or fractional spinner. `digits` 0 → whole numbers (px/ms); ≥1 →
 // fractional control for continuous values (factors, opacity, damping…).
@@ -151,11 +152,13 @@ export function iconChooserRow(window, s, key, title) {
         filters.append(filter);
         dialog.set_filters(filters);
         dialog.set_default_filter(filter);
-        dialog.open(window, null, (d, res) => {
+        const cancellable = beginDialog(window);
+        dialog.open(window, cancellable, (d, res) => {
+            endDialog(window, cancellable);
             try {
                 const file = d.open_finish(res);
                 if (file) s.set_string(key, file.get_path());
-            } catch { /* dismissed */ }
+            } catch { /* dismissed or cancelled */ }
         });
     });
     row.add_suffix(browse);
@@ -186,11 +189,13 @@ export function folderChooserRow(window, s, key, title, subtitle) {
     const choose = new Gtk.Button({ label: _('Choose'), valign: Gtk.Align.CENTER });
     choose.connect('clicked', () => {
         const dialog = new Gtk.FileDialog({ title: _('Choose a folder stack'), modal: true });
-        dialog.select_folder(window, null, (source, result) => {
+        const cancellable = beginDialog(window);
+        dialog.select_folder(window, cancellable, (source, result) => {
+            endDialog(window, cancellable);
             try {
                 const folder = source.select_folder_finish(result);
                 if (folder) s.set_string(key, folder.get_uri());
-            } catch { /* dismissed */ }
+            } catch { /* dismissed or cancelled */ }
         });
     });
     row.add_suffix(choose);

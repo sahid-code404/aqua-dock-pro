@@ -4,7 +4,7 @@ import Gio from 'gi://Gio';
 import Shell from 'gi://Shell';
 import * as AppFavorites from 'resource:///org/gnome/shell/ui/appFavorites.js';
 
-import { SignalGroup, appWindowsForConfig } from '../core/utils.js';
+import { SignalGroup, appWindowsForConfig, logError } from '../core/utils.js';
 import { _ } from '../core/i18n.js';
 import { downloadsDir } from './fileService.js';
 import { LocationResolver } from './locationResolver.js';
@@ -128,26 +128,31 @@ class AppStateHub {
         this._windowSignals.clear();
     }
 
+    _notify(record, context) {
+        try { record.callback(); }
+        catch (error) { logError(error, `AppStateHub ${context}`); }
+    }
+
     _emitAll() {
         for (const record of [...this._subscribers])
-            record.callback();
+            this._notify(record, 'all');
     }
 
     _emitWorkspace() {
         for (const record of [...this._subscribers])
-            if (record.isolateWS) record.callback();
+            if (record.isolateWS) this._notify(record, 'workspace');
     }
 
     _emitMonitor(monitorIndex) {
         for (const record of [...this._subscribers])
             if (record.isolateMonitors && record.monitorIndex === monitorIndex)
-                record.callback();
+                this._notify(record, 'monitor');
     }
 
     _emitOptional() {
         for (const record of [...this._subscribers])
             if (record.isolateWS || record.isolateMonitors)
-                record.callback();
+                this._notify(record, 'window');
     }
 
     destroy() {

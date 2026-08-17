@@ -6,6 +6,7 @@ import Gtk from 'gi://Gtk';
 
 import { _, format } from '../../core/i18n.js';
 import { parseCustomItems, serializeCustomItems } from '../../services/customItems.js';
+import { beginDialog, endDialog } from '../dialogLifecycle.js';
 
 const TYPE_LABELS = {
     folder: _('Folder stack'),
@@ -50,7 +51,9 @@ export function buildCustomItemsEditor(window, settings, group) {
     });
     locationControls.add_suffix(button('folder-new-symbolic', _('Add folder'), () => {
         const dialog = new Gtk.FileDialog({ title: _('Add a folder stack'), modal: true });
-        dialog.select_folder(window, null, (source, result) => {
+        const cancellable = beginDialog(window);
+        dialog.select_folder(window, cancellable, (source, result) => {
+            endDialog(window, cancellable);
             try {
                 const file = source.select_folder_finish(result);
                 if (file) add({ type: 'folder', uri: file.get_uri(), name: file.get_basename() ?? '' });
@@ -59,7 +62,9 @@ export function buildCustomItemsEditor(window, settings, group) {
     }));
     locationControls.add_suffix(button('document-open-symbolic', _('Add file'), () => {
         const dialog = new Gtk.FileDialog({ title: _('Add a file'), modal: true });
-        dialog.open(window, null, (source, result) => {
+        const cancellable = beginDialog(window);
+        dialog.open(window, cancellable, (source, result) => {
+            endDialog(window, cancellable);
             try {
                 const file = source.open_finish(result);
                 if (file) add({ type: 'file', uri: file.get_uri(), name: file.get_basename() ?? '' });

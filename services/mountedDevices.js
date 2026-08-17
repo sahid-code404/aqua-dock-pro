@@ -284,6 +284,16 @@ function entriesFingerprint(entries) {
     ].join('\u0001')).join('\u0002');
 }
 
+function sameStoreEntries(previous, next, previousFingerprint, nextFingerprint) {
+    if (previousFingerprint !== nextFingerprint || previous.length !== next.length)
+        return false;
+    for (let i = 0; i < next.length; i++) {
+        if (previous[i].key !== next[i].key || previous[i].mount !== next[i].mount)
+            return false;
+    }
+    return true;
+}
+
 export function reconcileMountedDeviceEntries(previous, next) {
     const previousByKey = new Map(previous.map(entry => [entry.key, entry]));
     return next.map(entry => {
@@ -302,6 +312,7 @@ class MountedDeviceStore {
         this._timers = new TimeoutGroup();
         this._refreshId = 0;
         this._entries = this._readEntries();
+        this._fingerprint = entriesFingerprint(this._entries);
     }
 
     get empty() { return this._callbacks.size === 0; }
@@ -353,9 +364,17 @@ class MountedDeviceStore {
 
     _refresh() {
         if (!this._monitor) return;
-        this._entries = this._readEntries();
-        for (const callback of [...this._callbacks])
-            callback(this._entries);
+        const entries = this._readEntries();
+        const fingerprint = entriesFingerprint(entries);
+        if (sameStoreEntries(this._entries, entries, this._fingerprint, fingerprint))
+            return;
+
+        this._entries = entries;
+        this._fingerprint = fingerprint;
+        for (const callback of [...this._callbacks]) {
+            try { callback(this._entries); }
+            catch (error) { console.error(`AquaDockPro: [mounted device subscriber] ${error}`); }
+        }
     }
 
     _disconnect() {
@@ -370,6 +389,7 @@ class MountedDeviceStore {
         this._disconnect();
         this._callbacks.clear();
         this._entries = [];
+        this._fingerprint = '';
         this._monitor = null;
     }
 }
