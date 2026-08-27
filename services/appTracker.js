@@ -18,7 +18,6 @@ class AppStateHub {
         this._favorites = AppFavorites.getAppFavorites();
         this._appSystem = Shell.AppSystem.get_default();
         this._subscribers = new Set();
-        this._baseSignals = new SignalGroup();
         this._optionalSignals = new SignalGroup();
         this._windowSignals = new Map();
         this._iconCache = new Map();
@@ -26,16 +25,22 @@ class AppStateHub {
         this._optionalWorkspace = false;
         this._optionalMonitor = false;
 
-        this._baseSignals.connect(this._favorites, 'changed', () => this._emitAll());
-        this._baseSignals.connect(this._appSystem, 'installed-changed', () => {
-            // Desktop-file updates are the point at which an application's icon
-            // identity can legitimately change. Share stable icons across docks
-            // between those events instead of asking Shell for fresh GIcons on
-            // every multi-monitor entry rebuild.
-            this._iconCache.clear();
-            this._emitAll();
-        });
-        this._baseSignals.connect(this._appSystem, 'app-state-changed', () => this._emitAll());
+        // Use GNOME Shell's tracked signal ownership for long-lived global
+        // objects. This is equivalent to the previous SignalGroup ownership but
+        // is directly visible to EGO reviewers and Shexli cleanup analysis.
+        this._favorites.connectObject('changed', () => this._emitAll(), this);
+        this._appSystem.connectObject(
+            'installed-changed', () => {
+                // Desktop-file updates are the point at which an application's icon
+                // identity can legitimately change. Share stable icons across docks
+                // between those events instead of asking Shell for fresh GIcons on
+                // every multi-monitor entry rebuild.
+                this._iconCache.clear();
+                this._emitAll();
+            },
+            'app-state-changed', () => this._emitAll(),
+            this,
+        );
     }
 
     get favorites() { return this._favorites; }
@@ -207,7 +212,8 @@ class AppStateHub {
 
     destroy() {
         this._optionalSignals.disconnectAll();
-        this._baseSignals.disconnectAll();
+        try { this._favorites?.disconnectObject(this); } catch { }
+        try { this._appSystem?.disconnectObject(this); } catch { }
         this._clearWindowSignals();
         this._subscribers.clear();
         this._iconCache.clear();
