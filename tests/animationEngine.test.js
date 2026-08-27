@@ -17,17 +17,15 @@ const scheduler = {
 };
 engine._scheduler = scheduler;
 engine._model = {};
-let snapFrames = 0;
-engine._frame = dt => {
-    assert(dt === 0, 'reduced-motion target frame must be synchronous');
-    snapFrames++;
-    return false;
-};
+let restSnaps = 0;
+let targetFrames = 0;
+engine.snapToRest = () => { restSnaps++; };
+engine._frame = () => { targetFrames++; return false; };
 
 try {
-    // With reduced motion enabled there is intentionally no running timeline.
-    // Every kick still has to apply one target frame so pointer/held-item changes
-    // cannot leave magnification frozen at an older state.
+    // Reduce Motion is a hard no-motion state: kicks must stop the frame clock
+    // and flatten magnification synchronously rather than applying live pointer
+    // or held-item targets without spring interpolation.
     setReduceMotionOverride(true);
     engine.kick();
     engine.kick();
@@ -38,8 +36,10 @@ try {
         'each reduced-motion kick should keep the scheduler stopped');
     assert(scheduler.started === 0,
         'reduce-motion unexpectedly started the frame scheduler');
-    assert(snapFrames === 2,
-        'reduced-motion did not apply a target frame for every kick');
+    assert(restSnaps === 2,
+        'reduce-motion did not synchronously flatten magnification');
+    assert(targetFrames === 0,
+        'reduce-motion still evaluated a live magnification target frame');
 } finally {
     setReduceMotionOverride(false);
     engine.destroy();

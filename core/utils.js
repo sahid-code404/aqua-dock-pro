@@ -123,9 +123,22 @@ export function launchUri(uri) {
 // preference whenever an animation is about to start. The GSettings object is
 // cached, so this adds no per-frame setup or signal ownership.
 let reduceMotionOverride = false;
+const reduceMotionListeners = new Set();
+
+export function subscribeReduceMotionChanges(callback) {
+    if (typeof callback !== 'function') return () => {};
+    reduceMotionListeners.add(callback);
+    return () => reduceMotionListeners.delete(callback);
+}
 
 export function setReduceMotionOverride(enabled) {
-    reduceMotionOverride = enabled === true;
+    const next = enabled === true;
+    if (next === reduceMotionOverride) return;
+    reduceMotionOverride = next;
+    for (const callback of [...reduceMotionListeners]) {
+        try { callback(next); }
+        catch (e) { logError(e, 'reduce-motion listener'); }
+    }
 }
 
 export function animationsEnabled() {

@@ -1,5 +1,11 @@
 # Changelog
 
+## 258
+
+- Make Reduce Motion a hard no-motion mode: magnification, held-item zoom, spring integration, pill spreading, and magnification hit-zone expansion now stay at resting geometry instead of following live pointer targets without interpolation.
+- Route reorder, drag-to-open, drop-gap, flyer, badge, and icon-restore transitions through the same reduced-motion policy, and settle any already-running drag-owned transitions immediately when Reduce Motion is enabled.
+- Add regression coverage for hard magnification flattening and reduced-motion state-change notifications while preserving all existing animation curves and timings when Reduce Motion is disabled.
+
 ## 257
 
 - Keep runtime GSettings writes immediate across settings migrations by avoiding Gio.Settings.delay() on the long-lived SettingsManager object and advancing migration state only after each step succeeds.

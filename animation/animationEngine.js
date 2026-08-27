@@ -112,6 +112,14 @@ export class AnimationEngine {
         this._magZoneActive = false;
         this._animate = animationsEnabled();
 
+        // Reduced motion is a hard no-motion state. Never preserve a magnified
+        // model across relayouts; flatten it before anything can be painted.
+        if (!this._animate) {
+            this.snapToRest();
+            this._bgSnap = false;
+            return;
+        }
+
         // Apply the spread once now so a rebuild never shows a one-frame snap.
         this._applySpread(this._bgSnap);
         this._bgSnap = false;
@@ -126,14 +134,17 @@ export class AnimationEngine {
     kick() {
         if (!this._scheduler || this._suspended) return;
 
-        // Reduced-motion can change through the direct settings path without a
-        // relayout. More importantly, while animations remain disabled every
-        // pointer/hold change still needs one synchronous target frame; there is
-        // deliberately no running timeline to apply that state for us.
+        // Reduced Motion is deliberately not an alternate magnification mode.
+        // Stop the frame clock and pin every icon/pill transform to resting
+        // geometry synchronously instead of following pointer targets without
+        // spring interpolation.
         this._animate = animationsEnabled();
         if (!this._animate) {
             this._scheduler.stop();
-            if (this._model) this._frame(0);
+            if (this._model) {
+                this.snapToRest();
+                this._frameHook?.();
+            }
             return;
         }
 
@@ -151,14 +162,19 @@ export class AnimationEngine {
         if (b) this.stop();
     }
 
-    // Snap everything flat immediately (used at drop-to-pin start, where the
-    // drag then owns translations via its own eases).
+    // Snap everything flat immediately (used at drop-to-pin start and whenever
+    // Reduce Motion is enabled).
     snapToRest() {
         if (!this._model) return;
         const items = this._cachedItems;
         const chips = this._cachedChips;
         const prop = this._transProp;
-        for (const item of items) { item.vel = 0; item.scaleTarget = 1; item.scaleCurrent = 1; item.setScale(1); }
+        for (const item of items) {
+            item.vel = 0;
+            item.scaleTarget = 1;
+            item.scaleCurrent = 1;
+            item.setScale(1);
+        }
         for (const chip of chips) {
             try {
                 chip.actor.remove_transition(prop);
@@ -169,6 +185,11 @@ export class AnimationEngine {
         this._bgCurrentX = this._bgTargetX = this._bgBaseX;
         this._bgCurrentW = this._bgTargetW = this._bgBaseW;
         this._bgLastA = this._bgLastB = NaN;
+        const magZone = this._cachedMagZone;
+        if (magZone) {
+            try { magZone.set_size(0, 0); } catch { }
+            this._magZoneActive = false;
+        }
         this._applySpread(true);
     }
 
@@ -208,6 +229,11 @@ export class AnimationEngine {
 
     _frame(dt) {
         if (!this._model || this._suspended) return false;
+        if (!this._animate) {
+            this.snapToRest();
+            this._frameHook?.();
+            return false;
+        }
         this._lastDt = dt;
         const chips = this._cachedChips;
         const cfg = this._cachedCfg;
@@ -242,13 +268,10 @@ export class AnimationEngine {
         const m = cfg.mag;
         const inBand = haveLocal &&
             crossCoord >= geom.band.low && crossCoord <= geom.band.high;
-        let nSteps = 1, st = 1, dampPow = 1;
-        if (this._animate) {
-            const step = subSteps(dt, m.damping, this._stepScratch);
-            nSteps = step.nSteps;
-            st = step.st;
-            dampPow = step.dampPow;
-        }
+        const step = subSteps(dt, m.damping, this._stepScratch);
+        const nSteps = step.nSteps;
+        const st = step.st;
+        const dampPow = step.dampPow;
 
         const s = this._scratch;
         const zoomMax = this._zoomMax;
@@ -263,18 +286,14 @@ export class AnimationEngine {
                 continue;
             }
             let target = 1;
-            if (inBand) {
+            if (inBand)
                 target = gaussianTarget(Math.abs(magMain - chip.center), m);
-            }
             // Right-click menu holds its icon at peak zoom until the menu closes.
             if (item === this._heldItem) target = zoomMax;
             item.scaleTarget = target;
             if (item._landing) {
                 // The landing ease owns the actor transform, but DockItem records
                 // the latest target so it can hand off without a stale-scale jump.
-                item.vel = 0;
-                item.setScale(target);
-            } else if (!this._animate) {
                 item.vel = 0;
                 item.setScale(target);
             } else if (item.vel !== 0 || item.scaleCurrent !== target) {
@@ -292,10 +311,8 @@ export class AnimationEngine {
             if (scale > maxScale) maxScale = scale;
         }
 
-        this._applySpread(!this._animate, total, maxScale);
+        this._applySpread(false, total, maxScale);
         if (this._frameHook) this._frameHook();
-
-        if (!this._animate) return false;
 
         // Items settled check was done inline above; only pill spread remains.
         if (!anyUnsettled &&

@@ -8,7 +8,13 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as AppFavorites from 'resource:///org/gnome/shell/ui/appFavorites.js';
 import * as DND from 'resource:///org/gnome/shell/ui/dnd.js';
 
-import { logError, appWindowsForConfig, TimeoutGroup } from '../core/utils.js';
+import {
+    animationsEnabled,
+    appWindowsForConfig,
+    logError,
+    subscribeReduceMotionChanges,
+    TimeoutGroup,
+} from '../core/utils.js';
 import { _ } from '../core/i18n.js';
 import { dragSourceApp } from '../compat/shell.js';
 
@@ -57,6 +63,9 @@ export class DragManager {
         this._dropTimer = 0;
         this._flyers = new Set();
         this._appFavorites = null;
+        this._unsubscribeReduceMotion = subscribeReduceMotionChanges(enabled => {
+            if (enabled) this.settleMotion();
+        });
     }
 
     get reordering() { return !!this._reorder; }
@@ -66,6 +75,73 @@ export class DragManager {
         if (!this._dropTimer) return;
         this._timers.remove(this._dropTimer);
         this._dropTimer = 0;
+    }
+
+    // All drag-owned visual transitions pass through this gate. When reduced
+    // motion is active the semantic end state is applied synchronously and any
+    // completion cleanup still runs, but no Clutter transition is created.
+    _ease(actor, params) {
+        if (!actor) return;
+        if (animationsEnabled()) {
+            actor.ease(params);
+            return;
+        }
+
+        const { duration: _duration, mode: _mode, onComplete, ...target } = params;
+        try { actor.remove_all_transitions(); } catch { }
+        try {
+            for (const [property, value] of Object.entries(target))
+                actor[property] = value;
+        } catch { }
+        try { onComplete?.(); } catch { }
+    }
+
+    // Cancel/snap drag-owned transitions immediately when Reduce Motion is
+    // enabled while a drag or a just-finished drag animation is already active.
+    settleMotion() {
+        const r = this._reorder;
+        if (r) {
+            try {
+                r.flyer?.remove_all_transitions();
+                if (r.flyer) {
+                    r.flyer.opacity = 240;
+                    r.flyer.set_scale(1.1, 1.1);
+                }
+            } catch { }
+            try {
+                r.badge?.remove_all_transitions();
+                if (r.badge) {
+                    r.badge.opacity = 255;
+                    const scale = r.mode === 'open' ? 1.08 : 1;
+                    r.badge.set_scale(scale, scale);
+                }
+            } catch { }
+            if (r.canReorder) {
+                try { this._showReorderPreview(r, r.toIndex); } catch { }
+            }
+        }
+
+        if (this._externalDnD && this._dropGapPos >= 0) {
+            try { this._showDropGap(this._dropGapPos); } catch { }
+        }
+
+        // Exit flyers exist only to animate away after finish(); once motion is
+        // suppressed they have no remaining visual purpose.
+        const activeFlyer = r?.flyer ?? null;
+        for (const flyer of [...this._flyers]) {
+            if (flyer !== activeFlyer) this._destroyFlyer(flyer);
+        }
+
+        for (const chip of this._host?.getChips?.() ?? []) {
+            try { chip.actor?.remove_all_transitions(); } catch { }
+            const icon = chip.item?._icon;
+            if (!icon) continue;
+            try {
+                icon.remove_all_transitions();
+                // The dragged item's source actor stays hidden under its flyer.
+                if (chip.item !== r?.item) icon.opacity = 255;
+            } catch { }
+        }
     }
 
     // ── In-dock reorder ───────────────────────────────────────────────────────
@@ -114,7 +190,13 @@ export class DragManager {
         flyer.set_position(Math.round(iconX + (visual - size) / 2), Math.round(iconY + (visual - size) / 2));
         flyer.set_scale(liftScale, liftScale);
         flyer.opacity = 255;
-        flyer.ease({ opacity: 240, scale_x: 1.1, scale_y: 1.1, duration: 250, mode: Clutter.AnimationMode.EASE_OUT_QUAD });
+        this._ease(flyer, {
+            opacity: 240,
+            scale_x: 1.1,
+            scale_y: 1.1,
+            duration: 250,
+            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+        });
 
         // Floating context badge.
         const badge = new St.Label({ text: canReorder ? `↕  ${_('Move')}` : `↗  ${_('Open')}` });
@@ -126,7 +208,11 @@ export class DragManager {
         badge.opacity = 0;
         Main.uiGroup.add_child(badge);
         try { Main.uiGroup.set_child_above_sibling(badge, flyer); } catch { }
-        badge.ease({ opacity: 255, duration: 200, mode: Clutter.AnimationMode.EASE_OUT_QUAD });
+        this._ease(badge, {
+            opacity: 255,
+            duration: 200,
+            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+        });
 
         this._host.engine.setSuspended(true);
         this._host.engine.demagnify(220);
@@ -203,7 +289,7 @@ export class DragManager {
             try {
                 chip.spreadOffset = NaN;
                 chip.actor.remove_transition(prop);
-                chip.actor.ease({
+                this._ease(chip.actor, {
                     [prop]: shift,
                     duration: 180,
                     mode: Clutter.AnimationMode.EASE_OUT_QUAD,
@@ -248,8 +334,11 @@ export class DragManager {
         if (!insidePill) {
             // Animate flyer fade-out instead of instant destroy.
             try {
-                r.flyer.ease({
-                    opacity: 0, scale_x: 0.5, scale_y: 0.5, duration: 200,
+                this._ease(r.flyer, {
+                    opacity: 0,
+                    scale_x: 0.5,
+                    scale_y: 0.5,
+                    duration: 200,
                     mode: Clutter.AnimationMode.EASE_OUT_QUAD,
                     onComplete: () => this._destroyFlyer(r.flyer),
                 });
@@ -285,10 +374,13 @@ export class DragManager {
         const targetChip = r.movableChips[r.toIndex];
         if (targetChip && r.flyer) {
             const [tx, ty] = targetChip.actor.get_transformed_position();
-            r.flyer.ease({
+            this._ease(r.flyer, {
                 x: Math.round(tx + (targetChip.w - r.size) / 2),
                 y: Math.round(ty + (targetChip.actor.height - r.size) / 2),
-                scale_x: 1, scale_y: 1, opacity: 0, duration: 220,
+                scale_x: 1,
+                scale_y: 1,
+                opacity: 0,
+                duration: 220,
                 mode: Clutter.AnimationMode.EASE_OUT_CUBIC,
                 onComplete: () => this._destroyFlyer(r.flyer),
             });
@@ -337,10 +429,20 @@ export class DragManager {
         r.mode = mode;
         if (mode === 'open') {
             r.badge.text = `↗  ${_('Open')}`;
-            r.badge.ease({ scale_x: 1.08, scale_y: 1.08, duration: 180, mode: Clutter.AnimationMode.EASE_OUT_QUAD });
+            this._ease(r.badge, {
+                scale_x: 1.08,
+                scale_y: 1.08,
+                duration: 180,
+                mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+            });
         } else {
             r.badge.text = `↕  ${_('Move')}`;
-            r.badge.ease({ scale_x: 1.0, scale_y: 1.0, duration: 180, mode: Clutter.AnimationMode.EASE_OUT_QUAD });
+            this._ease(r.badge, {
+                scale_x: 1,
+                scale_y: 1,
+                duration: 180,
+                mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+            });
         }
         r.badgeW = this._badgeWidth(r.badge);
         r.badgeX = NaN;
@@ -437,9 +539,18 @@ export class DragManager {
         item._dragging = false;
         try { icon.remove_all_transitions(); } catch { }
         try { item.relayout(this._host.getConfig(), 0); } catch { }
-        if (!animate) { try { icon.opacity = 255; } catch { } return; }
-        try { icon.opacity = 0; icon.ease({ opacity: 255, duration: 200, mode: Clutter.AnimationMode.EASE_OUT_QUAD }); }
-        catch { try { icon.opacity = 255; } catch { } }
+        if (!animate || !animationsEnabled()) {
+            try { icon.opacity = 255; } catch { }
+            return;
+        }
+        try {
+            icon.opacity = 0;
+            this._ease(icon, {
+                opacity: 255,
+                duration: 200,
+                mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+            });
+        } catch { try { icon.opacity = 255; } catch { } }
     }
 
     _zeroTranslations() {
@@ -505,7 +616,11 @@ export class DragManager {
             try {
                 chip.spreadOffset = NaN;
                 chip.actor.remove_transition(prop);
-                chip.actor.ease({ [prop]: shift, duration: 180, mode: Clutter.AnimationMode.EASE_OUT_QUAD });
+                this._ease(chip.actor, {
+                    [prop]: shift,
+                    duration: 180,
+                    mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+                });
             } catch { }
         }
     }
@@ -607,6 +722,8 @@ export class DragManager {
     }
 
     destroy() {
+        this._unsubscribeReduceMotion?.();
+        this._unsubscribeReduceMotion = null;
         this.cancel();
         this._timers.removeAll();
         this._dragPollId = 0;

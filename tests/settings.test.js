@@ -14,7 +14,11 @@ import {
     TOOLTIP_KEYS,
     hasKnownDirectSettingImpact,
 } from '../core/constants.js';
-import { animationsEnabled, setReduceMotionOverride } from '../core/utils.js';
+import {
+    animationsEnabled,
+    setReduceMotionOverride,
+    subscribeReduceMotionChanges,
+} from '../core/utils.js';
 
 function assert(condition, message) {
     if (!condition) throw new Error(message);
@@ -138,8 +142,17 @@ customManager.destroy();
 settings.reset('show-custom-dock-items');
 settings.reset('custom-dock-items');
 
+const reduceMotionEvents = [];
+const unsubscribeReduceMotion = subscribeReduceMotionChanges(enabled => {
+    reduceMotionEvents.push(enabled);
+});
+setReduceMotionOverride(true);
 setReduceMotionOverride(true);
 assert(!animationsEnabled(), 'the explicit reduced-motion preference was ignored');
 setReduceMotionOverride(false);
+unsubscribeReduceMotion();
+assert(reduceMotionEvents.length === 2 &&
+    reduceMotionEvents[0] === true && reduceMotionEvents[1] === false,
+    'reduce-motion subscribers did not receive exactly one event per state change');
 
 print(`settings: ok (${schema.list_keys().length} keys)`);
