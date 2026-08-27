@@ -1,8 +1,7 @@
 // Mounted device discovery and dock entry representation via VolumeMonitor.
 
 import Gio from 'gi://Gio';
-
-import { TimeoutGroup } from '../core/utils.js';
+import GLib from 'gi://GLib';
 
 const DEVICE_SCHEMES = new Set(['afc', 'gphoto2', 'mtp']);
 const VIRTUAL_SCHEMES = new Set([
@@ -14,6 +13,36 @@ const VIRTUAL_SCHEMES = new Set([
     'starred',
     'trash',
 ]);
+
+// This service is shared by the Shell runtime and the preferences process. Keep
+// its idle-source ownership local instead of importing core/utils.js, which also
+// contains Shell/St-only helpers that must never be loaded by preferences.
+class IdleSourceGroup {
+    constructor() {
+        this._ids = new Set();
+    }
+
+    addIdle(callback) {
+        let id = 0;
+        id = GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
+            this._ids.delete(id);
+            try { callback(); }
+            catch (error) {
+                console.error(`AquaDockPro: [mounted device idle callback] ${error}`);
+            }
+            return GLib.SOURCE_REMOVE;
+        });
+        this._ids.add(id);
+        return id;
+    }
+
+    removeAll() {
+        for (const id of this._ids) {
+            try { GLib.source_remove(id); } catch { }
+        }
+        this._ids.clear();
+    }
+}
 
 function safely(read, fallback = null) {
     try {
@@ -313,7 +342,7 @@ class MountedDeviceStore {
         this._monitor = monitor;
         this._callbacks = new Set();
         this._signalIds = [];
-        this._timers = new TimeoutGroup();
+        this._timers = new IdleSourceGroup();
         this._refreshId = 0;
         this._entries = this._readEntries();
         this._fingerprint = entriesFingerprint(this._entries);
@@ -357,7 +386,6 @@ class MountedDeviceStore {
         this._refreshId = this._timers.addIdle(() => {
             this._refreshId = 0;
             this._refresh();
-            return false;
         });
     }
 
