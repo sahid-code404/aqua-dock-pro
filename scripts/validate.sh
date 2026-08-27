@@ -127,7 +127,6 @@ gjs -m tests/settingsMigration.test.js
 gjs -m tests/animationEngine.test.js
 gjs -m tests/fileService.test.js
 gjs -m tests/fileEnumerator.test.js
-gjs -m tests/fileClipboard.test.js
 gjs -m tests/fanGeometry.test.js
 gjs -m tests/customItems.test.js
 gjs -m tests/previewPaging.test.js

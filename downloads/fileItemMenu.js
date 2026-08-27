@@ -7,8 +7,6 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 
 import { _ } from '../core/i18n.js';
-import { logError } from '../core/utils.js';
-import { copyFileToClipboard } from './fileClipboard.js';
 
 export class FileItemMenu {
     constructor(mon, cfg) {
@@ -30,7 +28,7 @@ export class FileItemMenu {
     }
 
     attach(actor, file, activate, anchor = actor) {
-        actor._openFileMenu = () => this.openFor(anchor, file);
+        actor._openFileMenu = () => this.openFor(anchor, file, activate);
         actor.set_button_mask(St.ButtonMask.ONE | St.ButtonMask.THREE);
         actor.connect('clicked', (_actor, button) => {
             if (button === Clutter.BUTTON_SECONDARY) actor._openFileMenu();
@@ -38,7 +36,7 @@ export class FileItemMenu {
         });
     }
 
-    openFor(actor, file) {
+    openFor(actor, _file, activate) {
         if (!this._owner) return;
         this._destroyMenu();
 
@@ -47,16 +45,13 @@ export class FileItemMenu {
         try {
             menu.actor.add_style_class_name('aqua-menu');
             menu.actor.add_style_class_name('aqua-file-item-menu');
-            const copyItem = menu.addAction(_('Copy'), () => {
-                try { copyFileToClipboard(file); }
-                catch (error) { logError(error, 'copy folder stack item'); }
-            });
+            const openItem = menu.addAction(_('Open'), () => activate?.());
 
             if (!this._manager)
                 this._manager = new PopupMenu.PopupMenuManager(this._owner);
             this._manager.addMenu(menu);
             Main.uiGroup.add_child(menu.actor);
-            this._styleMenu(menu, copyItem);
+            this._styleMenu(menu, openItem);
             menu.actor.hide();
             menu.open();
         } catch (error) {
@@ -80,7 +75,7 @@ export class FileItemMenu {
         }
     }
 
-    _styleMenu(menu, copyItem) {
+    _styleMenu(menu, actionItem) {
         const radius = this._cfg.menuRadius ?? 12;
         const background = this._cfg.highContrast ? 'rgba(0,0,0,0.98)'
             : (this._cfg.menuBg || 'rgba(35,36,40,0.94)');
@@ -101,7 +96,7 @@ export class FileItemMenu {
         menu.box?.set_style(
             `background-color: ${background}; border-radius: ${radius}px; ` +
             `border: ${border}; min-width: 0; max-width: 220px; padding: 4px 0;`);
-        copyItem?.set_style('padding: 6px 10px; margin: 0 4px;');
+        actionItem?.set_style('padding: 6px 10px; margin: 0 4px;');
         const fontSize = (10.5 * (this._cfg.interfaceTextScale ?? 1)).toFixed(2);
         for (const item of menu.box?.get_children?.() ?? [])
             item.label?.set_style(`color: ${foreground}; font-size: ${fontSize}pt;`);
