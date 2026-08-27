@@ -53,7 +53,7 @@ jq -e '
     .uuid == "aqua-dock-pro@shaque" and
     .name == "AquaDockPro" and
     .url == "https://github.com/sahid-code404/aqua-dock-pro" and
-    ."shell-version" == ["50", "51.beta"] and
+    ."shell-version" == ["50"] and
     (."session-modes"? == null)
 ' "$metadata" >/dev/null || {
     printf 'Packaged metadata is not EGO-compatible.\n' >&2
