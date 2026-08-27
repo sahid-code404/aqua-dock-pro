@@ -1,5 +1,12 @@
 # Changelog
 
+## 260
+
+- Harden the EGO submission path around GNOME Shell 50 with a dedicated static compatibility audit, stricter package-content checks, and CI gates for runtime/prefs process separation, synchronous Shell I/O, deprecated GJS APIs, dynamic code, and lifecycle-hostile patterns.
+- Keep the mounted-device model usable from both Shell and Preferences without transitively importing Shell/St into the preferences process, while preserving the existing mounted-device filtering, actions, idle coalescing, and teardown behavior.
+- Modernize the remaining shared GI imports and make long-lived app-state signal ownership explicit so cleanup is directly reviewable without changing favorites, running-app, workspace, monitor, magnification, animation, or dock interaction behavior.
+- Advertise only the stable GNOME Shell 50 release to EGO; retain compatibility feature guards internally without claiming an unreleased Shell target.
+
 ## 259
 
 - Remove GNOME Shell runtime clipboard access from folder-stack context menus so `St.Clipboard.get_default()` is no longer shipped and the EGO-A-005 clipboard manual-review trigger is eliminated.
