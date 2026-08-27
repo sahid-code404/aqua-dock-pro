@@ -16,7 +16,10 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install validation dependencies
-        run: dnf install -y gjs glib2 gettext jq gnome-shell libadwaita unzip xorg-x11-server-Xvfb
+        run: dnf install -y gjs glib2 gettext jq gnome-shell libadwaita python3 unzip xorg-x11-server-Xvfb
+
+      - name: EGO compatibility audit
+        run: python3 scripts/ego-audit.py
 
       - name: Static and unit checks
         run: scripts/validate.sh
