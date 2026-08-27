@@ -25,22 +25,20 @@ class AppStateHub {
         this._optionalWorkspace = false;
         this._optionalMonitor = false;
 
-        // Use GNOME Shell's tracked signal ownership for long-lived global
-        // objects. This is equivalent to the previous SignalGroup ownership but
-        // is directly visible to EGO reviewers and Shexli cleanup analysis.
-        this._favorites.connectObject('changed', () => this._emitAll(), this);
-        this._appSystem.connectObject(
-            'installed-changed', () => {
-                // Desktop-file updates are the point at which an application's icon
-                // identity can legitimately change. Share stable icons across docks
-                // between those events instead of asking Shell for fresh GIcons on
-                // every multi-monitor entry rebuild.
-                this._iconCache.clear();
-                this._emitAll();
-            },
-            'app-state-changed', () => this._emitAll(),
-            this,
-        );
+        // Keep the long-lived global signal ids explicit. This works with the
+        // real Shell objects and the existing test doubles while making the
+        // matching teardown directly visible to EGO/Shexli reviewers.
+        this._favoriteChangedId = this._favorites.connect('changed', () => this._emitAll());
+        this._installedChangedId = this._appSystem.connect('installed-changed', () => {
+            // Desktop-file updates are the point at which an application's icon
+            // identity can legitimately change. Share stable icons across docks
+            // between those events instead of asking Shell for fresh GIcons on
+            // every multi-monitor entry rebuild.
+            this._iconCache.clear();
+            this._emitAll();
+        });
+        this._appStateChangedId = this._appSystem.connect(
+            'app-state-changed', () => this._emitAll());
     }
 
     get favorites() { return this._favorites; }
@@ -212,8 +210,18 @@ class AppStateHub {
 
     destroy() {
         this._optionalSignals.disconnectAll();
-        try { this._favorites?.disconnectObject(this); } catch { }
-        try { this._appSystem?.disconnectObject(this); } catch { }
+        if (this._favoriteChangedId) {
+            try { this._favorites?.disconnect(this._favoriteChangedId); } catch { }
+            this._favoriteChangedId = 0;
+        }
+        if (this._installedChangedId) {
+            try { this._appSystem?.disconnect(this._installedChangedId); } catch { }
+            this._installedChangedId = 0;
+        }
+        if (this._appStateChangedId) {
+            try { this._appSystem?.disconnect(this._appStateChangedId); } catch { }
+            this._appStateChangedId = 0;
+        }
         this._clearWindowSignals();
         this._subscribers.clear();
         this._iconCache.clear();
