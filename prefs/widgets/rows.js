@@ -202,6 +202,41 @@ export function folderChooserRow(window, s, key, title, subtitle) {
     return row;
 }
 
+function addExpanderIcon(row, iconName) {
+    if (!iconName) return;
+    const icon = new Gtk.Image({
+        icon_name: iconName,
+        pixel_size: 18,
+        valign: Gtk.Align.CENTER,
+    });
+    icon.add_css_class('dim-label');
+    row.add_prefix(icon);
+}
+
+// Adw.ExpanderRow keeps secondary/advanced settings one click away without
+// turning a PreferencesPage into a long wall of controls.
+export function expanderRow(title, subtitle, iconName = null, expanded = false) {
+    const row = new Adw.ExpanderRow({ title, subtitle, expanded });
+    addExpanderIcon(row, iconName);
+    return row;
+}
+
+// A compact feature card: its built-in switch is bound directly to the feature
+// setting, while child controls stay tucked away until the user opens the row.
+export function toggleExpander(s, key, title, subtitle, iconName = null, expanded = false) {
+    const enabled = s.get_boolean(key);
+    const row = new Adw.ExpanderRow({
+        title,
+        subtitle,
+        show_enable_switch: true,
+        enable_expansion: enabled,
+        expanded: enabled && expanded,
+    });
+    addExpanderIcon(row, iconName);
+    s.bind(key, row, 'enable-expansion', Gio.SettingsBindFlags.DEFAULT);
+    return row;
+}
+
 export function group(title, description) {
     return new Adw.PreferencesGroup({ title, description });
 }

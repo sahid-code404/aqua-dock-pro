@@ -7,7 +7,7 @@ import Gtk from 'gi://Gtk';
 
 import { buildMountedDeviceEntries } from '../../services/mountedDevices.js';
 import { _ } from '../../core/i18n.js';
-import { page, group, switchRow } from '../widgets/rows.js';
+import { page, group, switchRow, expanderRow } from '../widgets/rows.js';
 
 const DEVICE_TYPES = Object.freeze({
     removable: 'Removable device',
@@ -23,9 +23,9 @@ export function buildDevicesPage(window, s) {
         _('Choose which mounted storage appears beside Downloads.'));
     visibility.add(switchRow(s, 'show-mounted-devices', _('Show mounted devices'),
         _('Add mounted storage and network locations to the dock')));
-    p.add(visibility);
 
-    const types = group(_('Device types'), _('Control whole categories of mounted storage.'));
+    const types = expanderRow(_('Device types'),
+        _('Control whole categories of mounted storage.'), 'drive-removable-media-symbolic');
     const typeRows = [
         switchRow(s, 'show-removable-devices', _('Removable devices'),
             _('Show USB storage, memory cards and optical media')),
@@ -34,11 +34,13 @@ export function buildDevicesPage(window, s) {
         switchRow(s, 'show-fixed-devices', _('Fixed volumes'),
             _('Show mounted internal and permanently attached volumes')),
     ];
-    for (const row of typeRows) types.add(row);
-    p.add(types);
+    for (const row of typeRows) types.add_row(row);
+    visibility.add(types);
+    p.add(visibility);
 
     const syncTypeSensitivity = () => {
         const enabled = s.get_boolean('show-mounted-devices');
+        types.sensitive = enabled;
         for (const row of typeRows) row.sensitive = enabled;
     };
     syncTypeSensitivity();
