@@ -35,13 +35,29 @@ for entry in "${entries[@]}"; do
     esac
 
     case "$entry" in
-        tests/*|scripts/*|.github/*|.git/*|po/*|node_modules/*|\
-        *.po|*.pot|*.map|*.sh|*.py|package.json|package-lock.json|\
-        README.md|CHANGELOG.md|CONTRIBUTING.md|SUPPORT.md)
-            printf 'Development-only file leaked into package: %s\n' "$entry" >&2
+        tests/*|scripts/*|.github/*|.git/*|po/*|node_modules/*|__pycache__/*|\
+        *.po|*.pot|*.map|*.sh|*.py|*.pyc|*.so|*.dll|*.exe|\
+        package.json|package-lock.json|README.md|CHANGELOG.md|CONTRIBUTING.md|SUPPORT.md|\
+        schemas/gschemas.compiled)
+            printf 'Development-only or EGO-disallowed file leaked into package: %s\n' "$entry" >&2
             exit 1
             ;;
     esac
 done
+
+metadata=$(mktemp)
+trap 'rm -f "$metadata"' EXIT
+unzip -p "$bundle" metadata.json >"$metadata"
+
+jq -e '
+    .uuid == "aqua-dock-pro@shaque" and
+    .name == "AquaDockPro" and
+    .url == "https://github.com/sahid-code404/aqua-dock-pro" and
+    ."shell-version" == ["50", "51.beta"] and
+    (."session-modes"? == null)
+' "$metadata" >/dev/null || {
+    printf 'Packaged metadata is not EGO-compatible.\n' >&2
+    exit 1
+}
 
 printf 'Package audit passed (%d files).\n' "${#entries[@]}"
