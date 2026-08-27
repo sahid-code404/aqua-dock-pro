@@ -18,49 +18,49 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=INTEGER; plural=EXPRESSION;\n"
 
-#: dock/dockItem.js:144
+#: dock/dockItem.js:145
 msgid "Applications"
 msgstr ""
 
-#: dock/dockItem.js:145 downloads/downloadManager.js:121
+#: dock/dockItem.js:146 downloads/downloadManager.js:151
 #: downloads/downloadsStack.js:29 downloads/panelView.js:150
-#: prefs/pages/downloadsPage.js:9 services/appTracker.js:280
+#: prefs/pages/downloadsPage.js:9 services/appTracker.js:363
 msgid "Downloads"
 msgstr ""
 
-#: dock/dockItem.js:146 downloads/downloadManager.js:124
-#: menus/menuActions.js:33 prefs/pages/downloadsPage.js:30
-#: services/appTracker.js:290
+#: dock/dockItem.js:147 downloads/downloadManager.js:154
+#: menus/menuActions.js:40 prefs/pages/downloadsPage.js:30
+#: services/appTracker.js:373
 msgid "Folder"
 msgstr ""
 
-#: dock/dockItem.js:147 menus/menuActions.js:37 services/appTracker.js:358
-#: services/appTracker.js:359
+#: dock/dockItem.js:148 menus/menuActions.js:44 services/appTracker.js:441
+#: services/appTracker.js:442
 msgid "Location"
 msgstr ""
 
-#: dock/dockItem.js:148 menus/menuActions.js:41 menus/menuActions.js:44
-#: menus/menuActions.js:45 menus/menuActions.js:54 menus/menuActions.js:55
+#: dock/dockItem.js:149 menus/menuActions.js:48 menus/menuActions.js:51
+#: menus/menuActions.js:52 menus/menuActions.js:61 menus/menuActions.js:62
 #: prefs/pages/devicesPage.js:102
 msgid "Mounted device"
 msgstr ""
 
-#: dock/dockItem.js:149 prefs/pages/dockPage.js:71
+#: dock/dockItem.js:150 prefs/pages/dockPage.js:71
 msgid "Trash"
 msgstr ""
 
-#: dock/dockItem.js:374
+#: dock/dockItem.js:375
 #, javascript-format
 msgid "%d open window"
 msgid_plural "%d open windows"
 msgstr[0] ""
 msgstr[1] ""
 
-#: dock/dockItem.js:375
+#: dock/dockItem.js:376
 msgid "running"
 msgstr ""
 
-#: dock/dockItem.js:378
+#: dock/dockItem.js:379
 #, javascript-format
 msgid "%d notification"
 msgid_plural "%d notifications"
@@ -79,8 +79,9 @@ msgstr[1] ""
 msgid "%s is empty"
 msgstr ""
 
-#: downloads/fileItemMenu.js:50 prefs/pages/aboutPage.js:51
-msgid "Copy"
+#: downloads/fileItemMenu.js:48 interactions/dragManager.js:202
+#: interactions/dragManager.js:431
+msgid "Open"
 msgstr ""
 
 #: downloads/panelView.js:156
@@ -101,104 +102,100 @@ msgid_plural "+%d more items in Files"
 msgstr[0] ""
 msgstr[1] ""
 
-#: interactions/dragManager.js:110 interactions/dragManager.js:332
+#: interactions/dragManager.js:202 interactions/dragManager.js:439
 msgid "Move"
 msgstr ""
 
-#: interactions/dragManager.js:110 interactions/dragManager.js:329
-msgid "Open"
-msgstr ""
-
-#: menus/menuActions.js:25
+#: menus/menuActions.js:32
 msgid "Open Applications"
 msgstr ""
 
-#: menus/menuActions.js:30
+#: menus/menuActions.js:37
 msgid "Open Downloads"
 msgstr ""
 
-#: menus/menuActions.js:33 menus/menuActions.js:37 menus/menuActions.js:41
+#: menus/menuActions.js:40 menus/menuActions.js:44 menus/menuActions.js:48
 #, javascript-format
 msgid "Open %s"
 msgstr ""
 
-#: menus/menuActions.js:44
+#: menus/menuActions.js:51
 #, javascript-format
 msgid "Eject %s"
 msgstr ""
 
-#: menus/menuActions.js:47
+#: menus/menuActions.js:54
 #, javascript-format
 msgid "Could not eject %s"
 msgstr ""
 
-#: menus/menuActions.js:48
+#: menus/menuActions.js:55
 #, javascript-format
 msgid "%s ejected"
 msgstr ""
 
-#: menus/menuActions.js:50
+#: menus/menuActions.js:57
 #, javascript-format
 msgid "Could not start ejecting %s"
 msgstr ""
 
-#: menus/menuActions.js:51 menus/menuActions.js:61
+#: menus/menuActions.js:58 menus/menuActions.js:68
 msgid "Another device operation may already be running."
 msgstr ""
 
-#: menus/menuActions.js:54
+#: menus/menuActions.js:61
 #, javascript-format
 msgid "Unmount %s"
 msgstr ""
 
-#: menus/menuActions.js:57
+#: menus/menuActions.js:64
 #, javascript-format
 msgid "Could not unmount %s"
 msgstr ""
 
-#: menus/menuActions.js:58
+#: menus/menuActions.js:65
 #, javascript-format
 msgid "%s unmounted"
 msgstr ""
 
-#: menus/menuActions.js:60
+#: menus/menuActions.js:67
 #, javascript-format
 msgid "Could not start unmounting %s"
 msgstr ""
 
-#: menus/menuActions.js:66
+#: menus/menuActions.js:73
 msgid "Open Trash"
 msgstr ""
 
-#: menus/menuActions.js:67 menus/menuManager.js:148
+#: menus/menuActions.js:74 menus/menuManager.js:148
 msgid "Empty Trash"
 msgstr ""
 
-#: menus/menuActions.js:79
+#: menus/menuActions.js:86
 msgid "Unlock Layout"
 msgstr ""
 
-#: menus/menuActions.js:79
+#: menus/menuActions.js:86
 msgid "Lock Layout"
 msgstr ""
 
-#: menus/menuActions.js:91
+#: menus/menuActions.js:98
 msgid "New Window"
 msgstr ""
 
-#: menus/menuActions.js:110
+#: menus/menuActions.js:117
 msgid "Unpin from Dock"
 msgstr ""
 
-#: menus/menuActions.js:110
+#: menus/menuActions.js:117
 msgid "Pin to Dock"
 msgstr ""
 
-#: menus/menuActions.js:127
+#: menus/menuActions.js:135
 msgid "Window"
 msgstr ""
 
-#: menus/menuActions.js:136
+#: menus/menuActions.js:153
 msgid "Quit"
 msgstr ""
 
@@ -272,6 +269,10 @@ msgstr ""
 
 #: prefs/pages/aboutPage.js:49
 msgid "Copies versions and changed setting names, without private values"
+msgstr ""
+
+#: prefs/pages/aboutPage.js:51
+msgid "Copy"
 msgstr ""
 
 #: prefs/pages/aboutPage.js:58 prefs/pages/aboutPage.js:63
@@ -1613,44 +1614,44 @@ msgstr ""
 msgid "Remove"
 msgstr ""
 
-#: ui/preview/previewManager.js:188
+#: ui/preview/previewManager.js:205
 #, javascript-format
 msgid "Close %s"
 msgstr ""
 
-#: ui/preview/previewManager.js:227
+#: ui/preview/previewManager.js:249
 #, javascript-format
 msgid "+%d more window"
 msgid_plural "+%d more windows"
 msgstr[0] ""
 msgstr[1] ""
 
-#: ui/preview/previewManager.js:244
+#: ui/preview/previewManager.js:266
 msgid "Previous window page"
 msgstr ""
 
-#: ui/preview/previewManager.js:253
+#: ui/preview/previewManager.js:275
 #, javascript-format
 msgid "Page %d of %d"
 msgstr ""
 
-#: ui/preview/previewManager.js:264
+#: ui/preview/previewManager.js:286
 msgid "Next window page"
 msgstr ""
 
-#: ui/preview/previewManager.js:363
+#: ui/preview/previewManager.js:385
 msgid "Activate"
 msgstr ""
 
-#: ui/preview/previewManager.js:372
+#: ui/preview/previewManager.js:394
 msgid "Move to Current Workspace"
 msgstr ""
 
-#: ui/preview/previewManager.js:387
+#: ui/preview/previewManager.js:409
 #, javascript-format
 msgid "Move to Monitor %d"
 msgstr ""
 
-#: ui/preview/previewManager.js:393
+#: ui/preview/previewManager.js:415
 msgid "Close Window"
 msgstr ""
