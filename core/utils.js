@@ -2,27 +2,14 @@
 
 import GLib from 'gi://GLib';
 import Gio from 'gi://Gio';
+import Shell from 'gi://Shell';
+import St from 'gi://St';
 
 import { LOG_PREFIX } from './constants.js';
 
-let _Shell = null;
-function getShell() {
-    if (!_Shell) {
-        try { _Shell = imports.gi.Shell; } catch { _Shell = null; }
-    }
-    return _Shell;
-}
-
-let _St = null;
 let _stSettings = null;
-function getSt() {
-    if (!_St) {
-        try { _St = imports.gi.St; } catch { _St = null; }
-    }
-    return _St;
-}
-
 let _extensionSettings = null;
+
 function getExtensionSettings() {
     if (!_extensionSettings) {
         try {
@@ -75,7 +62,7 @@ export function sameIcon(a, b) {
 export function getFocusedAppSafe() {
     const win = global.display?.focus_window ?? null;
     if (!win) return null;
-    try { return getShell()?.WindowTracker.get_default().get_window_app(win) ?? null; }
+    try { return Shell.WindowTracker.get_default().get_window_app(win) ?? null; }
     catch { return null; }
 }
 
@@ -147,15 +134,12 @@ export function animationsEnabled() {
         const extensionSettings = getExtensionSettings();
         if (extensionSettings?.get_boolean('reduce-motion')) return false;
 
-        const StModule = getSt();
-        if (!StModule) return true;
-
-        const settings = _stSettings ??= StModule.Settings.get();
+        const settings = _stSettings ??= St.Settings.get();
         if (!settings.enable_animations) return false;
 
         // GNOME 51 adds a separate reduced-motion preference. Keep this
         // feature check so the same package continues to run on GNOME 50.
-        const reduce = StModule.ReducedMotion?.REDUCE;
+        const reduce = St.ReducedMotion?.REDUCE;
         return reduce === undefined || settings.reduced_motion !== reduce;
     }
     catch { return true; }
