@@ -1,5 +1,11 @@
 # Changelog
 
+## 261
+
+- Reorganize Preferences into a clearer task-oriented page order and move everyday controls ahead of fine-grained options, reducing scrolling and visual clutter without changing any GSettings key or runtime behavior.
+- Add reusable expandable Advanced groups for detailed dock, Downloads, and popup controls, while tightening labels and descriptions so the common path stays clean without removing configurability.
+- Give the Preferences window a roomier default layout for easier scanning, and preserve the v260 runtime/EGO hardening, v259 clipboard fix, and v258 Reduce Motion behavior unchanged.
+
 ## 260
 
 - Harden the EGO submission path around GNOME Shell 50 with a dedicated static compatibility audit, stricter package-content checks, and CI gates for runtime/prefs process separation, synchronous Shell I/O, deprecated GJS APIs, dynamic code, and lifecycle-hostile patterns.
