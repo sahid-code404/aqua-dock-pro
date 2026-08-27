@@ -11,7 +11,7 @@ glib-compile-schemas --strict --targetdir="$schema_dir" schemas
 jq -e '
     .uuid == "aqua-dock-pro@shaque" and
     (.version | type == "number") and
-    ."shell-version" == ["50", "51.beta"] and
+    ."shell-version" == ["50"] and
     (.description | contains("clipboard"))
 ' metadata.json >/dev/null
 
