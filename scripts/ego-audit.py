@@ -99,7 +99,7 @@ def main() -> int:
         errors.extend(f"EGO-P-007 unreachable packaged JavaScript: {path}" for path in unreachable)
 
     # GNOME 45+ extensions use ESM. Legacy imports invite reviewer rejection and
-    # are unnecessary for our GNOME 50 / 51.beta targets.
+    # are unnecessary for the stable GNOME 50 target.
     errors += fail_matches("legacy imports API", reachable, r"\bimports\.")
 
     # Shell-process and preferences-process libraries must stay separated.
@@ -145,10 +145,10 @@ def main() -> int:
 
     metadata = json.loads((ROOT / "metadata.json").read_text(encoding="utf-8"))
     shell_versions = metadata.get("shell-version")
-    if shell_versions != ["50", "51.beta"]:
+    if shell_versions != ["50"]:
         errors.append(
-            "metadata shell-version must stay at the tested stable/development pair "
-            "['50', '51.beta'] until a newer GNOME release is actually eligible"
+            "metadata shell-version must be ['50'] for this EGO submission; "
+            "do not advertise GNOME 51 until EGO accepts that release target"
         )
     if metadata.get("url") != "https://github.com/sahid-code404/aqua-dock-pro":
         errors.append("metadata url must point to the public source repository")
