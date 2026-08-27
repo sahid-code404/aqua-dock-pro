@@ -44,6 +44,9 @@ export function warnOnce(key, message) {
 
 export function clearRuntimeWarnings() {
     warned.clear();
+    reduceMotionListeners.clear();
+    _stSettings = null;
+    _extensionSettings = null;
 }
 
 // ── Pure helpers ───────────────────────────────────────────────────────────────
