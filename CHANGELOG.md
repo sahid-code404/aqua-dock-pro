@@ -1,5 +1,11 @@
 # Changelog
 
+## 259
+
+- Remove GNOME Shell runtime clipboard access from folder-stack context menus so `St.Clipboard.get_default()` is no longer shipped and the EGO-A-005 clipboard manual-review trigger is eliminated.
+- Keep right-click folder-stack interaction useful by replacing Copy with the existing Open action path, without adding subprocess, GTK, or portal clipboard workarounds.
+- Remove the obsolete clipboard helper/test and update the extension metadata disclosure; preserve the v258 hard Reduce Motion behavior unchanged.
+
 ## 258
 
 - Make Reduce Motion a hard no-motion mode: magnification, held-item zoom, spring integration, pill spreading, and magnification hit-zone expansion now stay at resting geometry instead of following live pointer targets without interpolation.
