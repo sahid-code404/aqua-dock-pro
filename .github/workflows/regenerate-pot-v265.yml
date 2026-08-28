@@ -1,0 +1,33 @@
+name: Regenerate POT v265
+
+on:
+  push:
+    branches:
+      - feature/file-copy-v265
+
+permissions:
+  contents: write
+
+jobs:
+  regenerate-pot:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install gettext
+        run: sudo apt-get update && sudo apt-get install -y gettext
+      - name: Regenerate translation template
+        run: po/update-pot.sh
+      - name: Commit regenerated POT
+        run: |
+          if git diff --quiet -- po/aqua-dock-pro.pot; then
+            echo "POT already current"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add po/aqua-dock-pro.pot
+          git commit -m "Regenerate translation template for v265"
+          git push
