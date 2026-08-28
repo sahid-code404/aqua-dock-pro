@@ -3,8 +3,8 @@
 
 This script analyzes only JavaScript that is shipped by scripts/package.sh.
 It is intentionally conservative: it fails on known EGO-invalid process-boundary
-imports and reviewer-hostile synchronous APIs while leaving asynchronous GIO
-operations and the preferences GTK clipboard path alone.
+imports and reviewer-hostile synchronous APIs while allowing the one declared,
+user-triggered folder-stack clipboard helper plus the preferences GTK clipboard path.
 """
 
 from __future__ import annotations
@@ -20,10 +20,12 @@ PACKAGE_DIRS = (
     "interactions", "menus", "prefs", "services", "ui",
 )
 ROOTS = (Path("extension.js"), Path("prefs.js"))
+CLIPBOARD_RUNTIME_ALLOWLIST = {Path("downloads/fileClipboard.js")}
 
 IMPORT_RE = re.compile(
     r"(?m)^\s*(?:import|export)\s+(?:[^'\";]+?\s+from\s+)?['\"]([^'\"]+)['\"]\s*;?"
 )
+CLIPBOARD_RE = re.compile(r"\bSt\.Clipboard\b|\bClipboard\.get_default\s*\(")
 
 
 def shipped_js() -> set[Path]:
@@ -98,11 +100,8 @@ def main() -> int:
     if unreachable:
         errors.extend(f"EGO-P-007 unreachable packaged JavaScript: {path}" for path in unreachable)
 
-    # GNOME 45+ extensions use ESM. Legacy imports invite reviewer rejection and
-    # are unnecessary for the stable GNOME 50 target.
     errors += fail_matches("legacy imports API", reachable, r"\bimports\.")
 
-    # Shell-process and preferences-process libraries must stay separated.
     errors += fail_matches(
         "EGO-I-002 GTK/GDK/Adw import in Shell process",
         runtime,
@@ -114,12 +113,24 @@ def main() -> int:
         r"from\s+['\"]gi://(?:Clutter|Meta|St|Shell)(?:\?|['\"])" ,
     )
 
-    # Known Shexli / EGO review triggers in the Shell process.
-    errors += fail_matches(
-        "EGO-A-005 direct Shell clipboard access",
-        runtime,
-        r"\bSt\.Clipboard\b|\bClipboard\.get_default\s*\(",
-    )
+    for path in sorted(runtime):
+        matches = line_matches(path, CLIPBOARD_RE)
+        if not matches:
+            continue
+        if path not in CLIPBOARD_RUNTIME_ALLOWLIST:
+            for number, line in matches:
+                errors.append(
+                    f"EGO-A-005 undeclared Shell clipboard access: {path}:{number}: {line}"
+                )
+
+    allowed_helper = ROOT / "downloads/fileClipboard.js"
+    if allowed_helper.is_file():
+        helper_text = allowed_helper.read_text(encoding="utf-8")
+        if "St.Clipboard.get_default().set_content(" not in helper_text:
+            errors.append(
+                "folder-stack clipboard helper must use the narrow user-triggered set_content path"
+            )
+
     errors += fail_matches(
         "EGO-X-002 synchronous subprocess API",
         runtime,
@@ -136,7 +147,6 @@ def main() -> int:
         r"\brun_dispose\s*\(",
     )
 
-    # Dynamic code is unnecessary here and makes source harder to review.
     errors += fail_matches(
         "dynamic code execution",
         reachable,
@@ -154,6 +164,12 @@ def main() -> int:
         errors.append("metadata url must point to the public source repository")
     if metadata.get("session-modes") == ["user"]:
         errors.append("EGO-M-005: omit session-modes when it contains only user")
+
+    description = str(metadata.get("description", "")).lower()
+    if "clipboard" not in description:
+        errors.append("metadata description must declare clipboard access")
+    if CLIPBOARD_RUNTIME_ALLOWLIST & runtime and "folder-stack" not in description:
+        errors.append("metadata description must declare folder-stack clipboard access")
 
     if errors:
         print("EGO compatibility audit failed:", file=sys.stderr)
