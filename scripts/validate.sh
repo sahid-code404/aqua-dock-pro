@@ -59,11 +59,6 @@ else
 fi
 
 if command -v xgettext >/dev/null && [[ -f po/aqua-dock-pro.pot ]]; then
-    # Source line numbers in xgettext's '#:' comments change whenever nearby
-    # implementation code moves, even when the translator-visible catalogue is
-    # identical. Validate the actual catalogue payload while ignoring only those
-    # location comments, and restore the checked-in POT so local validation does
-    # not dirty the working tree.
     pot_before=$(mktemp)
     pot_after=$(mktemp)
     cp po/aqua-dock-pro.pot "$pot_before"
@@ -128,6 +123,7 @@ gjs -m tests/animationEngine.test.js
 gjs -m tests/genieReduceMotion.test.js
 gjs -m tests/fileService.test.js
 gjs -m tests/fileEnumerator.test.js
+gjs -m tests/fileClipboardPayload.test.js
 gjs -m tests/fanGeometry.test.js
 gjs -m tests/customItems.test.js
 gjs -m tests/previewPaging.test.js
