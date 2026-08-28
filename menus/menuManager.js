@@ -4,6 +4,8 @@
 import Clutter from 'gi://Clutter';
 import St from 'gi://St';
 
+import { AppMenu } from 'resource:///org/gnome/shell/ui/appMenu.js';
+import * as BoxPointer from 'resource:///org/gnome/shell/ui/boxpointer.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as Dialog from 'resource:///org/gnome/shell/ui/dialog.js';
 import * as ModalDialog from 'resource:///org/gnome/shell/ui/modalDialog.js';
@@ -42,28 +44,17 @@ export class MenuManager {
             : St.Side.BOTTOM;
         const anchor = item._icon ?? item;
 
+        if (this._useGnomeAppMenu(item)) {
+            this._openGnomeAppMenu(item, anchor, side);
+            return;
+        }
+
         this._menu = new PopupMenu.PopupMenu(anchor, 0.5, side);
         try {
             this._menu.actor.add_style_class_name('aqua-menu');
-            if (!this._manager)
-                this._manager = new PopupMenu.PopupMenuManager(this._host.container);
-            this._manager.addMenu(this._menu);
-            Main.uiGroup.add_child(this._menu.actor);
+            this._attachMenu(item);
             this._style();
             this._menu.actor.hide();
-
-            this._heldItem = item;
-            this._host.holdItem?.(item);
-
-            this._stateId = this._menu.connect('open-state-changed', (m, open) => {
-                this._active = open;
-                if (open) {
-                    this._host.onOpen?.();
-                    return;
-                }
-                this._releaseHeldItem();
-                this._scheduleClose(m);
-            });
 
             populateMenu(this._menu, item.entry, {
                 onTrashEmptied: this._host.onTrashEmptied,
@@ -86,6 +77,49 @@ export class MenuManager {
             this._destroyMenu();
             throw error;
         }
+    }
+
+    _useGnomeAppMenu(item) {
+        return this._host.getConfig().menuUseGnomeDefault === true &&
+            item?.entry?.kind === 'app' && !!item.entry.app;
+    }
+
+    _openGnomeAppMenu(item, anchor, side) {
+        try {
+            // This is the same GNOME Shell AppMenu class and the same options
+            // used by GNOME 50's DashIcon. Only the arrow side follows the dock
+            // edge so vertical AquaDockPro layouts remain usable.
+            this._menu = new AppMenu(anchor, side, {
+                favoritesSection: true,
+                showSingleWindows: true,
+            });
+            this._menu.setApp(item.entry.app);
+            this._attachMenu(item);
+            this._menu.open(BoxPointer.PopupAnimation.FULL);
+        } catch (error) {
+            this._destroyMenu();
+            throw error;
+        }
+    }
+
+    _attachMenu(item) {
+        if (!this._manager)
+            this._manager = new PopupMenu.PopupMenuManager(this._host.container);
+        this._manager.addMenu(this._menu);
+        Main.uiGroup.add_child(this._menu.actor);
+
+        this._heldItem = item;
+        this._host.holdItem?.(item);
+
+        this._stateId = this._menu.connect('open-state-changed', (m, open) => {
+            this._active = open;
+            if (open) {
+                this._host.onOpen?.();
+                return;
+            }
+            this._releaseHeldItem();
+            this._scheduleClose(m);
+        });
     }
 
     _scheduleClose(m) {
