@@ -5,7 +5,7 @@ import Mtk from 'gi://Mtk';
 import Shell from 'gi://Shell';
 import St from 'gi://St';
 
-import { animationsEnabled, clamp, appWindows, logError, TimeoutGroup } from '../../core/utils.js';
+import { clamp, appWindows, logError, TimeoutGroup } from '../../core/utils.js';
 
 // St.Settings.slow_down_factor is process-global. Multiple monitor controllers
 // can start genie animations at once, so the latest controller temporarily owns
@@ -46,7 +46,11 @@ export class GenieController {
     }
 
     get enabled() {
-        return !!this._host?.getConfig().enableGenieEffect && animationsEnabled();
+        // This switch is also an integration contract with external Genie/Magic
+        // Lamp window-effect extensions: they need Meta.Window icon geometry even
+        // when AquaDockPro's own Reduce Motion policy disables dock animations.
+        // Keep that integration independent from animationsEnabled().
+        return !!this._host?.getConfig().enableGenieEffect;
     }
 
     // The icon's resting on-screen rect (independent of live magnification).
