@@ -7,6 +7,8 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 
 import { _ } from '../core/i18n.js';
+import { logError } from '../core/utils.js';
+import { copyFileToClipboard } from './fileClipboard.js';
 
 export class FileItemMenu {
     constructor(mon, cfg) {
@@ -36,7 +38,7 @@ export class FileItemMenu {
         });
     }
 
-    openFor(actor, _file, activate) {
+    openFor(actor, file, activate) {
         if (!this._owner) return;
         this._destroyMenu();
 
@@ -46,12 +48,16 @@ export class FileItemMenu {
             menu.actor.add_style_class_name('aqua-menu');
             menu.actor.add_style_class_name('aqua-file-item-menu');
             const openItem = menu.addAction(_('Open'), () => activate?.());
+            const copyItem = menu.addAction(_('Copy'), () => {
+                try { copyFileToClipboard(file); }
+                catch (error) { logError(error, 'copy folder stack item'); }
+            });
 
             if (!this._manager)
                 this._manager = new PopupMenu.PopupMenuManager(this._owner);
             this._manager.addMenu(menu);
             Main.uiGroup.add_child(menu.actor);
-            this._styleMenu(menu, openItem);
+            this._styleMenu(menu, [openItem, copyItem]);
             menu.actor.hide();
             menu.open();
         } catch (error) {
@@ -75,7 +81,7 @@ export class FileItemMenu {
         }
     }
 
-    _styleMenu(menu, actionItem) {
+    _styleMenu(menu, actionItems) {
         const radius = this._cfg.menuRadius ?? 12;
         const background = this._cfg.highContrast ? 'rgba(0,0,0,0.98)'
             : (this._cfg.menuBg || 'rgba(35,36,40,0.94)');
@@ -88,15 +94,13 @@ export class FileItemMenu {
         const border = borderWidth > 0
             ? `${borderWidth}px solid ${borderColor}` : 'none';
 
-        // Shell's theme gives every popup menu a wide global minimum. This
-        // menu contains one short action, so opt its content out explicitly;
-        // natural label width still lets translations grow when necessary.
         menu.actor.set_style('min-width: 0; max-width: 220px; -boxpointer-gap: 4px;');
         menu.box.x_expand = false;
         menu.box?.set_style(
             `background-color: ${background}; border-radius: ${radius}px; ` +
             `border: ${border}; min-width: 0; max-width: 220px; padding: 4px 0;`);
-        actionItem?.set_style('padding: 6px 10px; margin: 0 4px;');
+        for (const item of actionItems ?? [])
+            item?.set_style('padding: 6px 10px; margin: 0 4px;');
         const fontSize = (10.5 * (this._cfg.interfaceTextScale ?? 1)).toFixed(2);
         for (const item of menu.box?.get_children?.() ?? [])
             item.label?.set_style(`color: ${foreground}; font-size: ${fontSize}pt;`);
