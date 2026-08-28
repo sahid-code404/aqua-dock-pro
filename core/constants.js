@@ -119,6 +119,7 @@ export const PASSIVE_CONFIG_KEYS = Object.freeze(new Set([
     'scroll-action',
     'drag-to-open',
     'lock-layout',
+    'menu-use-gnome-default',
     'menu-radius',
     'menu-bg-color',
     'menu-text-color',
@@ -188,6 +189,7 @@ export const SETTING_CONFIG_PROPERTIES = Object.freeze({
     'drag-to-open': ['dragToOpen'],
     'lock-layout': ['layoutLocked'],
 
+    'menu-use-gnome-default': ['menuUseGnomeDefault'],
     'menu-radius': ['menuRadius'],
     'menu-bg-color': ['menuBg'],
     'menu-text-color': ['menuFg'],

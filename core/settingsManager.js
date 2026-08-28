@@ -132,6 +132,7 @@ function computeConfig(s) {
         tooltipBorderWidth: s.get_int('tooltip-border-width'),
 
         // ── Context menu ──
+        menuUseGnomeDefault: s.get_boolean('menu-use-gnome-default'),
         menuRadius: s.get_int('menu-radius'),
         menuBg: s.get_string('menu-bg-color'),
         menuFg: s.get_string('menu-text-color'),

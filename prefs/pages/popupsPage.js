@@ -56,6 +56,8 @@ export function buildPopupsPage(window, s) {
     p.add(tip);
 
     const menu = group(_('Context menu'), _('The right-click menu.'));
+    menu.add(switchRow(s, 'menu-use-gnome-default', _('Use GNOME default app menu'),
+        _("Use GNOME Shell's native right-click menu for application icons")));
     menu.add(spinRow(s, 'menu-radius', _('Corner radius'),
         _('Menu corner radius (pixels)'), 0, 30, 1, 0));
     const menuStyle = expanderRow(_('Menu colours'), _('Menu fill, text and outline.'),
