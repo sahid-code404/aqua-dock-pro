@@ -1,5 +1,11 @@
 # Changelog
 
+## 264
+
+- Fix both AquaDockPro and GNOME native application context menus opening off-centre while an icon is magnified by anchoring popups to an unscaled point on the visible icon edge.
+- Keep bottom-dock menus centred directly above the icon and left/right dock menus centred on the outward icon edge without changing menu actions, styling, magnification, or hover behaviour.
+- Preserve the v263 native GNOME menu fallback and v262 Genie/Reduce Motion compatibility unchanged.
+
 ## 263
 
 - Add an opt-in GNOME default application context-menu fallback that uses GNOME Shell 50's exported native `AppMenu` for application icons instead of recreating the menu.

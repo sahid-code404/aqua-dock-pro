@@ -89,6 +89,15 @@ class DockItem extends St.Widget {
         this._icon.add_child(this._focusPill);
         this._icon.add_child(this._restIcon);
         this._icon.add_child(this._peakIcon);
+
+        // BoxPointer combines transformed source extents with an unscaled
+        // source content box. Anchoring to the magnified icon therefore shifts
+        // popup arrows away from the visual icon centre. Keep a tiny unscaled
+        // point actor on the visible icon edge for all context menus.
+        this._menuAnchor = new St.Widget({ reactive: false, opacity: 0 });
+        this._menuAnchor.set_size(2, 2);
+        this.add_child(this._menuAnchor);
+
         this._peakTierThresholds = peakTierThresholds(cfg.zoomMax);
         this._usingPeakTier = this._stableArtwork;
         if (this._stableArtwork) this._restIcon.opacity = 0;
@@ -123,6 +132,43 @@ class DockItem extends St.Widget {
     }
 
     get gicon() { return this._gicon; }
+
+    get menuAnchor() {
+        this._positionMenuAnchor();
+        return this._menuAnchor ?? this;
+    }
+
+    _positionMenuAnchor() {
+        if (!this._menuAnchor || !this._icon || !this._cfg || this._iconBaseX == null)
+            return;
+
+        const size = this._baseIconSize ?? this._cfg.iconSize;
+        const sx = this._icon.scale_x ?? this.scaleCurrent ?? 1;
+        const sy = this._icon.scale_y ?? this.scaleCurrent ?? 1;
+        const tx = this._icon.translation_x ?? 0;
+        const ty = this._icon.translation_y ?? 0;
+        const px = this._pivotX ?? 0.5;
+        const py = this._pivotY ?? 1.0;
+        const drawnX = this._iconBaseX + tx + size * px * (1 - sx);
+        const drawnY = this._iconBaseY + ty + size * py * (1 - sy);
+        const drawnW = size * sx;
+        const drawnH = size * sy;
+
+        let x;
+        let y;
+        if (!this._vert) {
+            x = drawnX + drawnW / 2;
+            y = drawnY;
+        } else if (!this._isRight) {
+            x = drawnX + drawnW;
+            y = drawnY + drawnH / 2;
+        } else {
+            x = drawnX;
+            y = drawnY + drawnH / 2;
+        }
+
+        this._menuAnchor.set_position(Math.round(x) - 1, Math.round(y) - 1);
+    }
 
     setGicon(gicon) {
         this._gicon = gicon;
