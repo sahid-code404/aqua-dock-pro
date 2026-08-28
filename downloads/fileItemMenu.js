@@ -30,7 +30,7 @@ export class FileItemMenu {
     }
 
     attach(actor, file, activate, anchor = actor) {
-        actor._openFileMenu = () => this.openFor(anchor, file, activate);
+        actor._openFileMenu = () => this.openFor(anchor, file);
         actor.set_button_mask(St.ButtonMask.ONE | St.ButtonMask.THREE);
         actor.connect('clicked', (_actor, button) => {
             if (button === Clutter.BUTTON_SECONDARY) actor._openFileMenu();
@@ -38,7 +38,7 @@ export class FileItemMenu {
         });
     }
 
-    openFor(actor, file, activate) {
+    openFor(actor, file) {
         if (!this._owner) return;
         this._destroyMenu();
 
@@ -47,7 +47,6 @@ export class FileItemMenu {
         try {
             menu.actor.add_style_class_name('aqua-menu');
             menu.actor.add_style_class_name('aqua-file-item-menu');
-            const openItem = menu.addAction(_('Open'), () => activate?.());
             const copyItem = menu.addAction(_('Copy'), () => {
                 try { copyFileToClipboard(file); }
                 catch (error) { logError(error, 'copy folder stack item'); }
@@ -57,7 +56,7 @@ export class FileItemMenu {
                 this._manager = new PopupMenu.PopupMenuManager(this._owner);
             this._manager.addMenu(menu);
             Main.uiGroup.add_child(menu.actor);
-            this._styleMenu(menu, [openItem, copyItem]);
+            this._styleMenu(menu, [copyItem]);
             menu.actor.hide();
             menu.open();
         } catch (error) {
