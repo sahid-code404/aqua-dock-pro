@@ -18,49 +18,49 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=INTEGER; plural=EXPRESSION;\n"
 
-#: dock/dockItem.js:145
+#: dock/dockItem.js:191
 msgid "Applications"
 msgstr ""
 
-#: dock/dockItem.js:146 downloads/downloadManager.js:151
+#: dock/dockItem.js:192 downloads/downloadManager.js:151
 #: downloads/downloadsStack.js:29 downloads/panelView.js:150
 #: prefs/pages/downloadsPage.js:18 services/appTracker.js:377
 msgid "Downloads"
 msgstr ""
 
-#: dock/dockItem.js:147 downloads/downloadManager.js:154
+#: dock/dockItem.js:193 downloads/downloadManager.js:154
 #: menus/menuActions.js:40 prefs/pages/downloadsPage.js:48
 #: services/appTracker.js:387
 msgid "Folder"
 msgstr ""
 
-#: dock/dockItem.js:148 menus/menuActions.js:44 services/appTracker.js:455
+#: dock/dockItem.js:194 menus/menuActions.js:44 services/appTracker.js:455
 #: services/appTracker.js:456
 msgid "Location"
 msgstr ""
 
-#: dock/dockItem.js:149 menus/menuActions.js:48 menus/menuActions.js:51
+#: dock/dockItem.js:195 menus/menuActions.js:48 menus/menuActions.js:51
 #: menus/menuActions.js:52 menus/menuActions.js:61 menus/menuActions.js:62
 #: prefs/pages/devicesPage.js:104
 msgid "Mounted device"
 msgstr ""
 
-#: dock/dockItem.js:150 prefs/pages/dockPage.js:84
+#: dock/dockItem.js:196 prefs/pages/dockPage.js:84
 msgid "Trash"
 msgstr ""
 
-#: dock/dockItem.js:375
+#: dock/dockItem.js:421
 #, javascript-format
 msgid "%d open window"
 msgid_plural "%d open windows"
 msgstr[0] ""
 msgstr[1] ""
 
-#: dock/dockItem.js:376
+#: dock/dockItem.js:422
 msgid "running"
 msgstr ""
 
-#: dock/dockItem.js:379
+#: dock/dockItem.js:425
 #, javascript-format
 msgid "%d notification"
 msgid_plural "%d notifications"
@@ -79,9 +79,13 @@ msgstr[1] ""
 msgid "%s is empty"
 msgstr ""
 
-#: downloads/fileItemMenu.js:48 interactions/dragManager.js:202
+#: downloads/fileItemMenu.js:50 interactions/dragManager.js:202
 #: interactions/dragManager.js:431
 msgid "Open"
+msgstr ""
+
+#: downloads/fileItemMenu.js:51 prefs/pages/aboutPage.js:51
+msgid "Copy"
 msgstr ""
 
 #: downloads/panelView.js:156
@@ -269,10 +273,6 @@ msgstr ""
 
 #: prefs/pages/aboutPage.js:49
 msgid "Copies versions and changed setting names, without private values"
-msgstr ""
-
-#: prefs/pages/aboutPage.js:51
-msgid "Copy"
 msgstr ""
 
 #: prefs/pages/aboutPage.js:58 prefs/pages/aboutPage.js:63
