@@ -79,12 +79,7 @@ msgstr[1] ""
 msgid "%s is empty"
 msgstr ""
 
-#: downloads/fileItemMenu.js:50 interactions/dragManager.js:202
-#: interactions/dragManager.js:431
-msgid "Open"
-msgstr ""
-
-#: downloads/fileItemMenu.js:51 prefs/pages/aboutPage.js:51
+#: downloads/fileItemMenu.js:50 prefs/pages/aboutPage.js:51
 msgid "Copy"
 msgstr ""
 
@@ -108,6 +103,10 @@ msgstr[1] ""
 
 #: interactions/dragManager.js:202 interactions/dragManager.js:439
 msgid "Move"
+msgstr ""
+
+#: interactions/dragManager.js:202 interactions/dragManager.js:431
+msgid "Open"
 msgstr ""
 
 #: menus/menuActions.js:32
