@@ -56,6 +56,8 @@ assert(cfg.useFolderMetadataIcons,
     'folder metadata icons should be used by default');
 assert(!cfg.reduceMotion && !cfg.highContrast && cfg.interfaceTextScale === 1 &&
     cfg.announceItemStatus, 'accessibility defaults changed');
+assert(!cfg.menuUseGnomeDefault,
+    'GNOME default app menu fallback must remain opt-in');
 assert(GEOMETRY_KEYS.has('auto-hide-mode') &&
     !hasKnownDirectSettingImpact('auto-hide-mode'),
     'auto-hide mode must relayout so reserved strut geometry stays in sync');
@@ -141,6 +143,13 @@ assert(customManager.config.showCustomDockItems &&
 customManager.destroy();
 settings.reset('show-custom-dock-items');
 settings.reset('custom-dock-items');
+
+settings.set_boolean('menu-use-gnome-default', true);
+const gnomeMenuManager = new SettingsManager(settings, bus);
+assert(gnomeMenuManager.config.menuUseGnomeDefault,
+    'GNOME default app menu preference did not reach runtime config');
+gnomeMenuManager.destroy();
+settings.reset('menu-use-gnome-default');
 
 const reduceMotionEvents = [];
 const unsubscribeReduceMotion = subscribeReduceMotionChanges(enabled => {

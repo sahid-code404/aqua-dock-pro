@@ -88,7 +88,7 @@ rm -rf "$tmpdir"
 | **Windows** | Live and paged previews, optional window actions, Genie-style minimize/restore, monitor and workspace isolation |
 | **Hide modes** | Never, Intellihide, Always, plus pressure reveal |
 | **Files** | Multiple folder stacks, file/link shortcuts, separators, spacers, Trash and mounted devices |
-| **Interaction** | Mouse actions, keyboard navigation, drag-and-drop, context menus |
+| **Interaction** | Mouse actions, keyboard navigation, drag-and-drop, AquaDockPro menus or optional native GNOME app menus |
 | **Appearance** | Notification badges, 6 running indicator styles, colors, borders, radius and opacity |
 | **Settings** | GTK 4 / Libadwaita preferences, accessibility controls, backup/restore and reset |
 
@@ -176,6 +176,7 @@ rm -rf "$tmpdir"
 - Custom badge colors
 - 6 running indicator styles
 - App desktop actions
+- Optional GNOME Shell native app context-menu fallback
 - Pin / Unpin
 - Window list
 - Quit Application
@@ -200,7 +201,7 @@ Aqua Dock Pro uses a native **GTK 4 / Libadwaita** preferences window.
 | **Dock** | Position, alignment, size, scale, spacing, opacity, radius, borders |
 | **Motion** | Magnification, spring tuning, hover lift, animation timing |
 | **Behavior** | Auto-hide, pressure reveal, click/scroll actions, workspace/monitor behavior |
-| **Widgets** | Badges, indicators, paged previews, window actions, tooltips |
+| **Widgets** | Badges, indicators, paged previews, window actions, tooltips, context-menu style and GNOME menu fallback |
 | **Downloads** | Stack view, sorting, custom folders/items, links, separators, spacers and folder icons |
 | **Devices** | Mounted-device behavior |
 | **Accessibility** | Reduced motion, high contrast, interface text size and screen-reader status |

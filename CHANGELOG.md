@@ -1,5 +1,11 @@
 # Changelog
 
+## 263
+
+- Add an opt-in GNOME default application context-menu fallback that uses GNOME Shell 50's exported native `AppMenu` for application icons instead of recreating the menu.
+- Preserve GNOME's native menu styling and actions while keeping AquaDockPro's custom menus for Downloads, folders, files, devices, and Trash; the native menu follows the active dock edge on vertical layouts.
+- Route the new preference through the live settings pipeline, close stale popup state when it changes, add schema/config regression coverage, and preserve the v262 Genie/Reduce Motion compatibility plus v260 EGO hardening.
+
 ## 262
 
 - Keep Genie/Magic Lamp integration active when AquaDockPro Reduce Motion is enabled, so external window-effect extensions still receive the dock icon geometry they depend on.

@@ -167,7 +167,7 @@ msgstr ""
 msgid "Open Trash"
 msgstr ""
 
-#: menus/menuActions.js:74 menus/menuManager.js:148
+#: menus/menuActions.js:74 menus/menuManager.js:182
 msgid "Empty Trash"
 msgstr ""
 
@@ -199,31 +199,31 @@ msgstr ""
 msgid "Quit"
 msgstr ""
 
-#: menus/menuManager.js:138
+#: menus/menuManager.js:172
 msgid "Empty Trash?"
 msgstr ""
 
-#: menus/menuManager.js:139
+#: menus/menuManager.js:173
 msgid "All items in Trash will be permanently deleted."
 msgstr ""
 
-#: menus/menuManager.js:143 prefs/pages/aboutPage.js:71
+#: menus/menuManager.js:177 prefs/pages/aboutPage.js:71
 #: prefs/widgets/customItems.js:84
 msgid "Cancel"
 msgstr ""
 
-#: menus/menuManager.js:160
+#: menus/menuManager.js:194
 msgid "Trash could not be fully emptied"
 msgstr ""
 
-#: menus/menuManager.js:161
+#: menus/menuManager.js:195
 #, javascript-format
 msgid "%d item could not be removed."
 msgid_plural "%d items could not be removed."
 msgstr[0] ""
 msgstr[1] ""
 
-#: menus/menuManager.js:164
+#: menus/menuManager.js:198
 msgid "Trash emptied"
 msgstr ""
 
@@ -471,7 +471,7 @@ msgstr ""
 msgid "Cycle windows"
 msgstr ""
 
-#: prefs/pages/behaviorPage.js:36 prefs/pages/popupsPage.js:72
+#: prefs/pages/behaviorPage.js:36 prefs/pages/popupsPage.js:74
 msgid "Show previews"
 msgstr ""
 
@@ -757,7 +757,7 @@ msgid "Fill and outline of the dock pill."
 msgstr ""
 
 #: prefs/pages/dockPage.js:62 prefs/pages/popupsPage.js:44
-#: prefs/pages/popupsPage.js:59
+#: prefs/pages/popupsPage.js:61
 msgid "Corner radius"
 msgstr ""
 
@@ -782,7 +782,7 @@ msgid "Outline colour of the dock and its pills"
 msgstr ""
 
 #: prefs/pages/dockPage.js:68 prefs/pages/popupsPage.js:52
-#: prefs/pages/popupsPage.js:66
+#: prefs/pages/popupsPage.js:68
 msgid "Border width"
 msgstr ""
 
@@ -921,7 +921,7 @@ msgid "Panel border width"
 msgstr ""
 
 #: prefs/pages/downloadsPage.js:40 prefs/pages/downloadsPage.js:77
-#: prefs/pages/popupsPage.js:53 prefs/pages/popupsPage.js:67
+#: prefs/pages/popupsPage.js:53 prefs/pages/popupsPage.js:69
 msgid "Pixels; 0 hides it"
 msgstr ""
 
@@ -1262,7 +1262,7 @@ msgstr ""
 msgid "Show the app name on hover"
 msgstr ""
 
-#: prefs/pages/popupsPage.js:42 prefs/pages/popupsPage.js:75
+#: prefs/pages/popupsPage.js:42 prefs/pages/popupsPage.js:77
 msgid "Show delay"
 msgstr ""
 
@@ -1282,7 +1282,7 @@ msgstr ""
 msgid "Tooltip fill, text and outline."
 msgstr ""
 
-#: prefs/pages/popupsPage.js:49 prefs/pages/popupsPage.js:63
+#: prefs/pages/popupsPage.js:49 prefs/pages/popupsPage.js:65
 msgid "Background"
 msgstr ""
 
@@ -1290,7 +1290,7 @@ msgstr ""
 msgid "Tooltip background"
 msgstr ""
 
-#: prefs/pages/popupsPage.js:50 prefs/pages/popupsPage.js:64
+#: prefs/pages/popupsPage.js:50 prefs/pages/popupsPage.js:66
 msgid "Text"
 msgstr ""
 
@@ -1298,7 +1298,7 @@ msgstr ""
 msgid "Tooltip text colour"
 msgstr ""
 
-#: prefs/pages/popupsPage.js:51 prefs/pages/popupsPage.js:65
+#: prefs/pages/popupsPage.js:51 prefs/pages/popupsPage.js:67
 msgid "Border"
 msgstr ""
 
@@ -1314,115 +1314,123 @@ msgstr ""
 msgid "The right-click menu."
 msgstr ""
 
+#: prefs/pages/popupsPage.js:59
+msgid "Use GNOME default app menu"
+msgstr ""
+
 #: prefs/pages/popupsPage.js:60
+msgid "Use GNOME Shell's native right-click menu for application icons"
+msgstr ""
+
+#: prefs/pages/popupsPage.js:62
 msgid "Menu corner radius (pixels)"
 msgstr ""
 
-#: prefs/pages/popupsPage.js:61
+#: prefs/pages/popupsPage.js:63
 msgid "Menu colours"
 msgstr ""
 
-#: prefs/pages/popupsPage.js:61
+#: prefs/pages/popupsPage.js:63
 msgid "Menu fill, text and outline."
 msgstr ""
 
-#: prefs/pages/popupsPage.js:63
+#: prefs/pages/popupsPage.js:65
 msgid "Menu background"
 msgstr ""
 
-#: prefs/pages/popupsPage.js:64
+#: prefs/pages/popupsPage.js:66
 msgid "Menu item text colour"
 msgstr ""
 
-#: prefs/pages/popupsPage.js:65
+#: prefs/pages/popupsPage.js:67
 msgid "Menu border colour"
 msgstr ""
 
-#: prefs/pages/popupsPage.js:71
+#: prefs/pages/popupsPage.js:73
 msgid "Window previews"
 msgstr ""
 
-#: prefs/pages/popupsPage.js:71
+#: prefs/pages/popupsPage.js:73
 msgid "Live thumbnails of hidden windows."
 msgstr ""
 
-#: prefs/pages/popupsPage.js:73
+#: prefs/pages/popupsPage.js:75
 msgid "Live thumbnail on hover for minimized / other-workspace windows"
 msgstr ""
 
-#: prefs/pages/popupsPage.js:76
+#: prefs/pages/popupsPage.js:78
 msgid "Delay before previews appear (milliseconds)"
 msgstr ""
 
-#: prefs/pages/popupsPage.js:77
+#: prefs/pages/popupsPage.js:79
 msgid "Thumbnail size"
 msgstr ""
 
-#: prefs/pages/popupsPage.js:78
+#: prefs/pages/popupsPage.js:80
 msgid "Maximum thumbnail width (pixels)"
 msgstr ""
 
-#: prefs/pages/popupsPage.js:79
+#: prefs/pages/popupsPage.js:81
 msgid "Windows shown"
 msgstr ""
 
-#: prefs/pages/popupsPage.js:80
+#: prefs/pages/popupsPage.js:82
 msgid "Show hidden windows only or all windows for the app"
 msgstr ""
 
-#: prefs/pages/popupsPage.js:81
+#: prefs/pages/popupsPage.js:83
 msgid "Hidden windows"
 msgstr ""
 
-#: prefs/pages/popupsPage.js:81
+#: prefs/pages/popupsPage.js:83
 msgid "All windows"
 msgstr ""
 
-#: prefs/pages/popupsPage.js:82
+#: prefs/pages/popupsPage.js:84
 msgid "Close buttons"
 msgstr ""
 
-#: prefs/pages/popupsPage.js:83
+#: prefs/pages/popupsPage.js:85
 msgid "Show a close button beside every window title"
 msgstr ""
 
-#: prefs/pages/popupsPage.js:84
+#: prefs/pages/popupsPage.js:86
 msgid "Many windows"
 msgstr ""
 
-#: prefs/pages/popupsPage.js:85
+#: prefs/pages/popupsPage.js:87
 msgid "Keep the compact count or browse every window in pages"
 msgstr ""
 
-#: prefs/pages/popupsPage.js:86
+#: prefs/pages/popupsPage.js:88
 msgid "Compact count"
 msgstr ""
 
-#: prefs/pages/popupsPage.js:86
+#: prefs/pages/popupsPage.js:88
 msgid "Paged previews"
 msgstr ""
 
-#: prefs/pages/popupsPage.js:87
+#: prefs/pages/popupsPage.js:89
 msgid "Windows per page"
 msgstr ""
 
-#: prefs/pages/popupsPage.js:88
+#: prefs/pages/popupsPage.js:90
 msgid "Maximum previews on one page; the monitor width may reduce it"
 msgstr ""
 
-#: prefs/pages/popupsPage.js:89
+#: prefs/pages/popupsPage.js:91
 msgid "Keyboard preview navigation"
 msgstr ""
 
-#: prefs/pages/popupsPage.js:90
+#: prefs/pages/popupsPage.js:92
 msgid "Move focus into previews opened from the keyboard"
 msgstr ""
 
-#: prefs/pages/popupsPage.js:91
+#: prefs/pages/popupsPage.js:93
 msgid "Window action menu"
 msgstr ""
 
-#: prefs/pages/popupsPage.js:92
+#: prefs/pages/popupsPage.js:94
 msgid ""
 "Right-click a preview for activation, workspace, monitor, and close actions"
 msgstr ""

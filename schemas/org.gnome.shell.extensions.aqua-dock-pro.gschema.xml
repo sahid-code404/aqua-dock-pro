@@ -402,6 +402,11 @@
     </key>
 
     <!-- ── Context Menu ─────────────────────────────────────────────── -->
+    <key name="menu-use-gnome-default" type="b">
+      <default>false</default>
+      <summary>Use the native GNOME Shell application context menu for app icons</summary>
+    </key>
+
     <key name="menu-radius" type="i">
       <default>10</default>
       <range min="0" max="30"/>
