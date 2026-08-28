@@ -1,5 +1,11 @@
 # Changelog
 
+## 262
+
+- Keep Genie/Magic Lamp integration active when AquaDockPro Reduce Motion is enabled, so external window-effect extensions still receive the dock icon geometry they depend on.
+- Decouple the explicit Genie integration switch from AquaDockPro's general animation policy while leaving Reduce Motion as a hard disable for AquaDockPro magnification, bounce, fades, drag/reorder motion, previews, stacks, and auto-hide motion.
+- Add a regression test proving Reduce Motion cannot disable Genie integration and preserve all v261 Preferences organization plus v260 EGO hardening unchanged.
+
 ## 261
 
 - Reorganize Preferences into a clearer task-oriented page order and move everyday controls ahead of fine-grained options, reducing scrolling and visual clutter without changing any GSettings key or runtime behavior.
