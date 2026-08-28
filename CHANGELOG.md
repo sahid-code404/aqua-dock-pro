@@ -1,5 +1,11 @@
 # Changelog
 
+## 265
+
+- Restore a right-click Copy action for real items in Downloads and custom-folder stacks across fan, grid, and list views while preserving the existing Open action.
+- Publish copied items as the standard `text/uri-list` file clipboard format for broad file/URI paste compatibility without spawning helpers or importing GTK/GDK into the Shell process.
+- Declare the user-triggered folder-stack clipboard access in metadata, confine Shell clipboard access to one audited helper, and add payload regression coverage while preserving v264 menu anchoring and v262 Genie/Reduce Motion behavior.
+
 ## 264
 
 - Fix both AquaDockPro and GNOME native application context menus opening off-centre while an icon is magnified by anchoring popups to an unscaled point on the visible icon edge.
@@ -79,7 +85,7 @@
 
 - Harden dock rebuilds, DnD hand-offs, preview refreshes, shared Trash/Downloads callbacks, and same-layout item reconciliation so transient failures cannot leave stale or partially updated runtime state.
 - Make Reduce Motion settle active dock, folder-stack, preview, autohide, bounce/pulse, and custom Genie motion immediately while keeping all normal animation physics and timings unchanged.
-- Retry transient Downloads monitor startup failures, surface folder-enumeration errors instead of treating them as empty folders, preserve failed settings batches for the next valid retry, and align the icon-size schema minimum with the 26px Preferences limit.
+- Retry transient Downloads monitor startup failures, surface folder-enumeration errors instead of treatinging them as empty folders, preserve failed settings batches for the next valid retry, and align the icon-size schema minimum with the 26px Preferences limit.
 - Restore full relayout for auto-hide mode changes so reserved work-area struts always match the current visibility policy.
 
 ## 252
@@ -234,7 +240,6 @@
 - Add GNOME Shell 51 beta compatibility.
 - Make Trash state checks asynchronous and cancellable.
 - Unify workspace and monitor isolation across indicators, previews, and menus.
-- Fix notification badge retention and stale mounted device handles.
 
 ## 218
 
