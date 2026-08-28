@@ -1,0 +1,133 @@
+name: Apply v263 Once
+
+on:
+  push:
+    branches:
+      - feature/gnome-context-menu-v263
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    container: fedora:44
+    steps:
+      - name: Install tools
+        run: dnf install -y git python3 gettext
+
+      - uses: actions/checkout@v4
+
+      - name: Apply v263 changes
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          def replace_once(path, old, new):
+              p = Path(path)
+              text = p.read_text(encoding='utf-8')
+              if new in text:
+                  return
+              if old not in text:
+                  raise SystemExit(f'anchor not found in {path}: {old[:80]!r}')
+              p.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          schema = Path('schemas/org.gnome.shell.extensions.aqua-dock-pro.gschema.xml')
+          text = schema.read_text(encoding='utf-8')
+          if 'name="menu-use-gnome-default"' not in text:
+              anchor = '    <key name="menu-radius" type="i">\n'
+              insert = (
+                  '    <key name="menu-use-gnome-default" type="b">\n'
+                  '      <default>false</default>\n'
+                  '      <summary>Use the native GNOME Shell application context menu for app icons</summary>\n'
+                  '    </key>\n\n'
+                  + anchor
+              )
+              if anchor not in text:
+                  raise SystemExit('context-menu schema anchor not found')
+              schema.write_text(text.replace(anchor, insert, 1), encoding='utf-8')
+
+          replace_once(
+              'core/settingsManager.js',
+              "        // ── Context menu ──\n        menuRadius: s.get_int('menu-radius'),\n",
+              "        // ── Context menu ──\n        menuUseGnomeDefault: s.get_boolean('menu-use-gnome-default'),\n        menuRadius: s.get_int('menu-radius'),\n",
+          )
+
+          replace_once(
+              'core/constants.js',
+              "    'lock-layout',\n    'menu-radius',\n",
+              "    'lock-layout',\n    'menu-use-gnome-default',\n    'menu-radius',\n",
+          )
+          replace_once(
+              'core/constants.js',
+              "    'lock-layout': ['layoutLocked'],\n\n    'menu-radius': ['menuRadius'],\n",
+              "    'lock-layout': ['layoutLocked'],\n\n    'menu-use-gnome-default': ['menuUseGnomeDefault'],\n    'menu-radius': ['menuRadius'],\n",
+          )
+
+          replace_once(
+              'prefs/pages/popupsPage.js',
+              "    const menu = group(_('Context menu'), _('The right-click menu.'));\n    menu.add(spinRow(s, 'menu-radius', _('Corner radius'),\n",
+              "    const menu = group(_('Context menu'), _('The right-click menu.'));\n    menu.add(switchRow(s, 'menu-use-gnome-default', _('Use GNOME default app menu'),\n        _(\"Use GNOME Shell's native right-click menu for application icons\")));\n    menu.add(spinRow(s, 'menu-radius', _('Corner radius'),\n",
+          )
+
+          replace_once(
+              'tests/settings.test.js',
+              "assert(!cfg.reduceMotion && !cfg.highContrast && cfg.interfaceTextScale === 1 &&\n    cfg.announceItemStatus, 'accessibility defaults changed');\n",
+              "assert(!cfg.reduceMotion && !cfg.highContrast && cfg.interfaceTextScale === 1 &&\n    cfg.announceItemStatus, 'accessibility defaults changed');\nassert(!cfg.menuUseGnomeDefault,\n    'GNOME default app menu fallback must remain opt-in');\n",
+          )
+          replace_once(
+              'tests/settings.test.js',
+              "const reduceMotionEvents = [];\n",
+              "settings.set_boolean('menu-use-gnome-default', true);\nconst gnomeMenuManager = new SettingsManager(settings, bus);\nassert(gnomeMenuManager.config.menuUseGnomeDefault,\n    'GNOME default app menu preference did not reach runtime config');\ngnomeMenuManager.destroy();\nsettings.reset('menu-use-gnome-default');\n\nconst reduceMotionEvents = [];\n",
+          )
+
+          replace_once(
+              'README.md',
+              '| **Interaction** | Mouse actions, keyboard navigation, drag-and-drop, context menus |',
+              '| **Interaction** | Mouse actions, keyboard navigation, drag-and-drop, AquaDockPro menus or optional native GNOME app menus |',
+          )
+          replace_once(
+              'README.md',
+              '- App desktop actions\n- Pin / Unpin\n',
+              '- App desktop actions\n- Optional GNOME Shell native app context-menu fallback\n- Pin / Unpin\n',
+          )
+          replace_once(
+              'README.md',
+              '| **Widgets** | Badges, indicators, paged previews, window actions, tooltips |',
+              '| **Widgets** | Badges, indicators, paged previews, window actions, tooltips, context-menu style and GNOME menu fallback |',
+          )
+
+          metadata_path = Path('metadata.json')
+          metadata = json.loads(metadata_path.read_text(encoding='utf-8'))
+          metadata['version'] = 263
+          metadata_path.write_text(json.dumps(metadata, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
+
+          changelog_path = Path('CHANGELOG.md')
+          changelog = changelog_path.read_text(encoding='utf-8')
+          if '## 263\n' not in changelog:
+              marker = '# Changelog\n\n'
+              section = (
+                  '## 263\n\n'
+                  '- Add an opt-in GNOME default application context-menu fallback that uses GNOME Shell 50\'s exported native `AppMenu` for application icons instead of recreating the menu.\n'
+                  '- Preserve GNOME\'s native menu styling and actions while keeping AquaDockPro\'s custom menus for Downloads, folders, files, devices, and Trash; the native menu follows the active dock edge on vertical layouts.\n'
+                  '- Route the new preference through the live settings pipeline, close stale popup state when it changes, add schema/config regression coverage, and preserve the v262 Genie/Reduce Motion compatibility plus v260 EGO hardening.\n\n'
+              )
+              if not changelog.startswith(marker):
+                  raise SystemExit('unexpected CHANGELOG header')
+              changelog_path.write_text(marker + section + changelog[len(marker):], encoding='utf-8')
+          PY
+
+          po/update-pot.sh
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add schemas core prefs tests README.md metadata.json CHANGELOG.md po/aqua-dock-pro.pot
+          if git diff --cached --quiet; then
+            echo "v263 changes already applied."
+            exit 0
+          fi
+          git commit -m "Release v263 GNOME native context menu fallback"
+          git push
