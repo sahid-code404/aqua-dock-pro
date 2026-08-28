@@ -1,5 +1,11 @@
 # Changelog
 
+## 266
+
+- Make the right-click context menu for real Downloads and custom-folder stack items show only `Copy`; remove the redundant `Open` action from that menu.
+- Preserve normal left-click opening behavior for stack items and keep the standard `text/uri-list` clipboard implementation from v265 unchanged.
+- Preserve v264 popup anchoring, v263 GNOME app-menu fallback, and v262 Genie/Reduce Motion behavior unchanged.
+
 ## 265
 
 - Restore a right-click Copy action for real items in Downloads and custom-folder stacks across fan, grid, and list views while preserving the existing Open action.
