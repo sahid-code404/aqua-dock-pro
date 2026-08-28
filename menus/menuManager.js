@@ -42,7 +42,7 @@ export class MenuManager {
         const side = geom?.vert
             ? (geom.side === 'left' ? St.Side.LEFT : St.Side.RIGHT)
             : St.Side.BOTTOM;
-        const anchor = item._icon ?? item;
+        const anchor = item.menuAnchor ?? item._icon ?? item;
 
         if (this._useGnomeAppMenu(item)) {
             this._openGnomeAppMenu(item, anchor, side);
