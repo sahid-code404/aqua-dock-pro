@@ -33,13 +33,12 @@ jobs:
 
           changelog_path = Path('CHANGELOG.md')
           changelog = changelog_path.read_text(encoding='utf-8')
-          section = '''## 262
-
-- Keep Genie/Magic Lamp integration active when AquaDockPro Reduce Motion is enabled, so external window-effect extensions still receive the dock icon geometry they depend on.
-- Decouple the explicit Genie integration switch from AquaDockPro's general animation policy while leaving Reduce Motion as a hard disable for AquaDockPro magnification, bounce, fades, drag/reorder motion, previews, stacks, and auto-hide motion.
-- Add a regression test proving Reduce Motion cannot disable Genie integration and preserve all v261 Preferences organization plus v260 EGO hardening unchanged.
-
-'''
+          section = (
+              "## 262\n\n"
+              "- Keep Genie/Magic Lamp integration active when AquaDockPro Reduce Motion is enabled, so external window-effect extensions still receive the dock icon geometry they depend on.\n"
+              "- Decouple the explicit Genie integration switch from AquaDockPro's general animation policy while leaving Reduce Motion as a hard disable for AquaDockPro magnification, bounce, fades, drag/reorder motion, previews, stacks, and auto-hide motion.\n"
+              "- Add a regression test proving Reduce Motion cannot disable Genie integration and preserve all v261 Preferences organization plus v260 EGO hardening unchanged.\n\n"
+          )
           if '## 262\n' not in changelog:
               marker = '# Changelog\n\n'
               if not changelog.startswith(marker):
