@@ -6,8 +6,17 @@ on:
 
 jobs:
   extension:
+    name: GNOME Shell ${{ matrix.shell }} / Fedora ${{ matrix.fedora }}
     runs-on: ubuntu-latest
-    container: fedora:44
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - fedora: 44
+            shell: 50
+          - fedora: 45
+            shell: 51
+    container: fedora:${{ matrix.fedora }}
 
     steps:
       - name: Install Git
@@ -17,6 +26,9 @@ jobs:
 
       - name: Install validation dependencies
         run: dnf install -y gjs glib2 gettext jq gnome-shell libadwaita python3 unzip xorg-x11-server-Xvfb
+
+      - name: Report GNOME Shell version
+        run: gnome-shell --version
 
       - name: EGO compatibility audit
         run: python3 scripts/ego-audit.py
