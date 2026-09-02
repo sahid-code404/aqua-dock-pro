@@ -57,6 +57,16 @@ export function buildDockPage(window, s) {
     pill.add(spinRow(s, 'background-opacity', _('Background opacity'),
         _('How see-through the pill is'), 0.10, 1.0, 0.05, 2));
 
+    const nativeBlur = toggleExpander(s, 'native-blur-enabled',
+        _('Native background blur'),
+        _('GNOME Shell 51+ only; disabled by default'),
+        'applications-graphics-symbolic');
+    nativeBlur.add_row(spinRow(s, 'native-blur-radius', _('Blur radius'),
+        _('Strength of the native background blur'), 0, 80, 1, 0));
+    nativeBlur.add_row(spinRow(s, 'native-blur-brightness', _('Blur brightness'),
+        _('Brightness of the blurred backdrop'), 0.20, 1.20, 0.05, 2));
+    pill.add(nativeBlur);
+
     const pillStyle = expanderRow(_('Colours and border'),
         _('Fill and outline of the dock pill.'), 'applications-graphics-symbolic');
     pillStyle.add_row(spinRow(s, 'dock-radius', _('Corner radius'),
