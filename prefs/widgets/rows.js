@@ -114,7 +114,7 @@ export function colorRow(window, s, key, title, subtitle) {
     });
     window._settingsSignalIds.push(s.connect(`changed::${key}`, load));
     row.add_suffix(button);
-    row.activatable_widget = button;
+    row.set_activatable_widget(button);
     return row;
 }
 
