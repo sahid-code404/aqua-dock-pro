@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="org.gnome.shell.extensions.aqua-dock-pro.native-blur"
+          path="/org/gnome/shell/extensions/aqua-dock-pro/native-blur/">
+    <key name="enabled" type="b">
+      <default>false</default>
+      <summary>Enable GNOME Shell 51 native background blur behind the dock</summary>
+    </key>
+
+    <key name="radius" type="i">
+      <default>24</default>
+      <range min="0" max="80"/>
+      <summary>Native dock background blur radius in pixels</summary>
+    </key>
+
+    <key name="brightness" type="d">
+      <default>0.82</default>
+      <range min="0.20" max="1.20"/>
+      <summary>Brightness multiplier applied to the native blurred backdrop</summary>
+    </key>
+  </schema>
+</schemalist>
