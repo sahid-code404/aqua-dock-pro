@@ -52,11 +52,13 @@ cogl_color_out *= aqua_rounded_rect_coverage(
 `;
 
 function createRoundMaskEffect() {
-    const snippet = new Cogl.Snippet(
-        Cogl.SnippetHook.FRAGMENT,
-        ROUND_MASK_DECLARATIONS,
-        ROUND_MASK_POST,
-    );
+    // In GJS the introspected Cogl.Snippet GObject constructor accepts only
+    // the hook argument. Set declarations/post through the public mutators;
+    // passing the three C API constructor arguments emits a runtime warning on
+    // GNOME 51 and leaves the snippet source incomplete.
+    const snippet = new Cogl.Snippet(Cogl.SnippetHook.FRAGMENT);
+    snippet.set_declarations(ROUND_MASK_DECLARATIONS);
+    snippet.set_post(ROUND_MASK_POST);
     return Clutter.ShaderEffect.new_with_snippet(snippet);
 }
 
