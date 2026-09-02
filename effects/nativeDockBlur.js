@@ -52,13 +52,14 @@ cogl_color_out *= aqua_rounded_rect_coverage(
 `;
 
 function createRoundMaskEffect() {
-    // In GJS the introspected Cogl.Snippet GObject constructor accepts only
-    // the hook argument. Set declarations/post through the public mutators;
-    // passing the three C API constructor arguments emits a runtime warning on
-    // GNOME 51 and leaves the snippet source incomplete.
-    const snippet = new Cogl.Snippet(Cogl.SnippetHook.FRAGMENT);
-    snippet.set_declarations(ROUND_MASK_DECLARATIONS);
-    snippet.set_post(ROUND_MASK_POST);
+    // Cogl.Snippet is exposed by GJS through its introspected static new()
+    // constructor. This is the same form used by GNOME Shell itself and keeps
+    // the C constructor arguments intact on GNOME Shell 51.
+    const snippet = Cogl.Snippet.new(
+        Cogl.SnippetHook.FRAGMENT,
+        ROUND_MASK_DECLARATIONS,
+        ROUND_MASK_POST,
+    );
     return Clutter.ShaderEffect.new_with_snippet(snippet);
 }
 
