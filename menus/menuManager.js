@@ -5,7 +5,6 @@ import Clutter from 'gi://Clutter';
 import St from 'gi://St';
 
 import { AppMenu } from 'resource:///org/gnome/shell/ui/appMenu.js';
-import * as BoxPointer from 'resource:///org/gnome/shell/ui/boxpointer.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as Dialog from 'resource:///org/gnome/shell/ui/dialog.js';
 import * as ModalDialog from 'resource:///org/gnome/shell/ui/modalDialog.js';
@@ -15,7 +14,7 @@ import { populateMenu } from './menuActions.js';
 import { appWindowsForConfig, TimeoutGroup } from '../core/utils.js';
 import { _, format, ngettext } from '../core/i18n.js';
 import { emptyTrash } from '../services/fileService.js';
-import { notifyUser } from '../compat/shell.js';
+import { notifyUser, openPopupMenuFull } from '../compat/shell.js';
 
 export class MenuManager {
     // host: { container, getConfig, getGeom, isLayoutLocked, onOpen, onClose,
@@ -86,16 +85,16 @@ export class MenuManager {
 
     _openGnomeAppMenu(item, anchor, side) {
         try {
-            // This is the same GNOME Shell AppMenu class and the same options
-            // used by GNOME 50's DashIcon. Only the arrow side follows the dock
-            // edge so vertical AquaDockPro layouts remain usable.
+            // This is the exported GNOME Shell AppMenu class. The compatibility
+            // boundary preserves GNOME 50's PopupAnimation API while using the
+            // GNOME 51 parameters-object API without changing menu behavior.
             this._menu = new AppMenu(anchor, side, {
                 favoritesSection: true,
                 showSingleWindows: true,
             });
             this._menu.setApp(item.entry.app);
             this._attachMenu(item);
-            this._menu.open(BoxPointer.PopupAnimation.FULL);
+            openPopupMenuFull(this._menu);
         } catch (error) {
             this._destroyMenu();
             throw error;
