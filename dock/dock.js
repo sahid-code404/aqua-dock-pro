@@ -10,11 +10,8 @@ import { animationsEnabled, clamp } from '../core/utils.js';
 import { overviewDash } from '../compat/shell.js';
 import { NativeDockBlur } from '../effects/nativeDockBlur.js';
 
-const NATIVE_BLUR_KEYS = Object.freeze([
-    'native-blur-enabled',
-    'native-blur-radius',
-    'native-blur-brightness',
-]);
+const NATIVE_BLUR_SCHEMA = 'org.gnome.shell.extensions.aqua-dock-pro.native-blur';
+const NATIVE_BLUR_KEYS = Object.freeze(['enabled', 'radius', 'brightness']);
 
 export class DockChrome {
     constructor() {
@@ -50,12 +47,11 @@ export class DockChrome {
             this._bg = new St.Widget({ style_class: 'aqua-bg' });
             this._container.add_child(this._bg);
 
-            // Resolve settings from the owning extension at runtime rather than
-            // constructing Gio.Settings directly, so extension-local compiled
-            // schemas work on both GNOME 50 and 51. These three keys are handled
-            // entirely by DockChrome and therefore never force a dock relayout.
+            // Keep the optional GNOME 51 blur preferences in their own schema so
+            // the proven GNOME 50 dock settings contract remains untouched.
+            // getSettings(schemaId) resolves extension-local compiled schemas.
             const extension = Extension.lookupByURL(import.meta.url);
-            this._nativeBlurSettings = extension?.getSettings() ?? null;
+            this._nativeBlurSettings = extension?.getSettings(NATIVE_BLUR_SCHEMA) ?? null;
             this._nativeBlur = new NativeDockBlur(this._bg);
             if (this._nativeBlurSettings) {
                 for (const key of NATIVE_BLUR_KEYS) {
@@ -183,9 +179,9 @@ export class DockChrome {
             return;
         }
         this._nativeBlur.update({
-            nativeBlurEnabled: settings.get_boolean('native-blur-enabled'),
-            nativeBlurRadius: settings.get_int('native-blur-radius'),
-            nativeBlurBrightness: settings.get_double('native-blur-brightness'),
+            nativeBlurEnabled: settings.get_boolean('enabled'),
+            nativeBlurRadius: settings.get_int('radius'),
+            nativeBlurBrightness: settings.get_double('brightness'),
             dockRadius: this._dockRadius,
         });
     }
