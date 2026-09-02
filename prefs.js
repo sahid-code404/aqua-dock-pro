@@ -17,6 +17,7 @@ export default class AquaDockProPreferences extends ExtensionPreferences {
     fillPreferencesWindow(window) {
         const s = this.getSettings();
         const blurSettings = this.getSettings(NATIVE_BLUR_SCHEMA);
+        const auxiliarySettings = { nativeBlur: blurSettings };
         window._settings = s;
         window._nativeBlurSettings = blurSettings;
         window._settingsSignalIds = [];
@@ -38,7 +39,7 @@ export default class AquaDockProPreferences extends ExtensionPreferences {
         buildDownloadsPage(window, s);
         buildDevicesPage(window, s);
         buildAccessibilityPage(window, s);
-        buildAboutPage(window, s, this.metadata);
+        buildAboutPage(window, s, this.metadata, auxiliarySettings);
 
         window.connect('close-request', () => {
             for (const cancellable of (window._dialogCancellables ?? [])) {
