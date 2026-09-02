@@ -1,8 +1,30 @@
 // AquaDockPro GNOME Shell compatibility boundary.
 
+import * as Config from 'resource:///org/gnome/shell/misc/config.js';
+import * as BoxPointer from 'resource:///org/gnome/shell/ui/boxpointer.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import { warnOnce } from '../core/utils.js';
+
+const SHELL_MAJOR = Number.parseInt(Config.PACKAGE_VERSION, 10) || 0;
+
+export function shellMajorVersion() {
+    return SHELL_MAJOR;
+}
+
+// GNOME Shell 51 changed PopupMenu.open()/close() from a PopupAnimation enum
+// argument to an options object. Keep that ABI difference confined here so the
+// same extension package remains correct on both GNOME Shell 50 and 51+.
+export function openPopupMenu(menu, animate = true) {
+    if (typeof menu?.open !== 'function') return;
+    if (SHELL_MAJOR >= 51) {
+        menu.open({ animate: animate !== false });
+        return;
+    }
+    menu.open(animate === false
+        ? BoxPointer.PopupAnimation.NONE
+        : BoxPointer.PopupAnimation.FULL);
+}
 
 export function overviewDash() {
     const dash = Main.overview?.dash ?? null;

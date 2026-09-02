@@ -18,7 +18,7 @@
 
 <br/>
 
-[![GNOME Shell](https://img.shields.io/badge/GNOME_Shell-50-5294E2?style=for-the-badge&logo=gnome&logoColor=white)](https://extensions.gnome.org)
+[![GNOME Shell](https://img.shields.io/badge/GNOME_Shell-50_%7C_51-5294E2?style=for-the-badge&logo=gnome&logoColor=white)](https://extensions.gnome.org)
 [![JavaScript](https://img.shields.io/badge/JavaScript-GJS-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black)](https://gjs.guide/)
 [![GTK](https://img.shields.io/badge/GTK-4.0-4A90D9?style=for-the-badge&logo=gtk&logoColor=white)](https://gtk.org)
 [![License](https://img.shields.io/badge/License-MIT-00C9C8?style=for-the-badge)](LICENSE)
@@ -36,7 +36,7 @@
 
 Aqua Dock Pro is a customizable GNOME Shell dock with smooth magnification, spring-based motion, live window previews, intellihide, folder stacks, notification badges, mounted devices and multi-monitor support.
 
-Currently focused on **GNOME Shell 50 + Wayland**.
+Currently focused on **GNOME Shell 50 and 51 + Wayland**.
 
 > 🧪 Around **3–4 months of work and 250+ install/test/debug cycles** so far.
 
@@ -215,7 +215,7 @@ Settings can also be **exported/imported as JSON** or reset to defaults.
 
 | | |
 |---|---|
-| **GNOME** | GNOME Shell 50 |
+| **GNOME** | GNOME Shell 50 / 51 |
 | **Language** | JavaScript / GJS |
 | **Shell UI** | St + Clutter |
 | **Preferences** | GTK 4 + Libadwaita |
@@ -259,6 +259,7 @@ The areas I'm still working on most are **animations, intellihide, window previe
 
 - Fedora Linux
 - GNOME Shell 50
+- GNOME Shell 51 compatibility suite in Fedora 45 CI
 - Wayland
 - Intel integrated graphics
 

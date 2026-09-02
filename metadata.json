@@ -3,10 +3,11 @@
   "name": "AquaDockPro",
   "description": "A premium, high-performance Dock for GNOME Shell. Gaussian magnification physics, spring animations, folder stacks, live window previews, genie minimize effect, multi-position support, attention bouncing, and notification badges. The preferences window copies a locally generated diagnostics report to the clipboard only when requested. Folder-stack Copy writes the selected item's standard file URI list to the clipboard only after the user chooses Copy.",
   "shell-version": [
-    "50"
+    "50",
+    "51"
   ],
   "settings-schema": "org.gnome.shell.extensions.aqua-dock-pro",
   "gettext-domain": "aqua-dock-pro",
   "url": "https://github.com/sahid-code404/aqua-dock-pro",
-  "version": 266
+  "version": 267
 }
