@@ -153,12 +153,40 @@ def main() -> int:
         r"\beval\s*\(|\bnew\s+Function\s*\(",
     )
 
+    # GNOME Shell 51 removals and lifecycle changes. These checks are narrow on
+    # purpose: GNOME 50 remains supported, and APIs that are merely deprecated
+    # but still supported on Shell 51 are not rejected here.
+    errors += fail_matches(
+        "GNOME-51 removed Shell.GLSLEffect",
+        runtime,
+        r"\bShell\.GLSLEffect\b",
+    )
+    errors += fail_matches(
+        "GNOME-51 removed Clutter.get_default_backend()",
+        runtime,
+        r"\bClutter\.get_default_backend\s*\(",
+    )
+    errors += fail_matches(
+        "GNOME-51 removed pointerWatcher module",
+        runtime,
+        r"resource:///org/gnome/shell/ui/pointerWatcher\.js",
+    )
+    errors += fail_matches(
+        "GNOME-51 async extension disable()",
+        {Path("extension.js")},
+        r"\basync\s+disable\s*\(",
+    )
+    errors += fail_matches(
+        "GNOME-51 legacy popup animation argument",
+        runtime,
+        r"\.(?:open|close)\s*\(\s*BoxPointer\.PopupAnimation",
+    )
+
     metadata = json.loads((ROOT / "metadata.json").read_text(encoding="utf-8"))
     shell_versions = metadata.get("shell-version")
-    if shell_versions != ["50"]:
+    if shell_versions != ["50", "51"]:
         errors.append(
-            "metadata shell-version must be ['50'] for this EGO submission; "
-            "do not advertise GNOME 51 until EGO accepts that release target"
+            "metadata shell-version must be ['50', '51'] for the dual-version EGO package"
         )
     if metadata.get("url") != "https://github.com/sahid-code404/aqua-dock-pro":
         errors.append("metadata url must point to the public source repository")
