@@ -3,10 +3,18 @@
 import Clutter from 'gi://Clutter';
 import St from 'gi://St';
 
+import { Extension } from 'resource:///org/gnome/shell/extensions/extension.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import { animationsEnabled, clamp } from '../core/utils.js';
 import { overviewDash } from '../compat/shell.js';
+import { NativeDockBlur } from '../effects/nativeDockBlur.js';
+
+const NATIVE_BLUR_KEYS = Object.freeze([
+    'native-blur-enabled',
+    'native-blur-radius',
+    'native-blur-brightness',
+]);
 
 export class DockChrome {
     constructor() {
@@ -26,6 +34,10 @@ export class DockChrome {
         this._dashReactive = true;
         this._dashCfg = null;
         this._dashNotifyIds = null;
+        this._dockRadius = 0;
+        this._nativeBlur = null;
+        this._nativeBlurSettings = null;
+        this._nativeBlurSettingIds = [];
 
         try {
             this._container = new St.Widget({
@@ -37,6 +49,24 @@ export class DockChrome {
 
             this._bg = new St.Widget({ style_class: 'aqua-bg' });
             this._container.add_child(this._bg);
+
+            // Resolve settings from the owning extension at runtime rather than
+            // constructing Gio.Settings directly, so extension-local compiled
+            // schemas work on both GNOME 50 and 51. These three keys are handled
+            // entirely by DockChrome and therefore never force a dock relayout.
+            const extension = Extension.lookupByURL(import.meta.url);
+            this._nativeBlurSettings = extension?.getSettings() ?? null;
+            this._nativeBlur = new NativeDockBlur(this._bg);
+            if (this._nativeBlurSettings) {
+                for (const key of NATIVE_BLUR_KEYS) {
+                    this._nativeBlurSettingIds.push(
+                        this._nativeBlurSettings.connect(
+                            `changed::${key}`,
+                            () => this._syncNativeBlur(),
+                        ),
+                    );
+                }
+            }
 
             // Dynamic invisible zone covering magnified icon overflow above the
             // pill. Zero-sized at rest, so clicks pass through to the desktop.
@@ -126,6 +156,9 @@ export class DockChrome {
     applyPill(geom) {
         this._applyRect(this._bg, geom.bg.x, geom.bg.y, geom.bg.w, geom.bg.h);
         if (this._bg.opacity !== 255) this._bg.opacity = 255;
+        // Size may change because of monitor scale, auto-shrink, orientation or
+        // item count. Refresh mask uniforms after allocation changes.
+        this._syncNativeBlur();
     }
 
     applyPillStyle(style) {
@@ -133,7 +166,28 @@ export class DockChrome {
             this._bg.set_style(style);
             this._autohideHandle.set_style(style);
             this._bgStyleCache = style;
+
+            // pillStyle() is the single source of truth for the final runtime
+            // radius, including auto-shrink. Reuse that exact value for blur
+            // clipping so the glass edge cannot drift away from the dock edge.
+            const match = /border-radius\s*:\s*([0-9.]+)px/i.exec(style ?? '');
+            if (match) this._dockRadius = Math.max(0, Number(match[1]) || 0);
         }
+        this._syncNativeBlur();
+    }
+
+    _syncNativeBlur() {
+        const settings = this._nativeBlurSettings;
+        if (!this._nativeBlur || !settings || !this._bg) {
+            this._nativeBlur?.disable();
+            return;
+        }
+        this._nativeBlur.update({
+            nativeBlurEnabled: settings.get_boolean('native-blur-enabled'),
+            nativeBlurRadius: settings.get_int('native-blur-radius'),
+            nativeBlurBrightness: settings.get_double('native-blur-brightness'),
+            dockRadius: this._dockRadius,
+        });
     }
 
     applyAccessibility(cfg) {
@@ -312,6 +366,17 @@ export class DockChrome {
 
     destroy() {
         this.restoreDash();
+
+        if (this._nativeBlurSettings) {
+            for (const id of this._nativeBlurSettingIds) {
+                try { this._nativeBlurSettings.disconnect(id); } catch { }
+            }
+        }
+        this._nativeBlurSettingIds = [];
+        this._nativeBlurSettings = null;
+        this._nativeBlur?.destroy();
+        this._nativeBlur = null;
+
         for (const key of ['_magZone', '_strip', '_autohideHandle', '_edgeZone', '_strut', '_container']) {
             const actor = this[key];
             if (!actor) continue;
@@ -322,5 +387,6 @@ export class DockChrome {
         this._bg = null;
         this._handleVisible = false;
         this._handleClipCache = null;
+        this._dockRadius = 0;
     }
 }
