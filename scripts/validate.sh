@@ -153,7 +153,7 @@ gjs -m tests/locationResolver.test.js
 gjs -m tests/mountedDevices.test.js
 gjs -m tests/windowFilter.test.js
 
-if [[ ${AQUA_RUN_PREFS_SMOKE:-0 ]] == 1 ]]; then
+if [[ ${AQUA_RUN_PREFS_SMOKE:-0} == 1 ]]; then
     gjs -m tests/prefsSmoke.test.js
 fi
 
