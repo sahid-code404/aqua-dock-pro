@@ -66,7 +66,7 @@ export function exportSettings(window, settings, metadata, extraSettings = {}) {
     });
 }
 
-function parseSettingsRecords(settings, records, skipSettingsVersion = false) {
+function parseSettingsRecords(settings, records, wrongTypeMessage, skipSettingsVersion = false) {
     const parsed = [];
     if (!records || typeof records !== 'object') return parsed;
     for (const [key, record] of Object.entries(records)) {
@@ -74,7 +74,7 @@ function parseSettingsRecords(settings, records, skipSettingsVersion = false) {
         if (!settings.settings_schema.has_key(key)) continue;
         const expected = settings.get_value(key).get_type_string();
         if (record?.type !== expected)
-            throw new Error(format(_('Setting “%s” has the wrong type.'), key));
+            throw new Error(format(wrongTypeMessage, key));
         parsed.push({
             settings,
             key,
@@ -100,11 +100,14 @@ export function importSettings(window, settings, metadata, extraSettings = {}) {
             if (doc.format !== 1 || doc.uuid !== metadata.uuid || !doc.values)
                 throw new Error(_('This is not an AquaDockPro settings backup.'));
 
-            const parsed = parseSettingsRecords(settings, doc.values, true);
+            const wrongTypeMessage = _('Setting “%s” has the wrong type.');
+            const parsed = parseSettingsRecords(
+                settings, doc.values, wrongTypeMessage, true);
             for (const [name, extra] of Object.entries(extraSettings)) {
                 parsed.push(...parseSettingsRecords(
                     extra,
                     doc.auxiliary?.[name],
+                    wrongTypeMessage,
                     false,
                 ));
             }
