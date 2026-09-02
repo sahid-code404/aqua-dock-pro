@@ -31,8 +31,12 @@ const source = Gio.SettingsSchemaSource.new_from_directory(
     schemaDir, Gio.SettingsSchemaSource.get_default(), false);
 const schema = source.lookup('org.gnome.shell.extensions.aqua-dock-pro', false);
 assert(schema !== null, 'compiled settings schema was not found');
+const blurSchema = source.lookup(
+    'org.gnome.shell.extensions.aqua-dock-pro.native-blur', false);
+assert(blurSchema !== null, 'compiled native blur settings schema was not found');
 
 const settings = new Gio.Settings({ settings_schema: schema });
+const blurSettings = new Gio.Settings({ settings_schema: blurSchema });
 const bus = { emit() {} };
 const manager = new SettingsManager(settings, bus);
 const cfg = manager.config;
@@ -58,6 +62,10 @@ assert(!cfg.reduceMotion && !cfg.highContrast && cfg.interfaceTextScale === 1 &&
     cfg.announceItemStatus, 'accessibility defaults changed');
 assert(!cfg.menuUseGnomeDefault,
     'GNOME default app menu fallback must remain opt-in');
+assert(!blurSettings.get_boolean('enabled') &&
+    blurSettings.get_int('radius') === 24 &&
+    Math.abs(blurSettings.get_double('brightness') - 0.82) < 0.0001,
+    'native blur must remain disabled by default with stable control defaults');
 assert(GEOMETRY_KEYS.has('auto-hide-mode') &&
     !hasKnownDirectSettingImpact('auto-hide-mode'),
     'auto-hide mode must relayout so reserved strut geometry stays in sync');
@@ -103,6 +111,9 @@ assert(!hasKnownDirectSettingImpact('icon-size') &&
 
 for (const key of schema.list_keys())
     assert(settings.get_user_value(key) === null, `construction wrote setting ${key}`);
+for (const key of blurSchema.list_keys())
+    assert(blurSettings.get_user_value(key) === null,
+        `native blur construction wrote setting ${key}`);
 
 manager.destroy();
 
@@ -164,4 +175,5 @@ assert(reduceMotionEvents.length === 2 &&
     reduceMotionEvents[0] === true && reduceMotionEvents[1] === false,
     'reduce-motion subscribers did not receive exactly one event per state change');
 
-print(`settings: ok (${schema.list_keys().length} keys)`);
+print(`settings: ok (${schema.list_keys().length} primary keys, ` +
+    `${blurSchema.list_keys().length} native blur keys)`);
