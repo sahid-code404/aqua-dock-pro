@@ -140,10 +140,12 @@ export function animationsEnabled() {
         const settings = _stSettings ??= St.Settings.get();
         if (!settings.enable_animations) return false;
 
-        // GNOME 51 adds a separate reduced-motion preference. Keep this
-        // feature check so the same package continues to run on GNOME 50.
+        // GNOME 51 adds a separate reduced-motion preference. GJS exposes the
+        // new property as reducedMotion; keep the underscore fallback for older
+        // bindings so one package remains safe across Shell 50 and 51.
         const reduce = St.ReducedMotion?.REDUCE;
-        return reduce === undefined || settings.reduced_motion !== reduce;
+        const reducedMotion = settings.reducedMotion ?? settings.reduced_motion;
+        return reduce === undefined || reducedMotion !== reduce;
     }
     catch { return true; }
 }
