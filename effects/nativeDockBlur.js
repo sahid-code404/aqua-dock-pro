@@ -61,7 +61,9 @@ function createRoundMaskEffect() {
 }
 
 function setUniform(effect, name, value) {
-    effect?.set_uniform_value?.(name, Number(value));
+    // set_uniform_value() takes an explicit GValue. The float-array helper is
+    // the introspection-friendly API intended for languages such as GJS.
+    effect?.set_uniform_float?.(name, 1, 1, [Number(value)]);
 }
 
 export function nativeDockBlurSupported() {
