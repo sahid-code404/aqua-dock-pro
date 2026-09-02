@@ -75,6 +75,20 @@ export class NativeDockBlur {
         this._actor = actor;
         this._blur = null;
         this._roundMask = null;
+        this._cornerRadius = 0;
+        this._actorSignalIds = [];
+
+        // Magnification changes the pill allocation frame-by-frame. Updating
+        // only these three shader uniforms on allocation notifications keeps the
+        // rounded clip exact without adding another animation or polling loop.
+        if (actor) {
+            for (const property of ['width', 'height']) {
+                this._actorSignalIds.push(actor.connect(
+                    `notify::${property}`,
+                    () => this._syncRoundMaskGeometry(),
+                ));
+            }
+        }
     }
 
     update(cfg) {
@@ -97,6 +111,7 @@ export class NativeDockBlur {
             MAX_BRIGHTNESS,
         );
         const cornerRadius = Math.max(0, Number(cfg.dockRadius) || 0);
+        this._cornerRadius = cornerRadius;
 
         try {
             if (!this._blur) {
@@ -124,9 +139,7 @@ export class NativeDockBlur {
                 this._roundMask = createRoundMaskEffect();
                 actor.add_effect_with_name(ROUND_MASK_EFFECT_NAME, this._roundMask);
             }
-            setUniform(this._roundMask, 'aqua_width', actor.width);
-            setUniform(this._roundMask, 'aqua_height', actor.height);
-            setUniform(this._roundMask, 'aqua_corner_radius', cornerRadius);
+            this._syncRoundMaskGeometry();
             this._roundMask.enabled = true;
         } catch (error) {
             // Blur is purely optional. A compositor/GPU-specific failure must
@@ -134,6 +147,13 @@ export class NativeDockBlur {
             warnOnce('native-dock-blur', `Native dock blur unavailable: ${error}`);
             this.disable();
         }
+    }
+
+    _syncRoundMaskGeometry() {
+        if (!this._roundMask || !this._actor) return;
+        setUniform(this._roundMask, 'aqua_width', this._actor.width);
+        setUniform(this._roundMask, 'aqua_height', this._actor.height);
+        setUniform(this._roundMask, 'aqua_corner_radius', this._cornerRadius);
     }
 
     _removeRoundMask() {
@@ -153,6 +173,12 @@ export class NativeDockBlur {
 
     destroy() {
         this.disable();
+        if (this._actor) {
+            for (const id of this._actorSignalIds) {
+                try { this._actor.disconnect(id); } catch { }
+            }
+        }
+        this._actorSignalIds = [];
         this._actor = null;
     }
 }
