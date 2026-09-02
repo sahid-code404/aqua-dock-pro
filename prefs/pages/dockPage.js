@@ -61,12 +61,12 @@ export function buildDockPage(window, s, blurSettings) {
     // established settings contract and migrations remain completely untouched.
     const nativeBlur = toggleExpander(blurSettings, 'enabled',
         'Native background blur',
-        'GNOME Shell 51+ only; disabled by default',
+        'GNOME Shell 51+; rounded native Blur backend required',
         'applications-graphics-symbolic');
     nativeBlur.add_row(spinRow(blurSettings, 'radius', 'Blur radius',
         'Strength of the native background blur', 0, 80, 1, 0));
     nativeBlur.add_row(spinRow(blurSettings, 'brightness', 'Blur brightness',
-        'Brightness of the blurred backdrop', 0.20, 1.20, 0.05, 2));
+        'Brightness of the blurred backdrop', 0.20, 1.00, 0.05, 2));
     pill.add(nativeBlur);
 
     const pillStyle = expanderRow(_('Colours and border'),
