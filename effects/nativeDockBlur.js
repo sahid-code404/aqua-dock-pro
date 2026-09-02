@@ -3,14 +3,14 @@
 // Stock Shell.BlurEffect has no corner-radius property. Its BACKGROUND mode
 // also paints the blurred framebuffer before later actor effects, so stacking a
 // ShaderEffect on the same actor cannot clip the blur itself. Instead we mirror
-// only the real desktop backdrop (wallpaper + windows) into a small pill-sized
-// actor, blur that mirror with Shell.BlurEffect in ACTOR mode, then apply the
-// rounded shader to the outer actor. The dock is never part of the mirror, so
-// there is no recursive clone. The shader performs clipping only; Shell still
-// performs the blur.
+// the real Shell backdrop into a small pill-sized actor, blur that mirror with
+// Shell.BlurEffect in ACTOR mode, then apply the rounded shader to the outer
+// actor. The dock itself is never part of the mirror, so there is no recursive
+// clone. The shader performs clipping only; Shell still performs the blur.
 
 import Clutter from 'gi://Clutter';
 import Cogl from 'gi://Cogl';
+import GObject from 'gi://GObject';
 import Shell from 'gi://Shell';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
@@ -24,6 +24,18 @@ const MIN_BLUR_RADIUS = 0;
 const MAX_BLUR_RADIUS = 80;
 const MIN_BRIGHTNESS = 0.20;
 const MAX_BRIGHTNESS = 1.20;
+
+// Properties whose changes alter what a cloned backdrop looks like without
+// necessarily repainting the underlying surface itself (overview/workspace
+// motion is the important example). One generic notify handler per actor keeps
+// the watcher count bounded instead of connecting to every property separately.
+const LIVE_NOTIFY_PROPERTIES = new Set([
+    'x', 'y', 'width', 'height', 'allocation',
+    'translation-x', 'translation-y',
+    'scale-x', 'scale-y',
+    'rotation-angle-z',
+    'opacity', 'visible',
+]);
 
 const ROUND_MASK_DECLARATIONS = `
 uniform float aqua_width;
@@ -65,6 +77,13 @@ function finiteNumber(value, fallback = 0) {
     return Number.isFinite(number) ? number : fallback;
 }
 
+function hasSignal(object, signalName) {
+    const gtype = object?.constructor?.$gtype;
+    if (!gtype) return false;
+    try { return GObject.signal_lookup(signalName, gtype) > 0; }
+    catch { return false; }
+}
+
 export function nativeDockBlurSupported() {
     return shellMajorVersion() >= 51 &&
         typeof Shell.BlurEffect === 'function' &&
@@ -81,14 +100,18 @@ export class NativeDockBlur {
         this._capture = null;
         this._backgroundClone = null;
         this._windowClone = null;
+        this._overviewClone = null;
         this._backgroundSource = null;
         this._windowSource = null;
+        this._overviewSource = null;
         this._blur = null;
         this._roundMask = null;
         this._cornerRadius = 0;
         this._actorSignalIds = [];
         this._parentSignalIds = [];
-        this._sourceSignalIds = [];
+        this._sourceGeometrySignalIds = [];
+        this._sourceRootSignalIds = [];
+        this._liveSignalIds = [];
 
         if (actor) {
             actor.set_clip_to_allocation(true);
@@ -135,7 +158,13 @@ export class NativeDockBlur {
             MIN_BRIGHTNESS,
             MAX_BRIGHTNESS,
         );
-        this._cornerRadius = Math.max(0, finiteNumber(cfg.dockRadius, 0));
+
+        // pillStyle() stores its CSS radius in logical CSS pixels while St's
+        // rendered geometry is resource-scaled. Use the same resource scale for
+        // the mask so its corner curve lands on the exact pixels of the visible
+        // pill instead of becoming too square on HiDPI/fractional-scale setups.
+        this._cornerRadius = Math.max(0,
+            finiteNumber(cfg.dockRadius, 0) * resourceScale);
 
         try {
             this._ensureBackdropMirror();
@@ -164,8 +193,7 @@ export class NativeDockBlur {
 
             this._syncRoundMaskGeometry();
             this._roundMask.enabled = true;
-            this._capture.queue_redraw?.();
-            actor.queue_redraw?.();
+            this._queueBackdropRepaint();
         } catch (error) {
             warnOnce('native-dock-blur', `Native rounded dock blur unavailable: ${error}`);
             this.disable();
@@ -178,11 +206,16 @@ export class NativeDockBlur {
 
         const backgroundSource = Main.layoutManager?._backgroundGroup ?? null;
         const windowSource = global.window_group ?? null;
+        // The live GNOME overview is not part of global.window_group. Mirror it
+        // separately so workspace/search/app-grid motion behind the dock is not
+        // frozen to the pre-overview desktop frame.
+        const overviewSource = Main.layoutManager?.overviewGroup ?? null;
         if (!backgroundSource || !windowSource)
             throw new Error('GNOME Shell backdrop actors are unavailable');
 
         this._backgroundSource = backgroundSource;
         this._windowSource = windowSource;
+        this._overviewSource = overviewSource;
 
         this._capture = new Clutter.Actor({
             reactive: false,
@@ -201,17 +234,108 @@ export class NativeDockBlur {
 
         this._capture.add_child(this._backgroundClone);
         this._capture.add_child(this._windowClone);
+
+        if (overviewSource) {
+            this._overviewClone = new Clutter.Clone({
+                source: overviewSource,
+                reactive: false,
+            });
+            this._capture.add_child(this._overviewClone);
+        }
+
         this._actor.add_child(this._capture);
 
-        const sync = () => this._syncBackdropGeometry();
-        for (const source of [backgroundSource, windowSource]) {
+        const sync = () => {
+            this._syncBackdropGeometry();
+            this._queueBackdropRepaint();
+        };
+        for (const source of [backgroundSource, windowSource, overviewSource]) {
+            if (!source) continue;
             for (const property of ['x', 'y', 'width', 'height']) {
-                this._sourceSignalIds.push([
+                this._sourceGeometrySignalIds.push([
                     source,
                     source.connect(`notify::${property}`, sync),
                 ]);
             }
+
+            // New top-level windows/workspace views must be added to the live
+            // repaint watcher tree. These are root-only structure watches; the
+            // full descendants are rebuilt below.
+            for (const signalName of ['child-added', 'child-removed']) {
+                if (!hasSignal(source, signalName)) continue;
+                this._sourceRootSignalIds.push([
+                    source,
+                    source.connect(signalName, () => {
+                        this._rebuildLiveWatchers();
+                        this._queueBackdropRepaint();
+                    }),
+                ]);
+            }
         }
+
+        this._rebuildLiveWatchers();
+    }
+
+    _rebuildLiveWatchers() {
+        for (const [object, id] of this._liveSignalIds) {
+            try { object.disconnect(id); } catch { }
+        }
+        this._liveSignalIds = [];
+
+        const queue = () => this._queueBackdropRepaint();
+        const roots = [
+            this._backgroundSource,
+            this._windowSource,
+            this._overviewSource,
+        ].filter(Boolean);
+
+        const seen = new Set();
+        const stack = [...roots];
+        while (stack.length > 0) {
+            const object = stack.pop();
+            if (!object || seen.has(object)) continue;
+            seen.add(object);
+
+            // Surface content changes (scrolling, video, terminal text, etc.)
+            // are exposed by Mutter's MetaSurfaceActor repaint-scheduled signal.
+            // update-scheduled catches the earlier update phase too, while the
+            // generic notify handler catches overview/workspace transforms.
+            for (const signalName of ['repaint-scheduled', 'update-scheduled', 'size-changed']) {
+                if (!hasSignal(object, signalName)) continue;
+                try {
+                    this._liveSignalIds.push([
+                        object,
+                        object.connect(signalName, queue),
+                    ]);
+                } catch { }
+            }
+
+            try {
+                this._liveSignalIds.push([
+                    object,
+                    object.connect('notify', (_actor, pspec) => {
+                        if (LIVE_NOTIFY_PROPERTIES.has(pspec?.name))
+                            queue();
+                    }),
+                ]);
+            } catch { }
+
+            const children = object.get_children?.() ?? [];
+            for (const child of children)
+                stack.push(child);
+        }
+    }
+
+    _queueBackdropRepaint() {
+        // Watchers stay installed while the mirror exists, but hidden/disabled
+        // blur must not create repaint work.
+        if (!this._actor?.visible || !this._capture?.visible)
+            return;
+        this._backgroundClone?.queue_redraw?.();
+        this._windowClone?.queue_redraw?.();
+        this._overviewClone?.queue_redraw?.();
+        this._capture?.queue_redraw?.();
+        this._actor?.queue_redraw?.();
     }
 
     _syncBackdropGeometry() {
@@ -232,6 +356,7 @@ export class NativeDockBlur {
         for (const [clone, source] of [
             [this._backgroundClone, this._backgroundSource],
             [this._windowClone, this._windowSource],
+            [this._overviewClone, this._overviewSource],
         ]) {
             if (!clone || !source) continue;
 
@@ -293,17 +418,29 @@ export class NativeDockBlur {
         }
         this._parentSignalIds = [];
 
-        for (const [source, id] of this._sourceSignalIds) {
+        for (const [source, id] of this._sourceGeometrySignalIds) {
             try { source.disconnect(id); } catch { }
         }
-        this._sourceSignalIds = [];
+        this._sourceGeometrySignalIds = [];
+
+        for (const [source, id] of this._sourceRootSignalIds) {
+            try { source.disconnect(id); } catch { }
+        }
+        this._sourceRootSignalIds = [];
+
+        for (const [object, id] of this._liveSignalIds) {
+            try { object.disconnect(id); } catch { }
+        }
+        this._liveSignalIds = [];
 
         try { this._capture?.destroy(); } catch { }
         this._capture = null;
         this._backgroundClone = null;
         this._windowClone = null;
+        this._overviewClone = null;
         this._backgroundSource = null;
         this._windowSource = null;
+        this._overviewSource = null;
         this._actor = null;
     }
 }
