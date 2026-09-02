@@ -19,10 +19,12 @@ if compgen -G "$project_root/po/*.po" >/dev/null; then
     translations=(--podir=po --gettext-domain=aqua-dock-pro)
 fi
 
+# gnome-extensions pack automatically discovers and compiles every .gschema.xml
+# under schemas/. Keep discovery enabled so the primary settings schema and the
+# optional GNOME 51 native-blur schema are always shipped together.
 gnome-extensions pack "$project_root" \
     --force \
     --out-dir="$output_dir" \
-    --schema=schemas/org.gnome.shell.extensions.aqua-dock-pro.gschema.xml \
     "${translations[@]}" \
     "${extra[@]}"
 
