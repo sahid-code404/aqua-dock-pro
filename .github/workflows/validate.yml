@@ -6,8 +6,19 @@ on:
 
 jobs:
   extension:
+    name: Extension (${{ matrix.shell }})
     runs-on: ubuntu-latest
-    container: fedora:44
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - shell: GNOME 50
+            image: fedora:44
+            major: "50"
+          - shell: GNOME 51
+            image: fedora:45
+            major: "51"
+    container: ${{ matrix.image }}
 
     steps:
       - name: Install Git
@@ -17,6 +28,13 @@ jobs:
 
       - name: Install validation dependencies
         run: dnf install -y gjs glib2 gettext jq gnome-shell libadwaita python3 unzip xorg-x11-server-Xvfb
+
+      - name: Verify GNOME Shell version
+        run: |
+          shell_version="$(gnome-shell --version)"
+          printf '%s\n' "$shell_version"
+          shell_major="$(printf '%s\n' "$shell_version" | sed -E 's/.* ([0-9]+).*/\1/')"
+          test "$shell_major" = "${{ matrix.major }}"
 
       - name: EGO compatibility audit
         run: python3 scripts/ego-audit.py
