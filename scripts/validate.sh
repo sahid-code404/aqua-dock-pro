@@ -94,7 +94,7 @@ if command -v xgettext >/dev/null && [[ -f po/aqua-dock-pro.pot ]]; then
 
     if ! diff -u \
         <(grep -v '^#:' "$pot_before") \
-        <(grep -v '^#:' "$pot_after"); then
+        <(grep -v '^#:' "$pot_after") >/dev/null; then
         rm -f "$pot_before" "$pot_after"
         printf 'po/aqua-dock-pro.pot messages were stale; regenerate it with po/update-pot.sh.\n' >&2
         exit 1
