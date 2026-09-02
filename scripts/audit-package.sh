@@ -13,7 +13,13 @@ mapfile -t entries < <(unzip -Z1 "$bundle")
     exit 1
 }
 
-for required in metadata.json extension.js prefs.js stylesheet.css; do
+for required in \
+    metadata.json \
+    extension.js \
+    prefs.js \
+    stylesheet.css \
+    schemas/org.gnome.shell.extensions.aqua-dock-pro.gschema.xml \
+    schemas/org.gnome.shell.extensions.aqua-dock-pro.native-blur.gschema.xml; do
     printf '%s\n' "${entries[@]}" | grep -Fxq "$required" || {
         printf 'Required package file missing: %s\n' "$required" >&2
         exit 1
