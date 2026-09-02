@@ -118,7 +118,7 @@ export function buildDevicesPage(window, s) {
             if (!syncing) setDeviceVisible(entry.deviceId, toggle.active);
         });
         row.add_suffix(toggle);
-        row.activatable_widget = toggle;
+        row.set_activatable_widget(toggle);
         current.add(row);
         rows.set(entry.key, { row, toggle, deviceId: entry.deviceId });
     };
