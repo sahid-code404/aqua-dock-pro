@@ -94,7 +94,7 @@ if command -v xgettext >/dev/null && [[ -f po/aqua-dock-pro.pot ]]; then
 
     if ! diff -u \
         <(grep -v '^#:' "$pot_before") \
-        <(grep -v '^#:' "$pot_after") >/dev/null; then
+        <(grep -v '^#:' "$pot_after"); then
         rm -f "$pot_before" "$pot_after"
         printf 'po/aqua-dock-pro.pot messages were stale; regenerate it with po/update-pot.sh.\n' >&2
         exit 1
@@ -153,7 +153,7 @@ gjs -m tests/locationResolver.test.js
 gjs -m tests/mountedDevices.test.js
 gjs -m tests/windowFilter.test.js
 
-if [[ ${AQUA_RUN_PREFS_SMOKE:-0} == 1 ]]; then
+if [[ ${AQUA_RUN_PREFS_SMOKE:-0 ]] == 1 ]]; then
     gjs -m tests/prefsSmoke.test.js
 fi
 
