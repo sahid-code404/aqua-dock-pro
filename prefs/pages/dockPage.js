@@ -13,7 +13,7 @@ import {
 } from '../widgets/rows.js';
 import { _ } from '../../core/i18n.js';
 
-export function buildDockPage(window, s) {
+export function buildDockPage(window, s, blurSettings) {
     const p = page(_('Dock'), 'view-grid-symbolic');
     window.add(p);
 
@@ -57,13 +57,13 @@ export function buildDockPage(window, s) {
     pill.add(spinRow(s, 'background-opacity', _('Background opacity'),
         _('How see-through the pill is'), 0.10, 1.0, 0.05, 2));
 
-    const nativeBlur = toggleExpander(s, 'native-blur-enabled',
+    const nativeBlur = toggleExpander(blurSettings, 'enabled',
         _('Native background blur'),
         _('GNOME Shell 51+ only; disabled by default'),
         'applications-graphics-symbolic');
-    nativeBlur.add_row(spinRow(s, 'native-blur-radius', _('Blur radius'),
+    nativeBlur.add_row(spinRow(blurSettings, 'radius', _('Blur radius'),
         _('Strength of the native background blur'), 0, 80, 1, 0));
-    nativeBlur.add_row(spinRow(s, 'native-blur-brightness', _('Blur brightness'),
+    nativeBlur.add_row(spinRow(blurSettings, 'brightness', _('Blur brightness'),
         _('Brightness of the blurred backdrop'), 0.20, 1.20, 0.05, 2));
     pill.add(nativeBlur);
 
