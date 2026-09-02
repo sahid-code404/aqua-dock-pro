@@ -60,13 +60,13 @@ export function buildDockPage(window, s, blurSettings) {
     // GNOME 51-specific controls live in a separate schema so GNOME 50's
     // established settings contract and migrations remain completely untouched.
     const nativeBlur = toggleExpander(blurSettings, 'enabled',
-        'Native background blur',
-        'GNOME Shell 51+ only; disabled by default',
+        _('Native background blur'),
+        _('GNOME Shell 51+ only; disabled by default'),
         'applications-graphics-symbolic');
-    nativeBlur.add_row(spinRow(blurSettings, 'radius', 'Blur radius',
-        'Strength of the native background blur', 0, 80, 1, 0));
-    nativeBlur.add_row(spinRow(blurSettings, 'brightness', 'Blur brightness',
-        'Brightness of the blurred backdrop', 0.20, 1.20, 0.05, 2));
+    nativeBlur.add_row(spinRow(blurSettings, 'radius', _('Blur radius'),
+        _('Strength of the native background blur'), 0, 80, 1, 0));
+    nativeBlur.add_row(spinRow(blurSettings, 'brightness', _('Blur brightness'),
+        _('Brightness of the blurred backdrop'), 0.20, 1.20, 0.05, 2));
     pill.add(nativeBlur);
 
     const pillStyle = expanderRow(_('Colours and border'),
