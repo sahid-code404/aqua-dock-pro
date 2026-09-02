@@ -11,7 +11,7 @@ glib-compile-schemas --strict --targetdir="$schema_dir" schemas
 jq -e '
     .uuid == "aqua-dock-pro@shaque" and
     (.version | type == "number") and
-    ."shell-version" == ["50"] and
+    ."shell-version" == ["50", "51"] and
     (.description | contains("clipboard"))
 ' metadata.json >/dev/null
 
@@ -43,6 +43,28 @@ fi
 if grep -nE 'imports\.(ByteArray|byteArray|Lang|lang|Mainloop|mainloop)|run_dispose[[:space:]]*\(' \
     "${js_files[@]}"; then
     printf 'Deprecated or reviewer-hostile GJS API usage found.\n' >&2
+    exit 1
+fi
+
+# GNOME Shell 51 removed these APIs. Keep them out of runtime code while the
+# same package continues to support Shell 50.
+if grep -nE 'Shell\.GLSLEffect|Clutter\.get_default_backend[[:space:]]*\(|resource:///org/gnome/shell/ui/pointerWatcher\.js' \
+    "${runtime_js[@]}"; then
+    printf 'GNOME Shell 51-removed API usage found.\n' >&2
+    exit 1
+fi
+
+# GNOME Shell requires extension disable() to remain synchronous.
+if grep -nE 'async[[:space:]]+disable[[:space:]]*\(' extension.js; then
+    printf 'Extension disable() must remain synchronous for GNOME Shell 51.\n' >&2
+    exit 1
+fi
+
+# Shell 51 changed PopupMenu.open()/close() to an options object. Direct enum
+# calls outside the compatibility boundary would work on 50 but break on 51.
+if grep -nE '\.(open|close)[[:space:]]*\([[:space:]]*BoxPointer\.PopupAnimation' \
+    "${runtime_js[@]}"; then
+    printf 'GNOME Shell 50-only PopupAnimation call found; route it through compat/shell.js.\n' >&2
     exit 1
 fi
 
