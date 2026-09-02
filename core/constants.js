@@ -16,15 +16,11 @@ export const SETTLE_EPS = 0.002;
 // ── Settings pipeline ────────────────────────────────────────────────────────
 export const SETTINGS_DEBOUNCE_MS = 120;
 
-// These keys are consumed directly by GNOME/GSettings, chrome-local visual
-// effects, or migration code and do not require a dock config rebuild,
-// relayout, item refresh, or repaint routing through DockController.
+// These keys are consumed directly by GNOME/GSettings or by migration code and
+// do not require a dock config rebuild, relayout, item refresh, or repaint.
 export const DOCK_NOOP_KEYS = Object.freeze(new Set([
     'settings-version',
     'focus-dock-shortcut',
-    'native-blur-enabled',
-    'native-blur-radius',
-    'native-blur-brightness',
 ]));
 
 // Keys that change the dock's structure or the set of runtime services.
