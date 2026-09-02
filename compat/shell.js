@@ -1,8 +1,32 @@
 // AquaDockPro GNOME Shell compatibility boundary.
 
+import St from 'gi://St';
+
+import * as BoxPointer from 'resource:///org/gnome/shell/ui/boxpointer.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import { warnOnce } from '../core/utils.js';
+
+function usesPopupParameterObject() {
+    // GNOME 51 introduced the readable ButtonMask names at the same Shell API
+    // boundary where PopupMenu.open()/close() switched to parameter objects.
+    // GNOME 50 exposes ONE/TWO/THREE only, so this is a stable feature check
+    // that avoids parsing distro-specific Shell version strings.
+    return St.ButtonMask.PRIMARY !== undefined;
+}
+
+export function openPopupMenuFull(menu) {
+    if (!menu || typeof menu.open !== 'function') return;
+
+    if (usesPopupParameterObject()) {
+        // GNOME 51+: PopupMenu.open({ animate, fadeOnly }).
+        menu.open({ animate: true, fadeOnly: false });
+        return;
+    }
+
+    // GNOME 50: preserve the exact existing FULL slide+fade animation.
+    menu.open(BoxPointer.PopupAnimation.FULL);
+}
 
 export function overviewDash() {
     const dash = Main.overview?.dash ?? null;
