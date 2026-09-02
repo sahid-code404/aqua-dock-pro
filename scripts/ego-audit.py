@@ -182,9 +182,9 @@ def main() -> int:
 
     runtime_outside_compat = runtime - SHELL_50_COMPAT_ALLOWLIST
     errors += fail_matches(
-        "GNOME-51 PopupAnimation usage must go through compat/shell.js",
+        "GNOME-51 direct BoxPointer.PopupAnimation use must go through compat/shell.js",
         runtime_outside_compat,
-        r"\bPopupAnimation\b",
+        r"\bBoxPointer\.PopupAnimation\b",
     )
 
     metadata = json.loads((ROOT / "metadata.json").read_text(encoding="utf-8"))
