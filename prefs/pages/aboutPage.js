@@ -28,7 +28,7 @@ export function buildAboutPage(window, s, metadata, extraSettings = {}) {
             catch { try { Gio.AppInfo.launch_default_for_uri(metadata.url, null); } catch { } }
         });
         linkRow.add_suffix(open);
-        linkRow.activatable_widget = open;
+        linkRow.set_activatable_widget(open);
         info.add(linkRow);
     }
     p.add(info);
