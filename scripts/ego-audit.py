@@ -5,6 +5,8 @@ This script analyzes only JavaScript that is shipped by scripts/package.sh.
 It is intentionally conservative: it fails on known EGO-invalid process-boundary
 imports and reviewer-hostile synchronous APIs while allowing the one declared,
 user-triggered folder-stack clipboard helper plus the preferences GTK clipboard path.
+It also guards the GNOME Shell 50/51 compatibility boundary against APIs removed
+or signature-changed in GNOME Shell 51.
 """
 
 from __future__ import annotations
@@ -21,6 +23,7 @@ PACKAGE_DIRS = (
 )
 ROOTS = (Path("extension.js"), Path("prefs.js"))
 CLIPBOARD_RUNTIME_ALLOWLIST = {Path("downloads/fileClipboard.js")}
+SHELL_50_COMPAT_ALLOWLIST = {Path("compat/shell.js")}
 
 IMPORT_RE = re.compile(
     r"(?m)^\s*(?:import|export)\s+(?:[^'\";]+?\s+from\s+)?['\"]([^'\"]+)['\"]\s*;?"
@@ -153,12 +156,42 @@ def main() -> int:
         r"\beval\s*\(|\bnew\s+Function\s*\(",
     )
 
+    # GNOME Shell 51 compatibility gates. Keep GNOME-50-only compatibility
+    # calls isolated in compat/shell.js so new runtime code cannot accidentally
+    # reintroduce an API removed or signature-changed in Shell 51.
+    errors += fail_matches(
+        "GNOME-51 removed pointerWatcher API",
+        runtime,
+        r"resource:///org/gnome/shell/ui/pointerWatcher\.js",
+    )
+    errors += fail_matches(
+        "GNOME-51 removed Shell.GLSLEffect",
+        runtime,
+        r"\bShell\.GLSLEffect\b",
+    )
+    errors += fail_matches(
+        "GNOME-51 removed Clutter.get_default_backend()",
+        runtime,
+        r"\bClutter\.get_default_backend\s*\(",
+    )
+    errors += fail_matches(
+        "GNOME-51 forbids async Extension.disable()",
+        runtime,
+        r"\basync\s+disable\s*\(",
+    )
+
+    runtime_outside_compat = runtime - SHELL_50_COMPAT_ALLOWLIST
+    errors += fail_matches(
+        "GNOME-51 PopupAnimation usage must go through compat/shell.js",
+        runtime_outside_compat,
+        r"\bPopupAnimation\b",
+    )
+
     metadata = json.loads((ROOT / "metadata.json").read_text(encoding="utf-8"))
     shell_versions = metadata.get("shell-version")
-    if shell_versions != ["50"]:
+    if shell_versions != ["50", "51"]:
         errors.append(
-            "metadata shell-version must be ['50'] for this EGO submission; "
-            "do not advertise GNOME 51 until EGO accepts that release target"
+            "metadata shell-version must be ['50', '51'] for the dual-version build"
         )
     if metadata.get("url") != "https://github.com/sahid-code404/aqua-dock-pro":
         errors.append("metadata url must point to the public source repository")
