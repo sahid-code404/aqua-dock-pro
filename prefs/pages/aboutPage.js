@@ -8,7 +8,7 @@ import { page, group } from '../widgets/rows.js';
 import { copyDiagnostics, exportSettings, importSettings } from '../supportTools.js';
 import { _ } from '../../core/i18n.js';
 
-export function buildAboutPage(window, s, metadata) {
+export function buildAboutPage(window, s, metadata, extraSettings = {}) {
     const p = page(_('About'), 'help-about-symbolic');
     window.add(p);
 
@@ -37,10 +37,12 @@ export function buildAboutPage(window, s, metadata) {
         _('Move settings safely or collect a privacy-safe support report.'));
     const backupRow = new Adw.ActionRow({ title: _('Settings backup') });
     const exportButton = new Gtk.Button({ label: _('Export'), valign: Gtk.Align.CENTER });
-    exportButton.connect('clicked', () => exportSettings(window, s, metadata));
+    exportButton.connect('clicked', () =>
+        exportSettings(window, s, metadata, extraSettings));
     backupRow.add_suffix(exportButton);
     const importButton = new Gtk.Button({ label: _('Import'), valign: Gtk.Align.CENTER });
-    importButton.connect('clicked', () => importSettings(window, s, metadata));
+    importButton.connect('clicked', () =>
+        importSettings(window, s, metadata, extraSettings));
     backupRow.add_suffix(importButton);
     support.add(backupRow);
 
@@ -49,7 +51,8 @@ export function buildAboutPage(window, s, metadata) {
         subtitle: _('Copies versions and changed setting names, without private values'),
     });
     const diagnosticsButton = new Gtk.Button({ label: _('Copy'), valign: Gtk.Align.CENTER });
-    diagnosticsButton.connect('clicked', () => copyDiagnostics(window, s, metadata));
+    diagnosticsButton.connect('clicked', () =>
+        copyDiagnostics(window, s, metadata, extraSettings));
     diagnosticsRow.add_suffix(diagnosticsButton);
     support.add(diagnosticsRow);
     p.add(support);
@@ -73,9 +76,12 @@ export function buildAboutPage(window, s, metadata) {
         dialog.set_response_appearance('reset', Adw.ResponseAppearance.DESTRUCTIVE);
         dialog.connect('response', (_d, resp) => {
             if (resp === 'reset') {
-                for (const key of s.settings_schema.list_keys()) {
-                    if (key === 'settings-version') continue;
-                    try { s.reset(key); } catch { }
+                const schemas = [s, ...Object.values(extraSettings)];
+                for (const settings of schemas) {
+                    for (const key of settings.settings_schema.list_keys()) {
+                        if (settings === s && key === 'settings-version') continue;
+                        try { settings.reset(key); } catch { }
+                    }
                 }
             }
             dialog.destroy();
