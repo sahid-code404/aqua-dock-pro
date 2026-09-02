@@ -1,5 +1,11 @@
 # Changelog
 
+## 267
+
+- Advertise one extension package for GNOME Shell 50 and 51 while preserving the existing Shell 50 runtime path and behavior.
+- Route native GNOME application menus through a version-aware popup compatibility boundary so Shell 50 keeps `PopupAnimation` semantics while Shell 51 uses the new `{ animate }` options object.
+- Read GNOME 51's `St.Settings.reducedMotion` property with the existing Shell 50-safe fallback, add guards for APIs removed by Shell 51, and validate/package on both Fedora 44 / GNOME 50 and Fedora 45 / GNOME 51.
+
 ## 266
 
 - Make the right-click context menu for real Downloads and custom-folder stack items show only `Copy`; remove the redundant `Open` action from that menu.
