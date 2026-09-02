@@ -64,9 +64,9 @@ function createRoundMaskEffect() {
 }
 
 function setUniform(effect, name, value) {
-    // set_uniform_value() takes an explicit GValue. The float-array helper is
-    // the introspection-friendly API intended for languages such as GJS.
-    effect?.set_uniform_float?.(name, 1, 1, [Number(value)]);
+    // GNOME Shell's GJS callers use the introspected three-argument form:
+    // set_uniform_float(name, n_components, values).
+    effect?.set_uniform_float?.(name, 1, [Number(value)]);
 }
 
 export function nativeDockBlurSupported() {
@@ -159,6 +159,7 @@ export class NativeDockBlur {
         setUniform(this._roundMask, 'aqua_width', this._actor.width);
         setUniform(this._roundMask, 'aqua_height', this._actor.height);
         setUniform(this._roundMask, 'aqua_corner_radius', this._cornerRadius);
+        this._roundMask.queue_repaint?.();
     }
 
     _removeRoundMask() {
