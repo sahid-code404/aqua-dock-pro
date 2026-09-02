@@ -14,25 +14,36 @@ function showMessage(window, heading, body) {
     dialog.present();
 }
 
-function settingsDocument(settings, metadata) {
+function settingsValues(settings, skipSettingsVersion = false) {
     const values = {};
     for (const key of settings.settings_schema.list_keys()) {
-        if (key === 'settings-version') continue;
+        if (skipSettingsVersion && key === 'settings-version') continue;
         const value = settings.get_value(key);
         values[key] = {
             type: value.get_type_string(),
             value: value.print(true),
         };
     }
+    return values;
+}
+
+function settingsDocument(settings, metadata, extraSettings = {}) {
+    const auxiliary = {};
+    for (const [name, extra] of Object.entries(extraSettings))
+        auxiliary[name] = settingsValues(extra);
+
+    // Keep format 1 so older AquaDockPro builds can still import the primary
+    // settings from a newer backup; they simply ignore the auxiliary field.
     return {
         format: 1,
         uuid: metadata.uuid,
         extensionVersion: metadata.version,
-        values,
+        values: settingsValues(settings, true),
+        auxiliary,
     };
 }
 
-export function exportSettings(window, settings, metadata) {
+export function exportSettings(window, settings, metadata, extraSettings = {}) {
     const dialog = new Gtk.FileDialog({
         title: _('Export AquaDockPro settings'),
         initial_name: `aqua-dock-pro-v${metadata.version}-settings.json`,
@@ -44,7 +55,8 @@ export function exportSettings(window, settings, metadata) {
             const file = source.save_finish(result);
             const path = file?.get_path();
             if (!path) throw new Error(_('Please choose a local file.'));
-            const text = `${JSON.stringify(settingsDocument(settings, metadata), null, 2)}\n`;
+            const text = `${JSON.stringify(
+                settingsDocument(settings, metadata, extraSettings), null, 2)}\n`;
             GLib.file_set_contents(path, text);
             showMessage(window, _('Settings exported'), path);
         } catch (e) {
@@ -54,7 +66,26 @@ export function exportSettings(window, settings, metadata) {
     });
 }
 
-export function importSettings(window, settings, metadata) {
+function parseSettingsRecords(settings, records, skipSettingsVersion = false) {
+    const parsed = [];
+    if (!records || typeof records !== 'object') return parsed;
+    for (const [key, record] of Object.entries(records)) {
+        if (skipSettingsVersion && key === 'settings-version') continue;
+        if (!settings.settings_schema.has_key(key)) continue;
+        const expected = settings.get_value(key).get_type_string();
+        if (record?.type !== expected)
+            throw new Error(format(_('Setting “%s” has the wrong type.'), key));
+        parsed.push({
+            settings,
+            key,
+            value: GLib.Variant.parse(
+                new GLib.VariantType(expected), record.value, null, null),
+        });
+    }
+    return parsed;
+}
+
+export function importSettings(window, settings, metadata, extraSettings = {}) {
     const dialog = new Gtk.FileDialog({ title: _('Import AquaDockPro settings') });
     const cancellable = beginDialog(window);
     dialog.open(window, cancellable, (source, result) => {
@@ -69,29 +100,32 @@ export function importSettings(window, settings, metadata) {
             if (doc.format !== 1 || doc.uuid !== metadata.uuid || !doc.values)
                 throw new Error(_('This is not an AquaDockPro settings backup.'));
 
-            const parsed = [];
-            for (const [key, record] of Object.entries(doc.values)) {
-                if (key === 'settings-version') continue;
-                if (!settings.settings_schema.has_key(key)) continue;
-                const expected = settings.get_value(key).get_type_string();
-                if (record.type !== expected)
-                    throw new Error(format(_('Setting “%s” has the wrong type.'), key));
-                parsed.push([key, GLib.Variant.parse(
-                    new GLib.VariantType(expected), record.value, null, null)]);
+            const parsed = parseSettingsRecords(settings, doc.values, true);
+            for (const [name, extra] of Object.entries(extraSettings)) {
+                parsed.push(...parseSettingsRecords(
+                    extra,
+                    doc.auxiliary?.[name],
+                    false,
+                ));
             }
+
             // Parse and validate the whole document before changing anything.
             // Gio.Settings.delay() is sticky for the lifetime of the object,
             // which would leave the rest of the preferences window delayed.
-            const previous = parsed.map(([key]) => [key, settings.get_user_value(key)]);
+            const previous = parsed.map(record => ({
+                ...record,
+                previous: record.settings.get_user_value(record.key),
+            }));
             try {
-                for (const [key, value] of parsed) {
-                    if (!settings.set_value(key, value))
-                        throw new Error(format(_('Setting “%s” could not be restored.'), key));
+                for (const record of parsed) {
+                    if (!record.settings.set_value(record.key, record.value))
+                        throw new Error(format(
+                            _('Setting “%s” could not be restored.'), record.key));
                 }
             } catch (e) {
-                for (const [key, value] of previous) {
-                    if (value === null) settings.reset(key);
-                    else settings.set_value(key, value);
+                for (const record of previous.reverse()) {
+                    if (record.previous === null) record.settings.reset(record.key);
+                    else record.settings.set_value(record.key, record.previous);
                 }
                 throw e;
             }
@@ -105,10 +139,15 @@ export function importSettings(window, settings, metadata) {
     });
 }
 
-export function copyDiagnostics(window, settings, metadata) {
+export function copyDiagnostics(window, settings, metadata, extraSettings = {}) {
     const changed = [];
     for (const key of settings.settings_schema.list_keys()) {
         if (settings.get_user_value(key) !== null) changed.push(key);
+    }
+    for (const [name, extra] of Object.entries(extraSettings)) {
+        for (const key of extra.settings_schema.list_keys()) {
+            if (extra.get_user_value(key) !== null) changed.push(`${name}.${key}`);
+        }
     }
     const report = [
         `AquaDockPro ${metadata.version}`,
