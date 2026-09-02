@@ -11,19 +11,29 @@ import { buildDownloadsPage } from '../prefs/pages/downloadsPage.js';
 import { buildMotionPage } from '../prefs/pages/motionPage.js';
 import { buildPopupsPage } from '../prefs/pages/popupsPage.js';
 
+const MAIN_SCHEMA = 'org.gnome.shell.extensions.aqua-dock-pro';
+const NATIVE_BLUR_SCHEMA = 'org.gnome.shell.extensions.aqua-dock-pro.native-blur';
+
 const schemaDir = GLib.getenv('AQUA_SCHEMA_DIR');
 if (!schemaDir) throw new Error('AQUA_SCHEMA_DIR is required');
 
 Adw.init();
 const source = Gio.SettingsSchemaSource.new_from_directory(
     schemaDir, Gio.SettingsSchemaSource.get_default(), false);
-const schema = source.lookup('org.gnome.shell.extensions.aqua-dock-pro', false);
+const schema = source.lookup(MAIN_SCHEMA, false);
+const blurSchema = source.lookup(NATIVE_BLUR_SCHEMA, false);
+if (!schema) throw new Error(`missing schema ${MAIN_SCHEMA}`);
+if (!blurSchema) throw new Error(`missing schema ${NATIVE_BLUR_SCHEMA}`);
+
 const settings = new Gio.Settings({ settings_schema: schema });
+const blurSettings = new Gio.Settings({ settings_schema: blurSchema });
+const auxiliarySettings = { nativeBlur: blurSettings };
 const window = new Adw.PreferencesWindow();
 window._settingsSignalIds = [];
 window._cleanupCallbacks = [];
+window._nativeBlurSettings = blurSettings;
 
-buildDockPage(window, settings);
+buildDockPage(window, settings, blurSettings);
 buildMotionPage(window, settings);
 buildBehaviorPage(window, settings);
 buildPopupsPage(window, settings);
@@ -34,15 +44,20 @@ buildAboutPage(window, settings, {
     uuid: 'aqua-dock-pro@shaque',
     version: 221,
     description: 'AquaDockPro test',
-});
+}, auxiliarySettings);
 
 for (const cleanup of window._cleanupCallbacks) cleanup();
 for (const id of window._settingsSignalIds) settings.disconnect(id);
+window._nativeBlurSettings = null;
 window.destroy();
 
 for (const key of schema.list_keys()) {
     if (settings.get_user_value(key) !== null)
         throw new Error(`preferences construction wrote setting ${key}`);
+}
+for (const key of blurSchema.list_keys()) {
+    if (blurSettings.get_user_value(key) !== null)
+        throw new Error(`preferences construction wrote native blur setting ${key}`);
 }
 
 print('preferences: ok');
