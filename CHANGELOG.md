@@ -1,5 +1,11 @@
 # Changelog
 
+## 268
+
+- Add opt-in GNOME Shell 51 native background blur to the dock pill using `Shell.BlurEffect`; the feature remains disabled by default and does not alter the GNOME Shell 50 runtime path.
+- Add dedicated blur radius and brightness controls in Preferences backed by an isolated extension-local GSettings schema.
+- Keep blur rounding synchronized with the dock's final runtime corner radius, including monitor-specific auto-shrink, with a lightweight rounded GPU mask when the stock Shell blur effect has no corner-radius property.
+
 ## 267
 
 - Advertise one extension package for GNOME Shell 50 and 51 while preserving the existing Shell 50 runtime path and behavior.
