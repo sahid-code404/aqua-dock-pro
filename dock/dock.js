@@ -16,6 +16,7 @@ const NATIVE_BLUR_KEYS = Object.freeze(['enabled', 'radius', 'brightness']);
 export class DockChrome {
     constructor() {
         this._container = null;
+        this._blurBackdrop = null;
         this._bg = null;
         this._magZone = null;
         this._strip = null;
@@ -45,6 +46,22 @@ export class DockChrome {
             this._container.set_clip_to_allocation(false);
 
             this._bg = new St.Widget({ style_class: 'aqua-bg' });
+
+            // Native blur must be painted on a separate layer underneath the
+            // visible translucent pill. Bind all geometry to _bg in Clutter so
+            // magnification, auto-shrink and every animation frame stay exactly
+            // synchronized without a JS polling loop.
+            this._blurBackdrop = new St.Widget({
+                reactive: false,
+                visible: false,
+            });
+            this._blurBackdrop.set_clip_to_allocation(true);
+            this._blurBackdrop.add_constraint(new Clutter.BindConstraint({
+                source: this._bg,
+                coordinate: Clutter.BindCoordinate.ALL,
+            }));
+
+            this._container.add_child(this._blurBackdrop);
             this._container.add_child(this._bg);
 
             // Keep the optional GNOME 51 blur preferences in their own schema so
@@ -52,7 +69,7 @@ export class DockChrome {
             // getSettings(schemaId) resolves extension-local compiled schemas.
             const extension = Extension.lookupByURL(import.meta.url);
             this._nativeBlurSettings = extension?.getSettings(NATIVE_BLUR_SCHEMA) ?? null;
-            this._nativeBlur = new NativeDockBlur(this._bg);
+            this._nativeBlur = new NativeDockBlur(this._blurBackdrop);
             if (this._nativeBlurSettings) {
                 for (const key of NATIVE_BLUR_KEYS) {
                     this._nativeBlurSettingIds.push(
@@ -152,8 +169,8 @@ export class DockChrome {
     applyPill(geom) {
         this._applyRect(this._bg, geom.bg.x, geom.bg.y, geom.bg.w, geom.bg.h);
         if (this._bg.opacity !== 255) this._bg.opacity = 255;
-        // Size may change because of monitor scale, auto-shrink, orientation or
-        // item count. Refresh mask uniforms after allocation changes.
+        // _blurBackdrop follows _bg via a native BindConstraint. Refresh the
+        // blur configuration after the seed allocation as well.
         this._syncNativeBlur();
     }
 
@@ -174,7 +191,7 @@ export class DockChrome {
 
     _syncNativeBlur() {
         const settings = this._nativeBlurSettings;
-        if (!this._nativeBlur || !settings || !this._bg) {
+        if (!this._nativeBlur || !settings || !this._blurBackdrop) {
             this._nativeBlur?.disable();
             return;
         }
@@ -380,6 +397,7 @@ export class DockChrome {
             try { actor.destroy(); } catch { }
             this[key] = null;
         }
+        this._blurBackdrop = null;
         this._bg = null;
         this._handleVisible = false;
         this._handleClipCache = null;
