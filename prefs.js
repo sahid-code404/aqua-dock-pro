@@ -11,10 +11,14 @@ import { buildDevicesPage } from './prefs/pages/devicesPage.js';
 import { buildAboutPage } from './prefs/pages/aboutPage.js';
 import { buildAccessibilityPage } from './prefs/pages/accessibilityPage.js';
 
+const NATIVE_BLUR_SCHEMA = 'org.gnome.shell.extensions.aqua-dock-pro.native-blur';
+
 export default class AquaDockProPreferences extends ExtensionPreferences {
     fillPreferencesWindow(window) {
         const s = this.getSettings();
+        const blurSettings = this.getSettings(NATIVE_BLUR_SCHEMA);
         window._settings = s;
+        window._nativeBlurSettings = blurSettings;
         window._settingsSignalIds = [];
         window._cleanupCallbacks = [];
         window._dialogCancellables = new Set();
@@ -27,7 +31,7 @@ export default class AquaDockProPreferences extends ExtensionPreferences {
 
         // Put the everyday configuration flow first, then progressively more
         // specialized appearance/content/accessibility pages.
-        buildDockPage(window, s);
+        buildDockPage(window, s, blurSettings);
         buildBehaviorPage(window, s);
         buildMotionPage(window, s);
         buildPopupsPage(window, s);
@@ -50,6 +54,7 @@ export default class AquaDockProPreferences extends ExtensionPreferences {
                 try { s.disconnect(id); } catch { }
             }
             window._settingsSignalIds = [];
+            window._nativeBlurSettings = null;
         });
     }
 }
