@@ -24,6 +24,7 @@ export class ExtensionManager {
         this._docks = [];
         this._unsubSettings = null;
         this._monitorsChangedId = 0;
+        this._startupCompleteId = 0;
         this._keybindingAdded = false;
         this._timers = new TimeoutGroup();
         this._rebuildRetryId = 0;
@@ -43,16 +44,52 @@ export class ExtensionManager {
             this._unsubSettings = this._bus.on('settings-changed', payload =>
                 this._onSettingsChanged(payload));
 
-            this._buildDocks();
             this._registerKeybinding();
-            this._monitorsChangedId = Main.layoutManager.connect(
-                'monitors-changed', () => this._onMonitorsChanged());
+
+            // Shell may enable extensions while its application system, desktop
+            // file cache, favorites and overview actors are still settling. A
+            // DockController built in that window can receive a partial
+            // AppFavorites/AppSystem snapshot (including transient null app
+            // icons) and then remain visually incomplete for the whole session
+            // because Shell is not required to emit another change for the same
+            // startup data. Build the dock only after startup-complete instead
+            // of trying to repair a partially initialized model afterwards.
+            if (Main.layoutManager._startingUp) {
+                this._startupCompleteId = Main.layoutManager.connect(
+                    'startup-complete', () => {
+                        const id = this._startupCompleteId;
+                        this._startupCompleteId = 0;
+                        if (id) {
+                            try { Main.layoutManager.disconnect(id); } catch { }
+                        }
+                        if (!this._settings) return;
+
+                        // Use the normal transactional/retry path here. If some
+                        // other Shell service is still momentarily unavailable,
+                        // the extension keeps retrying without leaving a
+                        // half-constructed dock behind.
+                        this._attemptRebuild('startup-complete');
+                        this._connectMonitorsChanged();
+                        log('enabled after startup-complete');
+                    });
+                log('enabled; waiting for GNOME startup-complete');
+                return;
+            }
+
+            this._buildDocks();
+            this._connectMonitorsChanged();
             log('enabled');
         } catch (e) {
             logError(e, 'ExtensionManager.enable');
             this.disable();
             throw e;
         }
+    }
+
+    _connectMonitorsChanged() {
+        if (this._monitorsChangedId || !this._settings) return;
+        this._monitorsChangedId = Main.layoutManager.connect(
+            'monitors-changed', () => this._onMonitorsChanged());
     }
 
     _monitorIndexes() {
@@ -239,11 +276,20 @@ export class ExtensionManager {
     }
 
     _onMonitorsChanged() {
+        // No dock exists while Shell is still starting; the startup-complete
+        // build reads the final monitor list in one clean pass.
+        if (this._startupCompleteId) return;
         this._attemptRebuild('monitors-changed');
     }
 
     _onSettingsChanged({ structural, keys }) {
         setReduceMotionOverride(this._settings.config.reduceMotion);
+
+        // While waiting for GNOME startup-complete, SettingsManager still owns
+        // the latest values. Do not construct a dock from an incomplete Shell
+        // application/favorites snapshot just because a setting changed during
+        // login; the deferred initial build will consume the latest config.
+        if (this._startupCompleteId) return;
 
         // GSettings owns the keybinding and the migration key is internal.
         // Neither changes dock geometry or presentation, so avoid waking every
@@ -267,6 +313,11 @@ export class ExtensionManager {
         this._cancelDashRetry();
         this._cancelRebuildRetry();
         this._timers.removeAll();
+
+        if (this._startupCompleteId) {
+            try { Main.layoutManager.disconnect(this._startupCompleteId); } catch { }
+            this._startupCompleteId = 0;
+        }
 
         if (this._keybindingAdded) {
             try { Main.wm.removeKeybinding('focus-dock-shortcut'); } catch { }
