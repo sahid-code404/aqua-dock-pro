@@ -65,6 +65,14 @@ export function monitorIndexAtPoint(monitors, x, y) {
     return -1;
 }
 
+// A focus transition only needs to wake a dock when focus entered or left that
+// dock's monitor. This keeps per-monitor autohide independent when another
+// display opens/closes/focuses an application.
+export function monitorTransitionTouchesIndex(previousIndex, currentIndex, targetIndex) {
+    if (targetIndex < 0) return false;
+    return previousIndex === targetIndex || currentIndex === targetIndex;
+}
+
 // Return monitor indexes in dock-construction order: primary first, then every
 // distinct logical monitor. Duplicate geometries can appear transiently during
 // mirror/reconfigure operations; building two docks into the same stage rect
