@@ -10,7 +10,7 @@ import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import {
     animationsEnabled,
     clamp,
-    appWindowsForConfig,
+    appWindowsForInteraction,
     logError,
     TimeoutGroup,
 } from '../../core/utils.js';
@@ -85,7 +85,8 @@ export class PreviewManager {
         const showAll = forceAll || cfg.previewWindowMode === 'all';
         let ws = null;
         try { ws = global.workspace_manager.get_active_workspace(); } catch { }
-        return appWindowsForConfig(item.entry.app, cfg, ws).filter(win => {
+        return appWindowsForInteraction(
+            item.entry.app, cfg, cfg.monitorIndex ?? -1, ws).filter(win => {
             try {
                 // Meta.Window may begin unmanaging after appWindowsForConfig()
                 // returns. Keep every live read inside one guard so one dying
