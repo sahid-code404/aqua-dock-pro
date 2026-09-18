@@ -599,6 +599,12 @@ export class DockController {
         this._drag?.cancelLayoutChanges();
         this._preview?.hide(true);
         this._downloads?.closeStack();
+        // A monitor move/rotation can arrive while the dock or a Downloads
+        // popup is still animating in stage coordinates. Finish those old
+        // transitions before applying the new monitor geometry so they cannot
+        // later snap back toward a stale display position.
+        this._downloads?.settleAnimations();
+        this._autohide?.settleMotion();
         this._menu?.closeNow();
         this._tooltip?.hide();
         this.relayout();
