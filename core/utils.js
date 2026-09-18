@@ -65,12 +65,14 @@ export function monitorIndexAtPoint(monitors, x, y) {
     return -1;
 }
 
-// A focus transition only needs to wake a dock when focus entered or left that
-// dock's monitor. This keeps per-monitor autohide independent when another
-// display opens/closes/focuses an application.
+// A focus transition should wake only the monitor that now owns focus. Mutter
+// can publish a short null-focus gap while closing a window; attribute that gap
+// to the previous monitor so its local close/fullscreen hand-off still settles.
+// Moving focus directly to another display must not wake the old display's dock.
 export function monitorTransitionTouchesIndex(previousIndex, currentIndex, targetIndex) {
     if (targetIndex < 0) return false;
-    return previousIndex === targetIndex || currentIndex === targetIndex;
+    return currentIndex === targetIndex ||
+        (currentIndex < 0 && previousIndex === targetIndex);
 }
 
 // Return monitor indexes in dock-construction order: primary first, then every
