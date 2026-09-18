@@ -134,6 +134,30 @@ assert(seamRight.sharedEdge === true &&
     seamRight.strip.y >= monitor.y &&
     seamRight.strip.y + seamRight.strip.h <= monitor.y + monitor.height,
     'shared right edge must avoid a full-height cross-monitor trigger strip');
+
+const topOnlyRightNeighbor = {
+    x: monitor.x + monitor.width,
+    y: monitor.y,
+    width: 900,
+    height: 120,
+};
+const lowerRightDock = computeLayout(
+    {
+        ...base,
+        vertical: true,
+        position: 'right',
+        alignment: 'end',
+        autoHideActive: true,
+    },
+    chips(),
+    monitor,
+    false,
+    [monitor, topOnlyRightNeighbor],
+).geom;
+assert(lowerRightDock.sharedEdge === false &&
+    lowerRightDock.strip.h === monitor.height,
+    'a staggered neighbour outside the dock span must not turn a physical outer edge into a seam');
+
 assert(centered.strut?.h > 0, 'always-visible dock should reserve work area');
 assert(computeLayout({ ...base }, chips(), monitor, true).geom.strut === null,
     'fullscreen dock must not reserve work area');
