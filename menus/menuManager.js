@@ -11,7 +11,7 @@ import * as ModalDialog from 'resource:///org/gnome/shell/ui/modalDialog.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 
 import { populateMenu } from './menuActions.js';
-import { appWindowsForConfig, TimeoutGroup } from '../core/utils.js';
+import { appWindowsForInteraction, TimeoutGroup } from '../core/utils.js';
 import { _, format, ngettext } from '../core/i18n.js';
 import { emptyTrash } from '../services/fileService.js';
 import { notifyUser, openPopupMenu } from '../compat/shell.js';
@@ -63,7 +63,8 @@ export class MenuManager {
                 onToggleLayoutLock: this._host.onToggleLayoutLock,
                 appWindowsFor: app => {
                     const cfg = this._host.getConfig();
-                    return appWindowsForConfig(app, cfg);
+                    return appWindowsForInteraction(
+                        app, cfg, cfg.monitorIndex ?? -1);
                 },
                 isWindowIsolationActive: () => {
                     const cfg = this._host.getConfig();
