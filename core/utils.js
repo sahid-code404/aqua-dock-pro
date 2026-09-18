@@ -54,6 +54,45 @@ export function clamp(v, min, max) {
     return v < min ? min : v > max ? max : v;
 }
 
+export function monitorIndexAtPoint(monitors, x, y) {
+    for (let i = 0; i < (monitors?.length ?? 0); i++) {
+        const mon = monitors[i];
+        if (!mon) continue;
+        if (x >= mon.x && x < mon.x + mon.width &&
+            y >= mon.y && y < mon.y + mon.height)
+            return i;
+    }
+    return -1;
+}
+
+// Return monitor indexes in dock-construction order: primary first, then every
+// distinct logical monitor. Duplicate geometries can appear transiently during
+// mirror/reconfigure operations; building two docks into the same stage rect
+// produces double input regions and duplicate animations, so collapse them.
+export function monitorIndexesForLayout(monitors, primaryIndex, multiMonitor) {
+    if (!monitors?.length) return [];
+    const primary = Number.isInteger(primaryIndex) &&
+        primaryIndex >= 0 && primaryIndex < monitors.length
+        ? primaryIndex : 0;
+    if (!multiMonitor) return [primary];
+
+    const ordered = [primary];
+    for (let i = 0; i < monitors.length; i++)
+        if (i !== primary) ordered.push(i);
+
+    const result = [];
+    const seen = new Set();
+    for (const index of ordered) {
+        const mon = monitors[index];
+        if (!mon) continue;
+        const key = `${mon.x}:${mon.y}:${mon.width}:${mon.height}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        result.push(index);
+    }
+    return result;
+}
+
 // Shell.App.get_icon() returns a fresh GIcon each call, so identity comparison
 // is useless; Gio.Icon.equal() compares by value.
 export function sameIcon(a, b) {
