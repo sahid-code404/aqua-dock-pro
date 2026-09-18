@@ -5,7 +5,11 @@ import Clutter from 'gi://Clutter';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
-import { SignalGroup, TimeoutGroup } from '../core/utils.js';
+import {
+    SignalGroup,
+    TimeoutGroup,
+    monitorTransitionTouchesIndex,
+} from '../core/utils.js';
 import { VisibilityController } from './visibilityController.js';
 import { OverlapDetector } from './overlapDetector.js';
 import { PressureBarrier } from './pressureBarrier.js';
@@ -45,7 +49,10 @@ export class AutohideManager {
         this._debounceId = 0;
         this._idleId = 0;
         this._fullscreenClearId = 0;
+        this._fullscreenSignalCheckId = 0;
         this._fullscreenBlocked = false;
+        this._lastRawFullscreen = false;
+        this._lastFocusMonitor = -1;
         this._windowTransitions = new Map();
         this._transitionReleaseId = 0;
         this._enabled = false;
@@ -57,6 +64,8 @@ export class AutohideManager {
     enable() {
         if (this._enabled) return;
         this._enabled = true;
+        this._lastFocusMonitor = this._focusedMonitor();
+        this._lastRawFullscreen = this._rawFullscreenBlocksDock();
         this._connect();
         this.queueIntellihide();
     }
@@ -75,8 +84,11 @@ export class AutohideManager {
         this._debounceId = 0;
         this._idleId = 0;
         this._fullscreenClearId = 0;
+        this._fullscreenSignalCheckId = 0;
         this._transitionReleaseId = 0;
         this._fullscreenBlocked = false;
+        this._lastRawFullscreen = false;
+        this._lastFocusMonitor = -1;
         this._signals.disconnectAll();
         this._setHidden(false, false);   // show before tearing down
         this._host.chrome.setAutohideHandleVisible(false, false);
@@ -92,7 +104,7 @@ export class AutohideManager {
 
     // Re-apply edge/strip geometry and keep the container at the right place
     // after a relayout.
-    onRelayout() {
+    onRelayout(reevaluateVisibility = true) {
         const geom = this._host.getGeom();
         if (!geom) return;
         const cfg = this._host.getConfig();
@@ -106,7 +118,11 @@ export class AutohideManager {
             this._vis.hidden && cfg.showAutohideHandle, false);
         if (this._vis.hidden) this._host.chrome.hideEdgeZone();
         else this._host.chrome.applyEdgeZone(geom.edgeZone);
-        this.queueIntellihide();
+
+        // App/model reconciliation can change dock width without changing the
+        // visibility policy on this monitor. Preserve the current hidden/shown
+        // state in that case; local WM/focus/overlap signals own visibility.
+        if (reevaluateVisibility) this.queueIntellihide();
     }
 
     settleMotion() {
@@ -147,31 +163,114 @@ export class AutohideManager {
         s.connect(strip, 'leave-event', () => { this._cancelReveal(); this._debounceCheckHide(); });
 
         const d = global.display;
-        s.connect(d, 'restacked', () => this.queueIntellihide());
-        // Focus changes are infrequent and can expose an already-fullscreen
-        // window immediately after a covering window disappears. Evaluate
-        // synchronously so the dock cannot survive that hand-off for one frame.
-        s.connect(d, 'notify::focus-window', () => this.updateIntellihide());
-        s.connect(d, 'grab-op-end', () => this.queueIntellihide());
-        // Fullscreen is a per-monitor autohide condition, not a permanent
-        // reveal block. Re-evaluate promptly while keeping exit debouncing.
-        s.connect(d, 'in-fullscreen-changed', () => this.updateIntellihide());
+
+        // Display focus/restack signals are global. In multi-monitor mode they
+        // must not make every dock re-run its visibility policy when a window
+        // opens/closes on one display. Route them only to the monitor whose
+        // focus actually changed (or whose focused stack is being restacked).
+        s.connect(d, 'restacked', () => {
+            if (this._focusedStackTouchesThisMonitor())
+                this.queueIntellihide();
+        });
+        s.connect(d, 'notify::focus-window', () => this._onFocusWindowChanged());
+        s.connect(d, 'grab-op-end', (...args) => {
+            const window = this._windowFromSignalArgs(args);
+            if (window ? this._windowOnThisMonitor(window)
+                : this._focusedStackTouchesThisMonitor())
+                this.queueIntellihide();
+        });
+
+        // Fullscreen notifications are also process-global. Compare the raw
+        // fullscreen state for this dock's monitor and only reevaluate when that
+        // local state actually changed.
+        s.connect(d, 'in-fullscreen-changed', () => this._onFullscreenSignal());
 
         const wm = global.window_manager;
-        // Hold an already-hidden dock through the compositor's destroy/minimize
-        // effect. WM/focus/restack signals can otherwise observe a half-updated
-        // actor list and briefly reveal the dock before the next window settles.
+        // Hold an already-hidden dock through compositor effects, but only for
+        // windows on this monitor. A destroy/minimize animation on monitor A
+        // must never perturb the dock on monitor B.
         const onWindowLeaving = actor => {
+            const window = actor?.meta_window ?? null;
+            if (!this._windowOnThisMonitor(window)) return;
             this._beginWindowTransition(actor);
-            this._onCoveringWindowLeaving(actor?.meta_window);
+            this._onCoveringWindowLeaving(window);
         };
         s.connect(wm, 'destroy', (_wm, actor) => onWindowLeaving(actor));
         s.connect(wm, 'minimize', (_wm, actor) => onWindowLeaving(actor));
-        s.connect(wm, 'size-change', () => this.queueIntellihide());
+        s.connect(wm, 'size-change', (...args) => {
+            const window = this._windowFromSignalArgs(args);
+            if (window ? this._windowOnThisMonitor(window)
+                : this._focusedStackTouchesThisMonitor())
+                this.queueIntellihide();
+        });
 
         s.connect(global.workspace_manager, 'active-workspace-changed', () => this.queueIntellihide());
         s.connect(Main.overview, 'showing', () => { this._cancelHide(); this._setHidden(false, true); });
         s.connect(Main.overview, 'hidden', () => this.queueIntellihide());
+    }
+
+    _focusedMonitor() {
+        try { return global.display?.focus_window?.get_monitor?.() ?? -1; }
+        catch { return -1; }
+    }
+
+    _monitorIndex() {
+        return this._host.getMonitorIndex?.() ?? -1;
+    }
+
+    _windowOnThisMonitor(window) {
+        const monitor = this._monitorIndex();
+        if (!window || monitor < 0) return false;
+        try { return window.get_monitor?.() === monitor; }
+        catch { return false; }
+    }
+
+    _windowFromSignalArgs(args) {
+        for (const value of args ?? []) {
+            const window = value?.meta_window ?? value;
+            if (typeof window?.get_monitor === 'function' &&
+                (typeof window?.get_frame_rect === 'function' ||
+                 typeof window?.located_on_workspace === 'function'))
+                return window;
+        }
+        return null;
+    }
+
+    _focusedStackTouchesThisMonitor() {
+        const monitor = this._monitorIndex();
+        const current = this._focusedMonitor();
+        if (current === monitor) return true;
+        // During close/open transitions Mutter can publish a momentary null
+        // focus. Attribute that transient state only to the previous monitor.
+        return current < 0 && this._lastFocusMonitor === monitor;
+    }
+
+    _onFocusWindowChanged() {
+        const monitor = this._monitorIndex();
+        const previous = this._lastFocusMonitor;
+        const current = this._focusedMonitor();
+        this._lastFocusMonitor = current;
+        if (monitorTransitionTouchesIndex(previous, current, monitor))
+            this.updateIntellihide();
+    }
+
+    _onFullscreenSignal() {
+        const sample = () => {
+            const raw = this._rawFullscreenBlocksDock();
+            if (raw === this._lastRawFullscreen) return;
+            this._lastRawFullscreen = raw;
+            this.updateIntellihide();
+        };
+
+        sample();
+        // One idle recheck covers Shell versions where the signal is emitted
+        // just before the monitor fullscreen flag/window inventory settles.
+        if (this._fullscreenSignalCheckId) return;
+        this._fullscreenSignalCheckId = this._timers.addIdle(() => {
+            this._fullscreenSignalCheckId = 0;
+            sample();
+            return false;
+        });
     }
 
     // ── Intellihide ───────────────────────────────────────────────────────────
@@ -515,7 +614,9 @@ export class AutohideManager {
     _fullscreenBlocksDock() {
         if (!this._enabled || Main.overview.visible) return false;
 
-        if (this._rawFullscreenBlocksDock()) {
+        const rawFullscreen = this._rawFullscreenBlocksDock();
+        this._lastRawFullscreen = rawFullscreen;
+        if (rawFullscreen) {
             this._fullscreenBlocked = true;
             this._cancelFullscreenClear();
             return true;
@@ -549,9 +650,10 @@ export class AutohideManager {
     }
 
     _cancelFullscreenClear() {
-        if (!this._fullscreenClearId) return;
-        this._timers.remove(this._fullscreenClearId);
-        this._fullscreenClearId = 0;
+        if (this._fullscreenClearId) {
+            this._timers.remove(this._fullscreenClearId);
+            this._fullscreenClearId = 0;
+        }
     }
 
     _pointerButtonDown() {
