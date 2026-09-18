@@ -327,6 +327,13 @@ export class AutohideManager {
         // affordance that the dock can still be revealed on that monitor.
         this._host.chrome.setAutohideHandleVisible(
             hidden && cfg.showAutohideHandle, animate);
+
+        // A hidden side dock can be geometrically parked beyond an internal
+        // monitor seam. Remove the real dock container from Shell's interactive
+        // chrome while hidden so its offscreen allocation can never steal input
+        // from the neighbouring display. The dedicated edge strip owns reveal.
+        this._host.chrome.setContainerReactive?.(!hidden);
+
         const changed = this._vis.setHidden(hidden, geom, animate, () => this._host.kickEngine());
         if (!changed) return;
 
