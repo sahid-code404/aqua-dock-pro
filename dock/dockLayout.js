@@ -332,23 +332,6 @@ export function computeLayout(base, chips, monitor, monitorFullscreen = false) {
     else if (side === 'right') hiddenX = monitor.x + monitor.width + 4;
     else hiddenY = monitor.y + monitor.height + 4;
 
-    // The dock container deliberately allows magnified children to paint beyond
-    // its own allocation. Give it a monitor-local clip instead of an allocation
-    // clip so that overflow is still visible on this display but is cut exactly
-    // at shared monitor boundaries. Hidden position needs its own local origin.
-    const monitorClip = {
-        x: monitor.x - x,
-        y: monitor.y - y,
-        w: monitor.width,
-        h: monitor.height,
-    };
-    const hiddenMonitorClip = {
-        x: monitor.x - hiddenX,
-        y: monitor.y - hiddenY,
-        w: monitor.width,
-        h: monitor.height,
-    };
-
     // Pick band (cross-axis range that counts as "on a chip") + magnify band.
     const pickGrace = 14;
     const graceIn = cfg.renderSize + cfg.hoverLift;
@@ -472,8 +455,6 @@ export function computeLayout(base, chips, monitor, monitorFullscreen = false) {
             width: monitor.width,
             height: monitor.height,
         },
-        monitorClip,
-        hiddenMonitorClip,
         mainLen, thick, pad,
         bg, bgBaseX, bgBaseW,
         pick, band,
