@@ -8,7 +8,6 @@ import {
     TimeoutGroup,
     getFocusedAppSafe,
     appWindows,
-    appWindowsForConfig,
     appWindowsForInteraction,
     launchUri,
     logError,
