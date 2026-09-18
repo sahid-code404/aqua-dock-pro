@@ -291,23 +291,34 @@ export class DownloadManager {
             let ix = Math.round(tx + (target.width - size) / 2);
             let iy = Math.round(ty + (target.height - size) / 2);
             const mon = this._host.getMonitor?.();
+            const peakScale = 1.6;
+            const peakOverhang = Math.ceil((peakScale - 1) * size / 2);
             if (mon) {
-                ix = clamp(ix, mon.x, mon.x + Math.max(0, mon.width - size));
-                iy = clamp(iy, mon.y, mon.y + Math.max(0, mon.height - size));
+                ix = clamp(
+                    ix,
+                    mon.x + peakOverhang,
+                    mon.x + Math.max(peakOverhang, mon.width - size - peakOverhang));
+                iy = clamp(
+                    iy,
+                    mon.y + peakOverhang,
+                    mon.y + Math.max(peakOverhang, mon.height - size - peakOverhang));
             }
             const flyer = new St.Icon({
                 gicon: gicon ?? fallback,
                 icon_size: size,
                 style_class: 'aqua-dl-flyer',
             });
+            flyer.set_pivot_point(0.5, 0.5);
             Main.uiGroup.add_child(flyer);
             this._flyer = flyer;
             const startY = mon
-                ? clamp(iy - FLY_DISTANCE, mon.y,
-                    mon.y + Math.max(0, mon.height - size))
+                ? clamp(
+                    iy - FLY_DISTANCE,
+                    mon.y + peakOverhang,
+                    mon.y + Math.max(peakOverhang, mon.height - size - peakOverhang))
                 : iy - FLY_DISTANCE;
             flyer.set_position(ix, startY);
-            flyer.set_scale(1.6, 1.6);
+            flyer.set_scale(peakScale, peakScale);
             flyer.opacity = 0;
             flyer.ease({
                 opacity: 255,
