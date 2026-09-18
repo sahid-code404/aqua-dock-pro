@@ -4,7 +4,14 @@ import Clutter from 'gi://Clutter';
 import Gio from 'gi://Gio';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
-import { SignalGroup, TimeoutGroup, appWindowsForInteraction, logError, log } from '../core/utils.js';
+import {
+    SignalGroup,
+    TimeoutGroup,
+    appWindowsForInteraction,
+    logError,
+    log,
+    monitorIndexAtPoint,
+} from '../core/utils.js';
 import {
     GEOMETRY_KEYS,
     ITEM_REFRESH_KEYS,
@@ -214,9 +221,7 @@ export class DockController {
         if (index < 0 || index >= monitors.length) {
             try {
                 const [px, py] = global.get_pointer();
-                index = monitors.findIndex(mon =>
-                    px >= mon.x && px < mon.x + mon.width &&
-                    py >= mon.y && py < mon.y + mon.height);
+                index = monitorIndexAtPoint(monitors, px, py);
             } catch { index = -1; }
         }
         if (index < 0 || index >= monitors.length) {
@@ -226,10 +231,10 @@ export class DockController {
         return index === this._monitorIndex;
     }
 
-    _windowBelongsHere(window) {
-        if (!this._cfg?.isolateMonitors || !window) return true;
+    _windowOnThisMonitor(window) {
+        if (!window) return true;
         try { return window.get_monitor?.() === this._monitorIndex; }
-        catch { return true; } // stale window: prefer a harmless refresh
+        catch { return true; } // stale window: prefer a harmless reevaluation
     }
 
     _findItem(kind) {
@@ -426,12 +431,25 @@ export class DockController {
         s.connect(ez, 'scroll-event', (_a, ev) => this._onScroll(ev));
 
         const wm = global.window_manager;
-        for (const sig of ['map', 'destroy', 'minimize', 'unminimize'])
+        // Mapping/destruction can change an application's window count. Every
+        // non-isolated dock needs that model update, while monitor-isolated docks
+        // only need the affected monitor. Autohide, however, is always local.
+        for (const sig of ['map', 'destroy'])
             s.connect(wm, sig, (_wm, actor) => {
                 const window = actor?.meta_window ?? null;
-                if (!this._windowBelongsHere(window)) return;
-                this._scheduleRefreshItems(false);
-                this._autohide?.queueIntellihide();
+                const local = this._windowOnThisMonitor(window);
+                if (!this._cfg.isolateMonitors || local)
+                    this._scheduleRefreshItems(false);
+                if (local) this._autohide?.queueIntellihide();
+            });
+
+        // Minimize/unminimize does not alter window count/running state, so avoid
+        // refreshing every icon model on every monitor. Only the local dock's
+        // overlap/fullscreen policy needs reevaluation.
+        for (const sig of ['minimize', 'unminimize'])
+            s.connect(wm, sig, (_wm, actor) => {
+                if (this._windowOnThisMonitor(actor?.meta_window ?? null))
+                    this._autohide?.queueIntellihide();
             });
         s.connect(global.display, 'window-created', (_d, win) => this._genie.onWindowCreated(win));
         for (const sig of ['item-drag-end', 'item-drag-cancelled'])
@@ -516,7 +534,7 @@ export class DockController {
         }
     }
 
-    // Coalesced version: rapid-fire WM signals (map/destroy/minimize) produce
+    // Coalesced version: rapid-fire WM/model signals produce
     // one refresh pass per 60ms window instead of one per signal.
     _scheduleRefreshItems(notificationsChanged = false) {
         if (notificationsChanged) this._refreshNotificationsPending = true;
