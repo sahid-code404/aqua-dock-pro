@@ -101,8 +101,7 @@ export class AutohideManager {
         this._host.chrome.applyStrip(geom.strip);
         this._host.chrome.applyAutohideHandle(geom.autohideHandle);
         this._host.chrome.setAutohideHandleVisible(
-            this._vis.hidden && cfg.showAutohideHandle &&
-            !this._fullscreenBlocksDock(), false);
+            this._vis.hidden && cfg.showAutohideHandle, false);
         if (this._vis.hidden) this._host.chrome.hideEdgeZone();
         else this._host.chrome.applyEdgeZone(geom.edgeZone);
         this.queueIntellihide();
@@ -114,7 +113,7 @@ export class AutohideManager {
         this._vis.settle(geom);
         const cfg = this._host.getConfig();
         this._host.chrome.setAutohideHandleVisible(
-            this._vis.hidden && cfg.showAutohideHandle && !this._fullscreenBlocksDock(), false);
+            this._vis.hidden && cfg.showAutohideHandle, false);
     }
 
     // ── Pointer hooks called by the controller ───────────────────────────────
@@ -152,8 +151,8 @@ export class AutohideManager {
         // synchronously so the dock cannot survive that hand-off for one frame.
         s.connect(d, 'notify::focus-window', () => this.updateIntellihide());
         s.connect(d, 'grab-op-end', () => this.queueIntellihide());
-        // Positive fullscreen transitions must hide immediately. A transient
-        // negative reading is held by _fullscreenBlocksDock() until confirmed.
+        // Fullscreen is a per-monitor autohide condition, not a permanent
+        // reveal block. Re-evaluate promptly while keeping exit debouncing.
         s.connect(d, 'in-fullscreen-changed', () => this.updateIntellihide());
 
         const wm = global.window_manager;
@@ -188,19 +187,33 @@ export class AutohideManager {
         const cfg = this._host.getConfig();
         const mode = cfg.autoHideMode;
 
-        // Fullscreen owns visibility on the dock's monitor. Cancelling here
-        // also stops a reveal armed just before the fullscreen transition.
-        if (this._fullscreenBlocksDock()) {
-            this._forceFullscreenHidden();
-            return;
-        }
-
         // A hidden dock must not be revealed from an intermediate WM snapshot.
         // Wait for every concurrent destroy/minimize effect on this monitor to
         // finish, then re-evaluate once on the next idle turn.
         if (this._transitionBlocksReveal()) {
             this._cancelHide();
             this._cancelReveal();
+            return;
+        }
+
+        const fullscreen = this._fullscreenBlocksDock();
+
+        // Fullscreen temporarily behaves like forced autohide on this monitor,
+        // but it must remain revealable. Once the pointer reaches the dock/edge
+        // zone (or an interaction is active), keep it open above the fullscreen
+        // window. Otherwise use the normal hide delay instead of vanishing on
+        // the same frame as the fullscreen transition.
+        if (fullscreen) {
+            if (this._host.isInteractionActive?.() || this._pointerReallyInside()) {
+                this._cancelHide();
+                this._setHidden(false, true);
+                return;
+            }
+            if (this._vis.hidden) {
+                this._cancelHide();
+                return;
+            }
+            this._scheduleHide(null, true);
             return;
         }
 
@@ -244,9 +257,9 @@ export class AutohideManager {
     }
 
     // ── Hide / reveal timers ──────────────────────────────────────────────────
-    _scheduleHide(delayMs = null) {
+    _scheduleHide(delayMs = null, force = false) {
         const cfg = this._host.getConfig();
-        if (this._hideId || cfg.autoHideMode === 'never') return;
+        if (this._hideId || (!force && cfg.autoHideMode === 'never')) return;
         const delay = delayMs ?? cfg.hideDelay;
         this._hideId = this._timers.addOnce(delay, () => {
             this._hideId = 0;
@@ -255,11 +268,20 @@ export class AutohideManager {
             // contracting afterwards, poll only that visual dependency at a
             // short bounded cadence instead of repeatedly charging hideDelay.
             if (this._host.isMagnifying?.()) {
-                this._scheduleHide(MAGNIFICATION_RECHECK_MS);
+                this._scheduleHide(MAGNIFICATION_RECHECK_MS, force);
                 return;
             }
             const live = this._host.getConfig();
-            if (live.autoHideMode === 'dodge' && !this._overlap.isOverlapped()) return;
+            if (force) {
+                // Fullscreen may have ended during the timer. Re-run the normal
+                // policy rather than hiding a dock that should now stay visible.
+                if (!this._fullscreenBlocksDock()) {
+                    this.updateIntellihide();
+                    return;
+                }
+            } else if (live.autoHideMode === 'dodge' && !this._overlap.isOverlapped()) {
+                return;
+            }
             this._setHidden(true, true);
         });
     }
@@ -270,8 +292,7 @@ export class AutohideManager {
 
     _beginReveal() {
         this._cancelReveal();
-        if (this._transitionBlocksReveal() ||
-            this._fullscreenBlocksDock() || this._pointerButtonDown()) return;
+        if (this._transitionBlocksReveal() || this._pointerButtonDown()) return;
         const cfg = this._host.getConfig();
         if (cfg.pressureSense) { this._pressure.begin(); return; }
         if (cfg.revealPressure <= 0) { this._setHidden(false, true); return; }
@@ -287,8 +308,7 @@ export class AutohideManager {
     }
 
     _reveal() {
-        if (this._transitionBlocksReveal() ||
-            this._fullscreenBlocksDock() || this._pointerButtonDown()) return;
+        if (this._transitionBlocksReveal() || this._pointerButtonDown()) return;
         this._cancelHide();
         this._setHidden(false, true);
     }
@@ -297,14 +317,15 @@ export class AutohideManager {
     _setHidden(hidden, animate) {
         const cfg = this._host.getConfig();
         const fullscreen = this._fullscreenBlocksDock();
-        if (fullscreen) hidden = true;
-        else if (!hidden && this._transitionBlocksReveal()) hidden = true;
-        else if (cfg.autoHideMode === 'never' && hidden) hidden = false;
+        if (!hidden && this._transitionBlocksReveal()) hidden = true;
+        else if (!fullscreen && cfg.autoHideMode === 'never' && hidden) hidden = false;
         const geom = this._host.getGeom();
         if (!geom) return;
 
+        // The hidden rim remains visible in fullscreen and acts as a subtle
+        // affordance that the dock can still be revealed on that monitor.
         this._host.chrome.setAutohideHandleVisible(
-            hidden && cfg.showAutohideHandle && !fullscreen, animate);
+            hidden && cfg.showAutohideHandle, animate);
         const changed = this._vis.setHidden(hidden, geom, animate, () => this._host.kickEngine());
         if (!changed) return;
 
