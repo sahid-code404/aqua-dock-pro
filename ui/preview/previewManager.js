@@ -126,9 +126,15 @@ export class PreviewManager {
         if (!wins.length) { this.hide(true); return; }
 
         const cfg = this._getConfig();
-        const targetW = cfg.previewSize;
-        const frameH = Math.round(targetW * 0.62);
         const monitor = this._getMonitor?.();
+        // A global preview size can be larger than a narrow/portrait secondary
+        // display. Fit one complete tile to the owning monitor before paging so
+        // the popup never spills into a neighbouring screen.
+        const monitorTileBudget = monitor
+            ? Math.max(1, monitor.width - 64)
+            : cfg.previewSize;
+        const targetW = Math.max(1, Math.min(cfg.previewSize, monitorTileBudget));
+        const frameH = Math.round(targetW * 0.62);
         const plan = previewPagePlan({
             total: wins.length,
             targetWidth: targetW,
