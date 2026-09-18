@@ -1,4 +1,5 @@
 import {
+    clipRectToMonitor,
     computeLayout,
     indicatorMetrics,
     indicatorPosition,
@@ -57,6 +58,36 @@ const end = computeLayout({ ...base, alignment: 'end' }, chips(), monitor).geom;
 assert(start.x < centered.x && centered.x < end.x, 'horizontal alignment order is wrong');
 assert(start.x >= monitor.x && end.x + end.width <= monitor.x + monitor.width,
     'aligned dock must stay inside its monitor');
+
+for (const [hidden, clip] of [
+    [false, centered.monitorClip],
+    [true, centered.hiddenMonitorClip],
+]) {
+    const ox = hidden ? centered.hiddenX : centered.x;
+    const oy = hidden ? centered.hiddenY : centered.y;
+    assert(ox + clip.x === monitor.x && oy + clip.y === monitor.y &&
+        clip.w === monitor.width && clip.h === monitor.height,
+    'container monitor clip does not map exactly to the owning monitor');
+}
+
+const clippedOverflow = clipRectToMonitor({
+    x: monitor.x - 90,
+    y: monitor.y + monitor.height - 60,
+    w: monitor.width + 180,
+    h: 120,
+}, monitor);
+assert(clippedOverflow.x === monitor.x && clippedOverflow.y === monitor.y + monitor.height - 60 &&
+    clippedOverflow.w === monitor.width && clippedOverflow.h === 60,
+    'stage-space dock overflow was not clipped at monitor boundaries');
+
+const fullyOutside = clipRectToMonitor({
+    x: monitor.x + monitor.width + 10,
+    y: monitor.y,
+    w: 40,
+    h: 40,
+}, monitor);
+assert(fullyOutside.w === 0 && fullyOutside.h === 40,
+    'fully off-monitor horizontal overflow must collapse to zero width');
 
 const left = computeLayout({
     ...base,
