@@ -492,7 +492,11 @@ export class DockController {
         if (this._focusItem && !this._factory.items.includes(this._focusItem))
             this.exitKeyboardFocus();
         if (changed) {
-            this.relayout();
+            // App/model reconciliation may be caused by a window opening or
+            // closing on another monitor. Reflow the actors without letting the
+            // model update itself trigger autohide; local WM/focus signals own
+            // visibility changes for each monitor independently.
+            this.relayout({ reevaluateAutohide: false });
         } else {
             // Window monitor/workspace moves can change counts and running state
             // without changing the entry list. Refresh those item models and
@@ -547,7 +551,7 @@ export class DockController {
         });
     }
 
-    relayout() {
+    relayout({ reevaluateAutohide = true } = {}) {
         const mon = this._getMonitor();
         if (!mon) return;
         const fs = monitorInFullscreen(this._monitorIndex);
@@ -589,7 +593,7 @@ export class DockController {
         this._engine.kick();
         this._tooltip?.invalidateMonitor();
         this._genie?.updateAllIconGeometry();
-        this._autohide?.onRelayout();
+        this._autohide?.onRelayout(reevaluateAutohide);
     }
 
     // Monitor position/scale changes do not require tearing down every shared
