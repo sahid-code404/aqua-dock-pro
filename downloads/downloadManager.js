@@ -7,7 +7,7 @@ import St from 'gi://St';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
-import { TimeoutGroup, animationsEnabled, logError } from '../core/utils.js';
+import { TimeoutGroup, animationsEnabled, clamp, logError } from '../core/utils.js';
 import { _ } from '../core/i18n.js';
 import { downloadsDir } from '../services/fileService.js';
 import { DownloadsStack } from './downloadsStack.js';
