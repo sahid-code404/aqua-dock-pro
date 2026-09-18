@@ -10,7 +10,6 @@ import * as DND from 'resource:///org/gnome/shell/ui/dnd.js';
 
 import {
     animationsEnabled,
-    appWindowsForConfig,
     appWindowsForInteraction,
     logError,
     subscribeReduceMotionChanges,
