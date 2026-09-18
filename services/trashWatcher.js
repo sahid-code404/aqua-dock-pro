@@ -195,7 +195,8 @@ export class TrashWatcher {
         item.entry.gicon = icon;
         item.setGicon?.(icon);
 
-        if (this._initialized && hasFiles && !this._wasFull) {
+        if (this._initialized && hasFiles && !this._wasFull &&
+            (!this._host.isAttentionMonitor || this._host.isAttentionMonitor())) {
             const cfg = this._host.getConfig();
             try {
                 item.bounce(cfg.bounceHeight,

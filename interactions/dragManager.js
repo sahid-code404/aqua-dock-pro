@@ -10,7 +10,7 @@ import * as DND from 'resource:///org/gnome/shell/ui/dnd.js';
 
 import {
     animationsEnabled,
-    appWindowsForConfig,
+    appWindowsForInteraction,
     logError,
     subscribeReduceMotionChanges,
     TimeoutGroup,
@@ -52,7 +52,7 @@ function movableChipsFor(chips, favorites, appsPosition) {
 }
 
 export class DragManager {
-    // host: { getConfig, getGeom, getChips, container, engine,
+    // host: { getConfig, getGeom, getChips, getMonitorIndex, container, engine,
     //         setAppsButtonPosition, onDragStart, onDragEnd }
     constructor(host) {
         this._host = host;
@@ -351,7 +351,8 @@ export class DragManager {
             // Smart launch: minimized → restore, visible → new window, not running → launch.
             try {
                 const cfg = this._host.getConfig();
-                const wins = appWindowsForConfig(r.app, cfg);
+                const wins = appWindowsForInteraction(
+                    r.app, cfg, this._host.getMonitorIndex?.() ?? -1);
                 const t = global.get_current_time();
                 if (wins.length === 0) {
                     // Not running — just launch.

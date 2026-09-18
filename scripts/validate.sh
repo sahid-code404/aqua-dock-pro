@@ -152,6 +152,7 @@ gjs -m tests/previewPaging.test.js
 gjs -m tests/locationResolver.test.js
 gjs -m tests/mountedDevices.test.js
 gjs -m tests/windowFilter.test.js
+gjs -m tests/monitorTopology.test.js
 
 if [[ ${AQUA_RUN_PREFS_SMOKE:-0} == 1 ]]; then
     gjs -m tests/prefsSmoke.test.js

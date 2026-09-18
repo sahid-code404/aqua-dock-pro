@@ -10,11 +10,12 @@ const EDGE_PX = 4;                 // how close to the edge counts as "pressed"
 const LATERAL_AREA = 40 * 40;      // max squared lateral drift to keep dwelling
 
 export class PressureBarrier {
-    // getConfig: () => config; getMonitor: () => monitor geometry.
+    // getConfig: () => config; getMonitor/getGeom: () => live geometry.
     // isHidden/canReveal: () => bool. onReveal: () => void.
-    constructor(getConfig, getMonitor, isHidden, canReveal, onReveal) {
+    constructor(getConfig, getMonitor, getGeom, isHidden, canReveal, onReveal) {
         this._getConfig = getConfig;
         this._getMonitor = getMonitor;
+        this._getGeom = getGeom;
         this._isHidden = isHidden;
         this._canReveal = canReveal;
         this._onReveal = onReveal;
@@ -55,6 +56,7 @@ export class PressureBarrier {
         this._timers.removeAll();
         this._getConfig = null;
         this._getMonitor = null;
+        this._getGeom = null;
         this._isHidden = null;
         this._canReveal = null;
         this._onReveal = null;
@@ -83,6 +85,17 @@ export class PressureBarrier {
             lateral = p[0];
             const withinX = p[0] >= mon.x && p[0] < monR;
             onEdge = withinX && p[1] >= monB - EDGE_PX && p[1] < monB;
+        }
+
+        // Internal monitor seams are traversable, unlike a physical screen
+        // edge. Restrict pressure dwell to the dock-local reveal segment so
+        // crossing a distant part of the seam cannot arm or complete a reveal.
+        const geom = this._getGeom?.();
+        if (onEdge && geom?.sharedEdge && geom.strip) {
+            const strip = geom.strip;
+            onEdge = side === 'left' || side === 'right'
+                ? p[1] >= strip.y && p[1] < strip.y + strip.h
+                : p[0] >= strip.x && p[0] < strip.x + strip.w;
         }
 
         if (!onEdge) {
