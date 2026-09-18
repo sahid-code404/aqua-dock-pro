@@ -288,8 +288,13 @@ export class DownloadManager {
                 return;
             }
 
-            const ix = Math.round(tx + (target.width - size) / 2);
-            const iy = Math.round(ty + (target.height - size) / 2);
+            let ix = Math.round(tx + (target.width - size) / 2);
+            let iy = Math.round(ty + (target.height - size) / 2);
+            const mon = this._host.getMonitor?.();
+            if (mon) {
+                ix = clamp(ix, mon.x, mon.x + Math.max(0, mon.width - size));
+                iy = clamp(iy, mon.y, mon.y + Math.max(0, mon.height - size));
+            }
             const flyer = new St.Icon({
                 gicon: gicon ?? fallback,
                 icon_size: size,
@@ -297,7 +302,11 @@ export class DownloadManager {
             });
             Main.uiGroup.add_child(flyer);
             this._flyer = flyer;
-            flyer.set_position(ix, iy - FLY_DISTANCE);
+            const startY = mon
+                ? clamp(iy - FLY_DISTANCE, mon.y,
+                    mon.y + Math.max(0, mon.height - size))
+                : iy - FLY_DISTANCE;
+            flyer.set_position(ix, startY);
             flyer.set_scale(1.6, 1.6);
             flyer.opacity = 0;
             flyer.ease({
