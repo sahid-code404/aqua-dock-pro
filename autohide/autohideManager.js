@@ -15,6 +15,7 @@ import { monitorInFullscreen } from '../compat/shell.js';
 const DEBOUNCE_HIDE_MS = 200;
 const FULLSCREEN_CLEAR_CONFIRM_MS = 120;
 const MAGNIFICATION_RECHECK_MS = 50;
+const SHARED_EDGE_REVEAL_MS = 90;
 const POINTER_BUTTON_MASK =
     Clutter.ModifierType.BUTTON1_MASK |
     Clutter.ModifierType.BUTTON2_MASK |
@@ -296,8 +297,16 @@ export class AutohideManager {
         if (this._transitionBlocksReveal() || this._pointerButtonDown()) return;
         const cfg = this._host.getConfig();
         if (cfg.pressureSense) { this._pressure.begin(); return; }
-        if (cfg.revealPressure <= 0) { this._setHidden(false, true); return; }
-        this._revealId = this._timers.addOnce(cfg.revealPressure, () => {
+
+        // A physical outer edge can reveal instantly. A shared monitor seam is
+        // traversable, so even an "instant" global setting gets one tiny dwell
+        // guard to distinguish a deliberate dock reveal from crossing displays.
+        const sharedEdge = this._host.getGeom?.()?.sharedEdge === true;
+        const delay = cfg.revealPressure > 0
+            ? cfg.revealPressure
+            : (sharedEdge ? SHARED_EDGE_REVEAL_MS : 0);
+        if (delay <= 0) { this._setHidden(false, true); return; }
+        this._revealId = this._timers.addOnce(delay, () => {
             this._revealId = 0;
             if (!this._pointerButtonDown()) this._setHidden(false, true);
         });
