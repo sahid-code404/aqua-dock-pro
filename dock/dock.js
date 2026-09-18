@@ -20,6 +20,7 @@ export class DockChrome {
         this._handleVisible = false;
         this._bgStyleCache = null;
         this._handleClipCache = null;
+        this._containerClipCache = null;
         this._dash = null;
         this._dashWasVisible = true;
         this._dashOpacity = 255;
@@ -43,16 +44,18 @@ export class DockChrome {
             this._magZone = new St.Widget({ reactive: true, opacity: 0 });
             Main.layoutManager.addChrome(this._magZone, {
                 affectsStruts: false,
-                trackFullscreen: true,
+                // The dock is allowed to reveal above a fullscreen window on
+                // this monitor. Keep its magnified overflow interactive too.
+                trackFullscreen: false,
             });
 
             // Thin reactive strip at the very screen edge — the autohide reveal
-            // trigger. Fullscreen tracking also removes it from the input region,
-            // so it cannot sit on top of a fullscreen application's controls.
+            // trigger. It must stay in the input region during fullscreen so a
+            // hidden dock on a secondary monitor can still be revealed.
             this._strip = new St.Widget({ reactive: true, opacity: 0 });
             Main.layoutManager.addChrome(this._strip, {
                 affectsStruts: false,
-                trackFullscreen: true,
+                trackFullscreen: false,
             });
 
             // A clipped copy of the pill's screen-facing border remains visible
@@ -67,7 +70,8 @@ export class DockChrome {
             });
             Main.layoutManager.addChrome(this._autohideHandle, {
                 affectsStruts: false,
-                trackFullscreen: true,
+                // The exposed pill rim is intentional fullscreen chrome.
+                trackFullscreen: false,
             });
 
             // Invisible reactive zone filling the edge-margin gap between the pill
@@ -75,7 +79,7 @@ export class DockChrome {
             this._edgeZone = new St.Widget({ reactive: true, opacity: 0 });
             Main.layoutManager.addChrome(this._edgeZone, {
                 affectsStruts: false,
-                trackFullscreen: true,
+                trackFullscreen: false,
             });
 
             // Strut reserves screen space so maximized windows clear the dock.
@@ -120,6 +124,19 @@ export class DockChrome {
             hidden ? geom.hiddenY : geom.y,
             geom.width,
             geom.height);
+
+        // Children intentionally paint outside the container while magnified.
+        // Clip that overflow to this monitor only, rather than to the pill
+        // allocation, so adjacent displays never receive another dock's edges.
+        const clip = hidden ? geom.hiddenMonitorClip : geom.monitorClip;
+        const clipKey = clip
+            ? `${clip.x}:${clip.y}:${clip.w}:${clip.h}`
+            : '';
+        if (clipKey !== this._containerClipCache) {
+            if (clip) this._container.set_clip(clip.x, clip.y, clip.w, clip.h);
+            else this._container.remove_clip();
+            this._containerClipCache = clipKey;
+        }
     }
 
     // Seed the pill rect; the engine takes over per-frame via setPill().
