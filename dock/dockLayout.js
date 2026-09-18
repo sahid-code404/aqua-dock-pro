@@ -48,6 +48,37 @@ export function clipRectToMonitor(rect, monitor) {
     };
 }
 
+function rangesOverlap(a0, a1, b0, b1) {
+    return Math.min(a1, b1) - Math.max(a0, b0) > 0;
+}
+
+// Whether this dock edge is also the entry edge of another monitor. Internal
+// seams need a smaller reveal strip than physical outer edges; otherwise simply
+// crossing between vertically/horizontally stacked displays can reveal a dock.
+export function sharedMonitorEdge(monitor, side, monitors = []) {
+    const right = monitor.x + monitor.width;
+    const bottom = monitor.y + monitor.height;
+    for (const other of monitors ?? []) {
+        if (!other || other === monitor) continue;
+        if (other.x === monitor.x && other.y === monitor.y &&
+            other.width === monitor.width && other.height === monitor.height)
+            continue;
+
+        const otherRight = other.x + other.width;
+        const otherBottom = other.y + other.height;
+        if (side === 'left' && Math.abs(otherRight - monitor.x) <= 1 &&
+            rangesOverlap(monitor.y, bottom, other.y, otherBottom))
+            return true;
+        if (side === 'right' && Math.abs(other.x - right) <= 1 &&
+            rangesOverlap(monitor.y, bottom, other.y, otherBottom))
+            return true;
+        if (side === 'bottom' && Math.abs(other.y - bottom) <= 1 &&
+            rangesOverlap(monitor.x, right, other.x, otherRight))
+            return true;
+    }
+    return false;
+}
+
 // Running-indicator geometry is shared with DockItem but kept pure so the
 // auto-shrink path can be regression-tested without starting GNOME Shell. A
 // dock that is not screen-fit shrunk deliberately returns the historical
@@ -278,7 +309,7 @@ function applyAutoShrink(base, chips, monitor) {
 
 // Main entry. Returns { cfg, geom }. The geom holds every rect the controller
 // applies to actors; chip records are annotated with baseX/w/box/itemPos.
-export function computeLayout(base, chips, monitor, monitorFullscreen = false) {
+export function computeLayout(base, chips, monitor, monitorFullscreen = false, allMonitors = null) {
     const cfg = applyAutoShrink(base, chips, monitor);
     cfg.mag = magnificationParams(cfg);
 
@@ -379,10 +410,37 @@ export function computeLayout(base, chips, monitor, monitorFullscreen = false) {
     else if (side === 'right') edgeZone = { x: x + width, y, w: em, h: height };
     else edgeZone = { x, y: y + height, w: width, h: em };
 
+    const sharedEdge = sharedMonitorEdge(monitor, side, allMonitors ?? []);
     let strip;
-    if (side === 'left') strip = { x: monitor.x, y: monitor.y, w: 2, h: monitor.height };
-    else if (side === 'right') strip = { x: monitor.x + monitor.width - 2, y: monitor.y, w: 2, h: monitor.height };
-    else strip = { x: monitor.x, y: monitor.y + monitor.height - 2, w: monitor.width, h: 2 };
+    if (!sharedEdge) {
+        if (side === 'left') strip = { x: monitor.x, y: monitor.y, w: 2, h: monitor.height };
+        else if (side === 'right') strip = { x: monitor.x + monitor.width - 2, y: monitor.y, w: 2, h: monitor.height };
+        else strip = { x: monitor.x, y: monitor.y + monitor.height - 2, w: monitor.width, h: 2 };
+    } else {
+        // At an internal monitor seam, a full-edge reactive strip would fire
+        // whenever the user crosses displays. Keep only a padded segment around
+        // the actual dock so deliberate edge dwell still reveals it.
+        const revealPad = Math.max(24, Math.round(cfg.cellW * 0.75));
+        if (side === 'left' || side === 'right') {
+            const start = Math.max(monitor.y, y - revealPad);
+            const end = Math.min(monitor.y + monitor.height, y + height + revealPad);
+            strip = {
+                x: side === 'left' ? monitor.x : monitor.x + monitor.width - 2,
+                y: start,
+                w: 2,
+                h: Math.max(1, end - start),
+            };
+        } else {
+            const start = Math.max(monitor.x, x - revealPad);
+            const end = Math.min(monitor.x + monitor.width, x + width + revealPad);
+            strip = {
+                x: start,
+                y: monitor.y + monitor.height - 2,
+                w: Math.max(1, end - start),
+                h: 2,
+            };
+        }
+    }
 
     // The hidden marker is a clipped copy of the pill, not a separately sized
     // capsule. Only the screen-facing border is exposed, so its length, corner
@@ -459,7 +517,7 @@ export function computeLayout(base, chips, monitor, monitorFullscreen = false) {
         bg, bgBaseX, bgBaseW,
         pick, band,
         firstItemCenter, lastItemCenter,
-        edgeZone, strip, strut, autohideHandle,
+        edgeZone, strip, strut, autohideHandle, sharedEdge,
         magZone: {
             restInset,
             growthPerScale,
