@@ -32,6 +32,22 @@ export function magnifiedOverflow(magZone, scale) {
     return overflow + (magZone.hoverReach ?? 0);
 }
 
+// Intersect a stage-space rectangle with one monitor. Multi-monitor docks use
+// this for every separately registered chrome/input actor so magnification and
+// oversized custom layouts can never paint or capture input on a neighbour.
+export function clipRectToMonitor(rect, monitor) {
+    const x1 = Math.max(rect.x, monitor.x);
+    const y1 = Math.max(rect.y, monitor.y);
+    const x2 = Math.min(rect.x + rect.w, monitor.x + monitor.width);
+    const y2 = Math.min(rect.y + rect.h, monitor.y + monitor.height);
+    return {
+        x: x1,
+        y: y1,
+        w: Math.max(0, x2 - x1),
+        h: Math.max(0, y2 - y1),
+    };
+}
+
 // Running-indicator geometry is shared with DockItem but kept pure so the
 // auto-shrink path can be regression-tested without starting GNOME Shell. A
 // dock that is not screen-fit shrunk deliberately returns the historical
@@ -316,6 +332,23 @@ export function computeLayout(base, chips, monitor, monitorFullscreen = false) {
     else if (side === 'right') hiddenX = monitor.x + monitor.width + 4;
     else hiddenY = monitor.y + monitor.height + 4;
 
+    // The dock container deliberately allows magnified children to paint beyond
+    // its own allocation. Give it a monitor-local clip instead of an allocation
+    // clip so that overflow is still visible on this display but is cut exactly
+    // at shared monitor boundaries. Hidden position needs its own local origin.
+    const monitorClip = {
+        x: monitor.x - x,
+        y: monitor.y - y,
+        w: monitor.width,
+        h: monitor.height,
+    };
+    const hiddenMonitorClip = {
+        x: monitor.x - hiddenX,
+        y: monitor.y - hiddenY,
+        w: monitor.width,
+        h: monitor.height,
+    };
+
     // Pick band (cross-axis range that counts as "on a chip") + magnify band.
     const pickGrace = 14;
     const graceIn = cfg.renderSize + cfg.hoverLift;
@@ -433,6 +466,14 @@ export function computeLayout(base, chips, monitor, monitorFullscreen = false) {
 
     const geom = {
         side, vert, width, height, x, y, hiddenX, hiddenY,
+        monitor: {
+            x: monitor.x,
+            y: monitor.y,
+            width: monitor.width,
+            height: monitor.height,
+        },
+        monitorClip,
+        hiddenMonitorClip,
         mainLen, thick, pad,
         bg, bgBaseX, bgBaseW,
         pick, band,
