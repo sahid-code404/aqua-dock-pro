@@ -55,9 +55,14 @@ function rangesOverlap(a0, a1, b0, b1) {
 // Whether this dock edge is also the entry edge of another monitor. Internal
 // seams need a smaller reveal strip than physical outer edges; otherwise simply
 // crossing between vertically/horizontally stacked displays can reveal a dock.
-export function sharedMonitorEdge(monitor, side, monitors = []) {
+export function sharedMonitorEdge(
+    monitor, side, monitors = [], rangeStart = null, rangeEnd = null) {
     const right = monitor.x + monitor.width;
     const bottom = monitor.y + monitor.height;
+    const vertical = side === 'left' || side === 'right';
+    const edgeStart = rangeStart ?? (vertical ? monitor.y : monitor.x);
+    const edgeEnd = rangeEnd ?? (vertical ? bottom : right);
+
     for (const other of monitors ?? []) {
         if (!other || other === monitor) continue;
         if (other.x === monitor.x && other.y === monitor.y &&
@@ -67,13 +72,13 @@ export function sharedMonitorEdge(monitor, side, monitors = []) {
         const otherRight = other.x + other.width;
         const otherBottom = other.y + other.height;
         if (side === 'left' && Math.abs(otherRight - monitor.x) <= 1 &&
-            rangesOverlap(monitor.y, bottom, other.y, otherBottom))
+            rangesOverlap(edgeStart, edgeEnd, other.y, otherBottom))
             return true;
         if (side === 'right' && Math.abs(other.x - right) <= 1 &&
-            rangesOverlap(monitor.y, bottom, other.y, otherBottom))
+            rangesOverlap(edgeStart, edgeEnd, other.y, otherBottom))
             return true;
         if (side === 'bottom' && Math.abs(other.y - bottom) <= 1 &&
-            rangesOverlap(monitor.x, right, other.x, otherRight))
+            rangesOverlap(edgeStart, edgeEnd, other.x, otherRight))
             return true;
     }
     return false;
@@ -410,7 +415,15 @@ export function computeLayout(base, chips, monitor, monitorFullscreen = false, a
     else if (side === 'right') edgeZone = { x: x + width, y, w: em, h: height };
     else edgeZone = { x, y: y + height, w: width, h: em };
 
-    const sharedEdge = sharedMonitorEdge(monitor, side, allMonitors ?? []);
+    // Only treat the portion around this dock as a shared seam. Staggered
+    // monitor layouts can share one part of an edge while another part remains
+    // a real outer screen edge.
+    const revealPad = Math.max(24, Math.round(cfg.cellW * 0.75));
+    const dockRangeStart = (vert ? y : x) - revealPad;
+    const dockRangeEnd = (vert ? y + height : x + width) + revealPad;
+    const sharedEdge = sharedMonitorEdge(
+        monitor, side, allMonitors ?? [], dockRangeStart, dockRangeEnd);
+
     let strip;
     if (!sharedEdge) {
         if (side === 'left') strip = { x: monitor.x, y: monitor.y, w: 2, h: monitor.height };
@@ -420,7 +433,6 @@ export function computeLayout(base, chips, monitor, monitorFullscreen = false, a
         // At an internal monitor seam, a full-edge reactive strip would fire
         // whenever the user crosses displays. Keep only a padded segment around
         // the actual dock so deliberate edge dwell still reveals it.
-        const revealPad = Math.max(24, Math.round(cfg.cellW * 0.75));
         if (side === 'left' || side === 'right') {
             const start = Math.max(monitor.y, y - revealPad);
             const end = Math.min(monitor.y + monitor.height, y + height + revealPad);
