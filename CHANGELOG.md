@@ -1,5 +1,13 @@
 # Changelog
 
+## 269
+
+- Harden multi-monitor ownership so app activation, previews, context-window actions, scrolling, drag-to-open, Genie targets, window-state refreshes, and global attention animations prefer or stay on the dock's own monitor.
+- Treat internal monitor seams differently from physical display edges: use dock-local reveal strips, constrain pressure reveal, add a small guard for instant reveal, and disable hidden dock input so crossing between displays cannot accidentally reveal or interact with a neighbouring dock.
+- Improve display hot-plug, rotation, scaling, resolution and layout changes with coalesced monitor updates, in-place relayout when topology is stable, bounded recovery from transient empty monitor snapshots, and duplicate/mirrored geometry suppression.
+- Keep download arrival flyers and narrow-monitor window previews inside their owning display, while avoiding duplicate Downloads and Trash attention animations across every dock.
+- Add regression coverage for monitor topology, duplicated/mirrored layouts, shared seams, boundary-point monitor detection, monitor-local application interactions, and existing per-monitor fullscreen behavior.
+
 ## 268
 
 - Confine each dock, its magnified overflow, and its input zones to the monitor that owns it so oversized or edge-aligned multi-monitor docks cannot bleed onto neighbouring displays.
