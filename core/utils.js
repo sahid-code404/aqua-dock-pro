@@ -104,6 +104,23 @@ export function appWindowsForConfig(app, cfg, activeWorkspace = undefined) {
     });
 }
 
+// Interaction policy differs slightly from display/isolation policy. When the
+// same dock is present on several monitors, a click/scroll on monitor B should
+// prefer that app's windows already on monitor B instead of unexpectedly
+// activating a newer window on monitor A. If the app has no local window we
+// fall back to the normal configured scope, preserving existing behavior.
+export function appWindowsForInteraction(app, cfg, monitorIndex = -1, activeWorkspace = undefined) {
+    const windows = appWindowsForConfig(app, cfg, activeWorkspace);
+    if (!cfg?.multiMonitor || cfg?.isolateMonitors || monitorIndex < 0 || windows.length < 2)
+        return windows;
+
+    const local = windows.filter(window => {
+        try { return window.get_monitor?.() === monitorIndex; }
+        catch { return false; }
+    });
+    return local.length ? local : windows;
+}
+
 export function launchUri(uri) {
     try { Gio.AppInfo.launch_default_for_uri(uri, null); }
     catch (e) { logError(e, `launchUri ${uri}`); }
