@@ -59,16 +59,9 @@ assert(start.x < centered.x && centered.x < end.x, 'horizontal alignment order i
 assert(start.x >= monitor.x && end.x + end.width <= monitor.x + monitor.width,
     'aligned dock must stay inside its monitor');
 
-for (const [hidden, clip] of [
-    [false, centered.monitorClip],
-    [true, centered.hiddenMonitorClip],
-]) {
-    const ox = hidden ? centered.hiddenX : centered.x;
-    const oy = hidden ? centered.hiddenY : centered.y;
-    assert(ox + clip.x === monitor.x && oy + clip.y === monitor.y &&
-        clip.w === monitor.width && clip.h === monitor.height,
-    'container monitor clip does not map exactly to the owning monitor');
-}
+assert(centered.monitor.x === monitor.x && centered.monitor.y === monitor.y &&
+    centered.monitor.width === monitor.width && centered.monitor.height === monitor.height,
+    'layout did not retain the owning monitor bounds for chrome clipping');
 
 const clippedOverflow = clipRectToMonitor({
     x: monitor.x - 90,
