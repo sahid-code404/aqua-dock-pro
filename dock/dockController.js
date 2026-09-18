@@ -4,7 +4,7 @@ import Clutter from 'gi://Clutter';
 import Gio from 'gi://Gio';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
-import { SignalGroup, TimeoutGroup, appWindowsForConfig, logError, log } from '../core/utils.js';
+import { SignalGroup, TimeoutGroup, appWindowsForInteraction, logError, log } from '../core/utils.js';
 import {
     GEOMETRY_KEYS,
     ITEM_REFRESH_KEYS,
@@ -133,6 +133,8 @@ export class DockController {
         this._downloads = new DownloadManager({
             getConfig: () => this._cfg,
             getMonitor: () => this._getMonitor(),
+            getMonitorIndex: () => this._monitorIndex,
+            isAttentionMonitor: () => this._isAttentionMonitor(),
             getDownloadsItem: () => this._findItem('downloads'),
             isHidden: () => this._autohide?.hidden ?? false,
             kickEngine: () => this._engine.kick(),
@@ -140,6 +142,7 @@ export class DockController {
         });
         this._trash = this._cfg.showTrash ? new TrashWatcher({
             getConfig: () => this._cfg,
+            isAttentionMonitor: () => this._isAttentionMonitor(),
             getTrashItem: () => this._findItem('trash'),
             getTrashGicon: full => this._tracker.trashGicon(full),
             kickEngine: () => this._engine.kick(),
@@ -152,11 +155,13 @@ export class DockController {
             getItems: () => this._factory.items,
             getMonitorIndex: () => this._monitorIndex,
         });
-        this._appActions = new AppActions(() => this._cfg, this._genie);
+        this._appActions = new AppActions(
+            () => this._cfg, this._genie, () => this._monitorIndex);
         this._drag = new DragManager({
             getConfig: () => this._cfg,
             getGeom: () => this._geom,
             getChips: () => this._factory.chips,
+            getMonitorIndex: () => this._monitorIndex,
             container: this._chrome.container,
             engine: this._engine,
             setAppsButtonPosition: position =>
@@ -184,8 +189,7 @@ export class DockController {
         this._syncNotificationSubscription();
         this._mountedDevices?.start(() => this._onEntriesChanged());
         this._tracker.start(() => this._onEntriesChanged());
-        this._onEntriesChanged();    // initial sync + first layout
-        this._refreshItems();        // seed badges before the first shell event
+        this._onEntriesChanged();    // initial sync + first layout + item state
         this._autohide.enable();
         this._downloads.enable();
         this._trash?.enable();
@@ -195,6 +199,37 @@ export class DockController {
 
     _getMonitor() {
         return Main.layoutManager.monitors?.[this._monitorIndex] ?? null;
+    }
+
+    // Global attention events (downloads/trash) should animate on one relevant
+    // dock, not on every monitor at once. Prefer the focused window's monitor;
+    // fall back to the pointer and finally the primary monitor.
+    _isAttentionMonitor() {
+        if (!this._cfg?.multiMonitor) return true;
+        const monitors = Main.layoutManager.monitors ?? [];
+        let index = -1;
+        try { index = global.display.focus_window?.get_monitor?.() ?? -1; }
+        catch { index = -1; }
+
+        if (index < 0 || index >= monitors.length) {
+            try {
+                const [px, py] = global.get_pointer();
+                index = monitors.findIndex(mon =>
+                    px >= mon.x && px < mon.x + mon.width &&
+                    py >= mon.y && py < mon.y + mon.height);
+            } catch { index = -1; }
+        }
+        if (index < 0 || index >= monitors.length) {
+            const primary = Main.layoutManager.primaryIndex;
+            index = primary >= 0 && primary < monitors.length ? primary : 0;
+        }
+        return index === this._monitorIndex;
+    }
+
+    _windowBelongsHere(window) {
+        if (!this._cfg?.isolateMonitors || !window) return true;
+        try { return window.get_monitor?.() === this._monitorIndex; }
+        catch { return true; } // stale window: prefer a harmless refresh
     }
 
     _findItem(kind) {
@@ -244,8 +279,8 @@ export class DockController {
         const item = this._factory?.items?.[0];
         if (!item || !this._geom) return false;
         try {
-            if (monitorInFullscreen(this._monitorIndex) && !Main.overview.visible)
-                return false;
+            // Fullscreen docks are intentionally revealable; keyboard focus must
+            // follow the same policy as edge/pointer reveal.
             this._autohide?.onDockActivity();
             item.grab_key_focus();
             return true;
@@ -392,7 +427,9 @@ export class DockController {
 
         const wm = global.window_manager;
         for (const sig of ['map', 'destroy', 'minimize', 'unminimize'])
-            s.connect(wm, sig, () => {
+            s.connect(wm, sig, (_wm, actor) => {
+                const window = actor?.meta_window ?? null;
+                if (!this._windowBelongsHere(window)) return;
                 this._scheduleRefreshItems(false);
                 this._autohide?.queueIntellihide();
             });
@@ -436,8 +473,17 @@ export class DockController {
             this._endHover();
         if (this._focusItem && !this._factory.items.includes(this._focusItem))
             this.exitKeyboardFocus();
-        if (changed) this.relayout();
-        else this._engine.kick();
+        if (changed) {
+            this.relayout();
+        } else {
+            // Window monitor/workspace moves can change counts and running state
+            // without changing the entry list. Refresh those item models and
+            // Genie targets instead of leaving secondary docks stale.
+            this._refreshItems(false);
+            this._genie?.updateAllIconGeometry();
+            this._engine.kick();
+        }
+        if (changed) this._refreshItems(false);
     }
 
     _refreshItems(refreshNotifications = true) {
@@ -488,7 +534,13 @@ export class DockController {
         if (!mon) return;
         const fs = monitorInFullscreen(this._monitorIndex);
         const base = { ...this._settings.config, monitorIndex: this._monitorIndex };
-        const { cfg, geom } = computeLayout(base, this._factory.chips, mon, fs);
+        const { cfg, geom } = computeLayout(
+            base,
+            this._factory.chips,
+            mon,
+            fs,
+            Main.layoutManager.monitors ?? [],
+        );
         this._cfg = cfg;
         this._geom = geom;
 
@@ -520,6 +572,20 @@ export class DockController {
         this._tooltip?.invalidateMonitor();
         this._genie?.updateAllIconGeometry();
         this._autohide?.onRelayout();
+    }
+
+    // Monitor position/scale changes do not require tearing down every shared
+    // service. Close geometry-bound transient UI, cancel active drag state, and
+    // relayout this controller in place.
+    refreshMonitorGeometry() {
+        this._drag?.cancelLayoutChanges();
+        this._preview?.hide(true);
+        this._downloads?.closeStack();
+        this._menu?.closeNow();
+        this._tooltip?.hide();
+        this.relayout();
+        this._refreshItems(false);
+        if (this._manageDash) this._chrome.enforceDashGap(this._cfg);
     }
 
     // Route non-structural settings to the smallest proven-safe update path.
@@ -922,7 +988,8 @@ export class DockController {
         const item = this._pickItem(sx, sy) ?? this._pickItemRedirected(sx, sy);
         if (!item || item.entry.kind !== 'app') return Clutter.EVENT_PROPAGATE;
         if (this._cfg.scrollAction === 'nothing') return Clutter.EVENT_PROPAGATE;
-        const wins = appWindowsForConfig(item.entry.app, this._cfg);
+        const wins = appWindowsForInteraction(
+            item.entry.app, this._cfg, this._monitorIndex);
         if (!wins.length) return Clutter.EVENT_PROPAGATE;
         const dir = ev.get_scroll_direction();
         if (this._cfg.scrollAction === 'cycle') {
