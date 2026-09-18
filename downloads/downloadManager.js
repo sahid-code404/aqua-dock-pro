@@ -188,6 +188,13 @@ export class DownloadManager {
     _scheduleArrival(file) {
         if (!file) return;
 
+        // The downloads watcher is shared by every monitor. Only the dock on the
+        // user's current attention monitor should enqueue the arrival animation;
+        // otherwise one download spawns identical flyers/bounces everywhere.
+        if (this._host?.isAttentionMonitor &&
+            !this._host.isAttentionMonitor())
+            return;
+
         let uri = null;
         try { uri = file.get_uri(); } catch { }
         if (!uri) return;
