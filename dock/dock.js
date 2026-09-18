@@ -21,6 +21,8 @@ export class DockChrome {
         this._bgStyleCache = null;
         this._handleClipCache = null;
         this._containerClipCache = null;
+        this._containerClipMonitor = null;
+        this._containerClipIds = [];
         this._dash = null;
         this._dashWasVisible = true;
         this._dashOpacity = 255;
@@ -35,6 +37,13 @@ export class DockChrome {
                 layout_manager: new Clutter.FixedLayout(),
             });
             this._container.set_clip_to_allocation(false);
+            // The container slides during autohide. Keep its custom monitor clip
+            // stage-stable by recomputing local clip coordinates whenever that
+            // slide changes the actor position.
+            this._containerClipIds.push(
+                this._container.connect('notify::x', () => this._syncContainerClip()));
+            this._containerClipIds.push(
+                this._container.connect('notify::y', () => this._syncContainerClip()));
 
             this._bg = new St.Widget({ style_class: 'aqua-bg' });
             this._container.add_child(this._bg);
@@ -126,17 +135,35 @@ export class DockChrome {
             geom.height);
 
         // Children intentionally paint outside the container while magnified.
-        // Clip that overflow to this monitor only, rather than to the pill
-        // allocation, so adjacent displays never receive another dock's edges.
-        const clip = hidden ? geom.hiddenMonitorClip : geom.monitorClip;
-        const clipKey = clip
-            ? `${clip.x}:${clip.y}:${clip.w}:${clip.h}`
-            : '';
-        if (clipKey !== this._containerClipCache) {
-            if (clip) this._container.set_clip(clip.x, clip.y, clip.w, clip.h);
-            else this._container.remove_clip();
-            this._containerClipCache = clipKey;
+        // Keep that overflow visible on this display, but clip it exactly at the
+        // owning monitor's stage boundary so no edge/icon leaks next door.
+        this._containerClipMonitor = geom.monitor ?? null;
+        this._syncContainerClip();
+    }
+
+    _syncContainerClip() {
+        const container = this._container;
+        const monitor = this._containerClipMonitor;
+        if (!container) return;
+
+        if (!monitor) {
+            if (this._containerClipCache !== null) {
+                try { container.remove_clip(); } catch { }
+                this._containerClipCache = null;
+            }
+            return;
         }
+
+        // set_clip() is actor-local. Subtract the container's live stage-space
+        // position so the painted clip stays fixed while autohide animates.
+        const clipX = monitor.x - container.x;
+        const clipY = monitor.y - container.y;
+        const clipW = monitor.width;
+        const clipH = monitor.height;
+        const clipKey = `${clipX}:${clipY}:${clipW}:${clipH}`;
+        if (clipKey === this._containerClipCache) return;
+        container.set_clip(clipX, clipY, clipW, clipH);
+        this._containerClipCache = clipKey;
     }
 
     // Seed the pill rect; the engine takes over per-frame via setPill().
@@ -329,6 +356,13 @@ export class DockChrome {
 
     destroy() {
         this.restoreDash();
+        if (this._container && this._containerClipIds?.length) {
+            for (const id of this._containerClipIds) {
+                try { this._container.disconnect(id); } catch { }
+            }
+        }
+        this._containerClipIds = [];
+        this._containerClipMonitor = null;
         for (const key of ['_magZone', '_strip', '_autohideHandle', '_edgeZone', '_strut', '_container']) {
             const actor = this[key];
             if (!actor) continue;
@@ -339,5 +373,6 @@ export class DockChrome {
         this._bg = null;
         this._handleVisible = false;
         this._handleClipCache = null;
+        this._containerClipCache = null;
     }
 }
