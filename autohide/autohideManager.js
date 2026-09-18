@@ -33,7 +33,8 @@ export class AutohideManager {
         this._vis = new VisibilityController(host.chrome.container);
         this._overlap = new OverlapDetector(host.getGeom, host.getMonitorIndex,
             () => this._debounceCheckHide());
-        this._pressure = new PressureBarrier(host.getConfig, host.getMonitor,
+        this._pressure = new PressureBarrier(
+            host.getConfig, host.getMonitor, host.getGeom,
             () => this._vis.hidden,
             () => !this._pointerButtonDown(),
             () => this._reveal());
