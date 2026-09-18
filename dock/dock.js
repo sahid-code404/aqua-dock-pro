@@ -115,6 +115,13 @@ export class DockChrome {
     get edgeZone() { return this._edgeZone; }
     get strut() { return this._strut; }
 
+    setContainerReactive(reactive) {
+        if (!this._container) return;
+        const next = reactive === true;
+        if (this._container.reactive !== next)
+            this._container.reactive = next;
+    }
+
     raiseAboveOverview() {
         const parent = this._container?.get_parent();
         if (parent) parent.set_child_above_sibling(this._container, null);
