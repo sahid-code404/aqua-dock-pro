@@ -24,6 +24,7 @@ import { clearNotificationCache } from '../services/notificationService.js';
 const REBUILD_RETRY_DELAYS_MS = [250, 750, 1500];
 const DASH_RETRY_DELAYS_MS = [250, 750, 1500];
 const MONITOR_CHANGE_SETTLE_MS = 120;
+const MONITOR_EMPTY_RETRY_DELAYS_MS = [250, 750, 1500];
 
 export class ExtensionManager {
     constructor(extension) {
@@ -34,6 +35,7 @@ export class ExtensionManager {
         this._unsubSettings = null;
         this._monitorsChangedId = 0;
         this._monitorChangeId = 0;
+        this._monitorEmptyRetryCount = 0;
         this._keybindingAdded = false;
         this._timers = new TimeoutGroup();
         this._rebuildRetryId = 0;
@@ -257,10 +259,21 @@ export class ExtensionManager {
         const indexes = this._monitorIndexes();
         if (!indexes.length) {
             // A transient zero-monitor snapshot can occur mid-reconfiguration.
-            // Keep the working dock set until Mutter publishes a usable layout.
+            // Keep the working dock set and do a bounded recheck even if Mutter
+            // does not emit a second monitors-changed signal for the final state.
+            const retryIndex = this._monitorEmptyRetryCount++;
             log('monitor change yielded no logical monitors; keeping current docks');
+            if (retryIndex < MONITOR_EMPTY_RETRY_DELAYS_MS.length) {
+                this._monitorChangeId = this._timers.addOnce(
+                    MONITOR_EMPTY_RETRY_DELAYS_MS[retryIndex],
+                    () => {
+                        this._monitorChangeId = 0;
+                        this._applyMonitorChange();
+                    });
+            }
             return;
         }
+        this._monitorEmptyRetryCount = 0;
 
         const current = this._docks.map(dock => dock.monitorIndex);
         const sameTopology = current.length === indexes.length &&
@@ -304,6 +317,7 @@ export class ExtensionManager {
         this._cancelRebuildRetry();
         this._timers.removeAll();
         this._monitorChangeId = 0;
+        this._monitorEmptyRetryCount = 0;
 
         if (this._keybindingAdded) {
             try { Main.wm.removeKeybinding('focus-dock-shortcut'); } catch { }
