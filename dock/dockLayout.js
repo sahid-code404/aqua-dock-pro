@@ -32,6 +32,22 @@ export function magnifiedOverflow(magZone, scale) {
     return overflow + (magZone.hoverReach ?? 0);
 }
 
+// Intersect a stage-space rectangle with one monitor. Multi-monitor docks use
+// this for every separately registered chrome/input actor so magnification and
+// oversized custom layouts can never paint or capture input on a neighbour.
+export function clipRectToMonitor(rect, monitor) {
+    const x1 = Math.max(rect.x, monitor.x);
+    const y1 = Math.max(rect.y, monitor.y);
+    const x2 = Math.min(rect.x + rect.w, monitor.x + monitor.width);
+    const y2 = Math.min(rect.y + rect.h, monitor.y + monitor.height);
+    return {
+        x: x1,
+        y: y1,
+        w: Math.max(0, x2 - x1),
+        h: Math.max(0, y2 - y1),
+    };
+}
+
 // Running-indicator geometry is shared with DockItem but kept pure so the
 // auto-shrink path can be regression-tested without starting GNOME Shell. A
 // dock that is not screen-fit shrunk deliberately returns the historical
@@ -433,6 +449,12 @@ export function computeLayout(base, chips, monitor, monitorFullscreen = false) {
 
     const geom = {
         side, vert, width, height, x, y, hiddenX, hiddenY,
+        monitor: {
+            x: monitor.x,
+            y: monitor.y,
+            width: monitor.width,
+            height: monitor.height,
+        },
         mainLen, thick, pad,
         bg, bgBaseX, bgBaseW,
         pick, band,

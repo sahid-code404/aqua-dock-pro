@@ -4,7 +4,7 @@
 import Clutter from 'gi://Clutter';
 
 import { animationsEnabled, clamp, logError } from '../core/utils.js';
-import { magnifiedOverflow } from '../dock/dockLayout.js';
+import { clipRectToMonitor, magnifiedOverflow } from '../dock/dockLayout.js';
 import { smoothFactor } from './easing.js';
 import { gaussianTarget, integrateSpring, subSteps } from './springSolver.js';
 import { FrameScheduler } from './frameScheduler.js';
@@ -419,6 +419,22 @@ export class AnimationEngine {
         } else {
             mx = sx + mainStart; my = sy - oh; mw = mainLength; mh = oh;
         }
+        // Separate chrome actors are not children of the dock container, so
+        // clip their stage-space input rectangle independently as well. This is
+        // what prevents a magnified edge icon from stealing pointer input on an
+        // adjacent display.
+        const clipped = clipRectToMonitor(
+            { x: mx, y: my, w: mw, h: mh },
+            geom.monitor);
+        mx = clipped.x; my = clipped.y; mw = clipped.w; mh = clipped.h;
+        if (mw <= 0 || mh <= 0) {
+            if (this._magZoneActive) {
+                magZone.set_size(0, 0);
+                this._magZoneActive = false;
+            }
+            return;
+        }
+
         // Only write actor properties when they actually changed.
         if (mx !== this._mzX || my !== this._mzY) { magZone.set_position(mx, my); this._mzX = mx; this._mzY = my; }
         if (mw !== this._mzW || mh !== this._mzH) { magZone.set_size(mw, mh); this._mzW = mw; this._mzH = mh; }

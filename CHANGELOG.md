@@ -1,5 +1,11 @@
 # Changelog
 
+## 268
+
+- Confine each dock, its magnified overflow, and its input zones to the monitor that owns it so oversized or edge-aligned multi-monitor docks cannot bleed onto neighbouring displays.
+- Keep fullscreen docks revealable from their own screen edge, preserve the hidden dock's upper rim in fullscreen, and use the configured hide delay instead of permanently blocking reveal.
+- Add regression coverage for monitor-local clipping while preserving per-monitor fullscreen detection and existing dock geometry.
+
 ## 267
 
 - Advertise one extension package for GNOME Shell 50 and 51 while preserving the existing Shell 50 runtime path and behavior.

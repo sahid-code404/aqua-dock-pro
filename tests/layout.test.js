@@ -1,4 +1,5 @@
 import {
+    clipRectToMonitor,
     computeLayout,
     indicatorMetrics,
     indicatorPosition,
@@ -57,6 +58,29 @@ const end = computeLayout({ ...base, alignment: 'end' }, chips(), monitor).geom;
 assert(start.x < centered.x && centered.x < end.x, 'horizontal alignment order is wrong');
 assert(start.x >= monitor.x && end.x + end.width <= monitor.x + monitor.width,
     'aligned dock must stay inside its monitor');
+
+assert(centered.monitor.x === monitor.x && centered.monitor.y === monitor.y &&
+    centered.monitor.width === monitor.width && centered.monitor.height === monitor.height,
+    'layout did not retain the owning monitor bounds for chrome clipping');
+
+const clippedOverflow = clipRectToMonitor({
+    x: monitor.x - 90,
+    y: monitor.y + monitor.height - 60,
+    w: monitor.width + 180,
+    h: 120,
+}, monitor);
+assert(clippedOverflow.x === monitor.x && clippedOverflow.y === monitor.y + monitor.height - 60 &&
+    clippedOverflow.w === monitor.width && clippedOverflow.h === 60,
+    'stage-space dock overflow was not clipped at monitor boundaries');
+
+const fullyOutside = clipRectToMonitor({
+    x: monitor.x + monitor.width + 10,
+    y: monitor.y,
+    w: 40,
+    h: 40,
+}, monitor);
+assert(fullyOutside.w === 0 && fullyOutside.h === 40,
+    'fully off-monitor horizontal overflow must collapse to zero width');
 
 const left = computeLayout({
     ...base,

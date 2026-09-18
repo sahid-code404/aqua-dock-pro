@@ -20,6 +20,9 @@ export class DockChrome {
         this._handleVisible = false;
         this._bgStyleCache = null;
         this._handleClipCache = null;
+        this._containerClipCache = null;
+        this._containerClipMonitor = null;
+        this._containerClipIds = [];
         this._dash = null;
         this._dashWasVisible = true;
         this._dashOpacity = 255;
@@ -34,6 +37,13 @@ export class DockChrome {
                 layout_manager: new Clutter.FixedLayout(),
             });
             this._container.set_clip_to_allocation(false);
+            // The container slides during autohide. Keep its custom monitor clip
+            // stage-stable by recomputing local clip coordinates whenever that
+            // slide changes the actor position.
+            this._containerClipIds.push(
+                this._container.connect('notify::x', () => this._syncContainerClip()));
+            this._containerClipIds.push(
+                this._container.connect('notify::y', () => this._syncContainerClip()));
 
             this._bg = new St.Widget({ style_class: 'aqua-bg' });
             this._container.add_child(this._bg);
@@ -43,16 +53,18 @@ export class DockChrome {
             this._magZone = new St.Widget({ reactive: true, opacity: 0 });
             Main.layoutManager.addChrome(this._magZone, {
                 affectsStruts: false,
-                trackFullscreen: true,
+                // The dock is allowed to reveal above a fullscreen window on
+                // this monitor. Keep its magnified overflow interactive too.
+                trackFullscreen: false,
             });
 
             // Thin reactive strip at the very screen edge — the autohide reveal
-            // trigger. Fullscreen tracking also removes it from the input region,
-            // so it cannot sit on top of a fullscreen application's controls.
+            // trigger. It must stay in the input region during fullscreen so a
+            // hidden dock on a secondary monitor can still be revealed.
             this._strip = new St.Widget({ reactive: true, opacity: 0 });
             Main.layoutManager.addChrome(this._strip, {
                 affectsStruts: false,
-                trackFullscreen: true,
+                trackFullscreen: false,
             });
 
             // A clipped copy of the pill's screen-facing border remains visible
@@ -67,7 +79,8 @@ export class DockChrome {
             });
             Main.layoutManager.addChrome(this._autohideHandle, {
                 affectsStruts: false,
-                trackFullscreen: true,
+                // The exposed pill rim is intentional fullscreen chrome.
+                trackFullscreen: false,
             });
 
             // Invisible reactive zone filling the edge-margin gap between the pill
@@ -75,7 +88,7 @@ export class DockChrome {
             this._edgeZone = new St.Widget({ reactive: true, opacity: 0 });
             Main.layoutManager.addChrome(this._edgeZone, {
                 affectsStruts: false,
-                trackFullscreen: true,
+                trackFullscreen: false,
             });
 
             // Strut reserves screen space so maximized windows clear the dock.
@@ -120,6 +133,37 @@ export class DockChrome {
             hidden ? geom.hiddenY : geom.y,
             geom.width,
             geom.height);
+
+        // Children intentionally paint outside the container while magnified.
+        // Keep that overflow visible on this display, but clip it exactly at the
+        // owning monitor's stage boundary so no edge/icon leaks next door.
+        this._containerClipMonitor = geom.monitor ?? null;
+        this._syncContainerClip();
+    }
+
+    _syncContainerClip() {
+        const container = this._container;
+        const monitor = this._containerClipMonitor;
+        if (!container) return;
+
+        if (!monitor) {
+            if (this._containerClipCache !== null) {
+                try { container.remove_clip(); } catch { }
+                this._containerClipCache = null;
+            }
+            return;
+        }
+
+        // set_clip() is actor-local. Subtract the container's live stage-space
+        // position so the painted clip stays fixed while autohide animates.
+        const clipX = monitor.x - container.x;
+        const clipY = monitor.y - container.y;
+        const clipW = monitor.width;
+        const clipH = monitor.height;
+        const clipKey = `${clipX}:${clipY}:${clipW}:${clipH}`;
+        if (clipKey === this._containerClipCache) return;
+        container.set_clip(clipX, clipY, clipW, clipH);
+        this._containerClipCache = clipKey;
     }
 
     // Seed the pill rect; the engine takes over per-frame via setPill().
@@ -312,6 +356,13 @@ export class DockChrome {
 
     destroy() {
         this.restoreDash();
+        if (this._container && this._containerClipIds?.length) {
+            for (const id of this._containerClipIds) {
+                try { this._container.disconnect(id); } catch { }
+            }
+        }
+        this._containerClipIds = [];
+        this._containerClipMonitor = null;
         for (const key of ['_magZone', '_strip', '_autohideHandle', '_edgeZone', '_strut', '_container']) {
             const actor = this[key];
             if (!actor) continue;
@@ -322,5 +373,6 @@ export class DockChrome {
         this._bg = null;
         this._handleVisible = false;
         this._handleClipCache = null;
+        this._containerClipCache = null;
     }
 }
