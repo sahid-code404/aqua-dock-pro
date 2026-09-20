@@ -26,6 +26,7 @@ const SHARED_EDGE_REVEAL_MS = 90;
 // open/close effects can briefly publish an intermediate stacking snapshot even
 // when another local window still covers the dock.
 const DODGE_REVEAL_CONFIRM_MS = 260;
+const WINDOW_TRANSITION_GUARD_MS = 1500;
 const POINTER_BUTTON_MASK =
     Clutter.ModifierType.BUTTON1_MASK |
     Clutter.ModifierType.BUTTON2_MASK |
@@ -48,7 +49,7 @@ export class AutohideManager {
             host.getConfig, host.getMonitor, host.getGeom,
             () => this._vis.hidden,
             () => !this._pointerButtonDown(),
-            () => this._reveal());
+            () => this._reveal(true));
 
         this._hideId = 0;
         this._revealId = 0;
@@ -62,6 +63,7 @@ export class AutohideManager {
         this._lastFocusMonitor = -1;
         this._windowTransitions = new Map();
         this._transitionReleaseId = 0;
+        this._transitionWatchdogId = 0;
         this._enabled = false;
     }
 
@@ -95,6 +97,7 @@ export class AutohideManager {
         this._fullscreenSignalCheckId = 0;
         this._dodgeRevealId = 0;
         this._transitionReleaseId = 0;
+        this._transitionWatchdogId = 0;
         this._fullscreenBlocked = false;
         this._lastRawFullscreen = false;
         this._lastFocusMonitor = -1;
@@ -146,9 +149,8 @@ export class AutohideManager {
     // ── Pointer hooks called by the controller ───────────────────────────────
     onDockActivity() {
         this._cancelHide();
-        if (this._transitionBlocksReveal()) return;
         if (this._vis.hidden && !this._pointerButtonDown())
-            this._setHidden(false, true);
+            this._setHidden(false, true, true);
     }
 
     onDockLeft() {
@@ -447,21 +449,29 @@ export class AutohideManager {
 
     _beginReveal() {
         this._cancelReveal();
-        if (this._transitionBlocksReveal() || this._pointerButtonDown()) return;
+        if (this._pointerButtonDown()) return;
         const cfg = this._host.getConfig();
-        if (cfg.pressureSense) { this._pressure.begin(); return; }
-
-        // A physical outer edge can reveal instantly. A shared monitor seam is
-        // traversable, so even an "instant" global setting gets one tiny dwell
-        // guard to distinguish a deliberate dock reveal from crossing displays.
         const sharedEdge = this._host.getGeom?.()?.sharedEdge === true;
+
+        // Pressure works at a physical screen edge because the pointer stops
+        // there. An internal monitor seam is traversable, so pressure polling
+        // can never accumulate reliably. Use the dock-local seam strip plus a
+        // short dwell instead; this guarantees a hidden dock is recoverable.
+        if (cfg.pressureSense && !sharedEdge) {
+            this._pressure.begin();
+            return;
+        }
+
         const delay = cfg.revealPressure > 0
             ? cfg.revealPressure
             : (sharedEdge ? SHARED_EDGE_REVEAL_MS : 0);
-        if (delay <= 0) { this._setHidden(false, true); return; }
+        if (delay <= 0) {
+            this._reveal(true);
+            return;
+        }
         this._revealId = this._timers.addOnce(delay, () => {
             this._revealId = 0;
-            if (!this._pointerButtonDown()) this._setHidden(false, true);
+            if (!this._pointerButtonDown()) this._reveal(true);
         });
     }
 
@@ -470,19 +480,19 @@ export class AutohideManager {
         this._pressure.cancel();
     }
 
-    _reveal() {
-        if (this._transitionBlocksReveal() || this._pointerButtonDown()) return;
+    _reveal(userInitiated = false) {
+        if (this._pointerButtonDown()) return;
         this._cancelHide();
         this._cancelDodgeReveal();
-        this._setHidden(false, true);
+        this._setHidden(false, true, userInitiated);
     }
 
     // ── Slide + side effects ──────────────────────────────────────────────────
-    _setHidden(hidden, animate) {
+    _setHidden(hidden, animate, userInitiated = false) {
         const cfg = this._host.getConfig();
         if (hidden) this._cancelDodgeReveal();
         const fullscreen = this._fullscreenBlocksDock();
-        if (!hidden && this._transitionBlocksReveal()) hidden = true;
+        if (!hidden && !userInitiated && this._transitionBlocksReveal()) hidden = true;
         else if (!fullscreen && cfg.autoHideMode === 'never' && hidden) hidden = false;
         const geom = this._host.getGeom();
         if (!geom) return;
@@ -545,7 +555,35 @@ export class AutohideManager {
         if (!ids.length) return;
 
         this._windowTransitions.set(actor, ids);
+        this._armTransitionWatchdog();
         if (this._vis.hidden) this._cancelReveal();
+    }
+
+    _armTransitionWatchdog() {
+        if (this._transitionWatchdogId) {
+            this._timers.remove(this._transitionWatchdogId);
+            this._transitionWatchdogId = 0;
+        }
+        this._transitionWatchdogId = this._timers.addOnce(
+            WINDOW_TRANSITION_GUARD_MS, () => {
+                this._transitionWatchdogId = 0;
+                if (!this._enabled || !this._windowTransitions.size) return;
+
+                // Mutter/Clutter effects do not guarantee that every actor emits
+                // all completion signals on every close/minimize path. Never let
+                // one stale actor record permanently block a hidden dock reveal.
+                for (const [transitionActor, transitionIds] of this._windowTransitions) {
+                    for (const id of transitionIds) {
+                        try { transitionActor.disconnect(id); } catch { }
+                    }
+                }
+                this._windowTransitions.clear();
+                if (this._transitionReleaseId) {
+                    this._timers.remove(this._transitionReleaseId);
+                    this._transitionReleaseId = 0;
+                }
+                this.updateIntellihide();
+            });
     }
 
     _finishWindowTransition(actor) {
@@ -554,6 +592,11 @@ export class AutohideManager {
         this._windowTransitions.delete(actor);
         for (const id of ids) {
             try { actor.disconnect(id); } catch { }
+        }
+
+        if (!this._windowTransitions.size && this._transitionWatchdogId) {
+            this._timers.remove(this._transitionWatchdogId);
+            this._transitionWatchdogId = 0;
         }
 
         if (!this._windowTransitions.size && this._enabled && !this._transitionReleaseId) {
@@ -572,6 +615,10 @@ export class AutohideManager {
         if (this._transitionReleaseId) {
             this._timers.remove(this._transitionReleaseId);
             this._transitionReleaseId = 0;
+        }
+        if (this._transitionWatchdogId) {
+            this._timers.remove(this._transitionWatchdogId);
+            this._transitionWatchdogId = 0;
         }
         for (const [actor, ids] of this._windowTransitions) {
             for (const id of ids) {
