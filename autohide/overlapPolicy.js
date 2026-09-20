@@ -18,23 +18,15 @@ export function frameOverlapsDock(frame, dock, tolerance = 4) {
 
 export function windowVisibleForDodge({
     minimized = false,
-    monitorMatches = false,
     handledType = false,
-    showingOnWorkspace = null,
     locatedOnWorkspace = null,
-    onAllWorkspaces = false,
 } = {}) {
-    if (minimized || !monitorMatches || !handledType) return false;
+    if (minimized || !handledType) return false;
 
-    // Mutter's showing_on_its_workspace() is the strongest signal: it already
-    // understands sticky windows and the "workspaces only on primary display"
-    // model. If available, prefer it over manual active-workspace membership.
-    if (showingOnWorkspace !== null)
-        return showingOnWorkspace === true;
-
-    // Compatibility fallback for Shell/Mutter variants where the visibility
-    // helper is unavailable.
-    if (onAllWorkspaces) return true;
+    // Active-workspace membership is stable across compositor map/unmap effects.
+    // Do not use is_hidden(): Mutter may toggle that during animations. Do not
+    // require get_monitor() either: the frame rectangle below is the definitive
+    // test and correctly handles spanning windows and transient monitor changes.
     if (locatedOnWorkspace !== null)
         return locatedOnWorkspace === true;
     return true;
