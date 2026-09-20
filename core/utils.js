@@ -85,6 +85,17 @@ export function windowMonitorIndex(window) {
     }
 }
 
+// Window lifecycle signals can arrive while Mutter is destroying/reparenting an
+// actor and get_monitor() is already unavailable. Unknown ownership should not
+// be treated as belonging to a specific monitor, but it should trigger a cheap
+// reconciliation on each dock so a missed local unmap/minimize cannot leave one
+// dock permanently hidden.
+export function windowLifecycleMayAffectMonitor(window, targetIndex) {
+    if (targetIndex < 0) return false;
+    const owner = windowMonitorIndex(window);
+    return owner < 0 || owner === targetIndex;
+}
+
 // Return monitor indexes in dock-construction order: primary first, then every
 // distinct logical monitor. Duplicate geometries can appear transiently during
 // mirror/reconfigure operations; building two docks into the same stage rect
