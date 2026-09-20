@@ -31,3 +31,8 @@ export function windowVisibleForDodge({
         return locatedOnWorkspace === true;
     return true;
 }
+
+
+export function shouldHoldShownForMagnification(hidden, engineAnimating) {
+    return hidden !== true && engineAnimating === true;
+}
