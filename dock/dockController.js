@@ -501,7 +501,12 @@ export class DockController {
             // Genie targets instead of leaving secondary docks stale.
             this._refreshItems(false);
             this._genie?.updateAllIconGeometry();
-            this._engine.kick();
+            // App-state notifications also arrive when only indicator/count
+            // metadata changed. A hidden dock has no visible animation work;
+            // keeping its frame scheduler asleep prevents lifecycle events from
+            // creating synthetic "magnifying" activity.
+            if (this._autohide?.hidden) this._engine.snapToRest();
+            else this._engine.kick();
         }
         if (changed) this._refreshItems(false);
     }
