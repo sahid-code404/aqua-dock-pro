@@ -25,7 +25,7 @@ const SHARED_EDGE_REVEAL_MS = 90;
 // Dodge/intellihide reveal must be based on a stable no-overlap state. Window
 // open/close effects can briefly publish an intermediate stacking snapshot even
 // when another local window still covers the dock.
-const DODGE_REVEAL_SETTLE_MS = 320;
+const DODGE_REVEAL_CONFIRM_MS = 260;
 const POINTER_BUTTON_MASK =
     Clutter.ModifierType.BUTTON1_MASK |
     Clutter.ModifierType.BUTTON2_MASK |
@@ -35,8 +35,7 @@ const POINTER_BUTTON_MASK =
 
 export class AutohideManager {
     // host: { chrome, getGeom, getConfig, getMonitor, getMonitorIndex,
-    //         kickEngine, isMagnifying, clearHover, settleMagnification,
-    //         isInteractionActive }
+    //         kickEngine, isMagnifying, clearHover, isInteractionActive }
     constructor(host) {
         this._host = host;
         this._signals = new SignalGroup();
@@ -417,18 +416,13 @@ export class AutohideManager {
     }
 
     _scheduleDodgeReveal() {
-        if (!this._enabled || !this._vis.hidden) return;
+        if (this._dodgeRevealId || !this._enabled || !this._vis.hidden) return;
 
-        // This is a true debounce, not a one-shot delay. Every additional
-        // no-overlap/focus/restack sample during an app transition restarts the
-        // quiet-period timer. The dock is allowed to reveal only after the WM
-        // has been stable for the full settle window.
-        if (this._dodgeRevealId) {
-            this._timers.remove(this._dodgeRevealId);
-            this._dodgeRevealId = 0;
-        }
-
-        this._dodgeRevealId = this._timers.addOnce(DODGE_REVEAL_SETTLE_MS, () => {
+        // Confirm one stable no-overlap sample after the WM transition settles.
+        // Do not restart this timer for every local restack/focus notification:
+        // on multi-monitor setups those signals can arrive continuously and
+        // starve the reveal forever, leaving an otherwise valid dock hidden.
+        this._dodgeRevealId = this._timers.addOnce(DODGE_REVEAL_CONFIRM_MS, () => {
             this._dodgeRevealId = 0;
             if (!this._enabled || !this._vis.hidden) return;
 
@@ -437,9 +431,9 @@ export class AutohideManager {
                 this._transitionBlocksReveal())
                 return;
 
-            // One final stable Meta.Window sample closes the race where a
-            // compositor effect briefly reports no blocker before a local
-            // covering window has settled back into the final stack.
+            // Require a fresh final overlap sample. Lifecycle routing is already
+            // monitor-local, so a second local window check is sufficient without
+            // an indefinitely resettable quiet-period debounce.
             if (this._overlap.isOverlapped()) return;
             this._setHidden(false, true);
         });
@@ -510,10 +504,6 @@ export class AutohideManager {
         if (hidden) {
             this._host.chrome.hideEdgeZone();
             this._host.clearHover?.();
-            // A hidden dock must have no stale magnification input actor left
-            // near its shown position. Collapse the engine and mag zone
-            // synchronously after hover cleanup.
-            this._host.settleMagnification?.();
         } else {
             this._host.chrome.applyEdgeZone(geom.edgeZone);
         }
