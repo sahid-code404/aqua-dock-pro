@@ -75,6 +75,16 @@ export function monitorTransitionTouchesIndex(previousIndex, currentIndex, targe
         (currentIndex < 0 && previousIndex === targetIndex);
 }
 
+export function windowMonitorIndex(window) {
+    if (!window || typeof window.get_monitor !== 'function') return -1;
+    try {
+        const index = window.get_monitor();
+        return Number.isInteger(index) && index >= 0 ? index : -1;
+    } catch {
+        return -1;
+    }
+}
+
 // Return monitor indexes in dock-construction order: primary first, then every
 // distinct logical monitor. Duplicate geometries can appear transiently during
 // mirror/reconfigure operations; building two docks into the same stage rect

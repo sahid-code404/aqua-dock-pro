@@ -1,5 +1,13 @@
 # Changelog
 
+## 272
+
+- Eliminate the remaining hidden-dock reveal race during app open/close by preventing background animation-engine work and hidden-dock relayouts from being interpreted as dock interaction.
+- Centralize map, unminimize, minimize, and destroy visibility handling in AutohideManager so one window lifecycle event cannot trigger duplicate, differently timed intellihide evaluations.
+- Treat missing or stale window monitor ownership as unknown instead of local to every display, and use stable active-workspace membership plus real frame geometry for dodge overlap so spanning windows and transient monitor reassignment cannot produce false clear states.
+- Replace the automatic dodge reveal delay with a true WM quiet-period debounce and keep hidden docks' magnification/input state collapsed while app models reflow.
+- Expand regression coverage for stale monitor routing, spanning-window overlap, stable workspace visibility, and hidden-dock animation activity.
+
 ## 271
 
 - Fix the remaining intellihide flash seen during application open/close transitions, including the same transient reveal on a single built-in monitor.

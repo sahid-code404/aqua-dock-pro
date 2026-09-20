@@ -2,6 +2,7 @@ import {
     monitorIndexAtPoint,
     monitorIndexesForLayout,
     monitorTransitionTouchesIndex,
+    windowMonitorIndex,
 } from '../core/utils.js';
 
 function assert(condition, message) {
@@ -45,5 +46,16 @@ assert(monitorTransitionTouchesIndex(0, 1, 0) === false &&
 assert(monitorTransitionTouchesIndex(0, -1, 0) === true &&
     monitorTransitionTouchesIndex(0, -1, 1) === false,
     'transient null focus while closing a window must only update its previous monitor');
+
+assert(windowMonitorIndex(null) === -1,
+    'missing windows must not be attributed to any monitor');
+assert(windowMonitorIndex({}) === -1,
+    'objects without a monitor API must not be attributed to any monitor');
+assert(windowMonitorIndex({ get_monitor: () => 1 }) === 1,
+    'valid Meta.Window monitor ownership should be preserved');
+assert(windowMonitorIndex({ get_monitor: () => -1 }) === -1,
+    'negative monitor ownership must remain unknown');
+assert(windowMonitorIndex({ get_monitor: () => { throw new Error('stale'); } }) === -1,
+    'stale windows must not wake every monitor');
 
 print('monitorTopology: ok');

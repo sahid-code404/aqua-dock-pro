@@ -11,6 +11,7 @@ import {
     logError,
     log,
     monitorIndexAtPoint,
+    windowMonitorIndex,
 } from '../core/utils.js';
 import {
     GEOMETRY_KEYS,
@@ -104,6 +105,10 @@ export class DockController {
             kickEngine: () => this._engine.kick(),
             isMagnifying: () => this._engine?.animating ?? false,
             clearHover: () => this._endHover(),
+            settleMagnification: () => {
+                this._engine?.stop();
+                this._engine?.snapToRest();
+            },
             isInteractionActive: () => this._isDockBusy(),
         });
         this._tooltip = new TooltipManager(
@@ -232,9 +237,7 @@ export class DockController {
     }
 
     _windowOnThisMonitor(window) {
-        if (!window) return true;
-        try { return window.get_monitor?.() === this._monitorIndex; }
-        catch { return true; } // stale window: prefer a harmless reevaluation
+        return windowMonitorIndex(window) === this._monitorIndex;
     }
 
     _findItem(kind) {
@@ -431,26 +434,21 @@ export class DockController {
         s.connect(ez, 'scroll-event', (_a, ev) => this._onScroll(ev));
 
         const wm = global.window_manager;
-        // Mapping/destruction can change an application's window count. Every
-        // non-isolated dock needs that model update, while monitor-isolated docks
-        // only need the affected monitor. Autohide, however, is always local.
+        // Mapping/destruction can change an application's window count. Keep
+        // that model refresh here, but leave every visibility decision to
+        // AutohideManager. Having both layers react to the same WM lifecycle
+        // signal created duplicate, differently-timed intellihide evaluations.
         for (const sig of ['map', 'destroy'])
             s.connect(wm, sig, (_wm, actor) => {
                 const window = actor?.meta_window ?? null;
                 const local = this._windowOnThisMonitor(window);
                 if (!this._cfg.isolateMonitors || local)
                     this._scheduleRefreshItems(false);
-                if (local) this._autohide?.queueIntellihide();
             });
 
-        // Minimize/unminimize does not alter window count/running state, so avoid
-        // refreshing every icon model on every monitor. Only the local dock's
-        // overlap/fullscreen policy needs reevaluation.
-        for (const sig of ['minimize', 'unminimize'])
-            s.connect(wm, sig, (_wm, actor) => {
-                if (this._windowOnThisMonitor(actor?.meta_window ?? null))
-                    this._autohide?.queueIntellihide();
-            });
+        // Minimize/unminimize do not change the running-app model, so the
+        // controller intentionally does nothing here. AutohideManager owns the
+        // monitor-local visibility reconciliation for those events.
         s.connect(global.display, 'window-created', (_d, win) => this._genie.onWindowCreated(win));
         for (const sig of ['item-drag-end', 'item-drag-cancelled'])
             s.connect(Main.overview, sig, () => this._drag.clearDrop());
@@ -503,7 +501,12 @@ export class DockController {
             // Genie targets instead of leaving secondary docks stale.
             this._refreshItems(false);
             this._genie?.updateAllIconGeometry();
-            this._engine.kick();
+            // App-state notifications also arrive when only indicator/count
+            // metadata changed. A hidden dock has no visible animation work;
+            // keeping its frame scheduler asleep prevents lifecycle events from
+            // creating synthetic "magnifying" activity.
+            if (this._autohide?.hidden) this._engine.snapToRest();
+            else this._engine.kick();
         }
         if (changed) this._refreshItems(false);
     }
@@ -590,7 +593,12 @@ export class DockController {
             bg: this._chrome.bg,
             magZone: this._chrome.magZone,
         });
-        this._engine.kick();
+        // Hidden docks have nothing to magnify or spread. App open/close can
+        // rebuild the shared running-app model; starting the animation engine
+        // for that offscreen reflow used to look like interaction to autohide
+        // and was one cause of the reveal-then-hide flash.
+        if (this._autohide?.hidden) this._engine.snapToRest();
+        else this._engine.kick();
         this._tooltip?.invalidateMonitor();
         this._genie?.updateAllIconGeometry();
         this._autohide?.onRelayout(reevaluateAutohide);

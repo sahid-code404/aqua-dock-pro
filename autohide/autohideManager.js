@@ -9,11 +9,13 @@ import {
     SignalGroup,
     TimeoutGroup,
     monitorTransitionTouchesIndex,
+    windowMonitorIndex,
 } from '../core/utils.js';
 import { VisibilityController } from './visibilityController.js';
 import { OverlapDetector } from './overlapDetector.js';
 import { PressureBarrier } from './pressureBarrier.js';
 import { hasFullscreenWindow, windowKeepsDockHidden } from './fullscreenPolicy.js';
+import { shouldHoldShownForMagnification } from './overlapPolicy.js';
 import { monitorInFullscreen } from '../compat/shell.js';
 
 const DEBOUNCE_HIDE_MS = 200;
@@ -23,7 +25,7 @@ const SHARED_EDGE_REVEAL_MS = 90;
 // Dodge/intellihide reveal must be based on a stable no-overlap state. Window
 // open/close effects can briefly publish an intermediate stacking snapshot even
 // when another local window still covers the dock.
-const DODGE_REVEAL_CONFIRM_MS = 240;
+const DODGE_REVEAL_SETTLE_MS = 320;
 const POINTER_BUTTON_MASK =
     Clutter.ModifierType.BUTTON1_MASK |
     Clutter.ModifierType.BUTTON2_MASK |
@@ -33,7 +35,8 @@ const POINTER_BUTTON_MASK =
 
 export class AutohideManager {
     // host: { chrome, getGeom, getConfig, getMonitor, getMonitorIndex,
-    //         kickEngine, isMagnifying, clearHover, isInteractionActive }
+    //         kickEngine, isMagnifying, clearHover, settleMagnification,
+    //         isInteractionActive }
     constructor(host) {
         this._host = host;
         this._signals = new SignalGroup();
@@ -193,17 +196,24 @@ export class AutohideManager {
         s.connect(d, 'in-fullscreen-changed', () => this._onFullscreenSignal());
 
         const wm = global.window_manager;
-        // Hold an already-hidden dock through compositor effects, but only for
-        // windows on this monitor. A destroy/minimize animation on monitor A
-        // must never perturb the dock on monitor B.
+        // Window lifecycle is owned here, in one place, and routed by monitor.
+        // The controller handles only app-model refreshes so the same event
+        // cannot drive two visibility evaluations at different times.
         const onWindowLeaving = actor => {
             const window = actor?.meta_window ?? null;
             if (!this._windowOnThisMonitor(window)) return;
             this._beginWindowTransition(actor);
             this._onCoveringWindowLeaving(window);
         };
+        const onWindowArriving = actor => {
+            const window = actor?.meta_window ?? null;
+            if (!this._windowOnThisMonitor(window)) return;
+            this.queueIntellihide();
+        };
         s.connect(wm, 'destroy', (_wm, actor) => onWindowLeaving(actor));
         s.connect(wm, 'minimize', (_wm, actor) => onWindowLeaving(actor));
+        s.connect(wm, 'map', (_wm, actor) => onWindowArriving(actor));
+        s.connect(wm, 'unminimize', (_wm, actor) => onWindowArriving(actor));
         s.connect(wm, 'size-change', (...args) => {
             const window = this._windowFromSignalArgs(args);
             if (window ? this._windowOnThisMonitor(window)
@@ -227,9 +237,7 @@ export class AutohideManager {
 
     _windowOnThisMonitor(window) {
         const monitor = this._monitorIndex();
-        if (!window || monitor < 0) return false;
-        try { return window.get_monitor?.() === monitor; }
-        catch { return false; }
+        return monitor >= 0 && windowMonitorIndex(window) === monitor;
     }
 
     _windowFromSignalArgs(args) {
@@ -337,12 +345,14 @@ export class AutohideManager {
             this._setHidden(false, true);
             return;
         }
-        // A middle icon can keep several neighbours magnified. Do not start
-        // the dock's slide until that shared pill has settled, otherwise the
-        // slide and the shrinking pill compete for the same visible surface.
-        if (this._host.isMagnifying?.()) {
+        // A middle icon can keep several neighbours magnified. Delay hiding
+        // only while the dock is already shown. The animation engine also runs
+        // briefly after model/layout changes (for example when an app opens or
+        // closes); treating that generic engine activity as "dock interaction"
+        // used to reveal an already-hidden dock and then hide it again.
+        if (shouldHoldShownForMagnification(
+            this._vis.hidden, Boolean(this._host.isMagnifying?.()))) {
             this._cancelHide();
-            this._setHidden(false, true);
             this._scheduleHide();
             return;
         }
@@ -407,8 +417,18 @@ export class AutohideManager {
     }
 
     _scheduleDodgeReveal() {
-        if (this._dodgeRevealId || !this._enabled || !this._vis.hidden) return;
-        this._dodgeRevealId = this._timers.addOnce(DODGE_REVEAL_CONFIRM_MS, () => {
+        if (!this._enabled || !this._vis.hidden) return;
+
+        // This is a true debounce, not a one-shot delay. Every additional
+        // no-overlap/focus/restack sample during an app transition restarts the
+        // quiet-period timer. The dock is allowed to reveal only after the WM
+        // has been stable for the full settle window.
+        if (this._dodgeRevealId) {
+            this._timers.remove(this._dodgeRevealId);
+            this._dodgeRevealId = 0;
+        }
+
+        this._dodgeRevealId = this._timers.addOnce(DODGE_REVEAL_SETTLE_MS, () => {
             this._dodgeRevealId = 0;
             if (!this._enabled || !this._vis.hidden) return;
 
@@ -417,10 +437,9 @@ export class AutohideManager {
                 this._transitionBlocksReveal())
                 return;
 
-            // Require a second independent no-overlap sample after the
-            // compositor/window-manager transition has settled. A genuine
-            // desktop gap still reveals naturally; a transient actor/stack gap
-            // during app open/close does not flash the dock.
+            // One final stable Meta.Window sample closes the race where a
+            // compositor effect briefly reports no blocker before a local
+            // covering window has settled back into the final stack.
             if (this._overlap.isOverlapped()) return;
             this._setHidden(false, true);
         });
@@ -491,6 +510,10 @@ export class AutohideManager {
         if (hidden) {
             this._host.chrome.hideEdgeZone();
             this._host.clearHover?.();
+            // A hidden dock must have no stale magnification input actor left
+            // near its shown position. Collapse the engine and mag zone
+            // synchronously after hover cleanup.
+            this._host.settleMagnification?.();
         } else {
             this._host.chrome.applyEdgeZone(geom.edgeZone);
         }
