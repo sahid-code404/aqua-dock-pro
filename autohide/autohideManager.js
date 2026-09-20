@@ -464,12 +464,18 @@ export class AutohideManager {
         this._cancelReveal();
         if (this._pointerButtonDown()) return;
         const cfg = this._host.getConfig();
-        if (cfg.pressureSense) { this._pressure.begin(); return; }
-
-        // A physical outer edge can reveal instantly. A shared monitor seam is
-        // traversable, so even an "instant" global setting gets one tiny dwell
-        // guard to distinguish a deliberate dock reveal from crossing displays.
         const sharedEdge = this._host.getGeom?.()?.sharedEdge === true;
+
+        // Pressure sensing only makes sense at a physical screen edge where the
+        // pointer is stopped by the compositor. At an internal monitor seam the
+        // pointer can cross immediately, so pressure polling may never reach its
+        // threshold and the dock can look permanently gone. Use the local seam
+        // strip and dwell timer there instead.
+        if (cfg.pressureSense && !sharedEdge) {
+            this._pressure.begin();
+            return;
+        }
+
         const delay = cfg.revealPressure > 0
             ? cfg.revealPressure
             : (sharedEdge ? SHARED_EDGE_REVEAL_MS : 0);
