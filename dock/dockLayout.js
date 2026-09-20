@@ -4,6 +4,8 @@ import { clamp } from '../core/utils.js';
 import { ICON_BOT, BG_PAD_X, DOT_SIZE, SEP_W, SEP_PAD } from '../core/constants.js';
 import { magnificationParams } from '../animation/springSolver.js';
 
+const SHARED_EDGE_STRIP_DEPTH = 8;
+
 // Parse rgb/rgba and multiply alpha by `factor`; pass through anything else.
 export function applyAlpha(colorStr, factor) {
     const m = colorStr.match(/rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*(?:,\s*([\d.]+))?\s*\)/);
@@ -437,9 +439,14 @@ export function computeLayout(base, chips, monitor, monitorFullscreen = false, a
             const start = Math.max(monitor.y, y - revealPad);
             const end = Math.min(monitor.y + monitor.height, y + height + revealPad);
             strip = {
-                x: side === 'left' ? monitor.x : monitor.x + monitor.width - 2,
+                // Internal seams do not physically stop the pointer. Keep the
+                // trigger several pixels inside this monitor so fast pointer
+                // motion cannot skip the 1-2 px seam actor entirely.
+                x: side === 'left'
+                    ? monitor.x
+                    : monitor.x + monitor.width - SHARED_EDGE_STRIP_DEPTH,
                 y: start,
-                w: 2,
+                w: SHARED_EDGE_STRIP_DEPTH,
                 h: Math.max(1, end - start),
             };
         } else {
@@ -447,9 +454,9 @@ export function computeLayout(base, chips, monitor, monitorFullscreen = false, a
             const end = Math.min(monitor.x + monitor.width, x + width + revealPad);
             strip = {
                 x: start,
-                y: monitor.y + monitor.height - 2,
+                y: monitor.y + monitor.height - SHARED_EDGE_STRIP_DEPTH,
                 w: Math.max(1, end - start),
-                h: 2,
+                h: SHARED_EDGE_STRIP_DEPTH,
             };
         }
     }
