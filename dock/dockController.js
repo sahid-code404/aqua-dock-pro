@@ -105,10 +105,6 @@ export class DockController {
             kickEngine: () => this._engine.kick(),
             isMagnifying: () => this._engine?.animating ?? false,
             clearHover: () => this._endHover(),
-            settleMagnification: () => {
-                this._engine?.stop();
-                this._engine?.snapToRest();
-            },
             isInteractionActive: () => this._isDockBusy(),
         });
         this._tooltip = new TooltipManager(
@@ -503,9 +499,8 @@ export class DockController {
             this._genie?.updateAllIconGeometry();
             // App-state notifications also arrive when only indicator/count
             // metadata changed. A hidden dock has no visible animation work;
-            // keeping its frame scheduler asleep prevents lifecycle events from
-            // creating synthetic "magnifying" activity.
-            if (this._autohide?.hidden) this._engine.snapToRest();
+            // stop its frame scheduler without rewriting its offscreen geometry.
+            if (this._autohide?.hidden) this._engine.stop();
             else this._engine.kick();
         }
         if (changed) this._refreshItems(false);
@@ -593,11 +588,9 @@ export class DockController {
             bg: this._chrome.bg,
             magZone: this._chrome.magZone,
         });
-        // Hidden docks have nothing to magnify or spread. App open/close can
-        // rebuild the shared running-app model; starting the animation engine
-        // for that offscreen reflow used to look like interaction to autohide
-        // and was one cause of the reveal-then-hide flash.
-        if (this._autohide?.hidden) this._engine.snapToRest();
+        // Hidden docks have nothing to animate. Keep the scheduler stopped while
+        // preserving the model geometry that will be shown on the next reveal.
+        if (this._autohide?.hidden) this._engine.stop();
         else this._engine.kick();
         this._tooltip?.invalidateMonitor();
         this._genie?.updateAllIconGeometry();
