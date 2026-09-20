@@ -84,36 +84,24 @@ export class OverlapDetector {
 
             let frame;
             try {
-                // Do not use Meta.Window.is_hidden() here. During map/unmap and
-                // cross-monitor focus hand-offs Mutter can transiently report a
-                // hidden state while the window is still visibly covering this
-                // monitor. That false negative is exactly what makes a hidden
-                // dock flash into view.
-                const monitorMatches = win.get_monitor() === monIndex;
+                // Do not use Meta.Window.is_hidden() here. During map/unmap
+                // effects Mutter can transiently report a hidden state while
+                // the window is still visibly covering the dock.
                 const handledType = HANDLED_TYPES.has(win.get_window_type());
-                let showingOnWorkspace = null;
-                if (typeof win.showing_on_its_workspace === 'function')
-                    showingOnWorkspace = Boolean(win.showing_on_its_workspace());
-
                 let locatedOnWorkspace = null;
-                if (showingOnWorkspace === null && ws &&
-                    typeof win.located_on_workspace === 'function')
+                if (ws && typeof win.located_on_workspace === 'function')
                     locatedOnWorkspace = Boolean(win.located_on_workspace(ws));
-
-                let onAllWorkspaces = false;
-                if (showingOnWorkspace === null &&
-                    typeof win.is_on_all_workspaces === 'function')
-                    onAllWorkspaces = Boolean(win.is_on_all_workspaces());
 
                 if (!windowVisibleForDodge({
                     minimized: Boolean(win.minimized),
-                    monitorMatches,
                     handledType,
-                    showingOnWorkspace,
                     locatedOnWorkspace,
-                    onAllWorkspaces,
                 })) continue;
 
+                // The frame rectangle is the source of truth for monitor
+                // ownership. A window may span monitors, and get_monitor() can
+                // change during a transition; neither should make a covered
+                // dock momentarily look clear.
                 frame = win.get_frame_rect();
             } catch {
                 continue;
