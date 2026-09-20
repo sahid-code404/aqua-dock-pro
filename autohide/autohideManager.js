@@ -35,7 +35,8 @@ const POINTER_BUTTON_MASK =
 
 export class AutohideManager {
     // host: { chrome, getGeom, getConfig, getMonitor, getMonitorIndex,
-    //         kickEngine, isMagnifying, clearHover, isInteractionActive }
+    //         kickEngine, isMagnifying, clearHover, settleMagnification,
+    //         isInteractionActive }
     constructor(host) {
         this._host = host;
         this._signals = new SignalGroup();
@@ -509,6 +510,10 @@ export class AutohideManager {
         if (hidden) {
             this._host.chrome.hideEdgeZone();
             this._host.clearHover?.();
+            // A hidden dock must have no stale magnification input actor left
+            // near its shown position. Collapse the engine and mag zone
+            // synchronously after hover cleanup.
+            this._host.settleMagnification?.();
         } else {
             this._host.chrome.applyEdgeZone(geom.edgeZone);
         }
