@@ -23,7 +23,7 @@ const SHARED_EDGE_REVEAL_MS = 90;
 // Dodge/intellihide reveal must be based on a stable no-overlap state. Window
 // open/close effects can briefly publish an intermediate stacking snapshot even
 // when another local window still covers the dock.
-const DODGE_REVEAL_CONFIRM_MS = 240;
+const DODGE_REVEAL_SETTLE_MS = 320;
 const POINTER_BUTTON_MASK =
     Clutter.ModifierType.BUTTON1_MASK |
     Clutter.ModifierType.BUTTON2_MASK |
@@ -407,8 +407,18 @@ export class AutohideManager {
     }
 
     _scheduleDodgeReveal() {
-        if (this._dodgeRevealId || !this._enabled || !this._vis.hidden) return;
-        this._dodgeRevealId = this._timers.addOnce(DODGE_REVEAL_CONFIRM_MS, () => {
+        if (!this._enabled || !this._vis.hidden) return;
+
+        // This is a true debounce, not a one-shot delay. Every additional
+        // no-overlap/focus/restack sample during an app transition restarts the
+        // quiet-period timer. The dock is allowed to reveal only after the WM
+        // has been stable for the full settle window.
+        if (this._dodgeRevealId) {
+            this._timers.remove(this._dodgeRevealId);
+            this._dodgeRevealId = 0;
+        }
+
+        this._dodgeRevealId = this._timers.addOnce(DODGE_REVEAL_SETTLE_MS, () => {
             this._dodgeRevealId = 0;
             if (!this._enabled || !this._vis.hidden) return;
 
@@ -417,10 +427,9 @@ export class AutohideManager {
                 this._transitionBlocksReveal())
                 return;
 
-            // Require a second independent no-overlap sample after the
-            // compositor/window-manager transition has settled. A genuine
-            // desktop gap still reveals naturally; a transient actor/stack gap
-            // during app open/close does not flash the dock.
+            // One final stable Meta.Window sample closes the race where a
+            // compositor effect briefly reports no blocker before a local
+            // covering window has settled back into the final stack.
             if (this._overlap.isOverlapped()) return;
             this._setHidden(false, true);
         });
