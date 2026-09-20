@@ -9,6 +9,7 @@ import {
     SignalGroup,
     TimeoutGroup,
     monitorTransitionTouchesIndex,
+    windowMonitorIndex,
 } from '../core/utils.js';
 import { VisibilityController } from './visibilityController.js';
 import { OverlapDetector } from './overlapDetector.js';
@@ -234,9 +235,7 @@ export class AutohideManager {
 
     _windowOnThisMonitor(window) {
         const monitor = this._monitorIndex();
-        if (!window || monitor < 0) return false;
-        try { return window.get_monitor?.() === monitor; }
-        catch { return false; }
+        return monitor >= 0 && windowMonitorIndex(window) === monitor;
     }
 
     _windowFromSignalArgs(args) {
