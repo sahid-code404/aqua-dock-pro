@@ -5,6 +5,7 @@ import GLib from 'gi://GLib';
 import Meta from 'gi://Meta';
 import { monitorInFullscreen } from '../compat/shell.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+import { chooseStableWindowInventory, frameOverlapsDock } from './overlapPolicy.js';
 
 const TOL = 4;   // px tolerance so a window just touching the dock isn't "overlap"
 
@@ -50,22 +51,26 @@ export class OverlapDetector {
         // source of one-frame dock reveals during app open/close, including on a
         // single monitor. Actor enumeration remains only as a compatibility
         // fallback for Shell variants lacking the stable inventories.
-        let windows = null;
-        try { windows = ws.list_windows?.() ?? null; }
-        catch { windows = null; }
-        if (!windows) {
-            try { windows = global.display?.list_all_windows?.() ?? null; }
-            catch { windows = null; }
+        let displayWindows = null;
+        let workspaceWindows = null;
+        let actorWindows = null;
+        try { displayWindows = global.display?.list_all_windows?.() ?? null; }
+        catch { displayWindows = null; }
+        if (!Array.isArray(displayWindows)) {
+            try { workspaceWindows = ws.list_windows?.() ?? null; }
+            catch { workspaceWindows = null; }
         }
-        if (!windows) {
+        if (!Array.isArray(displayWindows) && !Array.isArray(workspaceWindows)) {
             try {
-                windows = (global.get_window_actors?.() ?? [])
+                actorWindows = (global.get_window_actors?.() ?? [])
                     .map(actor => actor?.meta_window)
                     .filter(Boolean);
             } catch {
-                windows = [];
+                actorWindows = [];
             }
         }
+        const windows = chooseStableWindowInventory(
+            displayWindows, workspaceWindows, actorWindows);
 
         let overlapped = false;
         const active = new Set();
@@ -91,8 +96,12 @@ export class OverlapDetector {
             if (!this._tracked.has(win)) this._track(win);
             if (overlapped || !frame) continue;   // keep tracking the rest, but answer known
 
-            if (frame.x + TOL < rx + rw && frame.x + frame.width - TOL > rx &&
-                frame.y + TOL < ry + rh && frame.y + frame.height - TOL > ry)
+            if (frameOverlapsDock(frame, {
+                x: rx,
+                y: ry,
+                width: rw,
+                height: rh,
+            }, TOL))
                 overlapped = true;
         }
 
