@@ -1,5 +1,11 @@
 # Changelog
 
+## 270
+
+- Stop app open/close/focus activity on one monitor from hiding or revealing AquaDockPro on another monitor by routing global GNOME focus, restack, grab, resize, destroy, minimize, and fullscreen events to the dock that actually owns the affected display.
+- Preserve each monitor's current hidden/shown state while the shared app model adds, removes, or refreshes dock items, so a remote application's lifecycle can reflow icons without re-running another monitor's autohide policy.
+- Treat transient null focus during window close as belonging only to the previous monitor, ignore direct focus moves away from a display, and add regression coverage for cross-monitor focus isolation while preserving local fullscreen hand-off behavior.
+
 ## 269
 
 - Harden multi-monitor ownership so app activation, previews, context-window actions, scrolling, drag-to-open, Genie targets, window-state refreshes, and global attention animations prefer or stay on the dock's own monitor.

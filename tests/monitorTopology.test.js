@@ -1,6 +1,7 @@
 import {
     monitorIndexAtPoint,
     monitorIndexesForLayout,
+    monitorTransitionTouchesIndex,
 } from '../core/utils.js';
 
 function assert(condition, message) {
@@ -35,5 +36,14 @@ assert(monitorIndexAtPoint(monitors.slice(0, 2), 1920, 500) === 1,
     'shared-boundary point should resolve to the monitor that owns that coordinate');
 assert(monitorIndexAtPoint(monitors.slice(0, 2), -10, 500) === -1,
     'point outside every monitor should return -1');
+
+assert(monitorTransitionTouchesIndex(0, 0, 1) === false,
+    'focus changes confined to monitor 0 must not wake monitor 1');
+assert(monitorTransitionTouchesIndex(0, 1, 0) === false &&
+    monitorTransitionTouchesIndex(0, 1, 1) === true,
+    'focus crossing monitors must update only the newly focused monitor');
+assert(monitorTransitionTouchesIndex(0, -1, 0) === true &&
+    monitorTransitionTouchesIndex(0, -1, 1) === false,
+    'transient null focus while closing a window must only update its previous monitor');
 
 print('monitorTopology: ok');
