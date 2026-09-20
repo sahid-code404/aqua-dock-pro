@@ -1,5 +1,13 @@
 # Changelog
 
+## 275
+
+- Fix multi-monitor docks that still looked permanently disappeared after autohide when their dock edge was an internal monitor seam.
+- Increase shared-seam reveal hit depth from 2 px to 8 px inside the owning monitor so fast pointer motion cannot skip the reveal actor.
+- Do not use physical-edge pressure sensing on traversable monitor seams; use the dock-local dwell reveal path instead.
+- Preserve v274's bounded transition guard and hidden-state self-healing while making the actual user reveal path reliable on stacked and side-by-side monitors.
+- Add regression checks for bottom and right shared-seam trigger depth and placement.
+
 ## 274
 
 - Fix the remaining multi-monitor failure where a dock could become permanently hidden after running for a while.
