@@ -43,21 +43,41 @@ export class OverlapDetector {
         const rw = vert ? geom.thick : geom.width;
         const rh = vert ? geom.height : geom.thick;
 
-        let actors;
-        try { actors = global.get_window_actors?.() ?? []; }
-        catch { return false; }
+        // Intellihide is a window-policy decision, not a compositor-paint
+        // decision. Prefer Meta.Window inventories so a close/open animation
+        // cannot temporarily make a still-valid covering window disappear just
+        // because its Clutter actor is being unmapped/rebuilt. This was the main
+        // source of one-frame dock reveals during app open/close, including on a
+        // single monitor. Actor enumeration remains only as a compatibility
+        // fallback for Shell variants lacking the stable inventories.
+        let windows = null;
+        try { windows = ws.list_windows?.() ?? null; }
+        catch { windows = null; }
+        if (!windows) {
+            try { windows = global.display?.list_all_windows?.() ?? null; }
+            catch { windows = null; }
+        }
+        if (!windows) {
+            try {
+                windows = (global.get_window_actors?.() ?? [])
+                    .map(actor => actor?.meta_window)
+                    .filter(Boolean);
+            } catch {
+                windows = [];
+            }
+        }
 
         let overlapped = false;
         const active = new Set();
-        for (let i = 0, len = actors.length; i < len; i++) {
-            const win = actors[i]?.meta_window;
+        for (let i = 0, len = windows.length; i < len; i++) {
+            const win = windows[i];
             if (!win) continue;
 
             let frame;
             try {
-                // Meta.Window can become invalid between get_window_actors() and
-                // this scan. Treat a disappearing window as out of scope instead
-                // of aborting the whole intellihide pass and retaining stale state.
+                // Meta.Window can become invalid between inventory capture and
+                // this scan. Ignore the stale entry without invalidating the
+                // rest of the monitor's overlap result.
                 if (win.minimized || win.is_hidden?.()) continue;
                 if (!win.located_on_workspace(ws)) continue;
                 if (win.get_monitor() !== monIndex) continue;
