@@ -14,3 +14,28 @@ export function frameOverlapsDock(frame, dock, tolerance = 4) {
         frame.y + tolerance < dock.y + dock.height &&
         frame.y + frame.height - tolerance > dock.y;
 }
+
+
+export function windowVisibleForDodge({
+    minimized = false,
+    monitorMatches = false,
+    handledType = false,
+    showingOnWorkspace = null,
+    locatedOnWorkspace = null,
+    onAllWorkspaces = false,
+} = {}) {
+    if (minimized || !monitorMatches || !handledType) return false;
+
+    // Mutter's showing_on_its_workspace() is the strongest signal: it already
+    // understands sticky windows and the "workspaces only on primary display"
+    // model. If available, prefer it over manual active-workspace membership.
+    if (showingOnWorkspace !== null)
+        return showingOnWorkspace === true;
+
+    // Compatibility fallback for Shell/Mutter variants where the visibility
+    // helper is unavailable.
+    if (onAllWorkspaces) return true;
+    if (locatedOnWorkspace !== null)
+        return locatedOnWorkspace === true;
+    return true;
+}
