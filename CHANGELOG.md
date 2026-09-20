@@ -1,5 +1,12 @@
 # Changelog
 
+## 271
+
+- Fix the remaining intellihide flash seen during application open/close transitions, including the same transient reveal on a single built-in monitor.
+- Base dodge overlap decisions on the stable Meta.Window inventory instead of compositor actors, preventing close/open animations from temporarily reporting a false empty dock area.
+- Require a confirmed stable no-overlap sample before an automatically hidden intellihide dock reveals; direct pointer/edge reveal remains responsive.
+- Add regression coverage for stable window-inventory selection and dock-overlap geometry.
+
 ## 270
 
 - Stop app open/close/focus activity on one monitor from hiding or revealing AquaDockPro on another monitor by routing global GNOME focus, restack, grab, resize, destroy, minimize, and fullscreen events to the dock that actually owns the affected display.
