@@ -4,6 +4,7 @@
 import GLib from 'gi://GLib';
 import Meta from 'gi://Meta';
 import { monitorInFullscreen } from '../compat/shell.js';
+import { windowMonitorIndex } from '../core/utils.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import {
     chooseStableWindowInventory,
@@ -98,10 +99,13 @@ export class OverlapDetector {
                     locatedOnWorkspace,
                 })) continue;
 
-                // The frame rectangle is the source of truth for monitor
-                // ownership. A window may span monitors, and get_monitor() can
-                // change during a transition; neither should make a covered
-                // dock momentarily look clear.
+                // Visibility is strictly monitor-local. A window owned by one
+                // monitor must never hide the dock on another monitor merely
+                // because animation/shadow geometry temporarily crosses the
+                // shared boundary. Unknown/stale ownership is ignored rather
+                // than pessimistically hiding every dock.
+                if (windowMonitorIndex(win) !== monIndex) continue;
+
                 frame = win.get_frame_rect();
             } catch {
                 continue;
