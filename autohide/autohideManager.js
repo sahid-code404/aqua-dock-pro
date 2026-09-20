@@ -15,6 +15,7 @@ import { VisibilityController } from './visibilityController.js';
 import { OverlapDetector } from './overlapDetector.js';
 import { PressureBarrier } from './pressureBarrier.js';
 import { hasFullscreenWindow, windowKeepsDockHidden } from './fullscreenPolicy.js';
+import { shouldHoldShownForMagnification } from './overlapPolicy.js';
 import { monitorInFullscreen } from '../compat/shell.js';
 
 const DEBOUNCE_HIDE_MS = 200;
@@ -343,12 +344,14 @@ export class AutohideManager {
             this._setHidden(false, true);
             return;
         }
-        // A middle icon can keep several neighbours magnified. Do not start
-        // the dock's slide until that shared pill has settled, otherwise the
-        // slide and the shrinking pill compete for the same visible surface.
-        if (this._host.isMagnifying?.()) {
+        // A middle icon can keep several neighbours magnified. Delay hiding
+        // only while the dock is already shown. The animation engine also runs
+        // briefly after model/layout changes (for example when an app opens or
+        // closes); treating that generic engine activity as "dock interaction"
+        // used to reveal an already-hidden dock and then hide it again.
+        if (shouldHoldShownForMagnification(
+            this._vis.hidden, Boolean(this._host.isMagnifying?.()))) {
             this._cancelHide();
-            this._setHidden(false, true);
             this._scheduleHide();
             return;
         }
