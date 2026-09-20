@@ -232,9 +232,9 @@ export class DockController {
     }
 
     _windowOnThisMonitor(window) {
-        if (!window) return true;
+        if (!window) return false;
         try { return window.get_monitor?.() === this._monitorIndex; }
-        catch { return true; } // stale window: prefer a harmless reevaluation
+        catch { return false; }
     }
 
     _findItem(kind) {
@@ -431,26 +431,21 @@ export class DockController {
         s.connect(ez, 'scroll-event', (_a, ev) => this._onScroll(ev));
 
         const wm = global.window_manager;
-        // Mapping/destruction can change an application's window count. Every
-        // non-isolated dock needs that model update, while monitor-isolated docks
-        // only need the affected monitor. Autohide, however, is always local.
+        // Mapping/destruction can change an application's window count. Keep
+        // that model refresh here, but leave every visibility decision to
+        // AutohideManager. Having both layers react to the same WM lifecycle
+        // signal created duplicate, differently-timed intellihide evaluations.
         for (const sig of ['map', 'destroy'])
             s.connect(wm, sig, (_wm, actor) => {
                 const window = actor?.meta_window ?? null;
                 const local = this._windowOnThisMonitor(window);
                 if (!this._cfg.isolateMonitors || local)
                     this._scheduleRefreshItems(false);
-                if (local) this._autohide?.queueIntellihide();
             });
 
-        // Minimize/unminimize does not alter window count/running state, so avoid
-        // refreshing every icon model on every monitor. Only the local dock's
-        // overlap/fullscreen policy needs reevaluation.
-        for (const sig of ['minimize', 'unminimize'])
-            s.connect(wm, sig, (_wm, actor) => {
-                if (this._windowOnThisMonitor(actor?.meta_window ?? null))
-                    this._autohide?.queueIntellihide();
-            });
+        // Minimize/unminimize do not change the running-app model, so the
+        // controller intentionally does nothing here. AutohideManager owns the
+        // monitor-local visibility reconciliation for those events.
         s.connect(global.display, 'window-created', (_d, win) => this._genie.onWindowCreated(win));
         for (const sig of ['item-drag-end', 'item-drag-cancelled'])
             s.connect(Main.overview, sig, () => this._drag.clearDrop());
