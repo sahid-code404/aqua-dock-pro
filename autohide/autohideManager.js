@@ -20,6 +20,10 @@ const DEBOUNCE_HIDE_MS = 200;
 const FULLSCREEN_CLEAR_CONFIRM_MS = 120;
 const MAGNIFICATION_RECHECK_MS = 50;
 const SHARED_EDGE_REVEAL_MS = 90;
+// Dodge/intellihide reveal must be based on a stable no-overlap state. Window
+// open/close effects can briefly publish an intermediate stacking snapshot even
+// when another local window still covers the dock.
+const DODGE_REVEAL_CONFIRM_MS = 240;
 const POINTER_BUTTON_MASK =
     Clutter.ModifierType.BUTTON1_MASK |
     Clutter.ModifierType.BUTTON2_MASK |
@@ -50,6 +54,7 @@ export class AutohideManager {
         this._idleId = 0;
         this._fullscreenClearId = 0;
         this._fullscreenSignalCheckId = 0;
+        this._dodgeRevealId = 0;
         this._fullscreenBlocked = false;
         this._lastRawFullscreen = false;
         this._lastFocusMonitor = -1;
@@ -76,6 +81,7 @@ export class AutohideManager {
         this._cancelReveal();
         this._cancelDebounce();
         this._cancelFullscreenClear();
+        this._cancelDodgeReveal();
         this._clearWindowTransitions();
         this._overlap.clear();
         this._timers.removeAll();
@@ -85,6 +91,7 @@ export class AutohideManager {
         this._idleId = 0;
         this._fullscreenClearId = 0;
         this._fullscreenSignalCheckId = 0;
+        this._dodgeRevealId = 0;
         this._transitionReleaseId = 0;
         this._fullscreenBlocked = false;
         this._lastRawFullscreen = false;
@@ -299,6 +306,8 @@ export class AutohideManager {
 
         const fullscreen = this._fullscreenBlocksDock();
 
+        if (mode !== 'dodge') this._cancelDodgeReveal();
+
         // Fullscreen temporarily behaves like forced autohide on this monitor,
         // but it must remain revealable. Once the pointer reaches the dock/edge
         // zone (or an interaction is active), keep it open above the fullscreen
@@ -339,8 +348,14 @@ export class AutohideManager {
         }
         if (mode === 'always') { this._scheduleHide(); return; }
         if (mode === 'dodge') {
-            if (this._overlap.isOverlapped()) this._scheduleHide();
-            else { this._cancelHide(); this._setHidden(false, true); }
+            if (this._overlap.isOverlapped()) {
+                this._cancelDodgeReveal();
+                this._scheduleHide();
+            } else {
+                this._cancelHide();
+                if (this._vis.hidden) this._scheduleDodgeReveal();
+                else this._cancelDodgeReveal();
+            }
             return;
         }
     }
@@ -391,6 +406,32 @@ export class AutohideManager {
         if (this._hideId) { this._timers.remove(this._hideId); this._hideId = 0; }
     }
 
+    _scheduleDodgeReveal() {
+        if (this._dodgeRevealId || !this._enabled || !this._vis.hidden) return;
+        this._dodgeRevealId = this._timers.addOnce(DODGE_REVEAL_CONFIRM_MS, () => {
+            this._dodgeRevealId = 0;
+            if (!this._enabled || !this._vis.hidden) return;
+
+            const cfg = this._host.getConfig();
+            if (cfg.autoHideMode !== 'dodge' || Main.overview.visible ||
+                this._transitionBlocksReveal())
+                return;
+
+            // Require a second independent no-overlap sample after the
+            // compositor/window-manager transition has settled. A genuine
+            // desktop gap still reveals naturally; a transient actor/stack gap
+            // during app open/close does not flash the dock.
+            if (this._overlap.isOverlapped()) return;
+            this._setHidden(false, true);
+        });
+    }
+
+    _cancelDodgeReveal() {
+        if (!this._dodgeRevealId) return;
+        this._timers.remove(this._dodgeRevealId);
+        this._dodgeRevealId = 0;
+    }
+
     _beginReveal() {
         this._cancelReveal();
         if (this._transitionBlocksReveal() || this._pointerButtonDown()) return;
@@ -419,12 +460,14 @@ export class AutohideManager {
     _reveal() {
         if (this._transitionBlocksReveal() || this._pointerButtonDown()) return;
         this._cancelHide();
+        this._cancelDodgeReveal();
         this._setHidden(false, true);
     }
 
     // ── Slide + side effects ──────────────────────────────────────────────────
     _setHidden(hidden, animate) {
         const cfg = this._host.getConfig();
+        if (hidden) this._cancelDodgeReveal();
         const fullscreen = this._fullscreenBlocksDock();
         if (!hidden && this._transitionBlocksReveal()) hidden = true;
         else if (!fullscreen && cfg.autoHideMode === 'never' && hidden) hidden = false;
