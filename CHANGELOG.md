@@ -1,5 +1,12 @@
 # Changelog
 
+## 273
+
+- Fix the v272 multi-monitor regression where a dock could remain hidden or appear to disappear after window activity.
+- Restore strict monitor ownership for dodge overlap so a window on one display cannot hide a dock on another display because of transient cross-boundary geometry.
+- Replace the indefinitely restartable dodge reveal debounce with a single confirmed local recheck, preventing continuous WM notifications from starving dock reveal.
+- Keep hidden animation schedulers stopped without forcing a visual snap/reset, preserving the dock model for a clean next reveal while retaining v272's centralized monitor-local lifecycle routing.
+
 ## 272
 
 - Eliminate the remaining hidden-dock reveal race during app open/close by preventing background animation-engine work and hidden-dock relayouts from being interpreted as dock interaction.
