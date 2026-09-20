@@ -193,17 +193,24 @@ export class AutohideManager {
         s.connect(d, 'in-fullscreen-changed', () => this._onFullscreenSignal());
 
         const wm = global.window_manager;
-        // Hold an already-hidden dock through compositor effects, but only for
-        // windows on this monitor. A destroy/minimize animation on monitor A
-        // must never perturb the dock on monitor B.
+        // Window lifecycle is owned here, in one place, and routed by monitor.
+        // The controller handles only app-model refreshes so the same event
+        // cannot drive two visibility evaluations at different times.
         const onWindowLeaving = actor => {
             const window = actor?.meta_window ?? null;
             if (!this._windowOnThisMonitor(window)) return;
             this._beginWindowTransition(actor);
             this._onCoveringWindowLeaving(window);
         };
+        const onWindowArriving = actor => {
+            const window = actor?.meta_window ?? null;
+            if (!this._windowOnThisMonitor(window)) return;
+            this.queueIntellihide();
+        };
         s.connect(wm, 'destroy', (_wm, actor) => onWindowLeaving(actor));
         s.connect(wm, 'minimize', (_wm, actor) => onWindowLeaving(actor));
+        s.connect(wm, 'map', (_wm, actor) => onWindowArriving(actor));
+        s.connect(wm, 'unminimize', (_wm, actor) => onWindowArriving(actor));
         s.connect(wm, 'size-change', (...args) => {
             const window = this._windowFromSignalArgs(args);
             if (window ? this._windowOnThisMonitor(window)
