@@ -112,9 +112,11 @@ const seamBottom = computeLayout(
 ).geom;
 assert(seamBottom.sharedEdge === true &&
     seamBottom.strip.w < monitor.width &&
+    seamBottom.strip.h >= 8 &&
+    seamBottom.strip.y === monitor.y + monitor.height - seamBottom.strip.h &&
     seamBottom.strip.x >= monitor.x &&
     seamBottom.strip.x + seamBottom.strip.w <= monitor.x + monitor.width,
-    'shared bottom edge must use a dock-local reveal strip instead of the full seam');
+    'shared bottom edge must use an inset dock-local reveal strip instead of the full seam');
 
 const rightNeighbor = {
     x: monitor.x + monitor.width,
@@ -131,9 +133,11 @@ const seamRight = computeLayout(
 ).geom;
 assert(seamRight.sharedEdge === true &&
     seamRight.strip.h < monitor.height &&
+    seamRight.strip.w >= 8 &&
+    seamRight.strip.x === monitor.x + monitor.width - seamRight.strip.w &&
     seamRight.strip.y >= monitor.y &&
     seamRight.strip.y + seamRight.strip.h <= monitor.y + monitor.height,
-    'shared right edge must avoid a full-height cross-monitor trigger strip');
+    'shared right edge must use an inset dock-local trigger strip');
 
 const topOnlyRightNeighbor = {
     x: monitor.x + monitor.width,
