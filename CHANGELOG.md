@@ -1,5 +1,14 @@
 # Changelog
 
+## 274
+
+- Fix hidden docks becoming effectively unreachable on an internal multi-monitor seam after normal autohide.
+- Move shared-edge reveal strips several pixels inside the owning monitor so fast pointer movement cannot skip the trigger while crossing displays.
+- Bypass physical-edge pressure sensing on shared monitor seams and use a dock-local dwell reveal there instead.
+- Treat edge/pointer reveal as an explicit user action that can override the temporary window-transition guard while keeping automatic app lifecycle reveals suppressed.
+- Add a bounded window-transition watchdog so a missing Mutter/Clutter completion signal can never leave a dock permanently blocked from revealing.
+- Extend layout regression checks for inset bottom/right shared-edge reveal geometry.
+
 ## 273
 
 - Fix the v272 multi-monitor regression where a dock could remain hidden or appear to disappear after window activity.
