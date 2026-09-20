@@ -11,6 +11,7 @@ import {
     logError,
     log,
     monitorIndexAtPoint,
+    windowMonitorIndex,
 } from '../core/utils.js';
 import {
     GEOMETRY_KEYS,
@@ -232,9 +233,7 @@ export class DockController {
     }
 
     _windowOnThisMonitor(window) {
-        if (!window) return false;
-        try { return window.get_monitor?.() === this._monitorIndex; }
-        catch { return false; }
+        return windowMonitorIndex(window) === this._monitorIndex;
     }
 
     _findItem(kind) {
