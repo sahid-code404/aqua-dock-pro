@@ -5,7 +5,11 @@ import GLib from 'gi://GLib';
 import Meta from 'gi://Meta';
 import { monitorInFullscreen } from '../compat/shell.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
-import { chooseStableWindowInventory, frameOverlapsDock } from './overlapPolicy.js';
+import {
+    chooseStableWindowInventory,
+    frameOverlapsDock,
+    windowVisibleForDodge,
+} from './overlapPolicy.js';
 
 const TOL = 4;   // px tolerance so a window just touching the dock isn't "overlap"
 
@@ -80,13 +84,36 @@ export class OverlapDetector {
 
             let frame;
             try {
-                // Meta.Window can become invalid between inventory capture and
-                // this scan. Ignore the stale entry without invalidating the
-                // rest of the monitor's overlap result.
-                if (win.minimized || win.is_hidden?.()) continue;
-                if (!win.located_on_workspace(ws)) continue;
-                if (win.get_monitor() !== monIndex) continue;
-                if (!HANDLED_TYPES.has(win.get_window_type())) continue;
+                // Do not use Meta.Window.is_hidden() here. During map/unmap and
+                // cross-monitor focus hand-offs Mutter can transiently report a
+                // hidden state while the window is still visibly covering this
+                // monitor. That false negative is exactly what makes a hidden
+                // dock flash into view.
+                const monitorMatches = win.get_monitor() === monIndex;
+                const handledType = HANDLED_TYPES.has(win.get_window_type());
+                let showingOnWorkspace = null;
+                if (typeof win.showing_on_its_workspace === 'function')
+                    showingOnWorkspace = Boolean(win.showing_on_its_workspace());
+
+                let locatedOnWorkspace = null;
+                if (showingOnWorkspace === null && ws &&
+                    typeof win.located_on_workspace === 'function')
+                    locatedOnWorkspace = Boolean(win.located_on_workspace(ws));
+
+                let onAllWorkspaces = false;
+                if (showingOnWorkspace === null &&
+                    typeof win.is_on_all_workspaces === 'function')
+                    onAllWorkspaces = Boolean(win.is_on_all_workspaces());
+
+                if (!windowVisibleForDodge({
+                    minimized: Boolean(win.minimized),
+                    monitorMatches,
+                    handledType,
+                    showingOnWorkspace,
+                    locatedOnWorkspace,
+                    onAllWorkspaces,
+                })) continue;
+
                 frame = win.get_frame_rect();
             } catch {
                 continue;
