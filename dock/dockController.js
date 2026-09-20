@@ -105,6 +105,10 @@ export class DockController {
             kickEngine: () => this._engine.kick(),
             isMagnifying: () => this._engine?.animating ?? false,
             clearHover: () => this._endHover(),
+            settleMagnification: () => {
+                this._engine?.stop();
+                this._engine?.snapToRest();
+            },
             isInteractionActive: () => this._isDockBusy(),
         });
         this._tooltip = new TooltipManager(
@@ -584,7 +588,12 @@ export class DockController {
             bg: this._chrome.bg,
             magZone: this._chrome.magZone,
         });
-        this._engine.kick();
+        // Hidden docks have nothing to magnify or spread. App open/close can
+        // rebuild the shared running-app model; starting the animation engine
+        // for that offscreen reflow used to look like interaction to autohide
+        // and was one cause of the reveal-then-hide flash.
+        if (this._autohide?.hidden) this._engine.snapToRest();
+        else this._engine.kick();
         this._tooltip?.invalidateMonitor();
         this._genie?.updateAllIconGeometry();
         this._autohide?.onRelayout(reevaluateAutohide);
