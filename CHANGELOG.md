@@ -1,5 +1,14 @@
 # Changelog
 
+## 274
+
+- Fix the remaining multi-monitor failure where a dock could become permanently hidden after running for a while.
+- Bound every minimize/destroy compositor transition guard to 1.4 seconds so a missed GNOME actor completion signal can never lock edge reveal indefinitely.
+- Add a low-frequency hidden-state reconciliation pass so dropped or transient Mutter lifecycle events self-heal instead of leaving one monitor's dock offscreen.
+- Treat unknown window ownership as a reconciliation event without assigning it to a specific monitor; known window events remain monitor-local.
+- Make deliberate edge/pressure reveal override the short transition guard, while automatic dodge reveal remains protected from app open/close flicker.
+- Preserve v273 strict monitor-local overlap detection so activity on one display does not hide another display's dock.
+
 ## 273
 
 - Fix the v272 multi-monitor regression where a dock could remain hidden or appear to disappear after window activity.
