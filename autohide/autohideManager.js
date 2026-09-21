@@ -208,11 +208,13 @@ export class AutohideManager {
         const onWindowLeaving = actor => {
             const window = actor?.meta_window ?? null;
             const monitor = this._monitorIndex();
-            if (!windowLifecycleMayAffectMonitor(window, monitor)) return;
+            if (!windowLifecycleMayAffectMonitor(
+                window, monitor, this._vis.hidden)) return;
 
             // Only a definitely local actor owns the compositor-transition
-            // guard/fullscreen hand-off. Unknown ownership still reconciles all
-            // docks, but never claims a specific monitor.
+            // guard/fullscreen hand-off. Unknown ownership is allowed to wake
+            // only an already-hidden dock for recovery; it can never hide a
+            // currently visible dock on an unrelated monitor.
             if (this._windowOnThisMonitor(window)) {
                 this._beginWindowTransition(actor);
                 this._onCoveringWindowLeaving(window);
@@ -221,7 +223,8 @@ export class AutohideManager {
         };
         const onWindowArriving = actor => {
             const window = actor?.meta_window ?? null;
-            if (!windowLifecycleMayAffectMonitor(window, this._monitorIndex())) return;
+            if (!windowLifecycleMayAffectMonitor(
+                window, this._monitorIndex(), this._vis.hidden)) return;
             this.queueIntellihide();
         };
         s.connect(wm, 'destroy', (_wm, actor) => onWindowLeaving(actor));
