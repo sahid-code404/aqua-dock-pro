@@ -1,6 +1,7 @@
 import {
     monitorIndexAtPoint,
     monitorIndexesForLayout,
+    monitorTopologyShrinkNeedsConfirmation,
     monitorTransitionTouchesIndex,
     windowLifecycleMayAffectMonitor,
     windowMonitorIndex,
@@ -31,6 +32,17 @@ assert(fallbackPrimary[0] === 0,
 
 assert(monitorIndexesForLayout([], 0, true).length === 0,
     'empty monitor snapshots must not invent a dock target');
+
+assert(monitorTopologyShrinkNeedsConfirmation([0, 1], [0], true) === true,
+    'a reduced multi-monitor snapshot must be confirmed before removing a dock');
+assert(monitorTopologyShrinkNeedsConfirmation([0, 1], [0, 1], true) === false,
+    'stable multi-monitor topology must not be delayed');
+assert(monitorTopologyShrinkNeedsConfirmation([0], [0, 1], true) === false,
+    'monitor growth must apply immediately');
+assert(monitorTopologyShrinkNeedsConfirmation([0, 1], [], true) === false,
+    'empty snapshots remain owned by the dedicated empty-monitor recovery path');
+assert(monitorTopologyShrinkNeedsConfirmation([0, 1], [0], false) === false,
+    'single-monitor mode must not use multi-monitor shrink confirmation');
 
 assert(monitorIndexAtPoint(monitors.slice(0, 2), 1919, 500) === 0,
     'point just inside monitor 0 resolved to the wrong monitor');
