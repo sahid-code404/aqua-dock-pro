@@ -124,6 +124,19 @@ export function monitorIndexesForLayout(monitors, primaryIndex, multiMonitor) {
     return result;
 }
 
+// Monitor removal is destructive because ExtensionManager tears down one or more
+// live DockControllers. Mutter can temporarily collapse two outputs into one
+// logical/duplicate geometry during DPMS, mode-set, scale, or compositor
+// reconfiguration. Require confirmation before shrinking a healthy multi-monitor
+// dock set; growth and same-size changes can be applied immediately.
+export function monitorTopologyShrinkNeedsConfirmation(
+    currentIndexes, nextIndexes, multiMonitor) {
+    if (multiMonitor !== true) return false;
+    if (!Array.isArray(currentIndexes) || !Array.isArray(nextIndexes)) return false;
+    if (nextIndexes.length === 0) return false; // handled by the existing empty-snapshot path
+    return currentIndexes.length > 1 && nextIndexes.length < currentIndexes.length;
+}
+
 // Shell.App.get_icon() returns a fresh GIcon each call, so identity comparison
 // is useless; Gio.Icon.equal() compares by value.
 export function sameIcon(a, b) {
