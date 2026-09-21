@@ -71,13 +71,16 @@ assert(windowMonitorIndex({ get_monitor: () => -1 }) === -1,
 assert(windowMonitorIndex({ get_monitor: () => { throw new Error('stale'); } }) === -1,
     'stale windows must remain unknown');
 
-assert(windowLifecycleMayAffectMonitor({ get_monitor: () => 1 }, 1) === true &&
-    windowLifecycleMayAffectMonitor({ get_monitor: () => 1 }, 0) === false,
+assert(windowLifecycleMayAffectMonitor({ get_monitor: () => 1 }, 1, false) === true &&
+    windowLifecycleMayAffectMonitor({ get_monitor: () => 1 }, 0, false) === false,
     'known lifecycle ownership must stay monitor-local');
-assert(windowLifecycleMayAffectMonitor(null, 0) === true &&
-    windowLifecycleMayAffectMonitor({}, 1) === true,
-    'unknown lifecycle ownership must trigger reconciliation rather than be dropped');
-assert(windowLifecycleMayAffectMonitor(null, -1) === false,
+assert(windowLifecycleMayAffectMonitor(null, 0, false) === false &&
+    windowLifecycleMayAffectMonitor({}, 1, false) === false,
+    'unknown lifecycle ownership must not wake visible remote docks');
+assert(windowLifecycleMayAffectMonitor(null, 0, true) === true &&
+    windowLifecycleMayAffectMonitor({}, 1, true) === true,
+    'unknown lifecycle ownership may reconcile only already-hidden docks');
+assert(windowLifecycleMayAffectMonitor(null, -1, true) === false,
     'invalid dock monitor indexes must never be targeted');
 
 print('monitorTopology: ok');
