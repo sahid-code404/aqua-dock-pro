@@ -86,14 +86,15 @@ export function windowMonitorIndex(window) {
 }
 
 // Window lifecycle signals can arrive while Mutter is destroying/reparenting an
-// actor and get_monitor() is already unavailable. Unknown ownership should not
-// be treated as belonging to a specific monitor, but it should trigger a cheap
-// reconciliation on each dock so a missed local unmap/minimize cannot leave one
-// dock permanently hidden.
-export function windowLifecycleMayAffectMonitor(window, targetIndex) {
+// actor and get_monitor() is already unavailable. Unknown ownership must never
+// hide/reflow a currently visible dock on another monitor: that recreates the
+// exact cross-monitor open/close flicker this routing exists to prevent. Unknown
+// ownership may only wake an already-hidden dock, where reevaluation is a safe
+// recovery path and cannot make a visible remote dock disappear.
+export function windowLifecycleMayAffectMonitor(window, targetIndex, dockHidden = false) {
     if (targetIndex < 0) return false;
     const owner = windowMonitorIndex(window);
-    return owner < 0 || owner === targetIndex;
+    return owner === targetIndex || (owner < 0 && dockHidden === true);
 }
 
 // Return monitor indexes in dock-construction order: primary first, then every
