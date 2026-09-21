@@ -15,6 +15,7 @@ import {
     logError,
     monitorIndexAtPoint,
     monitorIndexesForLayout,
+    monitorTopologyShrinkNeedsConfirmation,
     setReduceMotionOverride,
 } from './utils.js';
 import { DockController } from '../dock/dockController.js';
@@ -25,6 +26,7 @@ const REBUILD_RETRY_DELAYS_MS = [250, 750, 1500];
 const DASH_RETRY_DELAYS_MS = [250, 750, 1500];
 const MONITOR_CHANGE_SETTLE_MS = 120;
 const MONITOR_EMPTY_RETRY_DELAYS_MS = [250, 750, 1500];
+const MONITOR_SHRINK_CONFIRM_DELAYS_MS = [350, 800, 1600];
 
 export class ExtensionManager {
     constructor(extension) {
@@ -36,6 +38,8 @@ export class ExtensionManager {
         this._monitorsChangedId = 0;
         this._monitorChangeId = 0;
         this._monitorEmptyRetryCount = 0;
+        this._monitorShrinkRetryCount = 0;
+        this._monitorShrinkCandidate = '';
         this._keybindingAdded = false;
         this._timers = new TimeoutGroup();
         this._rebuildRetryId = 0;
@@ -276,6 +280,38 @@ export class ExtensionManager {
         this._monitorEmptyRetryCount = 0;
 
         const current = this._docks.map(dock => dock.monitorIndex);
+
+        // Do not destroy a secondary dock from one transient reduced topology
+        // sample. Mutter can momentarily expose only one distinct logical
+        // monitor (or duplicate both geometries) while displays wake, rescale,
+        // mode-set, or reconfigure. A later final snapshot may not emit another
+        // monitors-changed signal, which previously left the secondary dock
+        // permanently gone.
+        if (monitorTopologyShrinkNeedsConfirmation(
+            current, indexes, this._settings.config.multiMonitor)) {
+            const candidate = indexes.join(',');
+            if (candidate !== this._monitorShrinkCandidate) {
+                this._monitorShrinkCandidate = candidate;
+                this._monitorShrinkRetryCount = 0;
+            }
+
+            const retryIndex = this._monitorShrinkRetryCount++;
+            if (retryIndex < MONITOR_SHRINK_CONFIRM_DELAYS_MS.length) {
+                const delay = MONITOR_SHRINK_CONFIRM_DELAYS_MS[retryIndex];
+                log(`monitor topology temporarily shrank ${current.join(',')} → ${candidate}; confirming before dock removal`);
+                this._monitorChangeId = this._timers.addOnce(delay, () => {
+                    this._monitorChangeId = 0;
+                    this._applyMonitorChange();
+                });
+                return;
+            }
+
+            log(`monitor topology shrink confirmed ${current.join(',')} → ${candidate}`);
+        } else {
+            this._monitorShrinkRetryCount = 0;
+            this._monitorShrinkCandidate = '';
+        }
+
         const sameTopology = current.length === indexes.length &&
             current.every((index, i) => index === indexes[i]);
 
@@ -318,6 +354,8 @@ export class ExtensionManager {
         this._timers.removeAll();
         this._monitorChangeId = 0;
         this._monitorEmptyRetryCount = 0;
+        this._monitorShrinkRetryCount = 0;
+        this._monitorShrinkCandidate = '';
 
         if (this._keybindingAdded) {
             try { Main.wm.removeKeybinding('focus-dock-shortcut'); } catch { }
