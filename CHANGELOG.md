@@ -1,5 +1,14 @@
 # Changelog
 
+## 277
+
+- Fix the remaining cross-monitor dock reaction visible in the supplied screencast: the untouched monitor's window stays unchanged while its dock hides/reappears during lifecycle activity elsewhere.
+- Stop unknown/stale Mutter map, unminimize, minimize, and destroy events from re-running intellihide on a currently visible dock whose monitor they cannot be proven to own.
+- Keep known window lifecycle events strictly monitor-local.
+- Preserve recovery for already-hidden docks: an unknown lifecycle event may still trigger a hidden-only reconciliation, which cannot make a visible remote dock disappear.
+- Retain v276 monitor-topology stabilization and v275 shared-seam reveal behavior.
+- Add regression coverage proving unknown lifecycle ownership cannot wake a visible remote dock but can recover an already-hidden one.
+
 ## 276
 
 - Fix a separate multi-monitor disappearance path in the dock lifecycle manager rather than autohide/reveal.
