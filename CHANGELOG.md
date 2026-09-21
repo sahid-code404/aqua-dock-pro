@@ -1,5 +1,14 @@
 # Changelog
 
+## 276
+
+- Fix a separate multi-monitor disappearance path in the dock lifecycle manager rather than autohide/reveal.
+- Treat a sudden reduction from multiple logical monitors to fewer monitors as provisional before destroying DockControllers.
+- Confirm reduced topology across bounded delayed samples, covering transient duplicate geometry, DPMS/wake, mode-set, scale, and compositor reconfiguration snapshots.
+- Keep the existing docks alive while the reduced topology is unconfirmed so a secondary dock cannot be permanently destroyed by a one-off Mutter monitor snapshot.
+- Apply monitor growth and stable/same-size topology changes immediately, while real monitor disconnects still settle after a short bounded confirmation period.
+- Add regression coverage for shrink, growth, stable, empty, and single-monitor topology decisions.
+
 ## 275
 
 - Fix multi-monitor docks that still looked permanently disappeared after autohide when their dock edge was an internal monitor seam.
