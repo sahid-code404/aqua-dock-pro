@@ -11,7 +11,6 @@ import {
     logError,
     log,
     monitorIndexAtPoint,
-    windowMonitorIndex,
 } from '../core/utils.js';
 import {
     GEOMETRY_KEYS,
@@ -233,7 +232,9 @@ export class DockController {
     }
 
     _windowOnThisMonitor(window) {
-        return windowMonitorIndex(window) === this._monitorIndex;
+        if (!window) return true;
+        try { return window.get_monitor?.() === this._monitorIndex; }
+        catch { return true; } // stale window: prefer a harmless reevaluation
     }
 
     _findItem(kind) {
@@ -430,21 +431,26 @@ export class DockController {
         s.connect(ez, 'scroll-event', (_a, ev) => this._onScroll(ev));
 
         const wm = global.window_manager;
-        // Mapping/destruction can change an application's window count. Keep
-        // that model refresh here, but leave every visibility decision to
-        // AutohideManager. Having both layers react to the same WM lifecycle
-        // signal created duplicate, differently-timed intellihide evaluations.
+        // Mapping/destruction can change an application's window count. Every
+        // non-isolated dock needs that model update, while monitor-isolated docks
+        // only need the affected monitor. Autohide, however, is always local.
         for (const sig of ['map', 'destroy'])
             s.connect(wm, sig, (_wm, actor) => {
                 const window = actor?.meta_window ?? null;
                 const local = this._windowOnThisMonitor(window);
                 if (!this._cfg.isolateMonitors || local)
                     this._scheduleRefreshItems(false);
+                if (local) this._autohide?.queueIntellihide();
             });
 
-        // Minimize/unminimize do not change the running-app model, so the
-        // controller intentionally does nothing here. AutohideManager owns the
-        // monitor-local visibility reconciliation for those events.
+        // Minimize/unminimize does not alter window count/running state, so avoid
+        // refreshing every icon model on every monitor. Only the local dock's
+        // overlap/fullscreen policy needs reevaluation.
+        for (const sig of ['minimize', 'unminimize'])
+            s.connect(wm, sig, (_wm, actor) => {
+                if (this._windowOnThisMonitor(actor?.meta_window ?? null))
+                    this._autohide?.queueIntellihide();
+            });
         s.connect(global.display, 'window-created', (_d, win) => this._genie.onWindowCreated(win));
         for (const sig of ['item-drag-end', 'item-drag-cancelled'])
             s.connect(Main.overview, sig, () => this._drag.clearDrop());
@@ -497,11 +503,7 @@ export class DockController {
             // Genie targets instead of leaving secondary docks stale.
             this._refreshItems(false);
             this._genie?.updateAllIconGeometry();
-            // App-state notifications also arrive when only indicator/count
-            // metadata changed. A hidden dock has no visible animation work;
-            // stop its frame scheduler without rewriting its offscreen geometry.
-            if (this._autohide?.hidden) this._engine.stop();
-            else this._engine.kick();
+            this._engine.kick();
         }
         if (changed) this._refreshItems(false);
     }
@@ -588,10 +590,7 @@ export class DockController {
             bg: this._chrome.bg,
             magZone: this._chrome.magZone,
         });
-        // Hidden docks have nothing to animate. Keep the scheduler stopped while
-        // preserving the model geometry that will be shown on the next reveal.
-        if (this._autohide?.hidden) this._engine.stop();
-        else this._engine.kick();
+        this._engine.kick();
         this._tooltip?.invalidateMonitor();
         this._genie?.updateAllIconGeometry();
         this._autohide?.onRelayout(reevaluateAutohide);

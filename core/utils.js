@@ -75,28 +75,6 @@ export function monitorTransitionTouchesIndex(previousIndex, currentIndex, targe
         (currentIndex < 0 && previousIndex === targetIndex);
 }
 
-export function windowMonitorIndex(window) {
-    if (!window || typeof window.get_monitor !== 'function') return -1;
-    try {
-        const index = window.get_monitor();
-        return Number.isInteger(index) && index >= 0 ? index : -1;
-    } catch {
-        return -1;
-    }
-}
-
-// Window lifecycle signals can arrive while Mutter is destroying/reparenting an
-// actor and get_monitor() is already unavailable. Unknown ownership must never
-// hide/reflow a currently visible dock on another monitor: that recreates the
-// exact cross-monitor open/close flicker this routing exists to prevent. Unknown
-// ownership may only wake an already-hidden dock, where reevaluation is a safe
-// recovery path and cannot make a visible remote dock disappear.
-export function windowLifecycleMayAffectMonitor(window, targetIndex, dockHidden = false) {
-    if (targetIndex < 0) return false;
-    const owner = windowMonitorIndex(window);
-    return owner === targetIndex || (owner < 0 && dockHidden === true);
-}
-
 // Return monitor indexes in dock-construction order: primary first, then every
 // distinct logical monitor. Duplicate geometries can appear transiently during
 // mirror/reconfigure operations; building two docks into the same stage rect
@@ -123,19 +101,6 @@ export function monitorIndexesForLayout(monitors, primaryIndex, multiMonitor) {
         result.push(index);
     }
     return result;
-}
-
-// Monitor removal is destructive because ExtensionManager tears down one or more
-// live DockControllers. Mutter can temporarily collapse two outputs into one
-// logical/duplicate geometry during DPMS, mode-set, scale, or compositor
-// reconfiguration. Require confirmation before shrinking a healthy multi-monitor
-// dock set; growth and same-size changes can be applied immediately.
-export function monitorTopologyShrinkNeedsConfirmation(
-    currentIndexes, nextIndexes, multiMonitor) {
-    if (multiMonitor !== true) return false;
-    if (!Array.isArray(currentIndexes) || !Array.isArray(nextIndexes)) return false;
-    if (nextIndexes.length === 0) return false; // handled by the existing empty-snapshot path
-    return currentIndexes.length > 1 && nextIndexes.length < currentIndexes.length;
 }
 
 // Shell.App.get_icon() returns a fresh GIcon each call, so identity comparison

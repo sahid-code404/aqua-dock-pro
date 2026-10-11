@@ -4,13 +4,8 @@
 import GLib from 'gi://GLib';
 import Meta from 'gi://Meta';
 import { monitorInFullscreen } from '../compat/shell.js';
-import { windowMonitorIndex } from '../core/utils.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
-import {
-    chooseStableWindowInventory,
-    frameOverlapsDock,
-    windowVisibleForDodge,
-} from './overlapPolicy.js';
+import { chooseStableWindowInventory, frameOverlapsDock } from './overlapPolicy.js';
 
 const TOL = 4;   // px tolerance so a window just touching the dock isn't "overlap"
 
@@ -85,27 +80,13 @@ export class OverlapDetector {
 
             let frame;
             try {
-                // Do not use Meta.Window.is_hidden() here. During map/unmap
-                // effects Mutter can transiently report a hidden state while
-                // the window is still visibly covering the dock.
-                const handledType = HANDLED_TYPES.has(win.get_window_type());
-                let locatedOnWorkspace = null;
-                if (ws && typeof win.located_on_workspace === 'function')
-                    locatedOnWorkspace = Boolean(win.located_on_workspace(ws));
-
-                if (!windowVisibleForDodge({
-                    minimized: Boolean(win.minimized),
-                    handledType,
-                    locatedOnWorkspace,
-                })) continue;
-
-                // Visibility is strictly monitor-local. A window owned by one
-                // monitor must never hide the dock on another monitor merely
-                // because animation/shadow geometry temporarily crosses the
-                // shared boundary. Unknown/stale ownership is ignored rather
-                // than pessimistically hiding every dock.
-                if (windowMonitorIndex(win) !== monIndex) continue;
-
+                // Meta.Window can become invalid between inventory capture and
+                // this scan. Ignore the stale entry without invalidating the
+                // rest of the monitor's overlap result.
+                if (win.minimized || win.is_hidden?.()) continue;
+                if (!win.located_on_workspace(ws)) continue;
+                if (win.get_monitor() !== monIndex) continue;
+                if (!HANDLED_TYPES.has(win.get_window_type())) continue;
                 frame = win.get_frame_rect();
             } catch {
                 continue;
