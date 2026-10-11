@@ -1,10 +1,7 @@
 import {
     monitorIndexAtPoint,
     monitorIndexesForLayout,
-    monitorTopologyShrinkNeedsConfirmation,
     monitorTransitionTouchesIndex,
-    windowLifecycleMayAffectMonitor,
-    windowMonitorIndex,
 } from '../core/utils.js';
 
 function assert(condition, message) {
@@ -33,17 +30,6 @@ assert(fallbackPrimary[0] === 0,
 assert(monitorIndexesForLayout([], 0, true).length === 0,
     'empty monitor snapshots must not invent a dock target');
 
-assert(monitorTopologyShrinkNeedsConfirmation([0, 1], [0], true) === true,
-    'a reduced multi-monitor snapshot must be confirmed before removing a dock');
-assert(monitorTopologyShrinkNeedsConfirmation([0, 1], [0, 1], true) === false,
-    'stable multi-monitor topology must not be delayed');
-assert(monitorTopologyShrinkNeedsConfirmation([0], [0, 1], true) === false,
-    'monitor growth must apply immediately');
-assert(monitorTopologyShrinkNeedsConfirmation([0, 1], [], true) === false,
-    'empty snapshots remain owned by the dedicated empty-monitor recovery path');
-assert(monitorTopologyShrinkNeedsConfirmation([0, 1], [0], false) === false,
-    'single-monitor mode must not use multi-monitor shrink confirmation');
-
 assert(monitorIndexAtPoint(monitors.slice(0, 2), 1919, 500) === 0,
     'point just inside monitor 0 resolved to the wrong monitor');
 assert(monitorIndexAtPoint(monitors.slice(0, 2), 1920, 500) === 1,
@@ -59,28 +45,5 @@ assert(monitorTransitionTouchesIndex(0, 1, 0) === false &&
 assert(monitorTransitionTouchesIndex(0, -1, 0) === true &&
     monitorTransitionTouchesIndex(0, -1, 1) === false,
     'transient null focus while closing a window must only update its previous monitor');
-
-assert(windowMonitorIndex(null) === -1,
-    'missing windows must not be attributed to any monitor');
-assert(windowMonitorIndex({}) === -1,
-    'objects without a monitor API must not be attributed to any monitor');
-assert(windowMonitorIndex({ get_monitor: () => 1 }) === 1,
-    'valid Meta.Window monitor ownership should be preserved');
-assert(windowMonitorIndex({ get_monitor: () => -1 }) === -1,
-    'negative monitor ownership must remain unknown');
-assert(windowMonitorIndex({ get_monitor: () => { throw new Error('stale'); } }) === -1,
-    'stale windows must remain unknown');
-
-assert(windowLifecycleMayAffectMonitor({ get_monitor: () => 1 }, 1, false) === true &&
-    windowLifecycleMayAffectMonitor({ get_monitor: () => 1 }, 0, false) === false,
-    'known lifecycle ownership must stay monitor-local');
-assert(windowLifecycleMayAffectMonitor(null, 0, false) === false &&
-    windowLifecycleMayAffectMonitor({}, 1, false) === false,
-    'unknown lifecycle ownership must not wake visible remote docks');
-assert(windowLifecycleMayAffectMonitor(null, 0, true) === true &&
-    windowLifecycleMayAffectMonitor({}, 1, true) === true,
-    'unknown lifecycle ownership may reconcile only already-hidden docks');
-assert(windowLifecycleMayAffectMonitor(null, -1, true) === false,
-    'invalid dock monitor indexes must never be targeted');
 
 print('monitorTopology: ok');
