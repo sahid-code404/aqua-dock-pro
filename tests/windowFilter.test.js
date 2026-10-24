@@ -1,4 +1,4 @@
-import { appWindowsForConfig } from '../core/utils.js';
+import { appWindowsForConfig, appWindowsForInteraction } from '../core/utils.js';
 
 function assert(condition, message) {
     if (!condition) throw new Error(message);
@@ -54,5 +54,38 @@ assert(both.length === 1 && both[0].id === 'a1',
 
 assert(appWindowsForConfig(null, {}, workspaceA).length === 0,
     'an unavailable app must return an empty list');
+
+const localInteraction = appWindowsForInteraction(app, {
+    multiMonitor: true,
+    isolateMonitors: false,
+    isolateWS: false,
+}, 1, workspaceA);
+assert(localInteraction.map(window => window.id).join(',') === 'a1,b1',
+    'multi-monitor actions should prefer windows already on the clicked monitor');
+
+const fallbackInteraction = appWindowsForInteraction(app, {
+    multiMonitor: true,
+    isolateMonitors: false,
+    isolateWS: false,
+}, 2, workspaceA);
+assert(fallbackInteraction === windows,
+    'multi-monitor actions must preserve global fallback when no local window exists');
+
+const workspaceLocal = appWindowsForInteraction(app, {
+    multiMonitor: true,
+    isolateMonitors: false,
+    isolateWS: true,
+}, 1, workspaceA);
+assert(workspaceLocal.length === 1 && workspaceLocal[0].id === 'a1',
+    'workspace isolation should be applied before local-monitor preference');
+
+const explicitlyIsolated = appWindowsForInteraction(app, {
+    multiMonitor: true,
+    isolateMonitors: true,
+    isolateWS: false,
+    monitorIndex: 1,
+}, 0, workspaceA);
+assert(explicitlyIsolated.map(window => window.id).join(',') === 'a1,b1',
+    'explicit monitor isolation must override local-preference fallback');
 
 print('windowFilter: ok');

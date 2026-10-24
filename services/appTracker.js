@@ -66,6 +66,7 @@ class AppStateHub {
             callback,
             isolateWS: config.isolateWS === true,
             isolateMonitors: config.isolateMonitors === true,
+            multiMonitor: config.multiMonitor === true,
             monitorIndex: config.monitorIndex ?? -1,
         };
         this._subscribers.add(record);
@@ -88,7 +89,7 @@ class AppStateHub {
 
     _needsMonitorSignals() {
         for (const record of this._subscribers)
-            if (record.isolateMonitors) return true;
+            if (record.isolateMonitors || record.multiMonitor) return true;
         return false;
     }
 
@@ -198,13 +199,14 @@ class AppStateHub {
 
     _emitMonitor(monitorIndex) {
         for (const record of [...this._subscribers])
-            if (record.isolateMonitors && record.monitorIndex === monitorIndex)
+            if ((record.isolateMonitors || record.multiMonitor) &&
+                record.monitorIndex === monitorIndex)
                 this._notify(record, 'monitor');
     }
 
     _emitOptional() {
         for (const record of [...this._subscribers])
-            if (record.isolateWS || record.isolateMonitors)
+            if (record.isolateWS || record.isolateMonitors || record.multiMonitor)
                 this._notify(record, 'window');
     }
 
@@ -293,6 +295,7 @@ export class AppTracker {
             {
                 isolateWS: cfg.isolateWS,
                 isolateMonitors: cfg.isolateMonitors,
+                multiMonitor: cfg.multiMonitor,
                 monitorIndex: cfg.monitorIndex,
             });
     }

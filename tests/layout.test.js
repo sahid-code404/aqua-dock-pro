@@ -1,9 +1,11 @@
 import {
+    clipRectToMonitor,
     computeLayout,
     indicatorMetrics,
     indicatorPosition,
     magnifiedOverflow,
     pillStyle,
+    sharedMonitorEdge,
 } from '../dock/dockLayout.js';
 
 function assert(condition, message) {
@@ -58,6 +60,29 @@ assert(start.x < centered.x && centered.x < end.x, 'horizontal alignment order i
 assert(start.x >= monitor.x && end.x + end.width <= monitor.x + monitor.width,
     'aligned dock must stay inside its monitor');
 
+assert(centered.monitor.x === monitor.x && centered.monitor.y === monitor.y &&
+    centered.monitor.width === monitor.width && centered.monitor.height === monitor.height,
+    'layout did not retain the owning monitor bounds for chrome clipping');
+
+const clippedOverflow = clipRectToMonitor({
+    x: monitor.x - 90,
+    y: monitor.y + monitor.height - 60,
+    w: monitor.width + 180,
+    h: 120,
+}, monitor);
+assert(clippedOverflow.x === monitor.x && clippedOverflow.y === monitor.y + monitor.height - 60 &&
+    clippedOverflow.w === monitor.width && clippedOverflow.h === 60,
+    'stage-space dock overflow was not clipped at monitor boundaries');
+
+const fullyOutside = clipRectToMonitor({
+    x: monitor.x + monitor.width + 10,
+    y: monitor.y,
+    w: 40,
+    h: 40,
+}, monitor);
+assert(fullyOutside.w === 0 && fullyOutside.h === 40,
+    'fully off-monitor horizontal overflow must collapse to zero width');
+
 const left = computeLayout({
     ...base,
     vertical: true,
@@ -66,6 +91,73 @@ const left = computeLayout({
 }, chips(), monitor).geom;
 assert(left.y >= monitor.y && left.y + left.height <= monitor.y + monitor.height,
     'vertical dock must stay inside its monitor');
+
+const below = {
+    x: monitor.x + 200,
+    y: monitor.y + monitor.height,
+    width: 900,
+    height: 700,
+};
+assert(sharedMonitorEdge(monitor, 'bottom', [monitor, below]),
+    'overlapping monitor below should mark the bottom edge as shared');
+assert(!sharedMonitorEdge(monitor, 'left', [monitor, below]),
+    'unrelated monitor must not mark the left edge as shared');
+
+const seamBottom = computeLayout(
+    { ...base, autoHideActive: true },
+    chips(),
+    monitor,
+    false,
+    [monitor, below],
+).geom;
+assert(seamBottom.sharedEdge === true &&
+    seamBottom.strip.w < monitor.width &&
+    seamBottom.strip.x >= monitor.x &&
+    seamBottom.strip.x + seamBottom.strip.w <= monitor.x + monitor.width,
+    'shared bottom edge must use a dock-local reveal strip instead of the full seam');
+
+const rightNeighbor = {
+    x: monitor.x + monitor.width,
+    y: monitor.y + 100,
+    width: 1100,
+    height: 650,
+};
+const seamRight = computeLayout(
+    { ...base, vertical: true, position: 'right', autoHideActive: true },
+    chips(),
+    monitor,
+    false,
+    [monitor, rightNeighbor],
+).geom;
+assert(seamRight.sharedEdge === true &&
+    seamRight.strip.h < monitor.height &&
+    seamRight.strip.y >= monitor.y &&
+    seamRight.strip.y + seamRight.strip.h <= monitor.y + monitor.height,
+    'shared right edge must avoid a full-height cross-monitor trigger strip');
+
+const topOnlyRightNeighbor = {
+    x: monitor.x + monitor.width,
+    y: monitor.y,
+    width: 900,
+    height: 120,
+};
+const lowerRightDock = computeLayout(
+    {
+        ...base,
+        vertical: true,
+        position: 'right',
+        alignment: 'end',
+        autoHideActive: true,
+    },
+    chips(),
+    monitor,
+    false,
+    [monitor, topOnlyRightNeighbor],
+).geom;
+assert(lowerRightDock.sharedEdge === false &&
+    lowerRightDock.strip.h === monitor.height,
+    'a staggered neighbour outside the dock span must not turn a physical outer edge into a seam');
+
 assert(centered.strut?.h > 0, 'always-visible dock should reserve work area');
 assert(computeLayout({ ...base }, chips(), monitor, true).geom.strut === null,
     'fullscreen dock must not reserve work area');

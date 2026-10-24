@@ -139,6 +139,7 @@ gjs -m tests/iconResolution.test.js
 gjs -m tests/layout.test.js
 gjs -m tests/layoutStructures.test.js
 gjs -m tests/fullscreenPolicy.test.js
+gjs -m tests/overlapPolicy.test.js
 gjs -m tests/settings.test.js
 gjs -m tests/settingsMigration.test.js
 gjs -m tests/animationEngine.test.js
@@ -152,6 +153,7 @@ gjs -m tests/previewPaging.test.js
 gjs -m tests/locationResolver.test.js
 gjs -m tests/mountedDevices.test.js
 gjs -m tests/windowFilter.test.js
+gjs -m tests/monitorTopology.test.js
 
 if [[ ${AQUA_RUN_PREFS_SMOKE:-0} == 1 ]]; then
     gjs -m tests/prefsSmoke.test.js

@@ -5,6 +5,7 @@ import GLib from 'gi://GLib';
 import Meta from 'gi://Meta';
 import { monitorInFullscreen } from '../compat/shell.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+import { chooseStableWindowInventory, frameOverlapsDock } from './overlapPolicy.js';
 
 const TOL = 4;   // px tolerance so a window just touching the dock isn't "overlap"
 
@@ -43,21 +44,45 @@ export class OverlapDetector {
         const rw = vert ? geom.thick : geom.width;
         const rh = vert ? geom.height : geom.thick;
 
-        let actors;
-        try { actors = global.get_window_actors?.() ?? []; }
-        catch { return false; }
+        // Intellihide is a window-policy decision, not a compositor-paint
+        // decision. Prefer Meta.Window inventories so a close/open animation
+        // cannot temporarily make a still-valid covering window disappear just
+        // because its Clutter actor is being unmapped/rebuilt. This was the main
+        // source of one-frame dock reveals during app open/close, including on a
+        // single monitor. Actor enumeration remains only as a compatibility
+        // fallback for Shell variants lacking the stable inventories.
+        let displayWindows = null;
+        let workspaceWindows = null;
+        let actorWindows = null;
+        try { displayWindows = global.display?.list_all_windows?.() ?? null; }
+        catch { displayWindows = null; }
+        if (!Array.isArray(displayWindows)) {
+            try { workspaceWindows = ws.list_windows?.() ?? null; }
+            catch { workspaceWindows = null; }
+        }
+        if (!Array.isArray(displayWindows) && !Array.isArray(workspaceWindows)) {
+            try {
+                actorWindows = (global.get_window_actors?.() ?? [])
+                    .map(actor => actor?.meta_window)
+                    .filter(Boolean);
+            } catch {
+                actorWindows = [];
+            }
+        }
+        const windows = chooseStableWindowInventory(
+            displayWindows, workspaceWindows, actorWindows);
 
         let overlapped = false;
         const active = new Set();
-        for (let i = 0, len = actors.length; i < len; i++) {
-            const win = actors[i]?.meta_window;
+        for (let i = 0, len = windows.length; i < len; i++) {
+            const win = windows[i];
             if (!win) continue;
 
             let frame;
             try {
-                // Meta.Window can become invalid between get_window_actors() and
-                // this scan. Treat a disappearing window as out of scope instead
-                // of aborting the whole intellihide pass and retaining stale state.
+                // Meta.Window can become invalid between inventory capture and
+                // this scan. Ignore the stale entry without invalidating the
+                // rest of the monitor's overlap result.
                 if (win.minimized || win.is_hidden?.()) continue;
                 if (!win.located_on_workspace(ws)) continue;
                 if (win.get_monitor() !== monIndex) continue;
@@ -71,8 +96,12 @@ export class OverlapDetector {
             if (!this._tracked.has(win)) this._track(win);
             if (overlapped || !frame) continue;   // keep tracking the rest, but answer known
 
-            if (frame.x + TOL < rx + rw && frame.x + frame.width - TOL > rx &&
-                frame.y + TOL < ry + rh && frame.y + frame.height - TOL > ry)
+            if (frameOverlapsDock(frame, {
+                x: rx,
+                y: ry,
+                width: rw,
+                height: rh,
+            }, TOL))
                 overlapped = true;
         }
 

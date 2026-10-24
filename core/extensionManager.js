@@ -8,13 +8,23 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import { DOCK_NOOP_KEYS } from './constants.js';
 import { EventBus } from './eventBus.js';
 import { SettingsManager } from './settingsManager.js';
-import { TimeoutGroup, clearRuntimeWarnings, log, logError, setReduceMotionOverride } from './utils.js';
+import {
+    TimeoutGroup,
+    clearRuntimeWarnings,
+    log,
+    logError,
+    monitorIndexAtPoint,
+    monitorIndexesForLayout,
+    setReduceMotionOverride,
+} from './utils.js';
 import { DockController } from '../dock/dockController.js';
 import { cancelMountedDeviceOperations } from '../services/mountedDevices.js';
 import { clearNotificationCache } from '../services/notificationService.js';
 
 const REBUILD_RETRY_DELAYS_MS = [250, 750, 1500];
 const DASH_RETRY_DELAYS_MS = [250, 750, 1500];
+const MONITOR_CHANGE_SETTLE_MS = 120;
+const MONITOR_EMPTY_RETRY_DELAYS_MS = [250, 750, 1500];
 
 export class ExtensionManager {
     constructor(extension) {
@@ -24,6 +34,8 @@ export class ExtensionManager {
         this._docks = [];
         this._unsubSettings = null;
         this._monitorsChangedId = 0;
+        this._monitorChangeId = 0;
+        this._monitorEmptyRetryCount = 0;
         this._keybindingAdded = false;
         this._timers = new TimeoutGroup();
         this._rebuildRetryId = 0;
@@ -56,18 +68,11 @@ export class ExtensionManager {
     }
 
     _monitorIndexes() {
-        const monitors = Main.layoutManager.monitors ?? [];
-        if (!monitors.length) return [];
-
-        const primary = Main.layoutManager.primaryIndex;
-        const primaryIndex = primary >= 0 && primary < monitors.length ? primary : 0;
-        if (!this._settings.config.multiMonitor) return [primaryIndex];
-
-        const indexes = [primaryIndex];
-        for (let i = 0; i < monitors.length; i++) {
-            if (i !== primaryIndex) indexes.push(i);
-        }
-        return indexes;
+        return monitorIndexesForLayout(
+            Main.layoutManager.monitors ?? [],
+            Main.layoutManager.primaryIndex,
+            this._settings.config.multiMonitor,
+        );
     }
 
     _createDocks(manageDash = true) {
@@ -134,9 +139,8 @@ export class ExtensionManager {
         if (monitorIndex < 0) {
             try {
                 const [x, y] = global.get_pointer();
-                monitorIndex = (Main.layoutManager.monitors ?? []).findIndex(mon =>
-                    x >= mon.x && x < mon.x + mon.width &&
-                    y >= mon.y && y < mon.y + mon.height);
+                monitorIndex = monitorIndexAtPoint(
+                    Main.layoutManager.monitors ?? [], x, y);
             } catch { }
         }
         const dock = this._docks.find(item => item.monitorIndex === monitorIndex) ??
@@ -239,6 +243,51 @@ export class ExtensionManager {
     }
 
     _onMonitorsChanged() {
+        // Display reconfiguration can emit several monitor notifications while
+        // Mutter is still settling geometry. Coalesce them so multi-monitor
+        // setups do one stable update instead of repeatedly destroying/rebuilding
+        // every dock during rotation, scale, resolution or connector changes.
+        if (this._monitorChangeId)
+            this._timers.remove(this._monitorChangeId);
+        this._monitorChangeId = this._timers.addOnce(MONITOR_CHANGE_SETTLE_MS, () => {
+            this._monitorChangeId = 0;
+            this._applyMonitorChange();
+        });
+    }
+
+    _applyMonitorChange() {
+        const indexes = this._monitorIndexes();
+        if (!indexes.length) {
+            // A transient zero-monitor snapshot can occur mid-reconfiguration.
+            // Keep the working dock set and do a bounded recheck even if Mutter
+            // does not emit a second monitors-changed signal for the final state.
+            const retryIndex = this._monitorEmptyRetryCount++;
+            log('monitor change yielded no logical monitors; keeping current docks');
+            if (retryIndex < MONITOR_EMPTY_RETRY_DELAYS_MS.length) {
+                this._monitorChangeId = this._timers.addOnce(
+                    MONITOR_EMPTY_RETRY_DELAYS_MS[retryIndex],
+                    () => {
+                        this._monitorChangeId = 0;
+                        this._applyMonitorChange();
+                    });
+            }
+            return;
+        }
+        this._monitorEmptyRetryCount = 0;
+
+        const current = this._docks.map(dock => dock.monitorIndex);
+        const sameTopology = current.length === indexes.length &&
+            current.every((index, i) => index === indexes[i]);
+
+        if (sameTopology) {
+            try {
+                for (const dock of this._docks)
+                    dock.refreshMonitorGeometry();
+                return;
+            } catch (e) {
+                logError(e, 'monitor geometry refresh → rebuilding');
+            }
+        }
         this._attemptRebuild('monitors-changed');
     }
 
@@ -267,6 +316,8 @@ export class ExtensionManager {
         this._cancelDashRetry();
         this._cancelRebuildRetry();
         this._timers.removeAll();
+        this._monitorChangeId = 0;
+        this._monitorEmptyRetryCount = 0;
 
         if (this._keybindingAdded) {
             try { Main.wm.removeKeybinding('focus-dock-shortcut'); } catch { }

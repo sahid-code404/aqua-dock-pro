@@ -7,7 +7,7 @@ import St from 'gi://St';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
-import { TimeoutGroup, animationsEnabled, logError } from '../core/utils.js';
+import { TimeoutGroup, animationsEnabled, clamp, logError } from '../core/utils.js';
 import { _ } from '../core/i18n.js';
 import { downloadsDir } from '../services/fileService.js';
 import { DownloadsStack } from './downloadsStack.js';
@@ -188,6 +188,13 @@ export class DownloadManager {
     _scheduleArrival(file) {
         if (!file) return;
 
+        // The downloads watcher is shared by every monitor. Only the dock on the
+        // user's current attention monitor should enqueue the arrival animation;
+        // otherwise one download spawns identical flyers/bounces everywhere.
+        if (this._host?.isAttentionMonitor &&
+            !this._host.isAttentionMonitor())
+            return;
+
         let uri = null;
         try { uri = file.get_uri(); } catch { }
         if (!uri) return;
@@ -281,17 +288,37 @@ export class DownloadManager {
                 return;
             }
 
-            const ix = Math.round(tx + (target.width - size) / 2);
-            const iy = Math.round(ty + (target.height - size) / 2);
+            let ix = Math.round(tx + (target.width - size) / 2);
+            let iy = Math.round(ty + (target.height - size) / 2);
+            const mon = this._host.getMonitor?.();
+            const peakScale = 1.6;
+            const peakOverhang = Math.ceil((peakScale - 1) * size / 2);
+            if (mon) {
+                ix = clamp(
+                    ix,
+                    mon.x + peakOverhang,
+                    mon.x + Math.max(peakOverhang, mon.width - size - peakOverhang));
+                iy = clamp(
+                    iy,
+                    mon.y + peakOverhang,
+                    mon.y + Math.max(peakOverhang, mon.height - size - peakOverhang));
+            }
             const flyer = new St.Icon({
                 gicon: gicon ?? fallback,
                 icon_size: size,
                 style_class: 'aqua-dl-flyer',
             });
+            flyer.set_pivot_point(0.5, 0.5);
             Main.uiGroup.add_child(flyer);
             this._flyer = flyer;
-            flyer.set_position(ix, iy - FLY_DISTANCE);
-            flyer.set_scale(1.6, 1.6);
+            const startY = mon
+                ? clamp(
+                    iy - FLY_DISTANCE,
+                    mon.y + peakOverhang,
+                    mon.y + Math.max(peakOverhang, mon.height - size - peakOverhang))
+                : iy - FLY_DISTANCE;
+            flyer.set_position(ix, startY);
+            flyer.set_scale(peakScale, peakScale);
             flyer.opacity = 0;
             flyer.ease({
                 opacity: 255,

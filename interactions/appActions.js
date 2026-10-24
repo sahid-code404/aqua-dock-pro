@@ -8,7 +8,7 @@ import {
     TimeoutGroup,
     getFocusedAppSafe,
     appWindows,
-    appWindowsForConfig,
+    appWindowsForInteraction,
     launchUri,
     logError,
 } from '../core/utils.js';
@@ -41,9 +41,10 @@ function windowUserTime(win) {
 }
 
 export class AppActions {
-    constructor(getConfig, genie = null) {
+    constructor(getConfig, genie = null, getMonitorIndex = null) {
         this._getConfig = getConfig;
         this._genie = genie;
+        this._getMonitorIndex = getMonitorIndex;
         this._timers = new TimeoutGroup();
         this._launching = new Map();   // app -> { item, stateId, itemDestroyId, timeoutId }
         this._lastClickKey = null;
@@ -80,7 +81,8 @@ export class AppActions {
         if (action === 'new-window') { this._launch(app, item); return; }
         if (button === 2 && action === 'smart') button = 1;
 
-        const windows = appWindowsForConfig(app, cfg);
+        const monitorIndex = this._getMonitorIndex?.() ?? -1;
+        const windows = appWindowsForInteraction(app, cfg, monitorIndex);
         const focusApp = getFocusedAppSafe();
         let ws = null;
         try { ws = global.workspace_manager.get_active_workspace(); } catch { }
@@ -251,5 +253,6 @@ export class AppActions {
         this._launchLockAt = 0;
         this._getConfig = null;
         this._genie = null;
+        this._getMonitorIndex = null;
     }
 }
