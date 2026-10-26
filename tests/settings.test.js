@@ -58,6 +58,8 @@ assert(!cfg.reduceMotion && !cfg.highContrast && cfg.interfaceTextScale === 1 &&
     cfg.announceItemStatus, 'accessibility defaults changed');
 assert(!cfg.menuUseGnomeDefault,
     'GNOME default app menu fallback must remain opt-in');
+assert(cfg.blurEffect,
+    'blur effect must remain enabled by default');
 assert(GEOMETRY_KEYS.has('auto-hide-mode') &&
     !hasKnownDirectSettingImpact('auto-hide-mode'),
     'auto-hide mode must relayout so reserved strut geometry stays in sync');

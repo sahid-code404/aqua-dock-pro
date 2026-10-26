@@ -50,6 +50,7 @@ export class AnimationEngine {
         this._cachedCfg = null;
         this._cachedGeom = null;
         this._cachedBg = null;
+        this._cachedBlurRegion = null;
         this._cachedMagZone = null;
         this._cachedMagConst = null;
     }
@@ -91,6 +92,7 @@ export class AnimationEngine {
         this._cachedCfg = cfg;
         this._cachedGeom = geom;
         this._cachedBg = model.bg;
+        this._cachedBlurRegion = model.blurRegion ?? null;
         this._cachedMagZone = model.magZone;
         this._cachedMagConst = geom.magZone;
         this._mzX = this._mzY = this._mzW = this._mzH = NaN;
@@ -218,10 +220,14 @@ export class AnimationEngine {
         this._bgCurrentX = this._bgTargetX = this._bgBaseX;
         this._bgCurrentW = this._bgTargetW = this._bgBaseW;
         const bg = this._cachedBg;
+        const blurRegion = this._cachedBlurRegion;
         const params = vert
             ? { y: Math.round(this._bgBaseX), height: Math.round(this._bgBaseW) }
             : { x: Math.round(this._bgBaseX), width: Math.round(this._bgBaseW) };
         try { bg.ease({ ...params, duration, mode: Clutter.AnimationMode.EASE_OUT_QUAD }); } catch { }
+        if (blurRegion) {
+            try { blurRegion.ease({ ...params, duration, mode: Clutter.AnimationMode.EASE_OUT_QUAD }); } catch { }
+        }
         this._bgLastA = this._bgLastB = NaN;
         const magZone = this._cachedMagZone;
         if (magZone) { magZone.set_size(0, 0); this._magZoneActive = false; }
@@ -374,16 +380,53 @@ export class AnimationEngine {
         }
 
         const bg = this._cachedBg;
+        const blurRegion = this._cachedBlurRegion;
         if (vert) {
             const top = Math.round(this._bgCurrentX);
             const h = Math.round(this._bgCurrentX + this._bgCurrentW) - top;
-            if (top !== this._bgLastA) { bg.set_y(top); this._bgLastA = top; }
-            if (h !== this._bgLastB) { bg.set_height(h); this._bgLastB = h; }
+            let posChanged = false;
+            let sizeChanged = false;
+            if (top !== this._bgLastA) {
+                bg.set_y(top);
+                if (blurRegion) blurRegion.set_y(top);
+                this._bgLastA = top;
+                posChanged = true;
+            }
+            if (h !== this._bgLastB) {
+                bg.set_height(h);
+                if (blurRegion) blurRegion.set_height(h);
+                this._bgLastB = h;
+                sizeChanged = true;
+            }
+            if (posChanged) {
+                try { bg.notify?.('y'); bg.notify?.('position'); } catch { }
+            }
+            if (sizeChanged) {
+                try { bg.notify?.('height'); bg.notify?.('size'); } catch { }
+            }
         } else {
             const left = Math.round(this._bgCurrentX);
             const w = Math.round(this._bgCurrentX + this._bgCurrentW) - left;
-            if (left !== this._bgLastA) { bg.set_x(left); this._bgLastA = left; }
-            if (w !== this._bgLastB) { bg.set_width(w); this._bgLastB = w; }
+            let posChanged = false;
+            let sizeChanged = false;
+            if (left !== this._bgLastA) {
+                bg.set_x(left);
+                if (blurRegion) blurRegion.set_x(left);
+                this._bgLastA = left;
+                posChanged = true;
+            }
+            if (w !== this._bgLastB) {
+                bg.set_width(w);
+                if (blurRegion) blurRegion.set_width(w);
+                this._bgLastB = w;
+                sizeChanged = true;
+            }
+            if (posChanged) {
+                try { bg.notify?.('x'); bg.notify?.('position'); } catch { }
+            }
+            if (sizeChanged) {
+                try { bg.notify?.('width'); bg.notify?.('size'); } catch { }
+            }
         }
 
         this._updateMagZone(maxScale);

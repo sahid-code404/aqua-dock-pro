@@ -25,6 +25,8 @@ export class DownloadsStack {
     }
 
     get isOpen() { return this._opening || !!(this._blocker || this._view); }
+    get view() { return this._view; }
+    get blurRegion() { return this._view?.blurRegion ?? null; }
 
     async show(anchor, folder, cfg, onClose, { title = _('Downloads'), gicon = null } = {}) {
         this._destroyNow();             // clear any lingering popup synchronously

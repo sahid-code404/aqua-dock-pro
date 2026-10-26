@@ -9,8 +9,9 @@ export function applyTileStyle(cfg, labelPill, label, thumb, thumbRadius, hover,
         : (cfg.dlItemBorderWidth ?? cfg.borderWidth ?? 1);
     const bc = cfg.highContrast ? '#ffffff'
         : (cfg.dlItemBorderColor ?? cfg.borderColor ?? 'rgba(255,255,255,0.16)');
+    const blurEnabled = Boolean(cfg.blurEffect);
     const itemColor = cfg.highContrast ? 'rgba(0,0,0,0.96)'
-        : (cfg.dlItemColor ?? `rgba(28,28,32,${bgAlpha})`);
+        : (blurEnabled ? 'transparent' : (cfg.downloadsItemColor ?? cfg.dlItemColor ?? `rgba(28,28,32,${bgAlpha})`));
     const pillBg = hover ? 'rgba(255,255,255,0.16)' : itemColor;
     const border = bw > 0 ? `${bw}px solid ${bc}` : 'none';
     const fontColor = cfg.highContrast ? '#ffffff' : (cfg.dlItemFontColor ?? '#f2f2f5');

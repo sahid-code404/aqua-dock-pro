@@ -11,9 +11,11 @@ import { overviewDash } from '../compat/shell.js';
 export class DockChrome {
     constructor() {
         this._container = null;
+        this._blurRegion = null;
         this._bg = null;
         this._magZone = null;
         this._strip = null;
+        this._handleBlurRegion = null;
         this._autohideHandle = null;
         this._edgeZone = null;
         this._strut = null;
@@ -29,14 +31,31 @@ export class DockChrome {
 
         try {
             this._container = new St.Widget({
+                name: 'aquaDockContainer',
                 reactive: true,
                 track_hover: true,
                 layout_manager: new Clutter.FixedLayout(),
             });
             this._container.set_clip_to_allocation(false);
+            this._container._isAquaDock = true;
+
+            this._blurRegion = new St.Widget({
+                name: 'aqua-dock-blur-region',
+                style_class: 'aqua-blur-region',
+                reactive: false,
+            });
+            this._container.add_child(this._blurRegion);
 
             this._bg = new St.Widget({ style_class: 'aqua-bg' });
             this._container.add_child(this._bg);
+
+            this._container._dockBg = this._bg;
+            this._container._dockBlurRegion = this._blurRegion;
+            this._container._dockContent = this._container;
+            this._container._dockBlurEnabled = true;
+            this._container._dockRadius = 28;
+            this._bg._dockRadius = 28;
+            this._bg.get_dock_radius = () => this._bg._dockRadius;
 
             // Dynamic invisible zone covering magnified icon overflow above the
             // pill. Zero-sized at rest, so clicks pass through to the desktop.
@@ -51,6 +70,19 @@ export class DockChrome {
             // so it cannot sit on top of a fullscreen application's controls.
             this._strip = new St.Widget({ reactive: true, opacity: 0 });
             Main.layoutManager.addChrome(this._strip, {
+                affectsStruts: false,
+                trackFullscreen: true,
+            });
+
+            // Blur region behind autohide handle
+            this._handleBlurRegion = new St.Widget({
+                name: 'aqua-autohide-blur-region',
+                style_class: 'aqua-blur-region',
+                reactive: false,
+                visible: false,
+                opacity: 0,
+            });
+            Main.layoutManager.addChrome(this._handleBlurRegion, {
                 affectsStruts: false,
                 trackFullscreen: true,
             });
@@ -97,8 +129,11 @@ export class DockChrome {
 
     get container() { return this._container; }
     get bg() { return this._bg; }
+    get blurRegion() { return this._blurRegion; }
     get magZone() { return this._magZone; }
     get strip() { return this._strip; }
+    get autohideHandle() { return this._autohideHandle; }
+    get handleBlurRegion() { return this._handleBlurRegion; }
     get edgeZone() { return this._edgeZone; }
     get strut() { return this._strut; }
 
@@ -125,10 +160,28 @@ export class DockChrome {
     // Seed the pill rect; the engine takes over per-frame via setPill().
     applyPill(geom) {
         this._applyRect(this._bg, geom.bg.x, geom.bg.y, geom.bg.w, geom.bg.h);
+        if (this._blurRegion)
+            this._applyRect(this._blurRegion, geom.bg.x, geom.bg.y, geom.bg.w, geom.bg.h);
         if (this._bg.opacity !== 255) this._bg.opacity = 255;
     }
 
-    applyPillStyle(style) {
+    applyPillStyle(style, cfg = null) {
+        if (cfg) {
+            this._container._dockBlurEnabled = (cfg.blurEffect !== false);
+            const radius = cfg.dockRadius ?? 28;
+            this._container._dockRadius = radius;
+            this._bg._dockRadius = radius;
+            this._bg.get_dock_radius = () => this._bg._dockRadius;
+            this._autohideHandle._dockRadius = radius;
+            if (this._blurRegion) {
+                this._blurRegion._dockRadius = radius;
+                this._blurRegion.set_style(`border-radius: ${radius}px;`);
+            }
+            if (this._handleBlurRegion) {
+                this._handleBlurRegion._dockRadius = radius;
+                this._handleBlurRegion.set_style(`border-radius: ${radius}px;`);
+            }
+        }
         if (style !== this._bgStyleCache) {
             this._bg.set_style(style);
             this._autohideHandle.set_style(style);
@@ -161,25 +214,34 @@ export class DockChrome {
         if (!handle) {
             if (this._autohideHandle.width !== 0 || this._autohideHandle.height !== 0)
                 this._autohideHandle.set_size(0, 0);
+            if (this._handleBlurRegion && (this._handleBlurRegion.width !== 0 || this._handleBlurRegion.height !== 0))
+                this._handleBlurRegion.set_size(0, 0);
             if (this._handleClipCache !== null) {
                 try { this._autohideHandle.remove_clip(); } catch { }
+                try { this._handleBlurRegion?.remove_clip(); } catch { }
                 this._handleClipCache = null;
             }
             return;
         }
         this._applyRect(this._autohideHandle, handle.x, handle.y, handle.w, handle.h);
+        if (this._handleBlurRegion)
+            this._applyRect(this._handleBlurRegion, handle.x, handle.y, handle.w, handle.h);
         const clip = handle.clip;
         const clipKey = clip ? `${clip.x}:${clip.y}:${clip.w}:${clip.h}` : '';
         if (clipKey === this._handleClipCache) return;
-        if (clip)
+        if (clip) {
             this._autohideHandle.set_clip(clip.x, clip.y, clip.w, clip.h);
-        else
+            this._handleBlurRegion?.set_clip(clip.x, clip.y, clip.w, clip.h);
+        } else {
             this._autohideHandle.remove_clip();
+            this._handleBlurRegion?.remove_clip();
+        }
         this._handleClipCache = clipKey;
     }
 
     setAutohideHandleVisible(visible, animate = true) {
         const handle = this._autohideHandle;
+        const blurHandle = this._handleBlurRegion;
         if (!handle) return;
         if (visible && this._handleVisible && handle.visible && handle.opacity === 255)
             return;
@@ -187,17 +249,25 @@ export class DockChrome {
             return;
         this._handleVisible = visible;
         try { handle.remove_all_transitions(); } catch { }
+        try { blurHandle?.remove_all_transitions(); } catch { }
 
         if (visible) {
             handle.show();
+            blurHandle?.show();
             if (animate && animationsEnabled()) {
                 handle.ease({
                     opacity: 255,
                     duration: 140,
                     mode: Clutter.AnimationMode.EASE_OUT_QUAD,
                 });
+                blurHandle?.ease({
+                    opacity: 255,
+                    duration: 140,
+                    mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+                });
             } else {
                 handle.opacity = 255;
+                if (blurHandle) blurHandle.opacity = 255;
             }
             return;
         }
@@ -211,9 +281,21 @@ export class DockChrome {
                     if (!this._handleVisible) handle.hide();
                 },
             });
+            blurHandle?.ease({
+                opacity: 0,
+                duration: 90,
+                mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+                onComplete: () => {
+                    if (!this._handleVisible) blurHandle?.hide();
+                },
+            });
         } else {
             handle.opacity = 0;
             handle.hide();
+            if (blurHandle) {
+                blurHandle.opacity = 0;
+                blurHandle.hide();
+            }
         }
     }
 
@@ -312,13 +394,14 @@ export class DockChrome {
 
     destroy() {
         this.restoreDash();
-        for (const key of ['_magZone', '_strip', '_autohideHandle', '_edgeZone', '_strut', '_container']) {
+        for (const key of ['_magZone', '_strip', '_handleBlurRegion', '_autohideHandle', '_edgeZone', '_strut', '_container']) {
             const actor = this[key];
             if (!actor) continue;
             try { Main.layoutManager.removeChrome(actor); } catch { }
             try { actor.destroy(); } catch { }
             this[key] = null;
         }
+        this._blurRegion = null;
         this._bg = null;
         this._handleVisible = false;
         this._handleClipCache = null;

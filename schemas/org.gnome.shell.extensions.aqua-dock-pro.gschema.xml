@@ -116,6 +116,11 @@
       <summary>Automatically shrink the dock when its configured size would not fit the monitor</summary>
     </key>
 
+    <key name="blur-effect" type="b">
+      <default>true</default>
+      <summary>Blur the background under the dock pill</summary>
+    </key>
+
     <!-- ── Behavior ───────────────────────────────────────────────────── -->
     <key name="auto-hide-mode" type="s">
       <default>'dodge'</default>

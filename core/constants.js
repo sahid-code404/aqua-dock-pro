@@ -78,6 +78,7 @@ export const STYLE_KEYS = Object.freeze(new Set([
     'background-opacity',
     'pill-color',
     'border-color',
+    'blur-effect',
 ]));
 
 export const AUTOHIDE_KEYS = Object.freeze(new Set([
@@ -158,6 +159,7 @@ export const SETTING_CONFIG_PROPERTIES = Object.freeze({
     'background-opacity': ['bgOpacity'],
     'pill-color': ['pillColor'],
     'border-color': ['borderColor'],
+    'blur-effect': ['blurEffect'],
 
     'hide-delay': ['hideDelay'],
     'reveal-pressure': ['revealPressure'],

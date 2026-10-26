@@ -77,6 +77,7 @@ function computeConfig(s) {
         pillColor: s.get_string('pill-color'),
         borderColor: s.get_string('border-color'),
         borderWidth: s.get_int('border-width'),
+        blurEffect: s.get_boolean('blur-effect'),
 
         // ── Sections / behaviour ──
         showApps: s.get_boolean('show-apps-button'),

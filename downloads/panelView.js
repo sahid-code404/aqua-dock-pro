@@ -28,9 +28,12 @@ export class PanelView {
         this._cols = this._view === 'grid' ? GRID_COLS : 1;
         this._reduce = false;
         this._fileMenu = new FileItemMenu(opts.mon, opts.cfg);
+        this._blurRegion = null;
     }
 
     get actor() { return this._actor; }
+    get blurRegion() { return this._blurRegion; }
+    get blurRegions() { return this._blurRegion ? [this._blurRegion] : []; }
 
     build() {
         const { cfg, mon, files, folder } = this;
@@ -112,13 +115,39 @@ export class PanelView {
         const bc = cfg.highContrast ? '#ffffff'
             : (cfg.downloadsBorderColor ?? cfg.borderColor ?? 'rgba(255,255,255,0.16)');
         const border = bw > 0 ? `${bw}px solid ${bc}` : 'none';
+        const blurEnabled = Boolean(cfg.blurEffect);
         const fill = cfg.highContrast ? 'rgba(0,0,0,0.96)'
-            : (cfg.downloadsPillColor ?? cfg.pillColor ?? `rgba(28,28,32,${a})`);
+            : (blurEnabled ? 'transparent' : (cfg.downloadsPillColor ?? cfg.pillColor ?? `rgba(28,28,32,${a})`));
         panel.set_style(`border-radius: ${radius}px; background-color: ${fill}; border: ${border};`);
         panel.set_pivot_point(0.5, 1.0);
         panel.opacity = 0;
 
+        const blurRegion = new St.Widget({
+            name: 'aqua-downloads-panel-blur-region',
+            style_class: 'aqua-blur-region',
+            reactive: false,
+        });
+        blurRegion._dockRadius = radius;
+        blurRegion.set_style(`border-radius: ${radius}px;`);
+        this._blurRegion = blurRegion;
+        panel._blurRegion = blurRegion;
+        panel._dockBlurRegion = blurRegion;
+        panel._dockBg = panel;
+        panel._isAquaDock = true;
+        panel._dockBlurEnabled = blurEnabled;
+        panel._dockRadius = radius;
+        panel.get_dock_radius = () => radius;
+
         Main.uiGroup.add_child(panel);
+        Main.uiGroup.insert_child_below(blurRegion, panel);
+        if (!blurEnabled) {
+            blurRegion.hide();
+        }
+
+        panel.connect('destroy', () => {
+            try { blurRegion.destroy(); } catch { }
+        });
+
         this._fileMenu.bind(panel);
         const [, natH] = panel.get_preferred_height(panelW);
         const sideX = sideFanX(cfg.position, originX, cfg.dockH, panelW);
@@ -127,6 +156,10 @@ export class PanelView {
         const px = clamp(Math.round(targetX), mon.x + 8, mon.x + mon.width - panelW - 8);
         const py = clamp(Math.round(targetY), mon.y + 8, mon.y + mon.height - natH - 8);
         panel.set_position(px, py);
+        blurRegion.set_position(px, py);
+        blurRegion.set_size(panelW, natH);
+        blurRegion.set_pivot_point(0.5, 1.0);
+        blurRegion.opacity = 0;
 
         this._model.setRows(tiles);
         this._animateOpen(panel, tiles, view);
@@ -270,10 +303,16 @@ export class PanelView {
     }
 
     _animateOpen(panel, tiles, view) {
+        const blurEnabled = Boolean(this.cfg?.blurEffect);
         if (this._reduce) {
             panel.opacity = 255;
             panel.set_scale(1, 1);
             panel.translation_y = 0;
+            if (this._blurRegion && blurEnabled) {
+                this._blurRegion.opacity = 255;
+                this._blurRegion.set_scale(1, 1);
+                this._blurRegion.translation_y = 0;
+            }
             for (const tile of tiles) {
                 tile.opacity = 255;
                 tile.translation_y = 0;
@@ -289,6 +328,16 @@ export class PanelView {
                 duration: 240,
                 mode: Clutter.AnimationMode.EASE_OUT_CUBIC,
             });
+            if (this._blurRegion && blurEnabled) {
+                this._blurRegion.set_scale(0.88, 0.88);
+                this._blurRegion.ease({
+                    opacity: 255,
+                    scale_x: 1,
+                    scale_y: 1,
+                    duration: 240,
+                    mode: Clutter.AnimationMode.EASE_OUT_CUBIC,
+                });
+            }
         } else {
             panel.translation_y = 12; panel.scale_y = 0.9;
             panel.ease({
@@ -298,6 +347,16 @@ export class PanelView {
                 duration: 240,
                 mode: Clutter.AnimationMode.EASE_OUT_CUBIC,
             });
+            if (this._blurRegion && blurEnabled) {
+                this._blurRegion.translation_y = 12; this._blurRegion.scale_y = 0.9;
+                this._blurRegion.ease({
+                    opacity: 255,
+                    translation_y: 0,
+                    scale_y: 1,
+                    duration: 240,
+                    mode: Clutter.AnimationMode.EASE_OUT_CUBIC,
+                });
+            }
         }
         tiles.forEach((tile, i) => {
             tile.opacity = 0; tile.translation_y = 6;
@@ -339,6 +398,16 @@ export class PanelView {
             actor.translation_y = 0;
             actor.set_scale(1, 1);
         } catch { }
+        if (this._blurRegion) {
+            try {
+                this._blurRegion.remove_all_transitions();
+                if (this.cfg?.blurEffect) {
+                    this._blurRegion.opacity = 255;
+                    this._blurRegion.translation_y = 0;
+                    this._blurRegion.set_scale(1, 1);
+                }
+            } catch { }
+        }
         for (const tile of this._model.rows) {
             try {
                 tile.remove_all_transitions();
@@ -352,7 +421,17 @@ export class PanelView {
         const actor = this._actor;
         if (!actor) { onDone(); return; }
         actor.remove_all_transitions();
+        if (this._blurRegion) {
+            try { this._blurRegion.remove_all_transitions(); } catch { }
+        }
         if (this._reduce || !animationsEnabled()) { onDone(); return; }
+        if (this._blurRegion && this.cfg?.blurEffect) {
+            if (this._view === 'grid') {
+                this._blurRegion.ease({ opacity: 0, scale_x: 0.88, scale_y: 0.88, duration: 200, mode: Clutter.AnimationMode.EASE_IN_CUBIC });
+            } else {
+                this._blurRegion.ease({ opacity: 0, scale_y: 0.9, translation_y: 12, duration: 200, mode: Clutter.AnimationMode.EASE_IN_CUBIC });
+            }
+        }
         if (this._view === 'grid') {
             actor.ease({ opacity: 0, scale_x: 0.88, scale_y: 0.88, duration: 200, mode: Clutter.AnimationMode.EASE_IN_CUBIC, onComplete: onDone });
         } else {

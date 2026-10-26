@@ -13,12 +13,13 @@ export function applyAlpha(colorStr, factor) {
 }
 
 // The cached CSS for the background pill.
-export function pillStyle(cfg) {
+export function pillStyle(cfg, isTransparent = false) {
     const bw = cfg.highContrast ? Math.max(2, cfg.borderWidth ?? 1) : (cfg.borderWidth ?? 1);
     const bc = cfg.highContrast ? '#ffffff' : (cfg.borderColor ?? 'rgba(255,255,255,0.16)');
     const border = bw > 0 ? `${bw}px solid ${bc}` : 'none';
+    const transparent = Boolean(isTransparent || cfg.blurEffect);
     const fill = cfg.highContrast ? 'rgba(0,0,0,0.96)'
-        : applyAlpha(cfg.pillColor ?? 'rgba(28,28,32,0.78)', clamp(cfg.bgOpacity, 0.1, 1.0));
+        : (transparent ? 'transparent' : applyAlpha(cfg.pillColor ?? 'rgba(28,28,32,0.78)', clamp(cfg.bgOpacity, 0.1, 1.0)));
     return `border-radius: ${cfg.dockRadius}px; border: ${border}; background-color: ${fill};`;
 }
 

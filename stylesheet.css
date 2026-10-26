@@ -24,6 +24,24 @@
     box-shadow:       none;
 }
 
+.transparent-dash .aqua-bg,
+.transparent-dash.aqua-bg,
+.aqua-bg.transparent-dash {
+    background-color: transparent !important;
+}
+
+.transparent-dash .aqua-autohide-handle,
+.transparent-dash.aqua-autohide-handle,
+.aqua-autohide-handle.transparent-dash {
+    background-color: transparent !important;
+}
+
+.aqua-blur-region {
+    background-color: transparent;
+    border:           none;
+    box-shadow:       none;
+}
+
 .aqua-autohide-handle {
     box-shadow:       none;
 }

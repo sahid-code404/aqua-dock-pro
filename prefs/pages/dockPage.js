@@ -54,20 +54,34 @@ export function buildDockPage(window, s) {
     window._settingsSignalIds.push(s.connect('changed::pill-thickness-auto',
         () => thick.set_sensitive(!s.get_boolean('pill-thickness-auto'))));
     pill.add(thick);
-    pill.add(spinRow(s, 'background-opacity', _('Background opacity'),
-        _('How see-through the pill is'), 0.10, 1.0, 0.05, 2));
+    const bgOpacity = spinRow(s, 'background-opacity', _('Background opacity'),
+        _('How see-through the pill is'), 0.10, 1.0, 0.05, 2);
+    pill.add(bgOpacity);
 
     const pillStyle = expanderRow(_('Colours and border'),
         _('Fill and outline of the dock pill.'), 'applications-graphics-symbolic');
     pillStyle.add_row(spinRow(s, 'dock-radius', _('Corner radius'),
         _('Rounded corner radius in pixels'), 0, 40, 1, 0));
-    pillStyle.add_row(colorRow(window, s, 'pill-color', _('Pill colour'),
-        _('Background colour of the dock pill')));
+    const pillColor = colorRow(window, s, 'pill-color', _('Pill colour'),
+        _('Background colour of the dock pill'));
+    pillStyle.add_row(pillColor);
     pillStyle.add_row(colorRow(window, s, 'border-color', _('Border colour'),
         _('Outline colour of the dock and its pills')));
     pillStyle.add_row(spinRow(s, 'border-width', _('Border width'),
         _('Outline thickness in pixels; 0 hides it'), 0, 6, 1, 0));
     pill.add(pillStyle);
+
+    const blurRow = switchRow(s, 'blur-effect', _('Blur effect'),
+        _('Blur the background under the dock pill'));
+    pill.add(blurRow);
+
+    const syncBlurSensitivity = () => {
+        const blurOn = s.get_boolean('blur-effect');
+        bgOpacity.set_sensitive(!blurOn);
+        pillColor.set_sensitive(!blurOn);
+    };
+    syncBlurSensitivity();
+    window._settingsSignalIds.push(s.connect('changed::blur-effect', syncBlurSensitivity));
     p.add(pill);
 
     const items = group(_('Items on the dock'), _('Choose which built-in icons appear.'));

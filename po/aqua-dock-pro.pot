@@ -23,13 +23,13 @@ msgid "Applications"
 msgstr ""
 
 #: dock/dockItem.js:192 downloads/downloadManager.js:151
-#: downloads/downloadsStack.js:29 downloads/panelView.js:150
+#: downloads/downloadsStack.js:31 downloads/panelView.js:183
 #: prefs/pages/downloadsPage.js:18 services/appTracker.js:377
 msgid "Downloads"
 msgstr ""
 
 #: dock/dockItem.js:193 downloads/downloadManager.js:154
-#: menus/menuActions.js:40 prefs/pages/downloadsPage.js:48
+#: menus/menuActions.js:40 prefs/pages/downloadsPage.js:49
 #: services/appTracker.js:387
 msgid "Folder"
 msgstr ""
@@ -45,7 +45,7 @@ msgstr ""
 msgid "Mounted device"
 msgstr ""
 
-#: dock/dockItem.js:196 prefs/pages/dockPage.js:84
+#: dock/dockItem.js:196 prefs/pages/dockPage.js:98
 msgid "Trash"
 msgstr ""
 
@@ -67,14 +67,14 @@ msgid_plural "%d notifications"
 msgstr[0] ""
 msgstr[1] ""
 
-#: downloads/fanView.js:65
+#: downloads/fanView.js:68
 #, javascript-format
 msgid "Open in Files · %d more item"
 msgid_plural "Open in Files · %d more items"
 msgstr[0] ""
 msgstr[1] ""
 
-#: downloads/fanView.js:68
+#: downloads/fanView.js:71
 #, javascript-format
 msgid "%s is empty"
 msgstr ""
@@ -83,18 +83,18 @@ msgstr ""
 msgid "Copy"
 msgstr ""
 
-#: downloads/panelView.js:156
+#: downloads/panelView.js:189
 #, javascript-format
 msgid "%d item"
 msgid_plural "%d items"
 msgstr[0] ""
 msgstr[1] ""
 
-#: downloads/panelView.js:162
+#: downloads/panelView.js:195
 msgid "Open Folder"
 msgstr ""
 
-#: downloads/panelView.js:259
+#: downloads/panelView.js:292
 #, javascript-format
 msgid "+%d more item in Files"
 msgid_plural "+%d more items in Files"
@@ -170,7 +170,7 @@ msgstr ""
 msgid "Open Trash"
 msgstr ""
 
-#: menus/menuActions.js:74 menus/menuManager.js:182
+#: menus/menuActions.js:74 menus/menuManager.js:181
 msgid "Empty Trash"
 msgstr ""
 
@@ -202,31 +202,31 @@ msgstr ""
 msgid "Quit"
 msgstr ""
 
-#: menus/menuManager.js:172
+#: menus/menuManager.js:171
 msgid "Empty Trash?"
 msgstr ""
 
-#: menus/menuManager.js:173
+#: menus/menuManager.js:172
 msgid "All items in Trash will be permanently deleted."
 msgstr ""
 
-#: menus/menuManager.js:177 prefs/pages/aboutPage.js:71
+#: menus/menuManager.js:176 prefs/pages/aboutPage.js:71
 #: prefs/widgets/customItems.js:84
 msgid "Cancel"
 msgstr ""
 
-#: menus/menuManager.js:194
+#: menus/menuManager.js:193
 msgid "Trash could not be fully emptied"
 msgstr ""
 
-#: menus/menuManager.js:195
+#: menus/menuManager.js:194
 #, javascript-format
 msgid "%d item could not be removed."
 msgid_plural "%d items could not be removed."
 msgstr[0] ""
 msgstr[1] ""
 
-#: menus/menuManager.js:198
+#: menus/menuManager.js:197
 msgid "Trash emptied"
 msgstr ""
 
@@ -747,87 +747,95 @@ msgstr ""
 msgid "How see-through the pill is"
 msgstr ""
 
-#: prefs/pages/dockPage.js:60
+#: prefs/pages/dockPage.js:61
 msgid "Colours and border"
 msgstr ""
 
-#: prefs/pages/dockPage.js:61
+#: prefs/pages/dockPage.js:62
 msgid "Fill and outline of the dock pill."
 msgstr ""
 
-#: prefs/pages/dockPage.js:62 prefs/pages/popupsPage.js:44
+#: prefs/pages/dockPage.js:63 prefs/pages/popupsPage.js:44
 #: prefs/pages/popupsPage.js:61
 msgid "Corner radius"
 msgstr ""
 
-#: prefs/pages/dockPage.js:63
+#: prefs/pages/dockPage.js:64
 msgid "Rounded corner radius in pixels"
 msgstr ""
 
-#: prefs/pages/dockPage.js:64
+#: prefs/pages/dockPage.js:65
 msgid "Pill colour"
 msgstr ""
 
-#: prefs/pages/dockPage.js:65
+#: prefs/pages/dockPage.js:66
 msgid "Background colour of the dock pill"
 msgstr ""
 
-#: prefs/pages/dockPage.js:66
+#: prefs/pages/dockPage.js:68
 msgid "Border colour"
 msgstr ""
 
-#: prefs/pages/dockPage.js:67
+#: prefs/pages/dockPage.js:69
 msgid "Outline colour of the dock and its pills"
 msgstr ""
 
-#: prefs/pages/dockPage.js:68 prefs/pages/popupsPage.js:52
+#: prefs/pages/dockPage.js:70 prefs/pages/popupsPage.js:52
 #: prefs/pages/popupsPage.js:68
 msgid "Border width"
 msgstr ""
 
-#: prefs/pages/dockPage.js:69
+#: prefs/pages/dockPage.js:71
 msgid "Outline thickness in pixels; 0 hides it"
 msgstr ""
 
-#: prefs/pages/dockPage.js:73
-msgid "Items on the dock"
-msgstr ""
-
-#: prefs/pages/dockPage.js:73
-msgid "Choose which built-in icons appear."
-msgstr ""
-
 #: prefs/pages/dockPage.js:74
-msgid "Lock current layout"
+msgid "Blur effect"
 msgstr ""
 
 #: prefs/pages/dockPage.js:75
+msgid "Blur the background under the dock pill"
+msgstr ""
+
+#: prefs/pages/dockPage.js:87
+msgid "Items on the dock"
+msgstr ""
+
+#: prefs/pages/dockPage.js:87
+msgid "Choose which built-in icons appear."
+msgstr ""
+
+#: prefs/pages/dockPage.js:88
+msgid "Lock current layout"
+msgstr ""
+
+#: prefs/pages/dockPage.js:89
 msgid ""
 "Prevent pinned apps and the Applications button from being reordered, added, "
 "or removed through the dock"
 msgstr ""
 
-#: prefs/pages/dockPage.js:77
+#: prefs/pages/dockPage.js:91
 msgid "Applications button"
 msgstr ""
 
-#: prefs/pages/dockPage.js:78
+#: prefs/pages/dockPage.js:92
 msgid "Show the app-grid launcher"
 msgstr ""
 
-#: prefs/pages/dockPage.js:79
+#: prefs/pages/dockPage.js:93
 msgid "Applications icon"
 msgstr ""
 
-#: prefs/pages/dockPage.js:82 prefs/pages/downloadsPage.js:21
+#: prefs/pages/dockPage.js:96 prefs/pages/downloadsPage.js:21
 msgid "Downloads stack"
 msgstr ""
 
-#: prefs/pages/dockPage.js:83
+#: prefs/pages/dockPage.js:97
 msgid "Show the Downloads folder with arrival bounce"
 msgstr ""
 
-#: prefs/pages/dockPage.js:85
+#: prefs/pages/dockPage.js:99
 msgid "Show the trash with full/empty state"
 msgstr ""
 
@@ -907,125 +915,125 @@ msgstr ""
 msgid "Stack panel background"
 msgstr ""
 
-#: prefs/pages/downloadsPage.js:37
+#: prefs/pages/downloadsPage.js:38
 msgid "Panel border"
 msgstr ""
 
-#: prefs/pages/downloadsPage.js:38
+#: prefs/pages/downloadsPage.js:39
 msgid "Stack panel border colour"
 msgstr ""
 
-#: prefs/pages/downloadsPage.js:39
+#: prefs/pages/downloadsPage.js:40
 msgid "Panel border width"
 msgstr ""
 
-#: prefs/pages/downloadsPage.js:40 prefs/pages/downloadsPage.js:77
+#: prefs/pages/downloadsPage.js:41 prefs/pages/downloadsPage.js:79
 #: prefs/pages/popupsPage.js:53 prefs/pages/popupsPage.js:69
 msgid "Pixels; 0 hides it"
 msgstr ""
 
-#: prefs/pages/downloadsPage.js:44
+#: prefs/pages/downloadsPage.js:45
 msgid "Custom folder stack"
 msgstr ""
 
-#: prefs/pages/downloadsPage.js:45
+#: prefs/pages/downloadsPage.js:46
 msgid "Add one lightweight folder stack beside Downloads."
 msgstr ""
 
-#: prefs/pages/downloadsPage.js:46
+#: prefs/pages/downloadsPage.js:47
 msgid "Show custom folder"
 msgstr ""
 
-#: prefs/pages/downloadsPage.js:47
+#: prefs/pages/downloadsPage.js:48
 msgid "Display the selected folder as another stack"
 msgstr ""
 
-#: prefs/pages/downloadsPage.js:49
+#: prefs/pages/downloadsPage.js:50
 msgid "The folder whose recent files appear in the stack"
 msgstr ""
 
-#: prefs/pages/downloadsPage.js:50
+#: prefs/pages/downloadsPage.js:51
 msgid "Use folder’s own icon"
 msgstr ""
 
-#: prefs/pages/downloadsPage.js:51
+#: prefs/pages/downloadsPage.js:52
 msgid ""
 "Prefer custom and standard folder artwork; disable for theme fallback icons"
 msgstr ""
 
-#: prefs/pages/downloadsPage.js:55
+#: prefs/pages/downloadsPage.js:56
 msgid "Dock locations and shortcuts"
 msgstr ""
 
-#: prefs/pages/downloadsPage.js:56
+#: prefs/pages/downloadsPage.js:57
 msgid "Add and arrange folders, files, links, separators, and spacers."
 msgstr ""
 
-#: prefs/pages/downloadsPage.js:57
+#: prefs/pages/downloadsPage.js:58
 msgid "Show custom dock items"
 msgstr ""
 
-#: prefs/pages/downloadsPage.js:58
+#: prefs/pages/downloadsPage.js:59
 msgid "Display the configured items in the dock’s locations section"
 msgstr ""
 
-#: prefs/pages/downloadsPage.js:62
+#: prefs/pages/downloadsPage.js:63
 msgid "File cards"
 msgstr ""
 
-#: prefs/pages/downloadsPage.js:62
+#: prefs/pages/downloadsPage.js:63
 msgid "The individual file tiles."
 msgstr ""
 
-#: prefs/pages/downloadsPage.js:63
+#: prefs/pages/downloadsPage.js:64
 msgid "Card corner radius"
 msgstr ""
 
-#: prefs/pages/downloadsPage.js:64
+#: prefs/pages/downloadsPage.js:65
 msgid "File card corner radius (pixels)"
 msgstr ""
 
-#: prefs/pages/downloadsPage.js:66
+#: prefs/pages/downloadsPage.js:67
 msgid "Card colours and border"
 msgstr ""
 
-#: prefs/pages/downloadsPage.js:67
+#: prefs/pages/downloadsPage.js:68
 msgid "The file-card styling."
 msgstr ""
 
-#: prefs/pages/downloadsPage.js:68
+#: prefs/pages/downloadsPage.js:69
 msgid "Card background"
 msgstr ""
 
-#: prefs/pages/downloadsPage.js:69
+#: prefs/pages/downloadsPage.js:70
 msgid "File card background"
 msgstr ""
 
-#: prefs/pages/downloadsPage.js:70
+#: prefs/pages/downloadsPage.js:72
 msgid "Card text"
 msgstr ""
 
-#: prefs/pages/downloadsPage.js:71
+#: prefs/pages/downloadsPage.js:73
 msgid "File name colour"
 msgstr ""
 
-#: prefs/pages/downloadsPage.js:72
+#: prefs/pages/downloadsPage.js:74
 msgid "Thumbnail background"
 msgstr ""
 
-#: prefs/pages/downloadsPage.js:73
+#: prefs/pages/downloadsPage.js:75
 msgid "Thumbnail backing colour"
 msgstr ""
 
-#: prefs/pages/downloadsPage.js:74
+#: prefs/pages/downloadsPage.js:76
 msgid "Card border"
 msgstr ""
 
-#: prefs/pages/downloadsPage.js:75
+#: prefs/pages/downloadsPage.js:77
 msgid "File card border colour"
 msgstr ""
 
-#: prefs/pages/downloadsPage.js:76
+#: prefs/pages/downloadsPage.js:78
 msgid "Card border width"
 msgstr ""
 

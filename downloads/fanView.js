@@ -27,9 +27,12 @@ export class FanView {
         this._collapse = null;
         this._reduce = false;
         this._fileMenu = new FileItemMenu(opts.mon, opts.cfg);
+        this._blurRegion = null;
     }
 
     get actor() { return this._actor; }
+    get blurRegion() { return this._blurRegion; }
+    get blurRegions() { return this._blurRegion ? [this._blurRegion] : []; }
 
     build() {
         const { cfg, mon, files, overflow } = this;
@@ -108,9 +111,39 @@ export class FanView {
         fan.set_size(panelW, panelH);
         fan.set_style('background-color: transparent; border: none;');
 
+        const blurEnabled = Boolean(cfg.blurEffect);
+        const blurRegion = new St.Widget({
+            name: 'aqua-downloads-fan-blur-region',
+            style_class: 'aqua-blur-region',
+            reactive: false,
+        });
+        blurRegion._dockRadius = 20;
+        blurRegion.set_style('border-radius: 20px;');
+        this._blurRegion = blurRegion;
+        fan._blurRegion = blurRegion;
+        fan._dockBlurRegion = blurRegion;
+        fan._dockBg = fan;
+        fan._isAquaDock = true;
+        fan._dockBlurEnabled = blurEnabled;
+        fan._dockRadius = 20;
+        fan.get_dock_radius = () => 20;
+
+        Main.uiGroup.add_child(fan);
+        Main.uiGroup.insert_child_below(blurRegion, fan);
+        if (!blurEnabled) {
+            blurRegion.hide();
+        }
+
+        fan.connect('destroy', () => {
+            try { blurRegion.destroy(); } catch { }
+        });
+
+        blurRegion.set_position(px, py);
+        blurRegion.set_size(panelW, panelH);
+        blurRegion.opacity = 0;
+
         const anchorLX = originX - px, anchorLY = ay - py;
         this._collapse = { x: anchorLX, y: anchorLY };
-        Main.uiGroup.add_child(fan);
         this._fileMenu.bind(fan);
 
         const rows = [];
@@ -137,8 +170,14 @@ export class FanView {
         });
         this._model.setRows(rows);
         if (rows.length) this._model.select(0);
+        fan._blurRegions = this.blurRegions;
 
-        if (reduce) fan.opacity = 255;
+        if (reduce) {
+            fan.opacity = 255;
+            if (blurEnabled) blurRegion.opacity = 255;
+        } else if (blurEnabled) {
+            blurRegion.ease({ opacity: 255, duration: 240, mode: Clutter.AnimationMode.EASE_OUT_QUAD });
+        }
         return fan;
     }
 
@@ -254,6 +293,12 @@ export class FanView {
             actor.remove_all_transitions();
             actor.opacity = 255;
         } catch { }
+        if (this._blurRegion) {
+            try {
+                this._blurRegion.remove_all_transitions();
+                if (this.cfg?.blurEffect) this._blurRegion.opacity = 255;
+            } catch { }
+        }
         for (const row of this._model.rows) {
             try {
                 row.remove_all_transitions();
@@ -270,12 +315,22 @@ export class FanView {
     animateClose(onDone) {
         const actor = this._actor;
         if (!actor) { onDone(); return; }
+        if (this._blurRegion) {
+            try { this._blurRegion.remove_all_transitions(); } catch { }
+        }
         if (this._reduce || !this._collapse || !animationsEnabled()) {
             onDone();
             return;
         }
         const kids = actor.get_children();
         const n = kids.length;
+        if (this._blurRegion && this.cfg?.blurEffect) {
+            this._blurRegion.ease({
+                opacity: 0,
+                duration: 260 + n * 18,
+                mode: Clutter.AnimationMode.EASE_IN_QUAD,
+            });
+        }
         kids.forEach((tile, i) => {
             const cx = tile.x + tile.width / 2, cy = tile.y + tile.height / 2;
             const delay = (n - 1 - i) * 18;

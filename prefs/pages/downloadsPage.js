@@ -32,8 +32,9 @@ export function buildDownloadsPage(window, s) {
         _('The stack panel styling.'), 'applications-graphics-symbolic');
     panelStyle.add_row(spinRow(s, 'downloads-border-radius', _('Panel corner radius'),
         _('Stack panel corner radius (pixels)'), 0, 40, 1, 0));
-    panelStyle.add_row(colorRow(window, s, 'downloads-pill-color', _('Panel background'),
-        _('Stack panel background')));
+    const panelColor = colorRow(window, s, 'downloads-pill-color', _('Panel background'),
+        _('Stack panel background'));
+    panelStyle.add_row(panelColor);
     panelStyle.add_row(colorRow(window, s, 'downloads-border-color', _('Panel border'),
         _('Stack panel border colour')));
     panelStyle.add_row(spinRow(s, 'downloads-border-width', _('Panel border width'),
@@ -65,8 +66,9 @@ export function buildDownloadsPage(window, s) {
 
     const cardStyle = expanderRow(_('Card colours and border'),
         _('The file-card styling.'), 'applications-graphics-symbolic');
-    cardStyle.add_row(colorRow(window, s, 'downloads-item-color', _('Card background'),
-        _('File card background')));
+    const cardColor = colorRow(window, s, 'downloads-item-color', _('Card background'),
+        _('File card background'));
+    cardStyle.add_row(cardColor);
     cardStyle.add_row(colorRow(window, s, 'downloads-item-font-color', _('Card text'),
         _('File name colour')));
     cardStyle.add_row(colorRow(window, s, 'downloads-item-thumb-color', _('Thumbnail background'),
@@ -77,4 +79,12 @@ export function buildDownloadsPage(window, s) {
         _('Pixels; 0 hides it'), 0, 6, 1, 0));
     cards.add(cardStyle);
     p.add(cards);
+
+    const syncBlurSensitivity = () => {
+        const blurOn = s.get_boolean('blur-effect');
+        panelColor.set_sensitive(!blurOn);
+        cardColor.set_sensitive(!blurOn);
+    };
+    syncBlurSensitivity();
+    (window._settingsSignalIds ??= []).push(s.connect('changed::blur-effect', syncBlurSensitivity));
 }

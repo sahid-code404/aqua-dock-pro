@@ -1,5 +1,12 @@
 # Changelog
 
+## 268
+
+- Remove all native Shell.BlurEffect blur from the extension; dock pill and downloads stack popups (fan and panel views) now rely exclusively on Blur My Shell's pipeline.
+- Expose Blur My Shell dock target resolution properties (_isAquaDock, _dockBg, _dockBlurRegion, _dockBlurEnabled, _dockRadius) on downloads popup actors.
+- Remove downloads/downloadsBlur.js and native blur paths in dock/dockBlur.js.
+- Ensure blur-effect toggle controls surface transparency and BMS discovery permissions without creating local blur effects.
+
 ## 267
 
 - Advertise one extension package for GNOME Shell 50 and 51 while preserving the existing Shell 50 runtime path and behavior.

@@ -31,6 +31,7 @@ import { GenieController } from '../effects/genie/genieEffect.js';
 import { DownloadManager } from '../downloads/downloadManager.js';
 import { TrashWatcher } from '../services/trashWatcher.js';
 import { DockChrome } from './dock.js';
+import { DockBlurManager } from './dockBlur.js';
 import { DockFactory } from './dockFactory.js';
 import { computeLayout, pillStyle } from './dockLayout.js';
 import {
@@ -88,6 +89,21 @@ export class DockController {
         );
         this._engine = new AnimationEngine();
         this._engine.attach(this._chrome.container);
+        this._blur = new DockBlurManager({
+            container: this._chrome.container,
+            bg: this._chrome.bg,
+            blurRegion: this._chrome.blurRegion,
+            handle: this._chrome.autohideHandle,
+            handleBlurRegion: this._chrome.handleBlurRegion,
+            getConfig: () => this._cfg,
+            getMonitor: () => this._getMonitor(),
+            onBlurStateChanged: (bmsActive) => {
+                if (this._cfg) {
+                    const isBmsTrans = Boolean(this._cfg.blurEffect && (bmsActive || this._chrome.bg?.has_style_class_name?.('transparent-dash')));
+                    this._chrome.applyPillStyle(pillStyle(this._cfg, isBmsTrans), this._cfg);
+                }
+            },
+        });
         this._autohide = new AutohideManager({
             chrome: this._chrome,
             getGeom: () => this._geom,
@@ -494,7 +510,9 @@ export class DockController {
 
         this._chrome.applyContainer(geom, this._autohide?.hidden ?? false);
         this._chrome.applyPill(geom);
-        this._chrome.applyPillStyle(pillStyle(cfg));
+        this._blur?.update(cfg);
+        const isBmsTrans = Boolean(cfg.blurEffect && (this._blur?.bmsActive || this._chrome.bg?.has_style_class_name?.('transparent-dash')));
+        this._chrome.applyPillStyle(pillStyle(cfg, isBmsTrans), cfg);
         this._chrome.applyAccessibility(cfg);
         this._chrome.applyStrut(geom.strut);
         this._chrome.applyMagZoneConst();
@@ -514,6 +532,7 @@ export class DockController {
             items: this._factory.items,
             cfg, geom,
             bg: this._chrome.bg,
+            blurRegion: this._chrome.blurRegion,
             magZone: this._chrome.magZone,
         });
         this._engine.kick();
@@ -573,7 +592,7 @@ export class DockController {
             tooltipChanged ||= TOOLTIP_KEYS.has(key) && key !== 'tooltip-delay';
             itemsChanged ||= ITEM_REFRESH_KEYS.has(key);
             previewChanged ||= key === 'show-previews' || key.startsWith('preview-');
-            downloadsChanged ||= key.startsWith('downloads-');
+            downloadsChanged ||= key.startsWith('downloads-') || key === 'blur-effect' || key === 'high-contrast';
             menuChanged ||= key.startsWith('menu-');
         }
 
@@ -584,8 +603,11 @@ export class DockController {
         if (downloadsChanged) this._downloads?.closeStack();
         if (menuChanged) this._menu?.closeNow();
 
-        if (styleChanged)
-            this._chrome.applyPillStyle(pillStyle(this._cfg));
+        if (styleChanged) {
+            this._blur?.update(this._cfg);
+            const isBmsTrans = Boolean(this._cfg.blurEffect && (this._blur?.bmsActive || this._chrome.bg?.has_style_class_name?.('transparent-dash')));
+            this._chrome.applyPillStyle(pillStyle(this._cfg, isBmsTrans), this._cfg);
+        }
         if (autohideChanged)
             this._autohide?.onRelayout();
         if (changed.has('show-badges'))
@@ -987,6 +1009,7 @@ export class DockController {
         destroyPart('_tracker');
         destroyPart('_mountedDevices');
         destroyPart('_factory', 'destroyAll');
+        destroyPart('_blur');
         destroyPart('_chrome');
 
         this._settings = null;
