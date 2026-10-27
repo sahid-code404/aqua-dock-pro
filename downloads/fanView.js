@@ -28,12 +28,14 @@ export class FanView {
         this._collapse = null;
         this._reduce = false;
         this._fileMenu = new FileItemMenu(opts.mon, opts.cfg);
-        this._blurRegion = null;
+        this._blurRegions = [];
+        this._blurActive = false;
+        this._labelPillWidth = null;
     }
 
     get actor() { return this._actor; }
-    get blurRegion() { return this._blurRegion; }
-    get blurRegions() { return this._blurRegion ? [this._blurRegion] : []; }
+    get blurRegion() { return this._blurRegions?.[0] ?? null; }
+    get blurRegions() { return this._blurRegions ?? []; }
 
     build() {
         const { cfg, mon, files, overflow } = this;
@@ -56,6 +58,7 @@ export class FanView {
         const labelW = Math.round(LABEL_WIDTH * Math.min(cfg.interfaceTextScale ?? 1, 1.6));
         const labelPillW = labelW + 28;
         this._labelWidth = labelW;
+        this._labelPillWidth = labelPillW;
         const rowW = leftPad + labelPillW + labelGap + thumbSize + 6;
         const orientation = fanOrientation(cfg.position, originX, mon);
         this._thumbnailFirst = orientation.thumbnailFirst;
@@ -112,47 +115,30 @@ export class FanView {
         fan.set_size(panelW, panelH);
         fan.set_style('background-color: transparent; border: none;');
 
-        const blurActive = Boolean(cfg.blurEffect && isBmsDockBlurActive());
-        const blurRegion = new St.Widget({
-            name: 'aqua-downloads-fan-blur-region',
-            style_class: 'aqua-blur-region',
-            reactive: false,
-        });
-        blurRegion._dockRadius = 20;
-        blurRegion.set_style('border-radius: 20px;');
-        this._blurRegion = blurRegion;
-        this._blurActive = blurActive;
-        fan._blurRegion = blurRegion;
-        fan._dockBlurRegion = blurRegion;
-        fan._dockBg = fan;
+        fan.name = 'aquaDownloadsFan';
         fan._isAquaDock = true;
-        fan._dockBlurEnabled = blurActive;
-        fan._dockRadius = 20;
-        fan.get_dock_radius = () => 20;
-        setupBackgroundCorners(fan, () => 20);
+        fan._dockBlurEnabled = false;
+
+        const blurActive = Boolean(cfg.blurEffect && isBmsDockBlurActive());
+        this._blurActive = blurActive;
 
         Main.uiGroup.add_child(fan);
-        Main.uiGroup.insert_child_below(blurRegion, fan);
-        if (!blurActive) {
-            blurRegion.hide();
-        } else {
-            registerBmsTarget(fan);
-        }
-
-        fan.connect('destroy', () => {
-            unregisterBmsTarget(fan);
-            try { blurRegion.destroy(); } catch { }
-        });
-
-        blurRegion.set_position(px, py);
-        blurRegion.set_size(panelW, panelH);
-        blurRegion.opacity = 0;
 
         const anchorLX = originX - px, anchorLY = ay - py;
         this._collapse = { x: anchorLX, y: anchorLY };
         this._fileMenu.bind(fan);
 
+        const radius = cfg.dlItemRadius ?? clamp(cfg.dockRadius ?? 16, 6, 28);
+        const pillH = Math.max(thumbH, 28);
+        const pillLocalX = this._thumbnailFirst
+            ? leftPad + thumbSize + labelGap
+            : leftPad;
+        const pillLocalY = Math.round((rowH - pillH) / 2);
+
         const rows = [];
+        const blurRegions = [];
+        this._blurRegions = blurRegions;
+
         builders.forEach((make, i) => {
             const row = make();
             const c = cells[i];
@@ -162,9 +148,35 @@ export class FanView {
             row.set_pivot_point(iconCx / rowW, 0.5);
             fan.add_child(row);
             rows.push(row);
+
+            const blurRegion = new St.Widget({
+                name: 'aqua-downloads-fan-blur-region',
+                style_class: 'aqua-blur-region',
+                reactive: false,
+            });
+            blurRegion._dockRadius = radius;
+            blurRegion.set_style(`border-radius: ${radius}px;`);
+            row._blurRegion = blurRegion;
+            row._dockBlurRegion = blurRegion;
+            blurRegions.push(blurRegion);
+
+            Main.uiGroup.insert_child_below(blurRegion, fan);
+
+            blurRegion.set_position(px + fx + pillLocalX, py + fy + pillLocalY);
+            blurRegion.set_size(labelPillW, pillH);
+            blurRegion.opacity = 0;
+
+            if (blurActive) {
+                registerBmsTarget(row, () => radius);
+            } else {
+                blurRegion.hide();
+            }
+
             if (reduce) return;
-            row.translation_x = anchorLX - (fx + iconCx);
-            row.translation_y = anchorLY - (fy + rowH / 2);
+            const initTx = anchorLX - (fx + iconCx);
+            const initTy = anchorLY - (fy + rowH / 2);
+            row.translation_x = initTx;
+            row.translation_y = initTy;
             row.scale_x = 0.55; row.scale_y = 0.55;
             row.opacity = 0;
             const delay = i * 16;
@@ -173,16 +185,35 @@ export class FanView {
                 duration: 280, delay, mode: Clutter.AnimationMode.EASE_OUT_BACK,
             });
             row.ease({ opacity: 255, duration: 200, delay, mode: Clutter.AnimationMode.EASE_OUT_QUAD });
+
+            if (blurActive) {
+                blurRegion.set_pivot_point((iconCx - pillLocalX) / labelPillW, 0.5);
+                blurRegion.translation_x = initTx;
+                blurRegion.translation_y = initTy;
+                blurRegion.scale_x = 0.55; blurRegion.scale_y = 0.55;
+                blurRegion.ease({
+                    translation_x: 0, translation_y: 0, scale_x: 1, scale_y: 1,
+                    duration: 280, delay, mode: Clutter.AnimationMode.EASE_OUT_BACK,
+                });
+                blurRegion.ease({ opacity: 255, duration: 200, delay, mode: Clutter.AnimationMode.EASE_OUT_QUAD });
+            }
         });
+
+        fan.connect('destroy', () => {
+            rows.forEach(r => unregisterBmsTarget(r));
+            blurRegions.forEach(br => {
+                try { br.destroy(); } catch { }
+            });
+        });
+
         this._model.setRows(rows);
         if (rows.length) this._model.select(0);
-        fan._blurRegions = this.blurRegions;
+        fan._blurRegion = this.blurRegion;
+        fan._blurRegions = blurRegions;
 
         if (reduce) {
             fan.opacity = 255;
-            if (blurActive) blurRegion.opacity = 255;
-        } else if (blurActive) {
-            blurRegion.ease({ opacity: 255, duration: 240, mode: Clutter.AnimationMode.EASE_OUT_QUAD });
+            if (blurActive) blurRegions.forEach(br => br.opacity = 255);
         }
         return fan;
     }
@@ -190,16 +221,27 @@ export class FanView {
     _card(thumbSize, w, h, extraClass = '') {
         const thumbW = thumbSize, thumbH = Math.round(thumbSize * 0.72);
         const thumbRadius = Math.round(Math.min(thumbW, thumbH) * 0.22);
+        const radius = this.cfg.dlItemRadius ?? clamp(this.cfg.dockRadius ?? 16, 6, 28);
+        const pillH = Math.max(thumbH, 28);
+        const labelPillW = this._labelPillWidth ?? (LABEL_WIDTH + 28);
+
         const btn = new St.Button({
             style_class: `aqua-dl-fan-row ${extraClass}`.trim(),
             reactive: true, track_hover: true, can_focus: true, width: w, height: h,
         });
+        btn.name = 'aquaDownloadsFanItem';
         btn.set_style('background-color: transparent; border: none; box-shadow: none;');
+
         const box = new St.BoxLayout({ style_class: 'aqua-dl-fan-row-inner' });
         const labelPill = new St.Bin({
             style_class: 'aqua-dl-fan-label-pill', x_expand: true,
             x_align: Clutter.ActorAlign.START, y_align: Clutter.ActorAlign.CENTER,
         });
+        labelPill.set_size(labelPillW, pillH);
+        labelPill._dockRadius = radius;
+        labelPill.get_dock_radius = () => radius;
+        setupBackgroundCorners(labelPill, () => radius);
+
         const label = new St.Label({
             style_class: 'aqua-dl-fan-label', width: this._labelWidth ?? LABEL_WIDTH,
             x_align: Clutter.ActorAlign.START, y_align: Clutter.ActorAlign.CENTER,
@@ -207,6 +249,7 @@ export class FanView {
         label.clutter_text.set_line_wrap(false);
         label.clutter_text.set_ellipsize(2);
         labelPill.set_child(label);
+
         const gap = new St.Widget({
             width: CONTENT_GAP,
             x_expand: false,
@@ -218,6 +261,7 @@ export class FanView {
         });
         thumb.set_size(thumbW, thumbH);
         thumb.set_pivot_point(0.5, 0.5);
+
         if (this._thumbnailFirst) {
             box.add_child(thumb);
             box.add_child(gap);
@@ -229,9 +273,20 @@ export class FanView {
         }
         btn.set_child(box);
         btn._thumb = thumb;
+        btn._labelPill = labelPill;
+
+        btn._isAquaDock = true;
+        btn._dockBlurEnabled = this._blurActive;
+        btn._dockBg = labelPill;
+        btn._dockContent = btn;
+        btn._dockContentParent = Main.uiGroup;
+        btn._dockRadius = radius;
+        btn.get_dock_radius = () => radius;
+
         btn._updatePillStyle = hover =>
             applyTileStyle(this.cfg, labelPill, label, thumb, thumbRadius, hover, '6px 14px', this._blurActive);
         btn._updatePillStyle(false);
+
         btn.connect('notify::hover', () => {
             if (!btn.hover) return;
             const idx = this._model.rows.indexOf(btn);
@@ -299,10 +354,13 @@ export class FanView {
             actor.remove_all_transitions();
             actor.opacity = 255;
         } catch { }
-        if (this._blurRegion) {
+        for (const br of this.blurRegions) {
             try {
-                this._blurRegion.remove_all_transitions();
-                if (this._blurActive) this._blurRegion.opacity = 255;
+                br.remove_all_transitions();
+                br.translation_x = 0;
+                br.translation_y = 0;
+                br.set_scale(1, 1);
+                if (this._blurActive) br.opacity = 255;
             } catch { }
         }
         for (const row of this._model.rows) {
@@ -321,20 +379,36 @@ export class FanView {
     animateClose(onDone) {
         const actor = this._actor;
         if (!actor) { onDone(); return; }
-        if (this._blurRegion) {
-            try { this._blurRegion.remove_all_transitions(); } catch { }
+        for (const br of this.blurRegions) {
+            try { br.remove_all_transitions(); } catch { }
         }
         if (this._reduce || !this._collapse || !animationsEnabled()) {
             onDone();
             return;
         }
-        const kids = actor.get_children();
+        const kids = this._model.rows;
         const n = kids.length;
-        if (this._blurRegion && this._blurActive) {
-            this._blurRegion.ease({
-                opacity: 0,
-                duration: 260 + n * 18,
-                mode: Clutter.AnimationMode.EASE_IN_QUAD,
+        if (this._blurActive) {
+            this.blurRegions.forEach((br, i) => {
+                const tile = kids[i];
+                if (!tile) return;
+                const cx = tile.x + tile.width / 2, cy = tile.y + tile.height / 2;
+                const delay = (n - 1 - i) * 18;
+                br.ease({
+                    translation_x: this._collapse.x - cx,
+                    translation_y: this._collapse.y - cy,
+                    scale_x: 0.4,
+                    scale_y: 0.4,
+                    duration: 240,
+                    delay,
+                    mode: Clutter.AnimationMode.EASE_IN_QUAD,
+                });
+                br.ease({
+                    opacity: 0,
+                    duration: 180,
+                    delay: delay + 40,
+                    mode: Clutter.AnimationMode.EASE_IN_QUAD,
+                });
             });
         }
         kids.forEach((tile, i) => {

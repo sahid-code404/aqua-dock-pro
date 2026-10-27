@@ -4,6 +4,7 @@
 
 - Implement universal in-memory compatibility with stock upstream Blur My Shell v76 without requiring third-party extension file modifications.
 - Implement AquaDockSurface conforming to BMS's DockSurface contract for dynamic and static wallpaper blur pipelines.
+- Scope Downloads stack Fan view blur to individual item pills and synchronized easing transitions, removing the outer bounding box blur rectangle.
 - Ensure clean fallback to configured background opacity and colors whenever Blur My Shell is disabled, removed, or toggling off.
 - Handle stock BMS disable signal order to prevent ghost re-registration and transparent background sticking.
 

@@ -71,9 +71,11 @@ export function resolveAquaDockTarget(container) {
         container.name === 'aquaDockContainer' ||
         container.name === 'aquaDownloadsPanel' ||
         container.name === 'aquaDownloadsFan' ||
+        container.name === 'aquaDownloadsFanItem' ||
         container.get_name?.() === 'aquaDockContainer' ||
         container.get_name?.() === 'aquaDownloadsPanel' ||
-        container.get_name?.() === 'aquaDownloadsFan'
+        container.get_name?.() === 'aquaDownloadsFan' ||
+        container.get_name?.() === 'aquaDownloadsFanItem'
     );
     if (!isAqua) return null;
     if (container._dockBlurEnabled === false) return null;
@@ -446,13 +448,16 @@ function tryBlurAquaDock(dashBlur, container) {
     if (!target) return;
 
     const bg = target.background;
-    const w = bg?.width ?? container.width ?? 0;
-    const h = bg?.height ?? container.height ?? 0;
+    const w = (bg?.width && bg.width > 0) ? bg.width : (container?.width ?? 0);
+    const h = (bg?.height && bg.height > 0) ? bg.height : (container?.height ?? 0);
     if (w <= 0 || h <= 0) {
         if (!container._aquaAllocWatch && typeof container.connect === 'function') {
             container._aquaAllocWatch = container.connect('notify::allocation', () => {
-                if ((target.background?.width ?? container.width ?? 0) > 0 &&
-                    (target.background?.height ?? container.height ?? 0) > 0) {
+                const curW = (target.background?.width && target.background.width > 0)
+                    ? target.background.width : (container?.width ?? 0);
+                const curH = (target.background?.height && target.background.height > 0)
+                    ? target.background.height : (container?.height ?? 0);
+                if (curW > 0 && curH > 0) {
                     try { container.disconnect(container._aquaAllocWatch); } catch { }
                     container._aquaAllocWatch = null;
                     dashBlur.try_blur(container);
