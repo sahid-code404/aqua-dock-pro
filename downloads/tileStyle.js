@@ -2,14 +2,14 @@
 
 import { clamp } from '../core/utils.js';
 
-export function applyTileStyle(cfg, labelPill, label, thumb, thumbRadius, hover, padding) {
-    const bgAlpha = clamp(cfg.bgOpacity, 0.12, 0.82).toFixed(2);
+export function applyTileStyle(cfg, labelPill, label, thumb, thumbRadius, hover, padding, isBlurActive = null) {
+    const bgAlpha = clamp(cfg.bgOpacity ?? 0.8, 0.12, 0.82).toFixed(2);
     const radius = cfg.dlItemRadius ?? clamp(cfg.dockRadius ?? 16, 6, 28);
     const bw = cfg.highContrast ? Math.max(2, cfg.dlItemBorderWidth ?? 1)
         : (cfg.dlItemBorderWidth ?? cfg.borderWidth ?? 1);
     const bc = cfg.highContrast ? '#ffffff'
         : (cfg.dlItemBorderColor ?? cfg.borderColor ?? 'rgba(255,255,255,0.16)');
-    const blurEnabled = Boolean(cfg.blurEffect);
+    const blurEnabled = isBlurActive !== null ? Boolean(isBlurActive) : Boolean(cfg.blurEffect);
     const itemColor = cfg.highContrast ? 'rgba(0,0,0,0.96)'
         : (blurEnabled ? 'transparent' : (cfg.downloadsItemColor ?? cfg.dlItemColor ?? `rgba(28,28,32,${bgAlpha})`));
     const pillBg = hover ? 'rgba(255,255,255,0.16)' : itemColor;

@@ -14,6 +14,8 @@ import { STACK_CLEARANCE, sideFanX } from './fanGeometry.js';
 import { applyTileStyle } from './tileStyle.js';
 import { SelectionModel } from './keyboardNav.js';
 import { buildPlaceIcon } from './placeIcon.js';
+import { isBmsDockBlurActive, registerBmsTarget, unregisterBmsTarget, setupBackgroundCorners } from '../dock/dockBlur.js';
+import { applyAlpha } from '../dock/dockLayout.js';
 
 const GRID_COLS = 2;
 const CONTENT_GAP = 12;
@@ -108,16 +110,17 @@ export class PanelView {
         panel.add_child(box);
 
         panel.set_width(panelW);
-        const a = clamp(cfg.bgOpacity, 0.1, 1.0).toFixed(2);
+        const a = clamp(cfg.bgOpacity ?? 0.8, 0.1, 1.0).toFixed(2);
         const radius = cfg.downloadsBorderRadius ?? clamp((cfg.dockRadius ?? 16) + 2, 0, 26);
         const bw = cfg.highContrast ? Math.max(2, cfg.downloadsBorderWidth ?? 1)
             : (cfg.downloadsBorderWidth ?? cfg.borderWidth ?? 1);
         const bc = cfg.highContrast ? '#ffffff'
             : (cfg.downloadsBorderColor ?? cfg.borderColor ?? 'rgba(255,255,255,0.16)');
         const border = bw > 0 ? `${bw}px solid ${bc}` : 'none';
-        const blurEnabled = Boolean(cfg.blurEffect);
+        const blurActive = Boolean(cfg.blurEffect && isBmsDockBlurActive());
+        const normalFill = cfg.downloadsPillColor ?? (cfg.pillColor ? applyAlpha(cfg.pillColor, clamp(cfg.bgOpacity ?? 0.8, 0.1, 1.0)) : `rgba(28,28,32,${a})`);
         const fill = cfg.highContrast ? 'rgba(0,0,0,0.96)'
-            : (blurEnabled ? 'transparent' : (cfg.downloadsPillColor ?? cfg.pillColor ?? `rgba(28,28,32,${a})`));
+            : (blurActive ? 'transparent' : normalFill);
         panel.set_style(`border-radius: ${radius}px; background-color: ${fill}; border: ${border};`);
         panel.set_pivot_point(0.5, 1.0);
         panel.opacity = 0;
@@ -130,21 +133,26 @@ export class PanelView {
         blurRegion._dockRadius = radius;
         blurRegion.set_style(`border-radius: ${radius}px;`);
         this._blurRegion = blurRegion;
+        this._blurActive = blurActive;
         panel._blurRegion = blurRegion;
         panel._dockBlurRegion = blurRegion;
         panel._dockBg = panel;
         panel._isAquaDock = true;
-        panel._dockBlurEnabled = blurEnabled;
+        panel._dockBlurEnabled = blurActive;
         panel._dockRadius = radius;
         panel.get_dock_radius = () => radius;
+        setupBackgroundCorners(panel, () => radius);
 
         Main.uiGroup.add_child(panel);
         Main.uiGroup.insert_child_below(blurRegion, panel);
-        if (!blurEnabled) {
+        if (!blurActive) {
             blurRegion.hide();
+        } else {
+            registerBmsTarget(panel);
         }
 
         panel.connect('destroy', () => {
+            unregisterBmsTarget(panel);
             try { blurRegion.destroy(); } catch { }
         });
 
@@ -271,7 +279,7 @@ export class PanelView {
         box.add_child(labelPill);
         row.set_child(box);
         row._thumb = thumb;
-        row._updatePillStyle = hover => applyTileStyle(this.cfg, labelPill, label, thumb, thumbRadius, hover, '4px 12px');
+        row._updatePillStyle = hover => applyTileStyle(this.cfg, labelPill, label, thumb, thumbRadius, hover, '4px 12px', this._blurActive);
         row._updatePillStyle(false);
         row._activate = () => { launchUri(file.get_uri()); this.close(); };
         this._fileMenu.attach(row, file, row._activate);
@@ -294,7 +302,7 @@ export class PanelView {
         box.add_child(labelPill);
         row.set_child(box);
         row._thumb = thumb;
-        row._updatePillStyle = hover => applyTileStyle(this.cfg, labelPill, label, thumb, thumbRadius, hover, '4px 12px');
+        row._updatePillStyle = hover => applyTileStyle(this.cfg, labelPill, label, thumb, thumbRadius, hover, '4px 12px', this._blurActive);
         row._updatePillStyle(false);
         row._activate = () => { launchUri(this.folder.get_uri()); this.close(); };
         row.connect('clicked', row._activate);
@@ -303,7 +311,7 @@ export class PanelView {
     }
 
     _animateOpen(panel, tiles, view) {
-        const blurEnabled = Boolean(this.cfg?.blurEffect);
+        const blurEnabled = Boolean(this._blurActive);
         if (this._reduce) {
             panel.opacity = 255;
             panel.set_scale(1, 1);
@@ -401,7 +409,7 @@ export class PanelView {
         if (this._blurRegion) {
             try {
                 this._blurRegion.remove_all_transitions();
-                if (this.cfg?.blurEffect) {
+                if (this._blurActive) {
                     this._blurRegion.opacity = 255;
                     this._blurRegion.translation_y = 0;
                     this._blurRegion.set_scale(1, 1);
@@ -425,7 +433,7 @@ export class PanelView {
             try { this._blurRegion.remove_all_transitions(); } catch { }
         }
         if (this._reduce || !animationsEnabled()) { onDone(); return; }
-        if (this._blurRegion && this.cfg?.blurEffect) {
+        if (this._blurRegion && this._blurActive) {
             if (this._view === 'grid') {
                 this._blurRegion.ease({ opacity: 0, scale_x: 0.88, scale_y: 0.88, duration: 200, mode: Clutter.AnimationMode.EASE_IN_CUBIC });
             } else {

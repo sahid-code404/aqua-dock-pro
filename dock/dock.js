@@ -7,6 +7,7 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import { animationsEnabled, clamp } from '../core/utils.js';
 import { overviewDash } from '../compat/shell.js';
+import { pillStyle } from './dockLayout.js';
 
 export class DockChrome {
     constructor() {
@@ -52,6 +53,7 @@ export class DockChrome {
             this._container._dockBg = this._bg;
             this._container._dockBlurRegion = this._blurRegion;
             this._container._dockContent = this._container;
+            this._container._dockContentParent = this._container;
             this._container._dockBlurEnabled = true;
             this._container._dockRadius = 28;
             this._bg._dockRadius = 28;
@@ -184,7 +186,8 @@ export class DockChrome {
         }
         if (style !== this._bgStyleCache) {
             this._bg.set_style(style);
-            this._autohideHandle.set_style(style);
+            const handleStyle = cfg ? pillStyle(cfg, false) : style;
+            this._autohideHandle.set_style(handleStyle);
             this._bgStyleCache = style;
         }
     }

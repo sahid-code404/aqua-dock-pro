@@ -99,7 +99,7 @@ export class DockController {
             getMonitor: () => this._getMonitor(),
             onBlurStateChanged: (bmsActive) => {
                 if (this._cfg) {
-                    const isBmsTrans = Boolean(this._cfg.blurEffect && (bmsActive || this._chrome.bg?.has_style_class_name?.('transparent-dash')));
+                    const isBmsTrans = Boolean(this._cfg.blurEffect && bmsActive);
                     this._chrome.applyPillStyle(pillStyle(this._cfg, isBmsTrans), this._cfg);
                 }
             },
@@ -511,7 +511,7 @@ export class DockController {
         this._chrome.applyContainer(geom, this._autohide?.hidden ?? false);
         this._chrome.applyPill(geom);
         this._blur?.update(cfg);
-        const isBmsTrans = Boolean(cfg.blurEffect && (this._blur?.bmsActive || this._chrome.bg?.has_style_class_name?.('transparent-dash')));
+        const isBmsTrans = Boolean(cfg.blurEffect && this._blur?.bmsActive);
         this._chrome.applyPillStyle(pillStyle(cfg, isBmsTrans), cfg);
         this._chrome.applyAccessibility(cfg);
         this._chrome.applyStrut(geom.strut);
@@ -605,7 +605,7 @@ export class DockController {
 
         if (styleChanged) {
             this._blur?.update(this._cfg);
-            const isBmsTrans = Boolean(this._cfg.blurEffect && (this._blur?.bmsActive || this._chrome.bg?.has_style_class_name?.('transparent-dash')));
+            const isBmsTrans = Boolean(this._cfg.blurEffect && this._blur?.bmsActive);
             this._chrome.applyPillStyle(pillStyle(this._cfg, isBmsTrans), this._cfg);
         }
         if (autohideChanged)

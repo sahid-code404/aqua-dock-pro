@@ -13,6 +13,38 @@ function assert(condition, message) {
     if (!condition) throw new Error(message);
 }
 
+// Register temporary mock Shell resource for Main and PopupMenu imports
+const tmpShellDir = GLib.dir_make_tmp('aqua-dlblur-XXXXXX');
+const mainJsPath = GLib.build_filenamev([tmpShellDir, 'main.js']);
+const popupMenuJsPath = GLib.build_filenamev([tmpShellDir, 'popupMenu.js']);
+const xmlPath = GLib.build_filenamev([tmpShellDir, 'shell.gresource.xml']);
+const resPath = GLib.build_filenamev([tmpShellDir, 'shell.gresource']);
+
+GLib.file_set_contents(mainJsPath,
+    'export const extensionManager = null;\nexport const layoutManager = null;\nexport const overview = { visible: false };\nexport const uiGroup = { add_child() {}, insert_child_below() {} };\n');
+GLib.file_set_contents(popupMenuJsPath,
+    'export class PopupMenu {}\nexport class PopupMenuItem {}\nexport class PopupMenuManager {}\nexport class PopupSubMenuMenuItem {}\nexport class PopupSeparatorMenuItem {}\n');
+GLib.file_set_contents(xmlPath,
+    `<?xml version="1.0" encoding="UTF-8"?>
+<gresources>
+  <gresource prefix="/org/gnome/shell/ui">
+    <file>main.js</file>
+    <file>popupMenu.js</file>
+  </gresource>
+</gresources>`);
+
+const [resOk, , resErr, resStatus] = GLib.spawn_sync(
+    null,
+    ['glib-compile-resources', `--target=${resPath}`, `--sourcedir=${tmpShellDir}`, xmlPath],
+    null,
+    GLib.SpawnFlags.SEARCH_PATH,
+    null
+);
+assert(resOk && resStatus === 0, `glib-compile-resources failed: ${new TextDecoder().decode(resErr)}`);
+
+const shellResource = Gio.Resource.load(resPath);
+shellResource._register();
+
 // ── 1. Tile Style Transparency & Fallback ────────────────────────────────────
 {
     function createMockPill() {
@@ -53,6 +85,19 @@ function assert(condition, message) {
     assert(labelPill.style.includes('background-color: rgba(30,30,36,0.8);'),
         'applyTileStyle should fallback to normal color when blurEffect is false');
 
+    // When blurEffect is true but isBlurActive is false (BMS disabled/absent): falls back to normal color
+    applyTileStyle({ ...cfgBase, blurEffect: true }, labelPill, label, thumb, 10, false, '6px 14px', false);
+    assert(labelPill.style.includes('background-color: rgba(30,30,36,0.8);'),
+        'applyTileStyle should fallback to normal color when isBlurActive is false even if blurEffect is true');
+    assert(!labelPill.style.includes('background-color: transparent;'),
+        'applyTileStyle must NOT be transparent when isBlurActive is false');
+
+    // When dlItemColor is unset, falls back to rgba(28,28,32,${bgAlpha}) computed from bgOpacity
+    const cfgNoDlColor = { ...cfgBase, dlItemColor: null, bgOpacity: 0.50 };
+    applyTileStyle(cfgNoDlColor, labelPill, label, thumb, 10, false, '6px 14px', false);
+    assert(labelPill.style.includes('background-color: rgba(28,28,32,0.50);'),
+        'applyTileStyle should compute default color from bgOpacity when dlItemColor is unset');
+
     // High contrast overrides blur transparency
     applyTileStyle({ ...cfgBase, blurEffect: true, highContrast: true }, labelPill, label, thumb, 10, false, '6px 14px');
     assert(labelPill.style.includes('background-color: rgba(0,0,0,0.96);'),
@@ -61,101 +106,154 @@ function assert(condition, message) {
 
 // ── 2. BMS Discoverability for PanelView and FanView ────────────────────────
 {
+    const {
+        resolveAquaDockTarget,
+        setupBackgroundCorners,
+        registerBmsTarget,
+        unregisterBmsTarget,
+    } = await import('../dock/dockBlur.js');
+
+    // PanelView BMS Target Discovery
+    const panelBlurRegion = {
+        width: 360,
+        height: 420,
+        has_allocation: () => true,
+    };
+    const panelContainer = {
+        get_name: () => 'aquaDownloadsPanel',
+        name: 'aquaDownloadsPanel',
+        _isAquaDock: true,
+        _dockBg: null,
+        _dockBlurRegion: panelBlurRegion,
+        _dockBlurEnabled: true,
+        _dockRadius: 22,
+        get_children: () => [],
+        has_allocation: () => true,
+        width: 360,
+        height: 420,
+        get_dock_radius: () => 22,
+        insert_child_below() {},
+    };
+    panelContainer._dockBg = panelContainer;
+
+    const resolvedPanel = resolveAquaDockTarget(panelContainer);
+    assert(resolvedPanel !== null, 'resolveAquaDockTarget should resolve PanelView target');
+    assert(resolvedPanel.background === panelContainer,
+        'resolved background should point to PanelView _dockBg');
+    assert(resolvedPanel.content_parent === panelContainer,
+        'resolved content_parent should point to panel container');
+    assert(resolvedPanel.sibling === panelBlurRegion,
+        'resolved sibling should point to _dockBlurRegion');
+
+    // PanelView blur disabled fallback
+    panelContainer._dockBlurEnabled = false;
+    assert(resolveAquaDockTarget(panelContainer) === null,
+        'resolveAquaDockTarget must return null for PanelView when _dockBlurEnabled is false');
+    panelContainer._dockBlurEnabled = true;
+
+    // FanView BMS Target Discovery
+    const fanBlurRegion = {
+        width: 320,
+        height: 380,
+        has_allocation: () => true,
+    };
+    const fanContainer = {
+        get_name: () => 'aquaDownloadsFan',
+        name: 'aquaDownloadsFan',
+        _isAquaDock: true,
+        _dockBg: null,
+        _dockBlurRegion: fanBlurRegion,
+        _dockBlurEnabled: true,
+        _dockRadius: 20,
+        get_children: () => [],
+        has_allocation: () => true,
+        width: 320,
+        height: 380,
+        get_dock_radius: () => 20,
+        insert_child_below() {},
+    };
+    fanContainer._dockBg = fanContainer;
+
+    const resolvedFan = resolveAquaDockTarget(fanContainer);
+    assert(resolvedFan !== null, 'resolveAquaDockTarget should resolve FanView target');
+    assert(resolvedFan.background === fanContainer,
+        'resolved background should point to FanView _dockBg');
+    assert(resolvedFan.sibling === fanBlurRegion,
+        'resolved sibling should point to fan _dockBlurRegion');
+
+    // FanView blur disabled fallback
+    fanContainer._dockBlurEnabled = false;
+    assert(resolveAquaDockTarget(fanContainer) === null,
+        'resolveAquaDockTarget must return null for FanView when _dockBlurEnabled is false');
+    fanContainer._dockBlurEnabled = true;
+
+    // Test with stock BMS files if present
     const bmsTargetsPath = `${GLib.get_home_dir()}/.local/share/gnome-shell/extensions/blur-my-shell@aunetx/components/dock/dock_targets.js`;
     if (GLib.file_test(bmsTargetsPath, GLib.FileTest.EXISTS)) {
         const {
             is_supported_dock_container,
-            resolve_dock_target,
             get_dock_corners,
-            is_dock_ready,
         } = await import(`file://${bmsTargetsPath}`);
 
-        // PanelView BMS Target Discovery
-        const panelBlurRegion = {
-            width: 360,
-            height: 420,
-            has_allocation: () => true,
-        };
-        const panelContainer = {
-            get_name: () => 'aquaDownloadsPanel',
-            _isAquaDock: true,
-            _dockBg: null,
-            _dockBlurRegion: panelBlurRegion,
-            _dockBlurEnabled: true,
-            _dockRadius: 22,
-            get_children: () => [],
-            has_allocation: () => true,
-            width: 360,
-            height: 420,
-            get_dock_radius: () => 22,
-        };
-        panelContainer._dockBg = panelContainer;
+        // Pure stock BMS dock_targets.js does not recognize popups directly (by design)
+        assert(is_supported_dock_container(panelContainer) === false,
+            'Pure stock BMS does not recognize PanelView on disk');
+        assert(is_supported_dock_container(fanContainer) === false,
+            'Pure stock BMS does not recognize FanView on disk');
 
-        assert(is_supported_dock_container(panelContainer),
-            'Blur my Shell is_supported_dock_container should recognize PanelView via _isAquaDock');
+        if (!globalThis.global) globalThis.global = {};
+        globalThis.global.stage = {};
+        const St = (await import('gi://St')).default;
+        if (St?.ThemeContext) {
+            St.ThemeContext.get_for_stage = () => ({ scale_factor: 1 });
+        }
 
-        const resolvedPanel = resolve_dock_target(panelContainer);
-        assert(resolvedPanel !== null, 'resolve_dock_target should resolve PanelView target');
-        assert(resolvedPanel.background === panelContainer,
-            'resolved background should point to PanelView _dockBg');
-        assert(resolvedPanel.content_parent === panelContainer,
-            'resolved content_parent should point to panel container');
-        assert(resolvedPanel.sibling === panelBlurRegion,
-            'resolved sibling should point to _dockBlurRegion');
-
-        const panelCorners = get_dock_corners(resolvedPanel.background);
+        setupBackgroundCorners(panelContainer, () => 22);
+        const panelCorners = get_dock_corners(panelContainer);
         assert(panelCorners.radius === 22,
             `get_dock_corners should read explicit panel _dockRadius 22 (got ${panelCorners.radius})`);
-        assert(is_dock_ready(panelContainer, resolvedPanel),
-            'is_dock_ready should succeed for allocated PanelView');
 
-        // PanelView blur disabled fallback
-        panelContainer._dockBlurEnabled = false;
-        assert(resolve_dock_target(panelContainer) === null,
-            'resolve_dock_target must return null for PanelView when _dockBlurEnabled is false');
-
-        // FanView BMS Target Discovery
-        const fanBlurRegion = {
-            width: 320,
-            height: 380,
-            has_allocation: () => true,
-        };
-        const fanContainer = {
-            get_name: () => 'aquaDownloadsFan',
-            _isAquaDock: true,
-            _dockBg: null,
-            _dockBlurRegion: fanBlurRegion,
-            _dockBlurEnabled: true,
-            _dockRadius: 20,
-            get_children: () => [],
-            has_allocation: () => true,
-            width: 320,
-            height: 380,
-            get_dock_radius: () => 20,
-        };
-        fanContainer._dockBg = fanContainer;
-
-        assert(is_supported_dock_container(fanContainer),
-            'Blur my Shell is_supported_dock_container should recognize FanView via _isAquaDock');
-
-        const resolvedFan = resolve_dock_target(fanContainer);
-        assert(resolvedFan !== null, 'resolve_dock_target should resolve FanView target');
-        assert(resolvedFan.background === fanContainer,
-            'resolved background should point to FanView _dockBg');
-        assert(resolvedFan.sibling === fanBlurRegion,
-            'resolved sibling should point to fan _dockBlurRegion');
-
-        const fanCorners = get_dock_corners(resolvedFan.background);
+        setupBackgroundCorners(fanContainer, () => 20);
+        const fanCorners = get_dock_corners(fanContainer);
         assert(fanCorners.radius === 20,
             `get_dock_corners should read explicit fan _dockRadius 20 (got ${fanCorners.radius})`);
-        assert(is_dock_ready(fanContainer, resolvedFan),
-            'is_dock_ready should succeed for allocated FanView');
-
-        // FanView blur disabled fallback
-        fanContainer._dockBlurEnabled = false;
-        assert(resolve_dock_target(fanContainer) === null,
-            'resolve_dock_target must return null for FanView when _dockBlurEnabled is false');
     }
+
+    // Test in-memory BMS registration
+    const mockDashBlur = {
+        enabled: true,
+        is_static: false,
+        settings: { dash_to_dock: { STATIC_BLUR: false, PIPELINE: 'default' } },
+        dashes: [],
+        add_blur(dash_container, target) {
+            return {
+                background: { x: 0, y: 0, width: 0, height: 0, set_position() {}, set_size() {}, set_clip() {} },
+                background_group: { parent: dash_container, get_parent() { return this.parent; }, destroy() {} },
+                bg_manager: { destroy() {} },
+                pipeline: { set_corner_radius() {}, destroy() {} },
+                rounded_pipeline: null,
+                corner_settings: { radius: 20, corners: 0 },
+            };
+        },
+        try_blur() {},
+        queue_discovery() {},
+        update_background() {},
+    };
+    globalThis.global = {
+        blur_my_shell: {
+            _dash_to_dock_blur: mockDashBlur,
+        },
+    };
+
+    registerBmsTarget(panelContainer);
+    assert(mockDashBlur.dashes.length === 1, 'registerBmsTarget should register panel into BMS dashes');
+    registerBmsTarget(fanContainer);
+    assert(mockDashBlur.dashes.length === 2, 'registerBmsTarget should register fan into BMS dashes');
+
+    unregisterBmsTarget(panelContainer);
+    unregisterBmsTarget(fanContainer);
+    assert(mockDashBlur.dashes.length === 0, 'unregisterBmsTarget should cleanly unregister popups');
+    delete globalThis.global.blur_my_shell;
 }
 
 // ── 3. PanelView & FanView Structure, Properties, and Fallback ───────────────
@@ -306,6 +404,45 @@ function assert(condition, message) {
     assert(fanOff._isAquaDock === true, 'fanOff._isAquaDock is true');
     assert(fanOff._dockBlurEnabled === false, 'fanOff._dockBlurEnabled must be false');
     assert(fanBlurRegionOff.visible === false, 'fanBlurRegionOff must be hidden when blurEffect is false');
+
+    // Test PanelView fallback when BMS is absent/disabled (even if blurEffect is true)
+    delete globalThis.global?.blur_my_shell;
+    const { isBmsDockBlurActive } = await import('../dock/dockBlur.js');
+    const { applyAlpha } = await import('../dock/dockLayout.js');
+    assert(isBmsDockBlurActive() === false, 'isBmsDockBlurActive must return false when BMS is absent');
+
+    function simulateRealPanelView(cfg) {
+        const a = (cfg.bgOpacity ?? 0.8).toFixed(2);
+        const radius = cfg.downloadsBorderRadius ?? 24;
+        const blurActive = Boolean(cfg.blurEffect && isBmsDockBlurActive());
+        const normalFill = cfg.downloadsPillColor ?? (cfg.pillColor ? applyAlpha(cfg.pillColor, cfg.bgOpacity ?? 0.8) : `rgba(28,28,32,${a})`);
+        const fill = cfg.highContrast ? 'rgba(0,0,0,0.96)' : (blurActive ? 'transparent' : normalFill);
+
+        const panel = new MockActor('panel');
+        panel.set_style(`border-radius: ${radius}px; background-color: ${fill}; border: 1px solid rgba(255,255,255,0.16);`);
+        const blurRegion = new MockActor('aqua-downloads-panel-blur-region');
+        panel._blurRegion = blurRegion;
+        panel._dockBlurRegion = blurRegion;
+        panel._dockBg = panel;
+        panel._isAquaDock = true;
+        panel._dockBlurEnabled = blurActive;
+        panel._dockRadius = radius;
+        if (!blurActive) blurRegion.hide();
+        return { panel, blurRegion, blurActive };
+    }
+
+    const panelNoBms = simulateRealPanelView({
+        blurEffect: true,
+        pillColor: 'rgba(28,28,32,0.80)',
+        bgOpacity: 0.60,
+    });
+    assert(panelNoBms.blurActive === false, 'blurActive must be false when BMS is absent');
+    assert(panelNoBms.panel._dockBlurEnabled === false, 'panel._dockBlurEnabled must be false when BMS is absent');
+    assert(panelNoBms.blurRegion.visible === false, 'blurRegion must be hidden when BMS is absent');
+    assert(!panelNoBms.panel.style.includes('background-color: transparent;'),
+        'panel must NOT have transparent background when BMS is absent');
+    assert(panelNoBms.panel.style.includes('background-color: rgba(28, 28, 32, 0.480);'),
+        'panel must show normal transparency with configured pillColor and bgOpacity when BMS is absent');
 }
 
 // ── 4. Settings and DownloadsStack Controller ────────────────────────────────
@@ -320,46 +457,13 @@ function assert(condition, message) {
     assert(checkDownloadsChanged('icon-size') === false, 'unrelated keys do not trigger downloadsChanged');
 
     // Test DownloadsStack getter signatures
-    const tmpDir = GLib.dir_make_tmp('aqua-stack-test-XXXXXX');
-    try {
-        const mainJsPath = GLib.build_filenamev([tmpDir, 'main.js']);
-        const popupMenuJsPath = GLib.build_filenamev([tmpDir, 'popupMenu.js']);
-        const xmlPath = GLib.build_filenamev([tmpDir, 'shell.gresource.xml']);
-        const resPath = GLib.build_filenamev([tmpDir, 'shell.gresource']);
-
-        GLib.file_set_contents(mainJsPath,
-            'export const extensionManager = null;\nexport const layoutManager = null;\nexport const uiGroup = { add_child() {} };\n');
-        GLib.file_set_contents(popupMenuJsPath,
-            'export class PopupMenu {}\nexport class PopupMenuItem {}\nexport class PopupMenuManager {}\nexport class PopupSubMenuMenuItem {}\nexport class PopupSeparatorMenuItem {}\n');
-        GLib.file_set_contents(xmlPath,
-            `<?xml version="1.0" encoding="UTF-8"?>
-<gresources>
-  <gresource prefix="/org/gnome/shell/ui">
-    <file>main.js</file>
-    <file>popupMenu.js</file>
-  </gresource>
-</gresources>`);
-
-        const [ok, , stderr, status] = GLib.spawn_sync(
-            null,
-            ['glib-compile-resources', `--target=${resPath}`, `--sourcedir=${tmpDir}`, xmlPath],
-            null,
-            GLib.SpawnFlags.SEARCH_PATH,
-            null
-        );
-        assert(ok && status === 0, `glib-compile-resources failed: ${new TextDecoder().decode(stderr)}`);
-
-        const resource = Gio.Resource.load(resPath);
-        resource._register();
-
-        const projectRoot = GLib.get_current_dir();
-        const { DownloadsStack } = await import(`file://${projectRoot}/downloads/downloadsStack.js`);
-        const stack = new DownloadsStack(() => ({ x: 0, y: 0, width: 1920, height: 1080 }));
-        assert(stack.blurRegion === null, 'DownloadsStack.blurRegion is null initially');
-        assert(stack.view === null, 'DownloadsStack.view is null initially');
-    } finally {
-        GLib.spawn_sync(null, ['rm', '-rf', tmpDir], null, GLib.SpawnFlags.SEARCH_PATH, null);
-    }
+    const projectRoot = GLib.get_current_dir();
+    const { DownloadsStack } = await import(`file://${projectRoot}/downloads/downloadsStack.js`);
+    const stack = new DownloadsStack(() => ({ x: 0, y: 0, width: 1920, height: 1080 }));
+    assert(stack.blurRegion === null, 'DownloadsStack.blurRegion is null initially');
+    assert(stack.view === null, 'DownloadsStack.view is null initially');
 }
+
+GLib.spawn_sync(null, ['rm', '-rf', tmpShellDir], null, GLib.SpawnFlags.SEARCH_PATH, null);
 
 print('downloadsBlur: ok');

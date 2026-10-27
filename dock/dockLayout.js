@@ -4,12 +4,42 @@ import { clamp } from '../core/utils.js';
 import { ICON_BOT, BG_PAD_X, DOT_SIZE, SEP_W, SEP_PAD } from '../core/constants.js';
 import { magnificationParams } from '../animation/springSolver.js';
 
-// Parse rgb/rgba and multiply alpha by `factor`; pass through anything else.
+// Parse rgb/rgba/hex and multiply alpha by `factor`; pass through anything else.
 export function applyAlpha(colorStr, factor) {
+    if (!colorStr) return colorStr;
     const m = colorStr.match(/rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*(?:,\s*([\d.]+))?\s*\)/);
-    if (!m) return colorStr;
-    const a = (m[4] !== undefined ? parseFloat(m[4]) : 1) * factor;
-    return `rgba(${m[1]}, ${m[2]}, ${m[3]}, ${a.toFixed(3)})`;
+    if (m) {
+        const a = (m[4] !== undefined ? parseFloat(m[4]) : 1) * factor;
+        return `rgba(${m[1]}, ${m[2]}, ${m[3]}, ${a.toFixed(3)})`;
+    }
+    const hex = colorStr.match(/^#?([0-9a-f]{3,8})$/i);
+    if (hex) {
+        const h = hex[1];
+        let r, g, b, a = 1;
+        if (h.length === 3) {
+            r = parseInt(h[0] + h[0], 16);
+            g = parseInt(h[1] + h[1], 16);
+            b = parseInt(h[2] + h[2], 16);
+        } else if (h.length === 4) {
+            r = parseInt(h[0] + h[0], 16);
+            g = parseInt(h[1] + h[1], 16);
+            b = parseInt(h[2] + h[2], 16);
+            a = parseInt(h[3] + h[3], 16) / 255;
+        } else if (h.length === 6) {
+            r = parseInt(h.slice(0, 2), 16);
+            g = parseInt(h.slice(2, 4), 16);
+            b = parseInt(h.slice(4, 6), 16);
+        } else if (h.length === 8) {
+            r = parseInt(h.slice(0, 2), 16);
+            g = parseInt(h.slice(2, 4), 16);
+            b = parseInt(h.slice(4, 6), 16);
+            a = parseInt(h.slice(6, 8), 16) / 255;
+        }
+        if (r !== undefined) {
+            return `rgba(${r}, ${g}, ${b}, ${(a * factor).toFixed(3)})`;
+        }
+    }
+    return colorStr;
 }
 
 // The cached CSS for the background pill.
@@ -17,9 +47,8 @@ export function pillStyle(cfg, isTransparent = false) {
     const bw = cfg.highContrast ? Math.max(2, cfg.borderWidth ?? 1) : (cfg.borderWidth ?? 1);
     const bc = cfg.highContrast ? '#ffffff' : (cfg.borderColor ?? 'rgba(255,255,255,0.16)');
     const border = bw > 0 ? `${bw}px solid ${bc}` : 'none';
-    const transparent = Boolean(isTransparent || cfg.blurEffect);
     const fill = cfg.highContrast ? 'rgba(0,0,0,0.96)'
-        : (transparent ? 'transparent' : applyAlpha(cfg.pillColor ?? 'rgba(28,28,32,0.78)', clamp(cfg.bgOpacity, 0.1, 1.0)));
+        : (isTransparent ? 'transparent' : applyAlpha(cfg.pillColor ?? 'rgba(28,28,32,0.78)', clamp(cfg.bgOpacity ?? 0.78, 0.1, 1.0)));
     return `border-radius: ${cfg.dockRadius}px; border: ${border}; background-color: ${fill};`;
 }
 

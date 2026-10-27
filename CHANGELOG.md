@@ -1,5 +1,12 @@
 # Changelog
 
+## 269
+
+- Implement universal in-memory compatibility with stock upstream Blur My Shell v76 without requiring third-party extension file modifications.
+- Implement AquaDockSurface conforming to BMS's DockSurface contract for dynamic and static wallpaper blur pipelines.
+- Ensure clean fallback to configured background opacity and colors whenever Blur My Shell is disabled, removed, or toggling off.
+- Handle stock BMS disable signal order to prevent ghost re-registration and transparent background sticking.
+
 ## 268
 
 - Remove all native Shell.BlurEffect blur from the extension; dock pill and downloads stack popups (fan and panel views) now rely exclusively on Blur My Shell's pipeline.

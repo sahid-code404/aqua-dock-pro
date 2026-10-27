@@ -14,6 +14,7 @@ import { aboveDockY, fanOrientation, sideFanX } from './fanGeometry.js';
 import { applyTileStyle } from './tileStyle.js';
 import { SelectionModel } from './keyboardNav.js';
 import { buildPlaceIcon } from './placeIcon.js';
+import { isBmsDockBlurActive, registerBmsTarget, unregisterBmsTarget, setupBackgroundCorners } from '../dock/dockBlur.js';
 
 const LABEL_WIDTH = 86;
 const CONTENT_GAP = 14;
@@ -111,7 +112,7 @@ export class FanView {
         fan.set_size(panelW, panelH);
         fan.set_style('background-color: transparent; border: none;');
 
-        const blurEnabled = Boolean(cfg.blurEffect);
+        const blurActive = Boolean(cfg.blurEffect && isBmsDockBlurActive());
         const blurRegion = new St.Widget({
             name: 'aqua-downloads-fan-blur-region',
             style_class: 'aqua-blur-region',
@@ -120,21 +121,26 @@ export class FanView {
         blurRegion._dockRadius = 20;
         blurRegion.set_style('border-radius: 20px;');
         this._blurRegion = blurRegion;
+        this._blurActive = blurActive;
         fan._blurRegion = blurRegion;
         fan._dockBlurRegion = blurRegion;
         fan._dockBg = fan;
         fan._isAquaDock = true;
-        fan._dockBlurEnabled = blurEnabled;
+        fan._dockBlurEnabled = blurActive;
         fan._dockRadius = 20;
         fan.get_dock_radius = () => 20;
+        setupBackgroundCorners(fan, () => 20);
 
         Main.uiGroup.add_child(fan);
         Main.uiGroup.insert_child_below(blurRegion, fan);
-        if (!blurEnabled) {
+        if (!blurActive) {
             blurRegion.hide();
+        } else {
+            registerBmsTarget(fan);
         }
 
         fan.connect('destroy', () => {
+            unregisterBmsTarget(fan);
             try { blurRegion.destroy(); } catch { }
         });
 
@@ -174,8 +180,8 @@ export class FanView {
 
         if (reduce) {
             fan.opacity = 255;
-            if (blurEnabled) blurRegion.opacity = 255;
-        } else if (blurEnabled) {
+            if (blurActive) blurRegion.opacity = 255;
+        } else if (blurActive) {
             blurRegion.ease({ opacity: 255, duration: 240, mode: Clutter.AnimationMode.EASE_OUT_QUAD });
         }
         return fan;
@@ -224,7 +230,7 @@ export class FanView {
         btn.set_child(box);
         btn._thumb = thumb;
         btn._updatePillStyle = hover =>
-            applyTileStyle(this.cfg, labelPill, label, thumb, thumbRadius, hover, '6px 14px');
+            applyTileStyle(this.cfg, labelPill, label, thumb, thumbRadius, hover, '6px 14px', this._blurActive);
         btn._updatePillStyle(false);
         btn.connect('notify::hover', () => {
             if (!btn.hover) return;
@@ -296,7 +302,7 @@ export class FanView {
         if (this._blurRegion) {
             try {
                 this._blurRegion.remove_all_transitions();
-                if (this.cfg?.blurEffect) this._blurRegion.opacity = 255;
+                if (this._blurActive) this._blurRegion.opacity = 255;
             } catch { }
         }
         for (const row of this._model.rows) {
@@ -324,7 +330,7 @@ export class FanView {
         }
         const kids = actor.get_children();
         const n = kids.length;
-        if (this._blurRegion && this.cfg?.blurEffect) {
+        if (this._blurRegion && this._blurActive) {
             this._blurRegion.ease({
                 opacity: 0,
                 duration: 260 + n * 18,
