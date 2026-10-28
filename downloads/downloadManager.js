@@ -155,6 +155,10 @@ export class DownloadManager {
         if (!this._stack && this._host)
             this._stack = new DownloadsStack(this._host.getMonitor);
         if (!this._stack) return;
+        if (this._stack.isOpen) {
+            this._stack.hide();
+            return;
+        }
         const cfg = this._host.getConfig();
         try { item.bounce(Math.round(cfg.bounceHeight * 0.6), { decay: cfg.bounceDecay }); }
         catch { }

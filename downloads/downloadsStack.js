@@ -61,17 +61,28 @@ export class DownloadsStack {
         if (!mon) { this.hide(); return; }
         const origin = this._origin(anchor, mon, cfg);
 
+        const dockContainer = anchor?.get_parent?.() ??
+            (typeof Main.uiGroup.get_children === 'function'
+                ? Main.uiGroup.get_children().find(c => c.name === 'aquaDockContainer')
+                : null);
+
         const blocker = new St.Widget({ reactive: true, opacity: 0 });
         blocker.set_position(mon.x, mon.y);
         blocker.set_size(mon.width, mon.height);
         blocker.connect('button-press-event', () => { this.hide(); return Clutter.EVENT_STOP; });
-        Main.uiGroup.add_child(blocker);
+        if (dockContainer && typeof Main.uiGroup.insert_child_below === 'function') {
+            Main.uiGroup.insert_child_below(blocker, dockContainer);
+        } else {
+            Main.uiGroup.add_child(blocker);
+        }
         this._blocker = blocker;
         this._opening = false;
 
         const files = listing.files;
         const totalFiles = listing.total;
         const opts = {
+            anchor,
+            dockContainer,
             folder,
             files,
             totalFiles,

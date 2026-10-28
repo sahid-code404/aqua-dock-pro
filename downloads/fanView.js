@@ -144,7 +144,15 @@ export class FanView {
         const blurActive = Boolean(cfg.blurEffect && isBmsDockBlurActive());
         this._blurActive = blurActive;
 
-        Main.uiGroup.add_child(fan);
+        const dockContainer = this.dockContainer ?? this.anchor?.get_parent?.() ??
+            (typeof Main.uiGroup.get_children === 'function'
+                ? Main.uiGroup.get_children().find(c => c.name === 'aquaDockContainer')
+                : null);
+        if (dockContainer && typeof Main.uiGroup.insert_child_below === 'function') {
+            Main.uiGroup.insert_child_below(fan, dockContainer);
+        } else {
+            Main.uiGroup.add_child(fan);
+        }
 
         const anchorLX = originX - px, anchorLY = ay - py;
         this._collapse = { x: anchorLX, y: anchorLY };

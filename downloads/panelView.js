@@ -143,7 +143,15 @@ export class PanelView {
         panel.get_dock_radius = () => radius;
         setupBackgroundCorners(panel, () => radius);
 
-        Main.uiGroup.add_child(panel);
+        const dockContainer = this.dockContainer ?? this.anchor?.get_parent?.() ??
+            (typeof Main.uiGroup.get_children === 'function'
+                ? Main.uiGroup.get_children().find(c => c.name === 'aquaDockContainer')
+                : null);
+        if (dockContainer && typeof Main.uiGroup.insert_child_below === 'function') {
+            Main.uiGroup.insert_child_below(panel, dockContainer);
+        } else {
+            Main.uiGroup.add_child(panel);
+        }
         Main.uiGroup.insert_child_below(blurRegion, panel);
         if (!blurActive) {
             blurRegion.hide();

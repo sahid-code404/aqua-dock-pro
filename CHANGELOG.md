@@ -1,5 +1,12 @@
 # Changelog
 
+## 279
+
+- Layer stack overlays (FanView, PanelView, blur regions, and dismiss blocker) behind dock application icons in GNOME Shell `Main.uiGroup`.
+- Ensure fan and panel pills emerge from behind the dock application icons during expansion and collapse, matching macOS stack behavior.
+- Keep dock application icons and magnifications strictly in the foreground above emerging stack pills.
+- Support toggle-close when clicking an open stack's folder icon, and automatically dismiss open stacks when activating another dock item.
+
 ## 278
 
 - Enhance fan animation smoothness and distinct one-by-one sequential appearance.

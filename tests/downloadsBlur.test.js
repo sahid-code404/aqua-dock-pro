@@ -22,7 +22,7 @@ const xmlPath = GLib.build_filenamev([tmpShellDir, 'shell.gresource.xml']);
 const resPath = GLib.build_filenamev([tmpShellDir, 'shell.gresource']);
 
 GLib.file_set_contents(mainJsPath,
-    'export const extensionManager = null;\nexport const layoutManager = null;\nexport const overview = { visible: false };\nexport const uiGroup = { add_child() {}, insert_child_below() {} };\n');
+    'export const extensionManager = null;\nexport const layoutManager = null;\nexport const overview = { visible: false };\nexport const uiGroup = { add_child() {}, insert_child_below() {}, get_children() { return []; } };\n');
 GLib.file_set_contents(popupMenuJsPath,
     'export class PopupMenu {}\nexport class PopupMenuItem {}\nexport class PopupMenuManager {}\nexport class PopupSubMenuMenuItem {}\nexport class PopupSeparatorMenuItem {}\n');
 GLib.file_set_contents(xmlPath,
@@ -637,6 +637,7 @@ shellResource._register();
     const stack = new DownloadsStack(() => ({ x: 0, y: 0, width: 1920, height: 1080 }));
     assert(stack.blurRegion === null, 'DownloadsStack.blurRegion is null initially');
     assert(stack.view === null, 'DownloadsStack.view is null initially');
+    assert(stack.isOpen === false, 'DownloadsStack.isOpen is false initially');
 }
 
 GLib.spawn_sync(null, ['rm', '-rf', tmpShellDir], null, GLib.SpawnFlags.SEARCH_PATH, null);

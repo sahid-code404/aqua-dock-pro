@@ -925,6 +925,9 @@ export class DockController {
             } catch (e) { logError(e, 'open folder stack'); }
             return;
         }
+        if (this._downloads.stackOpen) {
+            try { this._downloads.closeStack(); } catch { }
+        }
         if (button === 3) {
             try { this._menu.openFor(item); }
             catch (e) { logError(e, 'openMenu'); }
