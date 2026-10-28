@@ -1,5 +1,13 @@
 # Changelog
 
+## 278
+
+- Enhance fan animation smoothness and distinct one-by-one sequential appearance.
+- Replace harsh linear curve with Apple-style fluid cubic deceleration easing (`Clutter.AnimationMode.EASE_OUT_CUBIC`) on expansion and accelerating collapse (`EASE_IN_QUAD`).
+- Increase sequential stagger to 38ms (and duration to 220ms with 180ms fade) so each individual pill clearly and distinctly emerges one by one in a rolling wave.
+- Tune reverse collapse to 150ms with 20ms reverse stagger and 120ms fade-out for crisp, snappy closing into the dock folder icon.
+- Maintain zero overlapping 3D layers and zero multi-pill blur redraw overhead.
+
 ## 277
 
 - Implement linear sequential "one by one" fan opening and closing along the arc without overlapping 3D layers.

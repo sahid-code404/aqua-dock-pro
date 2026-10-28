@@ -19,20 +19,20 @@ import { isBmsDockBlurActive, registerBmsTarget, unregisterBmsTarget, setupBackg
 const LABEL_WIDTH = 86;
 const CONTENT_GAP = 14;
 
-// Configurable linear sequential "one by one" fan animation profile
-// Pills emerge sequentially along the arc from their lower neighbor/dock icon without overlapping 3D layers
+// Configurable sequential "one by one" fan animation profile
+// Pills emerge smoothly one by one along the arc with organic deceleration easing
 export const FAN_ANIM = {
     open: {
-        duration: 110,                              // Fast 110ms linear translation per step
-        stagger: 24,                               // 24ms sequential stagger: pills open one by one
-        mode: Clutter.AnimationMode.LINEAR,        // Crisp linear opening
-        fadeDuration: 100,                          // Smooth linear fade-in
+        duration: 220,                              // Silky smooth 220ms translation per item
+        stagger: 38,                               // 38ms sequential stagger for clearly visible one-by-one appearance
+        mode: Clutter.AnimationMode.EASE_OUT_CUBIC, // Apple-style fluid deceleration into resting slots
+        fadeDuration: 180,                          // Smooth alpha fade-in
     },
     close: {
-        duration: 90,                               // 90ms snappy collapse per step
-        stagger: 18,                               // 18ms reverse sequential cascade
-        mode: Clutter.AnimationMode.LINEAR,        // Crisp linear closing
-        fadeDuration: 80,                           // Clean fade-out
+        duration: 150,                              // Snappy 150ms collapse per item
+        stagger: 20,                               // 20ms reverse cascade collapse into dock folder
+        mode: Clutter.AnimationMode.EASE_IN_QUAD,   // Accelerating collapse into folder
+        fadeDuration: 120,                          // Clean fade-out
     },
 };
 
