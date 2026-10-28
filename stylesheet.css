@@ -108,15 +108,36 @@
 }
 
 /* ── App-name tooltip (colours/radius/border set inline) ──────────────────── */
-.aqua-tooltip {
+.aqua-tooltip-container {
+    background-color: transparent;
+    border:           none;
+    box-shadow:       none;
+}
+.aqua-tooltip-bubble {
     background-color: rgba(32, 32, 36, 0.92);
     color:            #f2f2f4;
-    border-radius:    9px;
-    padding:          6px 12px;
+    border-radius:    6px;
+    padding:          5px 12px;
     font-size:        10pt;
     font-weight:      500;
     letter-spacing:   0.01em;
     box-shadow:       none;
+    text-align:       center;
+}
+.transparent-dash .aqua-tooltip-bubble,
+.transparent-dash.aqua-tooltip-bubble,
+.aqua-tooltip-bubble.transparent-dash {
+    background-color: transparent !important;
+}
+.aqua-tooltip {
+    background-color: transparent;
+    color:            #f2f2f4;
+    padding:          0;
+    font-size:        10pt;
+    font-weight:      500;
+    letter-spacing:   0.01em;
+    box-shadow:       none;
+    text-align:       center;
 }
 
 /* ── Context menu (box colours/radius set inline) ─────────────────────────── */
@@ -132,6 +153,21 @@
     padding:          5px 0;
     min-width:        220px;
     max-width:        220px;
+}
+.transparent-dash .aqua-menu .popup-menu-content,
+.aqua-menu.transparent-dash .popup-menu-content,
+.aqua-menu .popup-menu-content.transparent-dash,
+.bms-popup-background-transparent .aqua-menu .popup-menu-content,
+.bms-popup-surface-transparent .aqua-menu .popup-menu-content {
+    background-color: transparent !important;
+}
+.bms-popup-background-dark .aqua-menu .popup-menu-content,
+.bms-popup-surface-dark .aqua-menu .popup-menu-content {
+    background-color: rgba(35, 36, 40, 0.45) !important;
+}
+.bms-popup-background-light .aqua-menu .popup-menu-content,
+.bms-popup-surface-light .aqua-menu .popup-menu-content {
+    background-color: rgba(240, 240, 245, 0.45) !important;
 }
 .aqua-menu .popup-menu-item {
     color:         rgba(235, 235, 240, 0.90);

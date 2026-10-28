@@ -9,6 +9,14 @@ import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import { _ } from '../core/i18n.js';
 import { logError } from '../core/utils.js';
 import { copyFileToClipboard } from './fileClipboard.js';
+import { applyAlpha } from '../dock/dockLayout.js';
+import {
+    isBmsPopupBlurActive,
+    isBmsDockBlurActive,
+    isBmsMenuBlurActive,
+    registerBmsTarget,
+    unregisterBmsTarget,
+} from '../dock/dockBlur.js';
 
 export class FileItemMenu {
     constructor(mon, cfg) {
@@ -18,6 +26,7 @@ export class FileItemMenu {
         this._ownerDestroyId = 0;
         this._manager = null;
         this._menu = null;
+        this._blurRegistered = false;
     }
 
     bind(owner) {
@@ -45,6 +54,7 @@ export class FileItemMenu {
         const menu = new PopupMenu.PopupMenu(actor, 0.5, this._sideFor(actor));
         this._menu = menu;
         try {
+            menu.actor.name = 'aquaMenu';
             menu.actor.add_style_class_name('aqua-menu');
             menu.actor.add_style_class_name('aqua-file-item-menu');
             const copyItem = menu.addAction(_('Copy'), () => {
@@ -57,6 +67,7 @@ export class FileItemMenu {
             this._manager.addMenu(menu);
             Main.uiGroup.add_child(menu.actor);
             this._styleMenu(menu, [copyItem]);
+            this._setupBlur(menu);
             menu.actor.hide();
             menu.open();
         } catch (error) {
@@ -82,8 +93,10 @@ export class FileItemMenu {
 
     _styleMenu(menu, actionItems) {
         const radius = this._cfg.menuRadius ?? 12;
-        const background = this._cfg.highContrast ? 'rgba(0,0,0,0.98)'
+        const blurActive = isBmsMenuBlurActive(this._cfg);
+        const normalBg = this._cfg.highContrast ? 'rgba(0,0,0,0.98)'
             : (this._cfg.menuBg || 'rgba(35,36,40,0.94)');
+        const background = blurActive ? applyAlpha(normalBg, 0.45) : normalBg;
         const foreground = this._cfg.highContrast ? '#ffffff'
             : (this._cfg.menuFg || 'rgba(235,235,240,0.90)');
         const borderWidth = this._cfg.highContrast ? Math.max(2, this._cfg.menuBorderWidth ?? 1)
@@ -105,8 +118,33 @@ export class FileItemMenu {
             item.label?.set_style(`color: ${foreground}; font-size: ${fontSize}pt;`);
     }
 
+    _setupBlur(menu) {
+        const radius = this._cfg.menuRadius ?? 12;
+        const blurActive = isBmsMenuBlurActive(this._cfg);
+        if (!blurActive) return;
+
+        if (isBmsPopupBlurActive()) return;
+
+        if (isBmsDockBlurActive() && menu?.actor) {
+            menu.actor._isAquaDock = true;
+            menu.actor.name = 'aquaMenu';
+            menu.actor._dockBlurEnabled = true;
+            menu.actor._dockBg = menu.actor;
+            menu.actor._dockContent = menu.actor;
+            menu.actor._dockContentParent = Main.uiGroup;
+            menu.actor._dockRadius = radius;
+            menu.actor.get_dock_radius = () => radius;
+            registerBmsTarget(menu.actor, () => radius);
+            this._blurRegistered = true;
+        }
+    }
+
     _destroyMenu() {
         if (!this._menu) return;
+        if (this._blurRegistered) {
+            unregisterBmsTarget(this._menu.actor);
+            this._blurRegistered = false;
+        }
         try { this._manager?.removeMenu(this._menu); } catch { }
         try { this._menu.destroy(); } catch { }
         this._menu = null;

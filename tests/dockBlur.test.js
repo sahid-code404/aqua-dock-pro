@@ -222,6 +222,9 @@ shellResource._register();
 {
     const {
         resolveAquaDockTarget,
+        isBmsDockBlurActive,
+        isBmsPopupBlurActive,
+        isBmsMenuBlurActive,
         setupBackgroundCorners,
         registerBmsTarget,
         unregisterBmsTarget,
@@ -642,6 +645,107 @@ shellResource._register();
 
         bmsManager.destroy();
         delete globalThis.global.blur_my_shell;
+}
+
+// ── 6. Context Menu Blur Target Resolution, BMS Coordination & Styling ────────
+{
+    const {
+        resolveAquaDockTarget,
+        isBmsDockBlurActive,
+        isBmsPopupBlurActive,
+        isBmsMenuBlurActive,
+        registerBmsTarget,
+        unregisterBmsTarget,
+    } = await import('../dock/dockBlur.js');
+
+    // 1. Detection when BMS is absent
+    delete globalThis.global?.blur_my_shell;
+    assert(isBmsPopupBlurActive() === false, 'isBmsPopupBlurActive must be false when BMS is absent');
+    assert(isBmsDockBlurActive() === false, 'isBmsDockBlurActive must be false when BMS is absent');
+    assert(isBmsMenuBlurActive({ blurEffect: true }) === false, 'isBmsMenuBlurActive must be false when BMS is absent');
+
+    // 2. Detection when BMS has popup blur active
+    if (!globalThis.global) globalThis.global = {};
+    globalThis.global.blur_my_shell = {
+        _popup: { enabled: true },
+        _dash_to_dock_blur: { enabled: false, dashes: [] },
+    };
+    assert(isBmsPopupBlurActive() === true, 'isBmsPopupBlurActive must be true when _popup.enabled is true');
+    assert(isBmsMenuBlurActive({ blurEffect: true }) === true, 'isBmsMenuBlurActive must be true with popup blur active');
+    assert(isBmsMenuBlurActive({ blurEffect: false }) === false, 'isBmsMenuBlurActive must be false when blurEffect is false');
+    assert(isBmsMenuBlurActive({ blurEffect: true, highContrast: true }) === false, 'isBmsMenuBlurActive must be false on highContrast');
+
+    // 3. Detection when BMS popup blur is disabled but dock blur is active
+    globalThis.global.blur_my_shell = {
+        _popup: { enabled: false },
+        _dash_to_dock_blur: { enabled: true, dashes: [], add_blur: () => ({ background_group: {} }), try_blur() {} },
+    };
+    assert(isBmsPopupBlurActive() === false, 'isBmsPopupBlurActive must be false when _popup.enabled is false');
+    assert(isBmsDockBlurActive() === true, 'isBmsDockBlurActive must be true when dash blur is active');
+    assert(isBmsMenuBlurActive({ blurEffect: true }) === true, 'isBmsMenuBlurActive must be true with dock blur fallback');
+
+    // 4. Target resolution for aquaMenu
+    const menuContainer = {
+        name: 'aquaMenu',
+        _isAquaDock: true,
+        _dockBlurEnabled: true,
+        _dockBg: { width: 220, height: 180 },
+        _dockRadius: 12,
+        has_style_class_name: (cls) => cls === 'aqua-menu',
+    };
+    const resolvedMenu = resolveAquaDockTarget(menuContainer);
+    assert(resolvedMenu !== null, 'resolveAquaDockTarget must resolve aquaMenu');
+    assert(resolvedMenu.background === menuContainer._dockBg, 'resolved background must match menuBg');
+
+    menuContainer._dockBlurEnabled = false;
+    assert(resolveAquaDockTarget(menuContainer) === null, 'resolveAquaDockTarget must return null when blur is disabled');
+    menuContainer._dockBlurEnabled = true;
+
+    // 5. Menu styling calculation
+    const defaultMenuBg = 'rgba(35,36,40,0.94)';
+    const normalStyledBg = applyAlpha(defaultMenuBg, 0.45);
+    assert(normalStyledBg === 'rgba(35, 36, 40, 0.423)', 'applyAlpha must create translucent glass tint for blurred menu');
+
+    // 6. Registration and unregistration lifecycle
+    const mockDashBlur = {
+        enabled: true,
+        dashes: [],
+        add_blur() {
+            return {
+                background_group: {
+                    get_parent: () => null,
+                    destroy() {},
+                },
+                background: {
+                    set_position() {},
+                    set_size() {},
+                },
+            };
+        },
+        try_blur(c) {
+            this.dashes.push(c);
+        },
+    };
+    globalThis.global.blur_my_shell._dash_to_dock_blur = mockDashBlur;
+
+    const testMenuActor = {
+        name: 'aquaMenu',
+        _isAquaDock: true,
+        _dockBlurEnabled: true,
+        width: 220,
+        height: 180,
+        get_dock_radius: () => 12,
+        connect: () => 1,
+        disconnect: () => {},
+    };
+    registerBmsTarget(testMenuActor, () => 12);
+    assert(mockDashBlur.dashes.some(d => d.dash_container === testMenuActor), 'testMenuActor must be registered into BMS dashes');
+    assert(testMenuActor._aquaDockSurface !== null, 'testMenuActor must have _aquaDockSurface assigned');
+
+    unregisterBmsTarget(testMenuActor);
+    assert(!mockDashBlur.dashes.some(d => d.dash_container === testMenuActor), 'testMenuActor must be removed from BMS dashes');
+    assert(!testMenuActor._aquaDockSurface, 'testMenuActor _aquaDockSurface must be cleared');
+    delete globalThis.global.blur_my_shell;
 }
 
 GLib.spawn_sync(null, ['rm', '-rf', tmpShellDir], null, GLib.SpawnFlags.SEARCH_PATH, null);

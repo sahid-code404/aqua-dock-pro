@@ -1,5 +1,14 @@
 # Changelog
 
+## 270
+
+- Enable blur across all Aqua Dock Pro context menus (dock item context menus, downloads and folder stack file item menus, and window preview action menus).
+- Implement dual-tier Blur My Shell compatibility for context menus: integrate with native BMS popup blur when enabled, and fall back to BMS dock blur surface registration when popup blur is off.
+- Fallback cleanly to configured solid/opaque menu background colors and radius when Blur My Shell is disabled or absent, ensuring zero transparent holes.
+- Preserve solid high-contrast menu styling when High Contrast mode is active.
+- Refine hover tooltip into a clean macOS Aqua pill bubble with full untruncated app names, eliminating pointer artifacts and ghosting during slow hover movements between icons.
+- Integrate tooltip pill blur with Blur My Shell for seamless frosted glass styling.
+
 ## 269
 
 - Implement universal in-memory compatibility with stock upstream Blur My Shell v76 without requiring third-party extension file modifications.

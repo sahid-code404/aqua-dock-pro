@@ -17,6 +17,14 @@ import {
 import { _, format, ngettext } from '../../core/i18n.js';
 import { buildWindowFrame } from './livePreview.js';
 import { previewPagePlan } from './previewPaging.js';
+import { applyAlpha } from '../../dock/dockLayout.js';
+import {
+    isBmsPopupBlurActive,
+    isBmsDockBlurActive,
+    isBmsMenuBlurActive,
+    registerBmsTarget,
+    unregisterBmsTarget,
+} from '../../dock/dockBlur.js';
 
 const LEGACY_MAX_WINDOWS = 4;
 const GRACE_MS = 130;   // window to move pointer from icon onto the popup
@@ -41,6 +49,7 @@ export class PreviewManager {
         this._windowMenu = null;
         this._windowMenuManager = null;
         this._windowMenuStateId = 0;
+        this._windowMenuBlurRegistered = false;
     }
 
     get active() { return Boolean(this._box); }
@@ -381,6 +390,7 @@ export class PreviewManager {
         const menu = new PopupMenu.PopupMenu(source, 0.5, St.Side.BOTTOM);
         this._windowMenu = menu;
         try {
+            menu.actor.name = 'aquaMenu';
             menu.actor.add_style_class_name('aqua-menu');
             menu.addAction(_('Activate'), () => {
                 try { win.activate(global.get_current_time()); } catch { }
@@ -417,8 +427,10 @@ export class PreviewManager {
                 this.hide(true);
             });
 
-            const background = cfg.highContrast ? 'rgba(0,0,0,0.98)'
+            const blurActive = isBmsMenuBlurActive(cfg);
+            const normalBg = cfg.highContrast ? 'rgba(0,0,0,0.98)'
                 : (cfg.menuBg || 'rgba(35,36,40,0.94)');
+            const background = blurActive ? applyAlpha(normalBg, 0.45) : normalBg;
             const foreground = cfg.highContrast ? '#ffffff'
                 : (cfg.menuFg || 'rgba(235,235,240,0.90)');
             const width = cfg.highContrast ? Math.max(2, cfg.menuBorderWidth ?? 1)
@@ -444,6 +456,21 @@ export class PreviewManager {
             this._windowMenuManager = new PopupMenu.PopupMenuManager(owner);
             this._windowMenuManager.addMenu(menu);
             Main.uiGroup.add_child(menu.actor);
+
+            if (blurActive && !isBmsPopupBlurActive() && isBmsDockBlurActive()) {
+                const radius = cfg.menuRadius ?? 12;
+                menu.actor._isAquaDock = true;
+                menu.actor.name = 'aquaMenu';
+                menu.actor._dockBlurEnabled = true;
+                menu.actor._dockBg = menu.actor;
+                menu.actor._dockContent = menu.actor;
+                menu.actor._dockContentParent = Main.uiGroup;
+                menu.actor._dockRadius = radius;
+                menu.actor.get_dock_radius = () => radius;
+                registerBmsTarget(menu.actor, () => radius);
+                this._windowMenuBlurRegistered = true;
+            }
+
             this._windowMenuStateId = menu.connect('open-state-changed', (_menu, open) => {
                 if (open) this._cancelGrace();
                 else if (this._box === owner) this.hide(false);
@@ -458,6 +485,10 @@ export class PreviewManager {
 
     _destroyWindowMenu() {
         if (this._windowMenu) {
+            if (this._windowMenuBlurRegistered) {
+                unregisterBmsTarget(this._windowMenu.actor);
+                this._windowMenuBlurRegistered = false;
+            }
             if (this._windowMenuStateId) {
                 try { this._windowMenu.disconnect(this._windowMenuStateId); } catch { }
                 this._windowMenuStateId = 0;

@@ -101,6 +101,7 @@ export class DockController {
                 if (this._cfg) {
                     const isBmsTrans = Boolean(this._cfg.blurEffect && bmsActive);
                     this._chrome.applyPillStyle(pillStyle(this._cfg, isBmsTrans), this._cfg);
+                    this._tooltip?.style();
                 }
             },
         });
@@ -589,7 +590,8 @@ export class DockController {
             autohideChanged ||= key === 'show-autohide-handle';
             // tooltip-delay is consumed when a new show timer is scheduled; it
             // does not change CSS or current tooltip geometry.
-            tooltipChanged ||= TOOLTIP_KEYS.has(key) && key !== 'tooltip-delay';
+            tooltipChanged ||= (TOOLTIP_KEYS.has(key) && key !== 'tooltip-delay') ||
+                key === 'blur-effect' || key === 'high-contrast';
             itemsChanged ||= ITEM_REFRESH_KEYS.has(key);
             previewChanged ||= key === 'show-previews' || key.startsWith('preview-');
             downloadsChanged ||= key.startsWith('downloads-') || key === 'blur-effect' || key === 'high-contrast';

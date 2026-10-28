@@ -380,13 +380,13 @@
     </key>
 
     <key name="tooltip-radius" type="i">
-      <default>10</default>
+      <default>6</default>
       <range min="0" max="30"/>
       <summary>Tooltip pill corner radius in pixels</summary>
     </key>
 
     <key name="tooltip-bg-color" type="s">
-      <default>'rgba(46,46,54,0.376667)'</default>
+      <default>'rgba(32,32,36,0.92)'</default>
       <summary>Tooltip pill background colour and opacity (CSS color string)</summary>
     </key>
 
@@ -401,7 +401,7 @@
     </key>
 
     <key name="tooltip-border-width" type="i">
-      <default>0</default>
+      <default>1</default>
       <range min="0" max="6"/>
       <summary>Tooltip border width in pixels; 0 disables border</summary>
     </key>

@@ -15,6 +15,14 @@ import { appWindowsForConfig, TimeoutGroup } from '../core/utils.js';
 import { _, format, ngettext } from '../core/i18n.js';
 import { emptyTrash } from '../services/fileService.js';
 import { notifyUser, openPopupMenu } from '../compat/shell.js';
+import { applyAlpha } from '../dock/dockLayout.js';
+import {
+    isBmsPopupBlurActive,
+    isBmsDockBlurActive,
+    isBmsMenuBlurActive,
+    registerBmsTarget,
+    unregisterBmsTarget,
+} from '../dock/dockBlur.js';
 
 export class MenuManager {
     // host: { container, getConfig, getGeom, isLayoutLocked, onOpen, onClose,
@@ -29,6 +37,7 @@ export class MenuManager {
         this._heldItem = null;
         this._trashDialog = null;
         this._trashOperation = null;
+        this._blurRegistered = false;
     }
 
     get active() { return this._active === true; }
@@ -50,9 +59,11 @@ export class MenuManager {
 
         this._menu = new PopupMenu.PopupMenu(anchor, 0.5, side);
         try {
+            this._menu.actor.name = 'aquaMenu';
             this._menu.actor.add_style_class_name('aqua-menu');
             this._attachMenu(item);
             this._style();
+            this._setupBlur();
             this._menu.actor.hide();
 
             populateMenu(this._menu, item.entry, {
@@ -145,6 +156,10 @@ export class MenuManager {
         this._cancelCloseIdle();
         this._releaseHeldItem();
         if (!this._menu) return;
+        if (this._blurRegistered) {
+            unregisterBmsTarget(this._menu.actor);
+            this._blurRegistered = false;
+        }
         if (this._stateId) { try { this._menu.disconnect(this._stateId); } catch { } this._stateId = 0; }
         try { this._manager?.removeMenu(this._menu); } catch { }
         try { this._menu.destroy(); } catch { }
@@ -213,8 +228,10 @@ export class MenuManager {
     _style() {
         const cfg = this._host.getConfig();
         const radius = cfg.menuRadius ?? 12;
-        const bg = cfg.highContrast ? 'rgba(0,0,0,0.98)'
+        const blurActive = isBmsMenuBlurActive(cfg);
+        const normalBg = cfg.highContrast ? 'rgba(0,0,0,0.98)'
             : (cfg.menuBg || 'rgba(35,36,40,0.94)');
+        const bg = blurActive ? applyAlpha(normalBg, 0.45) : normalBg;
         const fg = cfg.highContrast ? '#ffffff'
             : (cfg.menuFg || 'rgba(235,235,240,0.90)');
         const bw = cfg.highContrast ? Math.max(2, cfg.menuBorderWidth ?? 1)
@@ -229,6 +246,31 @@ export class MenuManager {
 
         this._menuTextColor = fg;
         this._menuTextSize = (10.5 * (cfg.interfaceTextScale ?? 1)).toFixed(2);
+    }
+
+    _setupBlur() {
+        const cfg = this._host.getConfig();
+        const radius = cfg.menuRadius ?? 12;
+        const blurActive = isBmsMenuBlurActive(cfg);
+        if (!blurActive) return;
+
+        // If Blur My Shell popup blur is active, BMS natively creates the blur surface for popup-menu-content.
+        if (isBmsPopupBlurActive()) return;
+
+        // Fallback: if BMS dock blur is active, hook through AquaDockSurface
+        if (isBmsDockBlurActive() && this._menu?.actor) {
+            const menuActor = this._menu.actor;
+            menuActor._isAquaDock = true;
+            menuActor.name = 'aquaMenu';
+            menuActor._dockBlurEnabled = true;
+            menuActor._dockBg = menuActor;
+            menuActor._dockContent = menuActor;
+            menuActor._dockContentParent = Main.uiGroup;
+            menuActor._dockRadius = radius;
+            menuActor.get_dock_radius = () => radius;
+            registerBmsTarget(menuActor, () => radius);
+            this._blurRegistered = true;
+        }
     }
 
     _styleItems() {
