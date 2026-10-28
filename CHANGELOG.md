@@ -1,5 +1,12 @@
 # Changelog
 
+## 280
+
+- Demagnify the dock and downloads folder icon immediately upon opening any stack, matching previous behavior.
+- Suppress dock pointer magnification and tooltips while `stackOpen` is active (`_onMotion`, `_onMagMotion`, and `_onEdgeMotion` call `_endHover()`).
+- Add `onStackOpened` callback to `DownloadManager` host interface to reset hover and kick the spring demagnification solver.
+- Automatically restore normal dock magnification and hover when the stack is closed.
+
 ## 279
 
 - Layer stack overlays (FanView, PanelView, blur regions, and dismiss blocker) behind dock application icons in GNOME Shell `Main.uiGroup`.

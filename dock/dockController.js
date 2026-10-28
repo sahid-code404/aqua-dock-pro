@@ -153,7 +153,11 @@ export class DockController {
             getDownloadsItem: () => this._findItem('downloads'),
             isHidden: () => this._autohide?.hidden ?? false,
             kickEngine: () => this._engine.kick(),
-            onStackClosed: () => this._autohide?.onDockLeft(),
+            onStackOpened: () => this._endHover(),
+            onStackClosed: () => {
+                this._autohide?.onDockLeft();
+                this._endHover();
+            },
         });
         this._trash = this._cfg.showTrash ? new TrashWatcher({
             getConfig: () => this._cfg,
@@ -666,6 +670,10 @@ export class DockController {
     }
 
     _onMotion(ev) {
+        if (this._downloads?.stackOpen) {
+            this._endHover();
+            return Clutter.EVENT_PROPAGATE;
+        }
         const [x, y] = ev.get_coords();
         this._pointerInContainer = true;
         // A reorder drag takes over: it owns the chip translations and the flyer.
@@ -680,6 +688,10 @@ export class DockController {
     }
 
     _onMagMotion(ev) {
+        if (this._downloads?.stackOpen) {
+            this._endHover();
+            return Clutter.EVENT_PROPAGATE;
+        }
         const [x, y] = ev.get_coords();
         this._pointerInMag = true;
         if (this._drag.reordering) { this._drag.update(x, y); return Clutter.EVENT_STOP; }
@@ -706,6 +718,10 @@ export class DockController {
 
     // ── Edge zone pointer forwarding ────────────────────────────────────────
     _onEdgeMotion(ev) {
+        if (this._downloads?.stackOpen) {
+            this._endHover();
+            return Clutter.EVENT_PROPAGATE;
+        }
         const [x, y] = ev.get_coords();
         this._pointerInEdge = true;
         if (this._drag.reordering) { this._drag.update(x, y); return Clutter.EVENT_STOP; }
@@ -914,12 +930,16 @@ export class DockController {
     // context menu and left/middle activate.
     _dispatch(item, button) {
         if (item.entry.kind === 'downloads') {
-            try { this._downloads.openStack(item); }
+            try {
+                this._endHover();
+                this._downloads.openStack(item);
+            }
             catch (e) { logError(e, 'openStack'); }
             return;
         }
         if (item.entry.kind === 'folder') {
             try {
+                this._endHover();
                 const folder = Gio.File.new_for_uri(item.entry.uri);
                 this._downloads.openFolderStack(item, folder, item.entry.name, item.entry.gicon);
             } catch (e) { logError(e, 'open folder stack'); }

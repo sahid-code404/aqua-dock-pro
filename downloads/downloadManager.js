@@ -162,6 +162,7 @@ export class DownloadManager {
         const cfg = this._host.getConfig();
         try { item.bounce(Math.round(cfg.bounceHeight * 0.6), { decay: cfg.bounceDecay }); }
         catch { }
+        this._host?.onStackOpened?.();
         this._stack.show(item, folder, cfg, () => this._host.onStackClosed?.(), { title, gicon });
     }
 
