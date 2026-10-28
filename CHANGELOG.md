@@ -1,5 +1,13 @@
 # Changelog
 
+## 277
+
+- Implement linear sequential "one by one" fan opening and closing along the arc without overlapping 3D layers.
+- Replace screen-edge horizontal slide with vertical fan arc expansion from the dock folder icon: item 0 emerges from the dock folder icon, while each subsequent item $i$ emerges smoothly from its immediate lower neighbor $i-1$ (`itemOffsets`).
+- Eliminate multi-layer text and thumbnail crossover: pills only travel the distance of their individual slot gap (~50px), completely preventing pills from flying across each other or stacking in 3D layers on screen.
+- Set linear animation curve (`Clutter.AnimationMode.LINEAR`) with crisp 110ms open / 24ms sequential stagger and 90ms close / 18ms reverse cascade.
+- Update `FAN_ANIM` profile in [downloads/fanView.js](file:///home/shaque/aqua-dock-pro/downloads/fanView.js) for isolated, easily tunable configuration.
+
 ## 276
 
 - Remove 3D diagonal fan flight trajectory emerging out of the dock folder icon; pills now animate strictly along their display edge side arc slots.

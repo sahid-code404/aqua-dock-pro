@@ -5,6 +5,7 @@
 // - Popup area animation synchronization (open, settle, close)
 // - Fallback to normal colors/transparency when blur-effect is disabled
 
+import Clutter from 'gi://Clutter';
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import { applyTileStyle, applyStackMenuPillStyle } from '../downloads/tileStyle.js';
@@ -629,9 +630,10 @@ shellResource._register();
     const { DownloadsStack } = await import(`file://${projectRoot}/downloads/downloadsStack.js`);
     const { FAN_ANIM } = await import(`file://${projectRoot}/downloads/fanView.js`);
     assert(typeof FAN_ANIM === 'object', 'FAN_ANIM must be exported');
-    assert(FAN_ANIM.slideDistance > 0, 'FAN_ANIM must define positive slideDistance');
     assert(FAN_ANIM.open.duration > 0 && FAN_ANIM.open.stagger > 0, 'FAN_ANIM open profile must be valid');
     assert(FAN_ANIM.close.duration > 0 && FAN_ANIM.close.stagger > 0, 'FAN_ANIM close profile must be valid');
+    assert(FAN_ANIM.open.mode === Clutter.AnimationMode.LINEAR, 'FAN_ANIM open must be linear');
+    assert(FAN_ANIM.close.mode === Clutter.AnimationMode.LINEAR, 'FAN_ANIM close must be linear');
     const stack = new DownloadsStack(() => ({ x: 0, y: 0, width: 1920, height: 1080 }));
     assert(stack.blurRegion === null, 'DownloadsStack.blurRegion is null initially');
     assert(stack.view === null, 'DownloadsStack.view is null initially');
