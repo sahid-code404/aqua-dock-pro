@@ -1,5 +1,16 @@
 # Changelog
 
+## 282
+
+- Resolve GNOME Shell freeze / Mutter 100% CPU lockup when selecting Blur My Shell `static-blur`:
+  - Eliminate circular relayout feedback loop: removed self-referential `notify::allocation` listener on `background_group` in `AquaDockSurface.set_blur()`.
+  - Add geometry change guards (`_lastStaticGeom` and `_lastDynamicGeom`) and positive bounds checks (`clip_w > 0 && clip_h > 0`) in `_update_static_size()` and `_update_dynamic_size()` to prevent continuous reallocation cycles.
+  - Fix re-entrant recursive destruction in `change_blur_type()` and `remove_dash_blur()`: isolate `background_group` signals into dedicated `_bgSignals` group, disconnecting listeners prior to destruction, and protect transitions with re-entrancy flags (`_isChangingBlurType`, `_isRemoving`).
+  - Resolve disposed object assertion error by cleaning up `rounded_pipeline`, `pipeline`, and `bg_manager` before nulling references in `destroy_dash()`.
+  - Initialize `current_monitor_index` in `AquaDockSurface.constructor` to avoid redundant recreate cycles on initialization.
+  - Guard allocation validity (`hasValidAllocation`) across containers before evaluating static blur coordinates.
+  - Support seamless dynamic-to-static and static-to-dynamic blur transitions at runtime.
+
 ## 281
 
 - Fix missing Blur My Shell backdrop blur behind Downloads Grid and List stack views: properly configured dedicated `blurRegion` as the blur backdrop actor and content parent, explicitly set container and blur region dimensions before registration, and ensured synchronous transform easing.

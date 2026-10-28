@@ -20,7 +20,7 @@ const xmlPath = GLib.build_filenamev([tmpShellDir, 'shell.gresource.xml']);
 const resPath = GLib.build_filenamev([tmpShellDir, 'shell.gresource']);
 
 GLib.file_set_contents(mainJsPath,
-    'export const extensionManager = null;\nexport const layoutManager = null;\nexport const overview = { visible: false };\n');
+    'export const extensionManager = null;\nexport let layoutManager = null;\nexport function setLayoutManager(lm) { layoutManager = lm; }\nexport const overview = { visible: false };\n');
 GLib.file_set_contents(xmlPath,
     `<?xml version="1.0" encoding="UTF-8"?>
 <gresources>
@@ -745,6 +745,138 @@ shellResource._register();
     unregisterBmsTarget(testMenuActor);
     assert(!mockDashBlur.dashes.some(d => d.dash_container === testMenuActor), 'testMenuActor must be removed from BMS dashes');
     assert(!testMenuActor._aquaDockSurface, 'testMenuActor _aquaDockSurface must be cleared');
+    delete globalThis.global.blur_my_shell;
+}
+
+// ── 7. Static Blur Lifecycle, Layout Loop Protection & Destruction ───────────
+{
+    const { registerBmsTarget, unregisterBmsTarget } = await import('../dock/dockBlur.js');
+    const Main = await import('resource:///org/gnome/shell/ui/main.js');
+    const mockMonitor = { index: 0, x: 0, y: 0, width: 1920, height: 1080 };
+    Main.setLayoutManager({
+        primaryMonitor: mockMonitor,
+        findMonitorForActor: () => mockMonitor,
+    });
+
+    let destroyedBgManager = false;
+    let destroyedPipeline = false;
+    let destroyedRoundedPipeline = false;
+    let clipSetCount = 0;
+
+    const mockStaticBg = {
+        x: 0,
+        y: 0,
+        scale_x: 1,
+        scale_y: 1,
+        set_pivot_point() {},
+        set_clip(x, y, w, h) {
+            this.clip = [x, y, w, h];
+            clipSetCount++;
+        },
+    };
+
+    const mockParentActor = {
+        x: 100,
+        y: 1000,
+        width: 400,
+        height: 70,
+        get_transformed_position: () => [100, 1000],
+        get_transformed_size: () => [400, 70],
+        has_allocation: () => true,
+        connect: () => 1,
+        disconnect: () => {},
+    };
+
+    const mockBgGroup = {
+        parent: mockParentActor,
+        get_parent() { return this.parent; },
+        destroy() { this.destroyed = true; },
+        connect: () => 1,
+        disconnect: () => {},
+    };
+
+    const mockStaticBlur = {
+        enabled: true,
+        is_static: true,
+        settings: { dash_to_dock: { STATIC_BLUR: true, PIPELINE: 'default' } },
+        dashes: [],
+        add_blur(dash_container, target) {
+            return {
+                background: mockStaticBg,
+                background_group: mockBgGroup,
+                bg_manager: { destroy() { destroyedBgManager = true; } },
+                pipeline: {
+                    destroy() { destroyedPipeline = true; },
+                    change_pipeline_to() {},
+                },
+                rounded_pipeline: {
+                    destroy() { destroyedRoundedPipeline = true; },
+                    update() {},
+                },
+                corner_settings: { radius: 28, corners: 0 },
+            };
+        },
+        try_blur() {},
+        queue_discovery() {},
+        update_background() {},
+    };
+
+    globalThis.global = {
+        blur_my_shell: {
+            _dash_to_dock_blur: mockStaticBlur,
+        },
+    };
+
+    const dockContainer = {
+        name: 'aquaDockContainer',
+        _isAquaDock: true,
+        _dockBlurEnabled: true,
+        width: 400,
+        height: 70,
+        _dockRadius: 28,
+        get_dock_radius: () => 28,
+        has_allocation: () => true,
+        get_allocation_box: () => ({ get_width: () => 400, get_height: () => 70 }),
+        get_transformed_position: () => [100, 1000],
+        get_transformed_size: () => [400, 70],
+        connect: () => 1,
+        disconnect: () => {},
+    };
+    dockContainer._dockBg = dockContainer;
+
+    registerBmsTarget(dockContainer);
+    assert(mockStaticBlur.dashes.length === 1, 'Static blur surface registered');
+    const surface = mockStaticBlur.dashes[0];
+    assert(surface.is_static === true, 'Surface flagged as static');
+
+    // First update positions and clips
+    surface.update_size();
+    assert(clipSetCount === 1, `First update should set clip once (got ${clipSetCount})`);
+    assert(mockStaticBg.clip[0] === 100 && mockStaticBg.clip[1] === 1000,
+        `Clip coordinates match monitor offset: ${JSON.stringify(mockStaticBg.clip)}`);
+    assert(mockStaticBg.clip[2] === 400 && mockStaticBg.clip[3] === 70,
+        `Clip size matches dock dimensions: ${JSON.stringify(mockStaticBg.clip)}`);
+
+    // Second update with identical geometry should be a NO-OP (infinite loop protection)
+    surface.update_size();
+    surface.update_size();
+    assert(clipSetCount === 1,
+        `Identical updates must NOT re-apply clip (preventing allocation loops): got ${clipSetCount}`);
+
+    // Geometry change updates clip correctly
+    dockContainer.get_transformed_position = () => [150, 1000];
+    surface.update_size();
+    assert(clipSetCount === 2, `Geometry change must re-apply clip: got ${clipSetCount}`);
+    assert(mockStaticBg.clip[0] === 150, `Updated clip x matches new position`);
+
+    // Clean destruction: verify all pipelines and bgManager are destroyed without leak
+    unregisterBmsTarget(dockContainer);
+    assert(mockStaticBlur.dashes.length === 0, 'Dashes list empty after unregister');
+    assert(destroyedBgManager === true, 'bg_manager.destroy() must be called');
+    assert(destroyedPipeline === true, 'pipeline.destroy() must be called');
+    assert(destroyedRoundedPipeline === true, 'rounded_pipeline.destroy() must be called');
+    assert(mockBgGroup.destroyed === true, 'background_group.destroy() must be called');
+
     delete globalThis.global.blur_my_shell;
 }
 

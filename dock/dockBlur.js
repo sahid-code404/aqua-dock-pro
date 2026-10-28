@@ -129,6 +129,29 @@ export function resolveAquaDockTarget(container) {
     };
 }
 
+function getActorDim(actor, prop) {
+    if (!actor) return 0;
+    const val = actor[prop];
+    if (typeof val === 'number' && val > 0) return val;
+    try {
+        const box = actor.get_allocation_box?.();
+        if (box) {
+            const allocVal = prop === 'width' ? box.get_width?.() : box.get_height?.();
+            if (typeof allocVal === 'number' && allocVal > 0) return allocVal;
+        }
+    } catch { }
+    return 0;
+}
+
+function hasValidAllocation(actor) {
+    if (!actor) return false;
+    if (typeof actor.has_allocation === 'function' && !actor.has_allocation())
+        return false;
+    const w = getActorDim(actor, 'width');
+    const h = getActorDim(actor, 'height');
+    return w > 0 && h > 0;
+}
+
 export class AquaDockSurface {
     constructor(dashBlur, dashContainer, target, blur) {
         this.dash_blur = dashBlur;
@@ -137,9 +160,19 @@ export class AquaDockSurface {
         this.dash_background = target.background;
         this.theme_manager = target.theme_manager;
         this.settings = dashBlur?.settings;
+        this.is_static = Boolean(dashBlur?.is_static);
         this._signals = new SignalGroup();
+        this._bgSignals = new SignalGroup();
         this._updateId = 0;
-        this.current_monitor_index = null;
+        this._isChangingBlurType = false;
+        this._isRemoving = false;
+        this._lastStaticGeom = null;
+        this._lastDynamicGeom = null;
+        this._lastCornerRadius = null;
+
+        const monitor = Main.layoutManager?.findMonitorForActor?.(dashContainer)
+            ?? Main.layoutManager?.primaryMonitor;
+        this.current_monitor_index = monitor?.index ?? null;
 
         this.set_blur(blur);
 
@@ -199,10 +232,13 @@ export class AquaDockSurface {
         this.pipeline = pipeline;
         this.rounded_pipeline = rounded_pipeline;
         this.corner_settings = corner_settings;
+        this._lastStaticGeom = null;
+        this._lastDynamicGeom = null;
 
+        this._bgSignals.disconnectAll();
         if (background_group && typeof background_group.connect === 'function') {
-            this._signals.connect(background_group, 'notify::allocation', () => this.schedule_update());
-            this._signals.connect(background_group, 'destroy', () => this.remove_dash_blur());
+            // Background group destroy listener for parent destruction
+            this._bgSignals.connect(background_group, 'destroy', () => this.remove_dash_blur());
         }
     }
 
@@ -265,7 +301,10 @@ export class AquaDockSurface {
 
     _update_dynamic_size() {
         const parent = this.background_group.get_parent?.();
-        if (!parent || !this.dash_background) return;
+        if (!parent || !this.dash_background || !this.background) return;
+
+        if (!hasValidAllocation(this.dash_container) || !hasValidAllocation(this.dash_background))
+            return;
 
         let x = 0;
         let y = 0;
@@ -337,6 +376,12 @@ export class AquaDockSurface {
         }
 
         if (Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(w) && Number.isFinite(h) && w > 0 && h > 0) {
+            const last = this._lastDynamicGeom;
+            if (last && last.x === x && last.y === y && last.w === w && last.h === h) {
+                return;
+            }
+            this._lastDynamicGeom = { x, y, w, h };
+
             try { this.background?.remove_all_transitions?.(); } catch { }
             try { this.background_group?.remove_all_transitions?.(); } catch { }
             if (typeof this.background.set_position === 'function') {
@@ -359,14 +404,18 @@ export class AquaDockSurface {
             ?? Main.layoutManager?.primaryMonitor;
         if (!monitor) return;
 
-        if (this.current_monitor_index !== monitor.index) {
+        if (this.current_monitor_index !== null && this.current_monitor_index !== monitor.index) {
             this.current_monitor_index = monitor.index;
             this.change_blur_type();
             return;
         }
+        this.current_monitor_index = monitor.index;
 
         const parent = this.background_group.get_parent?.();
-        if (!parent || !this.dash_background) return;
+        if (!parent || !this.dash_background || !this.background) return;
+
+        if (!hasValidAllocation(this.dash_container) || !hasValidAllocation(this.dash_background))
+            return;
 
         try {
             const isDirectSibling = (this.dash_background.get_parent?.() === parent);
@@ -400,19 +449,54 @@ export class AquaDockSurface {
             const parent_scale_y = parent.height > 0 ? parent_stage_height / parent.height : 1;
             if (parent_scale_x <= 0 || parent_scale_y <= 0) return;
 
-            const background_x = (monitor.x - parent_stage_x) / parent_scale_x;
-            const background_y = (monitor.y - parent_stage_y) / parent_scale_y;
+            const background_x = Math.round((monitor.x - parent_stage_x) / parent_scale_x);
+            const background_y = Math.round((monitor.y - parent_stage_y) / parent_scale_y);
 
             const clip_x = Math.floor(bg_stage_x - monitor.x);
             const clip_y = Math.floor(bg_stage_y - monitor.y);
             const clip_w = Math.ceil(bg_stage_width);
             const clip_h = Math.ceil(bg_stage_height);
 
+            if (!Number.isFinite(background_x) || !Number.isFinite(background_y) ||
+                !Number.isFinite(clip_x) || !Number.isFinite(clip_y) ||
+                !Number.isFinite(clip_w) || !Number.isFinite(clip_h) ||
+                clip_w <= 0 || clip_h <= 0) {
+                return;
+            }
+
+            const targetScaleX = 1 / parent_scale_x;
+            const targetScaleY = 1 / parent_scale_y;
+
+            // Geometry change guard to prevent infinite layout / redraw feedback loops
+            const last = this._lastStaticGeom;
+            if (last &&
+                last.x === background_x &&
+                last.y === background_y &&
+                Math.abs(last.scale_x - targetScaleX) < 0.001 &&
+                Math.abs(last.scale_y - targetScaleY) < 0.001 &&
+                last.clip_x === clip_x &&
+                last.clip_y === clip_y &&
+                last.clip_w === clip_w &&
+                last.clip_h === clip_h) {
+                return;
+            }
+
+            this._lastStaticGeom = {
+                x: background_x,
+                y: background_y,
+                scale_x: targetScaleX,
+                scale_y: targetScaleY,
+                clip_x,
+                clip_y,
+                clip_w,
+                clip_h,
+            };
+
             this.background.set_pivot_point?.(0, 0);
             try { this.background?.remove_all_transitions?.(); } catch { }
             try { this.background_group?.remove_all_transitions?.(); } catch { }
-            this.background.scale_x = 1 / parent_scale_x;
-            this.background.scale_y = 1 / parent_scale_y;
+            this.background.scale_x = targetScaleX;
+            this.background.scale_y = targetScaleY;
             this.background.x = background_x;
             this.background.y = background_y;
 
@@ -459,18 +543,25 @@ export class AquaDockSurface {
     }
 
     change_blur_type() {
-        this.destroy_dash();
-        const target = resolveAquaDockTarget(this.dash_container);
-        if (!target) return;
-        const blur = this.dash_blur?.add_blur?.(this.dash_container, target);
-        if (!blur) return;
-        let sibling = target.sibling ?? target.content;
-        if (sibling === target.content_parent || (sibling && typeof sibling.get_parent === 'function' && sibling.get_parent() !== target.content_parent)) {
-            sibling = null;
+        if (this._isChangingBlurType || this._isRemoving) return;
+        this._isChangingBlurType = true;
+        try {
+            this.destroy_dash();
+            const target = resolveAquaDockTarget(this.dash_container);
+            if (!target) return;
+            const blur = this.dash_blur?.add_blur?.(this.dash_container, target);
+            if (!blur) return;
+            let sibling = target.sibling ?? target.content;
+            if (sibling === target.content_parent || (sibling && typeof sibling.get_parent === 'function' && sibling.get_parent() !== target.content_parent)) {
+                sibling = null;
+            }
+            target.content_parent?.insert_child_below?.(blur.background_group, sibling);
+            this.is_static = Boolean(this.dash_blur?.is_static);
+            this.set_blur(blur);
+            this.schedule_update();
+        } finally {
+            this._isChangingBlurType = false;
         }
-        target.content_parent?.insert_child_below?.(blur.background_group, sibling);
-        this.set_blur(blur);
-        this.schedule_update();
     }
 
     update_pipeline() {
@@ -485,39 +576,56 @@ export class AquaDockSurface {
     destroy_dash() {
         this.clear_pending_update();
         const bgGroup = this.background_group;
+        if (!bgGroup) return;
+
+        this._bgSignals.disconnectAll();
+
+        const roundedPipeline = this.rounded_pipeline;
+        const pipeline = this.pipeline;
+        const bgManager = this.bg_manager;
+
         this.background = null;
         this.background_group = null;
         this.bg_manager = null;
         this.pipeline = null;
         this.rounded_pipeline = null;
         this.corner_settings = null;
+        this._lastStaticGeom = null;
+        this._lastDynamicGeom = null;
+        this._lastCornerRadius = null;
 
-        if (!bgGroup) return;
-        try { this.rounded_pipeline?.destroy?.(); } catch { }
-        try { this.pipeline?.destroy?.(); } catch { }
-        try { this.bg_manager?.destroy?.(); } catch { }
+        try { roundedPipeline?.destroy?.(); } catch { }
+        try { pipeline?.destroy?.(); } catch { }
+        try { bgManager?.destroy?.(); } catch { }
         try { bgGroup.destroy?.(); } catch { }
     }
 
     remove_dash_blur(isBmsRemove = false) {
-        if (this.dash_container?._aquaDockSurface === this) {
-            this.dash_container._aquaDockSurface = null;
-        }
-        this._signals.disconnectAll();
-        this.remove_style();
-        this.destroy_dash();
-        if (Array.isArray(this.dash_blur?.dashes)) {
-            const idx = this.dash_blur.dashes.indexOf(this);
-            if (idx !== -1) {
-                this.dash_blur.dashes.splice(idx, 1);
+        if (this._isRemoving) return;
+        this._isRemoving = true;
+        try {
+            if (this.dash_container?._aquaDockSurface === this) {
+                this.dash_container._aquaDockSurface = null;
             }
-        }
-        if (this.dash_container?._aquaBlurManager) {
-            if (isBmsRemove) {
-                this.dash_container._aquaBlurManager.handleBmsBlurRemoved();
-            } else if (this.dash_container._aquaBlurManager.bmsActive) {
-                this.dash_container._aquaBlurManager.syncBlurState();
+            this._signals.disconnectAll();
+            this._bgSignals.disconnectAll();
+            this.remove_style();
+            this.destroy_dash();
+            if (Array.isArray(this.dash_blur?.dashes)) {
+                const idx = this.dash_blur.dashes.indexOf(this);
+                if (idx !== -1) {
+                    this.dash_blur.dashes.splice(idx, 1);
+                }
             }
+            if (this.dash_container?._aquaBlurManager) {
+                if (isBmsRemove) {
+                    this.dash_container._aquaBlurManager.handleBmsBlurRemoved();
+                } else if (this.dash_container._aquaBlurManager.bmsActive) {
+                    this.dash_container._aquaBlurManager.syncBlurState();
+                }
+            }
+        } finally {
+            this._isRemoving = false;
         }
     }
 }
@@ -525,20 +633,6 @@ export class AquaDockSurface {
 const activeAquaContainers = new Set();
 let origTryBlur = null;
 let origBlurExistingDashes = null;
-
-function getActorDim(actor, prop) {
-    if (!actor) return 0;
-    const val = actor[prop];
-    if (typeof val === 'number' && val > 0) return val;
-    try {
-        const box = actor.get_allocation_box?.();
-        if (box) {
-            const allocVal = prop === 'width' ? box.get_width?.() : box.get_height?.();
-            if (typeof allocVal === 'number' && allocVal > 0) return allocVal;
-        }
-    } catch { }
-    return 0;
-}
 
 function tryBlurAquaDock(dashBlur, container) {
     if (!container || container._dockBlurEnabled === false) return;
@@ -576,7 +670,9 @@ function tryBlurAquaDock(dashBlur, container) {
         ? dashBlur.dashes.find(d => d.dash === dash || d.dash_container === container || d.dash_background === dash_background)
         : null;
     if (existing) {
-        if (existing.dash_background === dash_background &&
+        const matchesType = (existing.is_static === Boolean(dashBlur.is_static));
+        if (matchesType &&
+            existing.dash_background === dash_background &&
             existing.background_group?.get_parent?.() === dash_box) {
             container._aquaDockSurface = existing;
             return;
