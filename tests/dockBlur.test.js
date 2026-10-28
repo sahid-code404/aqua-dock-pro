@@ -189,6 +189,7 @@ shellResource._register();
     // Property notification test during stretch
     const engineN = new AnimationEngine();
     let notifyX = 0, notifyW = 0, notifyPos = 0, notifySize = 0;
+    let blurNotifyX = 0, blurNotifyW = 0, blurNotifyPos = 0, blurNotifySize = 0;
     const bgN = {
         x: 100, y: 10, width: 400, height: 70,
         set_x(v) { this.x = v; },
@@ -200,13 +201,24 @@ shellResource._register();
             if (prop === 'size') notifySize++;
         },
     };
+    const blurN = {
+        x: 100, y: 10, width: 400, height: 70,
+        set_x(v) { this.x = v; },
+        set_width(v) { this.width = v; },
+        notify(prop) {
+            if (prop === 'x') blurNotifyX++;
+            if (prop === 'width') blurNotifyW++;
+            if (prop === 'position') blurNotifyPos++;
+            if (prop === 'size') blurNotifySize++;
+        },
+    };
     const modelN = {
         cfg: { vertical: false, cellW: 64, zoomMax: 2.0 },
         geom: { bgBaseX: 100, bgBaseW: 400, x: 0, y: 0, mainLen: 400, magZone: { mainPad: 8, dockH: 70, side: 'bottom', growthPerScale: 30, restInset: 8 } },
         chips: [],
         items: [],
         bg: bgN,
-        blurRegion: null,
+        blurRegion: blurN,
         magZone,
     };
     engineN.setModel(modelN);
@@ -215,6 +227,8 @@ shellResource._register();
     engineN._applySpread(false);
     assert(notifyX > 0 && notifyPos > 0, 'AnimationEngine must notify x and position on spread change');
     assert(notifyW > 0 && notifySize > 0, 'AnimationEngine must notify width and size on spread change');
+    assert(blurNotifyX > 0 && blurNotifyPos > 0, 'AnimationEngine must notify blurRegion x and position on spread change');
+    assert(blurNotifyW > 0 && blurNotifySize > 0, 'AnimationEngine must notify blurRegion width and size on spread change');
     engineN.destroy();
 }
 

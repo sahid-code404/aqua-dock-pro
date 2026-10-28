@@ -373,10 +373,10 @@ export class AnimationEngine {
 
             const minShift = minBound - minExt;
             const maxShift = maxBound - maxExt;
-            if (minShift <= maxShift) {
-                shift = clamp(shift, minShift, maxShift);
+            if (minShift > maxShift) {
+                shift = ((minBound + maxBound) / 2) - ((minExt + maxExt) / 2);
             } else {
-                shift = clamp(shift, maxShift, minShift);
+                shift = clamp(shift, minShift, maxShift);
             }
         }
 
@@ -438,9 +438,11 @@ export class AnimationEngine {
             }
             if (posChanged) {
                 try { bg.notify?.('y'); bg.notify?.('position'); } catch { }
+                try { blurRegion?.notify?.('y'); blurRegion?.notify?.('position'); } catch { }
             }
             if (sizeChanged) {
                 try { bg.notify?.('height'); bg.notify?.('size'); } catch { }
+                try { blurRegion?.notify?.('height'); blurRegion?.notify?.('size'); } catch { }
             }
         } else {
             const left = Math.round(this._bgCurrentX);
@@ -461,9 +463,11 @@ export class AnimationEngine {
             }
             if (posChanged) {
                 try { bg.notify?.('x'); bg.notify?.('position'); } catch { }
+                try { blurRegion?.notify?.('x'); blurRegion?.notify?.('position'); } catch { }
             }
             if (sizeChanged) {
                 try { bg.notify?.('width'); bg.notify?.('size'); } catch { }
+                try { blurRegion?.notify?.('width'); blurRegion?.notify?.('size'); } catch { }
             }
         }
 

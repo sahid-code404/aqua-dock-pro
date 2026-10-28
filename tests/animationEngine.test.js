@@ -130,6 +130,43 @@ try {
     assert(pillEnd <= monitor.x + monitor.width - geom.edgeMargin,
         `pill end must stay within monitor bounds (was ${pillEnd}, max: ${monitor.width - geom.edgeMargin})`);
 
+    // Test overflow centering when expanded dock width exceeds available monitor width (minShift > maxShift):
+    {
+        const smallMon = { x: 0, y: 0, width: 300, height: 800 };
+        geom.monitor = smallMon;
+        geom.x = 10;
+        // With total=300, dock width is bgBaseW(236) + 300 = 536 > monitor available width (284)
+        spreadEngine._applySpread(true, 300, 2.0);
+        const minB = smallMon.x + geom.edgeMargin;
+        const maxB = smallMon.x + smallMon.width - geom.edgeMargin;
+        const targetShift = spreadEngine._bgTargetX - geom.bgBaseX;
+        // Verify overflow is evenly centered on both edges
+        // Stage position of dock start and end
+        let minExt = geom.x + geom.bgBaseX;
+        let maxExt = minExt + geom.bgBaseW + 300;
+        let pfx = 0;
+        for (const chip of chips) {
+            if (chip.item) {
+                const scale = chip.item.scaleCurrent ?? 1;
+                const extra = chip.extra ?? 0;
+                const center = geom.x + chip.baseX + pfx + extra / 2 + cfg.cellW / 2;
+                const halfIcon = (cfg.iconSize * scale) / 2;
+                if (center - halfIcon < minExt) minExt = center - halfIcon;
+                if (center + halfIcon > maxExt) maxExt = center + halfIcon;
+            }
+            pfx += chip.extra ?? 0;
+        }
+        const expectedShift = ((minB + maxB) / 2) - ((minExt + maxExt) / 2);
+        assert(Math.abs(targetShift - expectedShift) < 1e-6,
+            `shift must smoothly center overflow when minShift > maxShift (expected ${expectedShift}, got ${targetShift})`);
+        const leftOverflow = minB - (minExt + targetShift);
+        const rightOverflow = (maxExt + targetShift) - maxB;
+        assert(Math.abs(leftOverflow - rightOverflow) < 1e-6,
+            `left overflow (${leftOverflow}) must equal right overflow (${rightOverflow})`);
+        // Restore monitor
+        geom.monitor = monitor;
+    }
+
     // Test magZone accounts for _bgCurrentX and _bgCurrentW:
     spreadEngine._bgCurrentX = -20;
     spreadEngine._bgCurrentW = 336;

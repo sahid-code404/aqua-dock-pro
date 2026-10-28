@@ -1,5 +1,12 @@
 # Changelog
 
+## 284
+
+- Refine shift clamping and overflow centering in dock magnification (`AnimationEngine._applySpread()`):
+  - When computing magnification spread shifts within monitor boundaries, dynamically detect when the expanded dock pill width exceeds the available monitor width (`minShift > maxShift`).
+  - Calculate `shift = ((minBound + maxBound) / 2) - ((minExt + maxExt) / 2)` to smoothly and symmetrically center the dock overflow within the monitor bounds rather than clipping or clamping asymmetrically to an edge.
+  - Seamlessly synchronize `_bgTargetX = _bgBaseX + shift` and `_bgTargetW = _bgBaseW + total` with `bg` and `blurRegion`, broadcasting GObject property notifications on both actors so dynamic Blur My Shell backdrops follow the pointer magnification fluidly.
+
 ## 283
 
 - Fix static blur clipping and alignment during icon magnification (`AquaDockSurface._update_static_size()`):
