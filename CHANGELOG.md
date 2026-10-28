@@ -1,5 +1,11 @@
 # Changelog
 
+## 281
+
+- Fix missing Blur My Shell backdrop blur behind Downloads Grid and List stack views: properly configured dedicated `blurRegion` as the blur backdrop actor and content parent, explicitly set container and blur region dimensions before registration, and ensured synchronous transform easing.
+- Enhance BMS container sizing robustness in `dockBlur.js` to inspect allocation box dimensions whenever explicit actor dimensions are pending.
+- Tune and speed up stack animations: snappy Apple-style wave opening for Fan view (`170ms` duration, `24ms` stagger) and brisk opening/closing for Grid and List views (`180ms` / `140ms`), providing a fast and lightweight feel while preserving sequential emergence and frosted glass blur.
+
 ## 280
 
 - Demagnify the dock and downloads folder icon immediately upon opening any stack, matching previous behavior.

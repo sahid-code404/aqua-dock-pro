@@ -183,6 +183,18 @@ shellResource._register();
     assert(resolvedPanel.sibling === panelBlurRegion,
         'resolved sibling should point to _dockBlurRegion');
 
+    // PanelView target when blurRegion is dedicated backdrop actor
+    panelContainer._dockBg = panelBlurRegion;
+    panelContainer._dockContent = panelBlurRegion;
+    panelContainer._dockContentParent = panelBlurRegion;
+    const resolvedDedicatedPanel = resolveAquaDockTarget(panelContainer);
+    assert(resolvedDedicatedPanel.background === panelBlurRegion,
+        'resolved background should point to panelBlurRegion');
+    assert(resolvedDedicatedPanel.content_parent === panelBlurRegion,
+        'resolved content_parent should point to panelBlurRegion');
+    assert(resolvedDedicatedPanel.sibling === panelBlurRegion,
+        'resolved sibling should point to panelBlurRegion');
+
     // PanelView blur disabled fallback
     panelContainer._dockBlurEnabled = false;
     assert(resolveAquaDockTarget(panelContainer) === null,
@@ -630,8 +642,10 @@ shellResource._register();
     const { DownloadsStack } = await import(`file://${projectRoot}/downloads/downloadsStack.js`);
     const { FAN_ANIM } = await import(`file://${projectRoot}/downloads/fanView.js`);
     assert(typeof FAN_ANIM === 'object', 'FAN_ANIM must be exported');
-    assert(FAN_ANIM.open.duration > 0 && FAN_ANIM.open.stagger > 0, 'FAN_ANIM open profile must be valid');
-    assert(FAN_ANIM.close.duration > 0 && FAN_ANIM.close.stagger > 0, 'FAN_ANIM close profile must be valid');
+    assert(FAN_ANIM.open.duration > 0 && FAN_ANIM.open.duration <= 180, 'FAN_ANIM open duration must be brisk (<= 180ms)');
+    assert(FAN_ANIM.open.stagger > 0 && FAN_ANIM.open.stagger <= 30, 'FAN_ANIM open stagger must be brisk (<= 30ms)');
+    assert(FAN_ANIM.close.duration > 0 && FAN_ANIM.close.duration <= 130, 'FAN_ANIM close duration must be brisk (<= 130ms)');
+    assert(FAN_ANIM.close.stagger > 0 && FAN_ANIM.close.stagger <= 20, 'FAN_ANIM close stagger must be brisk (<= 20ms)');
     assert(FAN_ANIM.open.mode === Clutter.AnimationMode.EASE_OUT_CUBIC, 'FAN_ANIM open must be EASE_OUT_CUBIC');
     assert(FAN_ANIM.close.mode === Clutter.AnimationMode.EASE_IN_QUAD, 'FAN_ANIM close must be EASE_IN_QUAD');
     const stack = new DownloadsStack(() => ({ x: 0, y: 0, width: 1920, height: 1080 }));

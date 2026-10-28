@@ -134,14 +134,23 @@ export class PanelView {
         blurRegion.set_style(`border-radius: ${radius}px;`);
         this._blurRegion = blurRegion;
         this._blurActive = blurActive;
+
+        panel.name = 'aquaDownloadsPanel';
         panel._blurRegion = blurRegion;
         panel._dockBlurRegion = blurRegion;
-        panel._dockBg = panel;
+        panel._dockBg = blurRegion;
+        panel._dockContent = blurRegion;
+        panel._dockContentParent = blurRegion;
         panel._isAquaDock = true;
         panel._dockBlurEnabled = blurActive;
         panel._dockRadius = radius;
         panel.get_dock_radius = () => radius;
-        setupBackgroundCorners(panel, () => radius);
+
+        blurRegion._isAquaDock = true;
+        blurRegion._dockBlurEnabled = blurActive;
+        blurRegion._dockRadius = radius;
+        blurRegion.get_dock_radius = () => radius;
+        setupBackgroundCorners(blurRegion, () => radius);
 
         const dockContainer = this.dockContainer ?? this.anchor?.get_parent?.() ??
             (typeof Main.uiGroup.get_children === 'function'
@@ -153,11 +162,6 @@ export class PanelView {
             Main.uiGroup.add_child(panel);
         }
         Main.uiGroup.insert_child_below(blurRegion, panel);
-        if (!blurActive) {
-            blurRegion.hide();
-        } else {
-            registerBmsTarget(panel);
-        }
 
         panel.connect('destroy', () => {
             unregisterBmsTarget(panel);
@@ -172,10 +176,17 @@ export class PanelView {
         const px = clamp(Math.round(targetX), mon.x + 8, mon.x + mon.width - panelW - 8);
         const py = clamp(Math.round(targetY), mon.y + 8, mon.y + mon.height - natH - 8);
         panel.set_position(px, py);
+        panel.set_size(panelW, natH);
         blurRegion.set_position(px, py);
         blurRegion.set_size(panelW, natH);
         blurRegion.set_pivot_point(0.5, 1.0);
         blurRegion.opacity = 0;
+
+        if (!blurActive) {
+            blurRegion.hide();
+        } else {
+            registerBmsTarget(panel, () => radius);
+        }
 
         this._model.setRows(tiles);
         this._animateOpen(panel, tiles, view);
@@ -341,7 +352,7 @@ export class PanelView {
                 opacity: 255,
                 scale_x: 1,
                 scale_y: 1,
-                duration: 240,
+                duration: 180,
                 mode: Clutter.AnimationMode.EASE_OUT_CUBIC,
             });
             if (this._blurRegion && blurEnabled) {
@@ -350,34 +361,34 @@ export class PanelView {
                     opacity: 255,
                     scale_x: 1,
                     scale_y: 1,
-                    duration: 240,
+                    duration: 180,
                     mode: Clutter.AnimationMode.EASE_OUT_CUBIC,
                 });
             }
         } else {
-            panel.translation_y = 12; panel.scale_y = 0.9;
+            panel.translation_y = 10; panel.scale_y = 0.92;
             panel.ease({
                 opacity: 255,
                 translation_y: 0,
                 scale_y: 1,
-                duration: 240,
+                duration: 180,
                 mode: Clutter.AnimationMode.EASE_OUT_CUBIC,
             });
             if (this._blurRegion && blurEnabled) {
-                this._blurRegion.translation_y = 12; this._blurRegion.scale_y = 0.9;
+                this._blurRegion.translation_y = 10; this._blurRegion.scale_y = 0.92;
                 this._blurRegion.ease({
                     opacity: 255,
                     translation_y: 0,
                     scale_y: 1,
-                    duration: 240,
+                    duration: 180,
                     mode: Clutter.AnimationMode.EASE_OUT_CUBIC,
                 });
             }
         }
         tiles.forEach((tile, i) => {
             tile.opacity = 0; tile.translation_y = 6;
-            const delay = view === 'grid' ? 50 + Math.floor(i / GRID_COLS) * 30 : 50 + i * 22;
-            tile.ease({ opacity: 255, translation_y: 0, duration: 200, delay, mode: Clutter.AnimationMode.EASE_OUT_QUAD });
+            const delay = view === 'grid' ? 30 + Math.floor(i / GRID_COLS) * 20 : 30 + i * 15;
+            tile.ease({ opacity: 255, translation_y: 0, duration: 150, delay, mode: Clutter.AnimationMode.EASE_OUT_QUAD });
         });
     }
 
@@ -443,15 +454,15 @@ export class PanelView {
         if (this._reduce || !animationsEnabled()) { onDone(); return; }
         if (this._blurRegion && this._blurActive) {
             if (this._view === 'grid') {
-                this._blurRegion.ease({ opacity: 0, scale_x: 0.88, scale_y: 0.88, duration: 200, mode: Clutter.AnimationMode.EASE_IN_CUBIC });
+                this._blurRegion.ease({ opacity: 0, scale_x: 0.88, scale_y: 0.88, duration: 140, mode: Clutter.AnimationMode.EASE_IN_CUBIC });
             } else {
-                this._blurRegion.ease({ opacity: 0, scale_y: 0.9, translation_y: 12, duration: 200, mode: Clutter.AnimationMode.EASE_IN_CUBIC });
+                this._blurRegion.ease({ opacity: 0, scale_y: 0.92, translation_y: 10, duration: 140, mode: Clutter.AnimationMode.EASE_IN_CUBIC });
             }
         }
         if (this._view === 'grid') {
-            actor.ease({ opacity: 0, scale_x: 0.88, scale_y: 0.88, duration: 200, mode: Clutter.AnimationMode.EASE_IN_CUBIC, onComplete: onDone });
+            actor.ease({ opacity: 0, scale_x: 0.88, scale_y: 0.88, duration: 140, mode: Clutter.AnimationMode.EASE_IN_CUBIC, onComplete: onDone });
         } else {
-            actor.ease({ opacity: 0, scale_y: 0.9, translation_y: 12, duration: 200, mode: Clutter.AnimationMode.EASE_IN_CUBIC, onComplete: onDone });
+            actor.ease({ opacity: 0, scale_y: 0.92, translation_y: 10, duration: 140, mode: Clutter.AnimationMode.EASE_IN_CUBIC, onComplete: onDone });
         }
     }
 }

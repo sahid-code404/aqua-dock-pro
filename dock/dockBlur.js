@@ -526,21 +526,33 @@ const activeAquaContainers = new Set();
 let origTryBlur = null;
 let origBlurExistingDashes = null;
 
+function getActorDim(actor, prop) {
+    if (!actor) return 0;
+    const val = actor[prop];
+    if (typeof val === 'number' && val > 0) return val;
+    try {
+        const box = actor.get_allocation_box?.();
+        if (box) {
+            const allocVal = prop === 'width' ? box.get_width?.() : box.get_height?.();
+            if (typeof allocVal === 'number' && allocVal > 0) return allocVal;
+        }
+    } catch { }
+    return 0;
+}
+
 function tryBlurAquaDock(dashBlur, container) {
     if (!container || container._dockBlurEnabled === false) return;
     const target = resolveAquaDockTarget(container);
     if (!target) return;
 
     const bg = target.background;
-    const w = (bg?.width && bg.width > 0) ? bg.width : (container?.width ?? 0);
-    const h = (bg?.height && bg.height > 0) ? bg.height : (container?.height ?? 0);
+    const w = getActorDim(bg, 'width') || getActorDim(container, 'width');
+    const h = getActorDim(bg, 'height') || getActorDim(container, 'height');
     if (w <= 0 || h <= 0) {
         if (!container._aquaAllocWatch && typeof container.connect === 'function') {
             container._aquaAllocWatch = container.connect('notify::allocation', () => {
-                const curW = (target.background?.width && target.background.width > 0)
-                    ? target.background.width : (container?.width ?? 0);
-                const curH = (target.background?.height && target.background.height > 0)
-                    ? target.background.height : (container?.height ?? 0);
+                const curW = getActorDim(target.background, 'width') || getActorDim(container, 'width');
+                const curH = getActorDim(target.background, 'height') || getActorDim(container, 'height');
                 if (curW > 0 && curH > 0) {
                     try { container.disconnect(container._aquaAllocWatch); } catch { }
                     container._aquaAllocWatch = null;

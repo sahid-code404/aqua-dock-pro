@@ -23,16 +23,16 @@ const CONTENT_GAP = 14;
 // Pills emerge smoothly one by one along the arc with organic deceleration easing
 export const FAN_ANIM = {
     open: {
-        duration: 220,                              // Silky smooth 220ms translation per item
-        stagger: 38,                               // 38ms sequential stagger for clearly visible one-by-one appearance
+        duration: 170,                              // Snappy and fluid 170ms translation per item
+        stagger: 24,                               // 24ms sequential stagger for fast yet distinct one-by-one appearance
         mode: Clutter.AnimationMode.EASE_OUT_CUBIC, // Apple-style fluid deceleration into resting slots
-        fadeDuration: 180,                          // Smooth alpha fade-in
+        fadeDuration: 140,                          // Smooth alpha fade-in
     },
     close: {
-        duration: 150,                              // Snappy 150ms collapse per item
-        stagger: 20,                               // 20ms reverse cascade collapse into dock folder
+        duration: 120,                              // Snappy 120ms collapse per item
+        stagger: 14,                               // 14ms reverse cascade collapse into dock folder
         mode: Clutter.AnimationMode.EASE_IN_QUAD,   // Accelerating collapse into folder
-        fadeDuration: 120,                          // Clean fade-out
+        fadeDuration: 90,                           // Clean fade-out
     },
 };
 
