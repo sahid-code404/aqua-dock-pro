@@ -627,6 +627,11 @@ shellResource._register();
     // Test DownloadsStack getter signatures
     const projectRoot = GLib.get_current_dir();
     const { DownloadsStack } = await import(`file://${projectRoot}/downloads/downloadsStack.js`);
+    const { FAN_ANIM } = await import(`file://${projectRoot}/downloads/fanView.js`);
+    assert(typeof FAN_ANIM === 'object', 'FAN_ANIM must be exported');
+    assert(FAN_ANIM.slideDistance > 0, 'FAN_ANIM must define positive slideDistance');
+    assert(FAN_ANIM.open.duration > 0 && FAN_ANIM.open.stagger > 0, 'FAN_ANIM open profile must be valid');
+    assert(FAN_ANIM.close.duration > 0 && FAN_ANIM.close.stagger > 0, 'FAN_ANIM close profile must be valid');
     const stack = new DownloadsStack(() => ({ x: 0, y: 0, width: 1920, height: 1080 }));
     assert(stack.blurRegion === null, 'DownloadsStack.blurRegion is null initially');
     assert(stack.view === null, 'DownloadsStack.view is null initially');

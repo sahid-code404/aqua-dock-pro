@@ -19,20 +19,22 @@ import { isBmsDockBlurActive, registerBmsTarget, unregisterBmsTarget, setupBackg
 const LABEL_WIDTH = 86;
 const CONTENT_GAP = 14;
 
-// Reversible macOS-style sequential "one by one" fan animation profile
+// Configurable fan animation profile (revertible test mode)
+// Animates pills along the display edge side arc without 3D diagonal flight layering
 export const FAN_ANIM = {
     open: {
-        duration: 190,                              // Smooth 190ms arc travel per item
-        stagger: 26,                               // 26ms sequential stagger so pills emerge one by one
+        duration: 180,                              // Smooth 180ms horizontal slide-in
+        stagger: 18,                               // 18ms sequential stagger from bottom to top
         mode: Clutter.AnimationMode.EASE_OUT_QUAD,  // macOS-style deceleration into resting slots
-        fadeDuration: 160,                          // Smooth alpha fade-in
+        fadeDuration: 150,                          // Clean opacity ramp
     },
     close: {
-        duration: 160,                              // Snappy 160ms collapse into dock folder
-        stagger: 20,                               // 20ms reverse cascade collapse
-        mode: Clutter.AnimationMode.EASE_IN_QUAD,   // Smooth acceleration into dock folder
-        fadeDuration: 130,                          // Clean fade-out
+        duration: 150,                              // Snappy 150ms slide-out towards display edge
+        stagger: 14,                               // 14ms reverse stagger from top to bottom
+        mode: Clutter.AnimationMode.EASE_IN_QUAD,   // Smooth acceleration towards edge
+        fadeDuration: 130,                          // Clean opacity fade
     },
+    slideDistance: 36,                              // Horizontal slide distance along display edge side arc (px)
 };
 
 export class FanView {
@@ -42,6 +44,8 @@ export class FanView {
         this._model = new SelectionModel('aqua-dl-fan-row-sel');
         this._actor = null;
         this._collapse = null;
+        this._orientation = null;
+        this._slideOffset = 0;
         this._reduce = false;
         this._fileMenu = new FileItemMenu(opts.mon, opts.cfg);
         this._blurRegions = [];
@@ -92,11 +96,13 @@ export class FanView {
                 thumbSize, rowW, rowH));
         const n = builders.length;
 
-        let stepY = clamp(thumbH + 24, 50, 72);
+        const pillH = Math.max(thumbH, 28);
+        const minStep = pillH + 6;
+        let stepY = clamp(thumbH + 24, minStep, 72);
         const availH = Math.max(140, ay - mon.y - 24);
         if (n > 1) {
             const fitStep = (availH - rowH - 40) / (n - 1);
-            if (fitStep < stepY) stepY = Math.max(34, fitStep);
+            if (fitStep < stepY) stepY = Math.max(minStep, fitStep);
         }
         const cells = [];
         for (let i = 0; i < n; i++) {
@@ -142,10 +148,12 @@ export class FanView {
 
         const anchorLX = originX - px, anchorLY = ay - py;
         this._collapse = { x: anchorLX, y: anchorLY };
+        this._orientation = orientation;
+        const slideOffset = (orientation.curveSign || 1) * (FAN_ANIM.slideDistance ?? 36);
+        this._slideOffset = slideOffset;
         this._fileMenu.bind(fan);
 
         const radius = cfg.dlItemRadius ?? clamp(cfg.dockRadius ?? 16, 6, 28);
-        const pillH = Math.max(thumbH, 28);
         const pillLocalX = this._thumbnailFirst
             ? leftPad + thumbSize + labelGap
             : leftPad;
@@ -203,8 +211,8 @@ export class FanView {
             }
 
             if (reduce) return;
-            const initTx = anchorLX - (fx + iconCx);
-            const initTy = anchorLY - (fy + rowH / 2);
+            const initTx = slideOffset;
+            const initTy = 0;
             row.translation_x = initTx;
             row.translation_y = initTy;
             row.opacity = 0;
@@ -420,21 +428,19 @@ export class FanView {
         for (const br of this.blurRegions) {
             try { br.remove_all_transitions(); } catch { }
         }
-        if (this._reduce || !this._collapse || !animationsEnabled()) {
+        if (this._reduce || !animationsEnabled()) {
             onDone();
             return;
         }
+        const slideOffset = this._slideOffset ?? ((this._orientation?.curveSign || 1) * (FAN_ANIM.slideDistance ?? 36));
         const kids = this._model.rows;
         const n = kids.length;
         if (this._blurActive) {
             this.blurRegions.forEach((br, i) => {
-                const tile = kids[i];
-                if (!tile) return;
-                const cx = tile.x + tile.width / 2, cy = tile.y + tile.height / 2;
                 const delay = (n - 1 - i) * FAN_ANIM.close.stagger;
                 br.ease({
-                    translation_x: this._collapse.x - cx,
-                    translation_y: this._collapse.y - cy,
+                    translation_x: slideOffset,
+                    translation_y: 0,
                     duration: FAN_ANIM.close.duration,
                     delay,
                     mode: FAN_ANIM.close.mode,
@@ -448,11 +454,10 @@ export class FanView {
             });
         }
         kids.forEach((tile, i) => {
-            const cx = tile.x + tile.width / 2, cy = tile.y + tile.height / 2;
             const delay = (n - 1 - i) * FAN_ANIM.close.stagger;
             tile.ease({
-                translation_x: this._collapse.x - cx,
-                translation_y: this._collapse.y - cy,
+                translation_x: slideOffset,
+                translation_y: 0,
                 duration: FAN_ANIM.close.duration,
                 delay,
                 mode: FAN_ANIM.close.mode,

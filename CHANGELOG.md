@@ -1,5 +1,13 @@
 # Changelog
 
+## 276
+
+- Remove 3D diagonal fan flight trajectory emerging out of the dock folder icon; pills now animate strictly along their display edge side arc slots.
+- Eliminate visual layering and screen-coordinate crossover during fan open and collapse transitions: each pill slides horizontally from the display edge side (`initTx = curveSign * slideDistance`, `initTy = 0`), preventing pills from flying across each other or displaying stacked layers.
+- Enforce vertical air clearance between adjacent fan pill slots (`stepY = Math.max(minStep, fitStep)` with `minStep = pillH + 6`) so pills never overlap vertically at rest.
+- Update `FAN_ANIM` profile in [downloads/fanView.js](file:///home/shaque/aqua-dock-pro/downloads/fanView.js) with isolated, easily configurable, and revertible slide parameters (`slideDistance: 36px`, `open: 180ms` with `18ms` sequential stagger, `close: 150ms` with `14ms` reverse stagger).
+- Reduce Mutter and Blur My Shell GPU redraw load during fan animation by eliminating overlapping semi-transparent blurred rectangles.
+
 ## 275
 
 - Implement macOS-style sequential "one by one" fan open and close animation profile in `FAN_ANIM` ([fanView.js](file:///home/shaque/aqua-dock-pro/downloads/fanView.js)).
