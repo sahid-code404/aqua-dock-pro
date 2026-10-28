@@ -19,6 +19,22 @@ import { isBmsDockBlurActive, registerBmsTarget, unregisterBmsTarget, setupBackg
 const LABEL_WIDTH = 86;
 const CONTENT_GAP = 14;
 
+// Reversible macOS-style light linear / swift fan animation profile
+export const FAN_ANIM = {
+    open: {
+        duration: 180,
+        stagger: 8,
+        mode: Clutter.AnimationMode.LINEAR,
+        fadeDuration: 150,
+    },
+    close: {
+        duration: 150,
+        stagger: 8,
+        mode: Clutter.AnimationMode.LINEAR,
+        fadeDuration: 130,
+    },
+};
+
 export class FanView {
     // opts: { folder, files, overflow, cfg, mon, origin:{x,y}, close }
     constructor(opts) {
@@ -192,21 +208,35 @@ export class FanView {
             row.translation_x = initTx;
             row.translation_y = initTy;
             row.opacity = 0;
-            const delay = i * 16;
+            const delay = i * FAN_ANIM.open.stagger;
             row.ease({
                 translation_x: 0, translation_y: 0,
-                duration: 260, delay, mode: Clutter.AnimationMode.EASE_OUT_BACK,
+                duration: FAN_ANIM.open.duration,
+                delay,
+                mode: FAN_ANIM.open.mode,
             });
-            row.ease({ opacity: 255, duration: 200, delay, mode: Clutter.AnimationMode.EASE_OUT_QUAD });
+            row.ease({
+                opacity: 255,
+                duration: FAN_ANIM.open.fadeDuration,
+                delay,
+                mode: FAN_ANIM.open.mode,
+            });
 
             if (blurActive) {
                 blurRegion.translation_x = initTx;
                 blurRegion.translation_y = initTy;
                 blurRegion.ease({
                     translation_x: 0, translation_y: 0,
-                    duration: 260, delay, mode: Clutter.AnimationMode.EASE_OUT_BACK,
+                    duration: FAN_ANIM.open.duration,
+                    delay,
+                    mode: FAN_ANIM.open.mode,
                 });
-                blurRegion.ease({ opacity: 255, duration: 200, delay, mode: Clutter.AnimationMode.EASE_OUT_QUAD });
+                blurRegion.ease({
+                    opacity: 255,
+                    duration: FAN_ANIM.open.fadeDuration,
+                    delay,
+                    mode: FAN_ANIM.open.mode,
+                });
             }
         });
 
@@ -401,34 +431,43 @@ export class FanView {
                 const tile = kids[i];
                 if (!tile) return;
                 const cx = tile.x + tile.width / 2, cy = tile.y + tile.height / 2;
-                const delay = (n - 1 - i) * 18;
+                const delay = (n - 1 - i) * FAN_ANIM.close.stagger;
                 br.ease({
                     translation_x: this._collapse.x - cx,
                     translation_y: this._collapse.y - cy,
-                    duration: 220,
+                    duration: FAN_ANIM.close.duration,
                     delay,
-                    mode: Clutter.AnimationMode.EASE_IN_QUAD,
+                    mode: FAN_ANIM.close.mode,
                 });
                 br.ease({
                     opacity: 0,
-                    duration: 180,
-                    delay: delay + 20,
-                    mode: Clutter.AnimationMode.EASE_IN_QUAD,
+                    duration: FAN_ANIM.close.fadeDuration,
+                    delay,
+                    mode: FAN_ANIM.close.mode,
                 });
             });
         }
         kids.forEach((tile, i) => {
             const cx = tile.x + tile.width / 2, cy = tile.y + tile.height / 2;
-            const delay = (n - 1 - i) * 18;
+            const delay = (n - 1 - i) * FAN_ANIM.close.stagger;
             tile.ease({
-                translation_x: this._collapse.x - cx, translation_y: this._collapse.y - cy,
-                duration: 220, delay,
-                mode: Clutter.AnimationMode.EASE_IN_QUAD,
+                translation_x: this._collapse.x - cx,
+                translation_y: this._collapse.y - cy,
+                duration: FAN_ANIM.close.duration,
+                delay,
+                mode: FAN_ANIM.close.mode,
             });
-            tile.ease({ opacity: 0, duration: 180, delay: delay + 20, mode: Clutter.AnimationMode.EASE_IN_QUAD });
+            tile.ease({
+                opacity: 0,
+                duration: FAN_ANIM.close.fadeDuration,
+                delay,
+                mode: FAN_ANIM.close.mode,
+            });
         });
         actor.ease({
-            opacity: 0, duration: 240 + n * 18, mode: Clutter.AnimationMode.EASE_IN_QUAD,
+            opacity: 0,
+            duration: FAN_ANIM.close.duration + n * FAN_ANIM.close.stagger,
+            mode: FAN_ANIM.close.mode,
             onComplete: onDone,
         });
     }

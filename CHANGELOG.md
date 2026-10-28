@@ -1,5 +1,12 @@
 # Changelog
 
+## 274
+
+- Introduce macOS-style lightweight linear fan open/close animation profile (`FAN_ANIM` in `downloads/fanView.js`) for test evaluation.
+- Replace polynomial overshoot easing (`EASE_OUT_BACK` / `EASE_IN_QUAD`) with crisp, swift linear arc transitions (`Clutter.AnimationMode.LINEAR`) matching macOS Fan View behavior.
+- Tighten animation duration (180ms open, 150ms close) and reduce stagger delay (8ms per item) for instant, fluid, and featherlight expansion and collapse.
+- Maintain dedicated configurable `FAN_ANIM` profile so the animation parameters can easily be reverted, fine-tuned, or confirmed by user feedback.
+
 ## 273
 
 - Eliminate remaining fan view animation stutter, micro-freezes, and journal logging overhead.
