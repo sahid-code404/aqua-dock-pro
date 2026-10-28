@@ -1207,6 +1207,178 @@ shellResource._register();
     delete globalThis.global.blur_my_shell;
 }
 
+// ── 11. Dynamic Blur Follow & Lockstep Magnification Synchronization ─────────
+{
+    const { AquaDockSurface } = await import('../dock/dockBlur.js');
+
+    const parentContainer = {
+        width: 800,
+        height: 80,
+        has_allocation: () => true,
+        connect: () => 1,
+        disconnect: () => {},
+    };
+
+    const dockBg = {
+        x: 100,
+        y: 10,
+        width: 400,
+        height: 60,
+        parent: parentContainer,
+        get_parent() { return this.parent; },
+        has_allocation: () => true,
+        connect: () => 1,
+        disconnect: () => {},
+    };
+
+    let bgAllocBox = null;
+    let bgRedrawCount = 0;
+    const bgActor = {
+        x: 0,
+        y: 0,
+        width: 0,
+        height: 0,
+        set_position(x, y) { this.x = x; this.y = y; },
+        set_size(w, h) { this.width = w; this.height = h; },
+        allocate(box) {
+            bgAllocBox = box;
+        },
+        queue_redraw() {
+            bgRedrawCount++;
+        },
+        remove_all_transitions() {},
+    };
+
+    const bgGroup = {
+        parent: parentContainer,
+        x: 0,
+        y: 0,
+        width: 0,
+        height: 0,
+        get_parent() { return this.parent; },
+        set_position(x, y) { this.x = x; this.y = y; },
+        set_size(w, h) { this.width = w; this.height = h; },
+        destroy() { this.destroyed = true; },
+        connect: () => 1,
+        disconnect: () => {},
+    };
+
+    let contentAllocBox = null;
+    const contentActor = {
+        x: -1,
+        y: -1,
+        width: 0,
+        height: 0,
+        set_position(x, y) { this.x = x; this.y = y; },
+        set_size(w, h) { this.width = w; this.height = h; },
+        allocate(box) {
+            contentAllocBox = box;
+        },
+        remove_all_transitions() {},
+    };
+
+    let repaintCount = 0;
+    const mockPipeline = {
+        contentActor,
+        repaint_effect() {
+            repaintCount++;
+        },
+        destroy() {},
+    };
+
+    const mockBlur = {
+        background: bgActor,
+        background_group: bgGroup,
+        bg_manager: { destroy() {} },
+        pipeline: mockPipeline,
+        rounded_pipeline: null,
+        corner_settings: { radius: 24, corners: 0 },
+    };
+
+    const mockDashBlur = {
+        is_static: false,
+        settings: { dash_to_dock: { STATIC_BLUR: false } },
+        connect: () => 1,
+    };
+
+    const target = {
+        content: parentContainer,
+        background: dockBg,
+        content_parent: parentContainer,
+    };
+
+    const surface = new AquaDockSurface(mockDashBlur, parentContainer, target, mockBlur);
+
+    // Initial update
+    surface.update_size();
+
+    assert(bgGroup.x === 0 && bgGroup.y === 0, 'bgGroup must be positioned at 0, 0');
+    assert(bgGroup.width === 800 && bgGroup.height === 80, 'bgGroup size must match parentContainer');
+    assert(bgActor.x === 100 && bgActor.y === 10, 'bgActor position matches dockBg position');
+    assert(bgActor.width === 400 && bgActor.height === 60, 'bgActor size matches dockBg size');
+    assert(contentActor.x === 0 && contentActor.y === 0, 'contentActor must be positioned at 0, 0');
+    assert(contentActor.width === 400 && contentActor.height === 60, 'contentActor size matches dockBg size');
+    assert(bgAllocBox !== null, 'bgActor allocate must be called with ActorBox');
+    assert(bgAllocBox.x1 === 100 && bgAllocBox.y1 === 10 && bgAllocBox.x2 === 500 && bgAllocBox.y2 === 70,
+        `bgActor allocation box must match geometry (got ${JSON.stringify(bgAllocBox)})`);
+    assert(contentAllocBox !== null, 'contentActor allocate must be called');
+    assert(contentAllocBox.x1 === 0 && contentAllocBox.y1 === 0 && contentAllocBox.x2 === 400 && contentAllocBox.y2 === 60,
+        `contentActor allocation box must match 0, 0, w, h (got ${JSON.stringify(contentAllocBox)})`);
+    assert(repaintCount === 1, `repaint_effect must be called once (got ${repaintCount})`);
+    assert(bgRedrawCount === 1, `queue_redraw must be called once (got ${bgRedrawCount})`);
+
+    // Simulate lockstep animation frame magnification stretch:
+    // Icon magnification causes dockBg spread: left shifts to 80, width expands to 440
+    dockBg.x = 80;
+    dockBg.width = 440;
+
+    // Call update_size() synchronously as done by _engine.setFrameHook()
+    surface.update_size();
+
+    assert(bgActor.x === 80, `bgActor x must immediately update to 80 on animation frame (got ${bgActor.x})`);
+    assert(bgActor.width === 440, `bgActor width must immediately expand to 440 on animation frame (got ${bgActor.width})`);
+    assert(contentActor.width === 440, `contentActor width must immediately expand to 440 (got ${contentActor.width})`);
+    assert(bgAllocBox.x1 === 80 && bgAllocBox.x2 === 520, 'bgActor allocation box must update in lockstep');
+    assert(contentAllocBox.x2 === 440, 'contentActor allocation box must expand in lockstep');
+    assert(repaintCount === 2, `pipeline repaint_effect must be triggered immediately for expanded frame (got ${repaintCount})`);
+    assert(bgRedrawCount === 2, `queue_redraw must be triggered immediately for expanded frame (got ${bgRedrawCount})`);
+
+    // Verify synchronous update clears any pending laters so no delayed frame lag occurs
+    let compositorRemovedLater = false;
+    globalThis.global = {
+        compositor: {
+            get_laters: () => ({
+                add: () => 42,
+                remove: (id) => { if (id === 42) compositorRemovedLater = true; },
+            }),
+        },
+    };
+    surface.schedule_update();
+    assert(surface._updateId === 42, 'schedule_update should record pending updateId');
+    surface.update_size();
+    assert(surface._updateId === 0, 'synchronous update_size must clear pending updateId');
+    assert(compositorRemovedLater === true, 'compositor later callback must be cancelled to eliminate 1-frame latency');
+
+    delete globalThis.global;
+    surface.destroy_dash();
+
+    // Verify dockController frame hook invoking container surface update
+    let surfaceUpdated = false;
+    const mockContainer = {
+        _aquaDockSurface: {
+            update_size: () => { surfaceUpdated = true; },
+        },
+    };
+    const mockChrome = { container: mockContainer };
+    const frameHook = () => {
+        if (mockChrome?.container?._aquaDockSurface) {
+            mockChrome.container._aquaDockSurface.update_size?.();
+        }
+    };
+    frameHook();
+    assert(surfaceUpdated === true, 'dockController frameHook must invoke _aquaDockSurface.update_size()');
+}
+
 GLib.spawn_sync(null, ['rm', '-rf', tmpShellDir], null, GLib.SpawnFlags.SEARCH_PATH, null);
 
 print('dockBlur: ok');

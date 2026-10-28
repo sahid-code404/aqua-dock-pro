@@ -1,6 +1,7 @@
 // Dock blur coordinator for Aqua Dock Pro.
 // Integrates with Blur my Shell pipelines at runtime via in-memory hooks.
 
+import Clutter from 'gi://Clutter';
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import Graphene from 'gi://Graphene';
@@ -420,6 +421,24 @@ export class AquaDockSurface {
 
             try { this.background?.remove_all_transitions?.(); } catch { }
             try { this.background_group?.remove_all_transitions?.(); } catch { }
+
+            // a) Update this.background_group size and position
+            if (typeof this.background_group.set_position === 'function') {
+                this.background_group.set_position(0, 0);
+            } else {
+                this.background_group.x = 0;
+                this.background_group.y = 0;
+            }
+            const groupW = parent.width || w;
+            const groupH = parent.height || h;
+            if (typeof this.background_group.set_size === 'function') {
+                this.background_group.set_size(groupW, groupH);
+            } else {
+                this.background_group.width = groupW;
+                this.background_group.height = groupH;
+            }
+
+            // b) Set this.background.set_position(x, y) and this.background.set_size(w, h)
             if (typeof this.background.set_position === 'function') {
                 this.background.set_position(x, y);
             } else {
@@ -432,6 +451,92 @@ export class AquaDockSurface {
                 this.background.width = w;
                 this.background.height = h;
             }
+            this.background.width = w;
+            this.background.height = h;
+
+            // c) Update this.pipeline.contentActor directly if present
+            const contentActor = this.pipeline?.contentActor;
+            if (contentActor) {
+                try { contentActor.remove_all_transitions?.(); } catch { }
+                if (typeof contentActor.set_position === 'function') {
+                    contentActor.set_position(0, 0);
+                } else {
+                    contentActor.x = 0;
+                    contentActor.y = 0;
+                }
+                if (typeof contentActor.set_size === 'function') {
+                    contentActor.set_size(w, h);
+                } else {
+                    contentActor.width = w;
+                    contentActor.height = h;
+                }
+                contentActor.width = w;
+                contentActor.height = h;
+            }
+
+            // d) Allocate this.background using Clutter.ActorBox if Clutter is available
+            // or this.background.allocate() so that get_abs_allocation_vertices() updates
+            // and BackdropCaptureEffect detects geometry change. Also allocate contentActor if needed.
+            try {
+                let bgBox = null;
+                if (typeof Clutter?.ActorBox === 'function') {
+                    try {
+                        bgBox = new Clutter.ActorBox({
+                            x1: x,
+                            y1: y,
+                            x2: x + w,
+                            y2: y + h,
+                        });
+                    } catch {
+                        bgBox = new Clutter.ActorBox();
+                        bgBox.init_rect(x, y, w, h);
+                    }
+                }
+                if (typeof this.background.allocate === 'function') {
+                    if (bgBox) {
+                        try {
+                            this.background.allocate(bgBox);
+                        } catch {
+                            this.background.allocate();
+                        }
+                    } else {
+                        this.background.allocate();
+                    }
+                }
+            } catch { }
+
+            if (contentActor && typeof contentActor.allocate === 'function') {
+                try {
+                    let contentBox = null;
+                    if (typeof Clutter?.ActorBox === 'function') {
+                        try {
+                            contentBox = new Clutter.ActorBox({
+                                x1: 0,
+                                y1: 0,
+                                x2: w,
+                                y2: h,
+                            });
+                        } catch {
+                            contentBox = new Clutter.ActorBox();
+                            contentBox.init_rect(0, 0, w, h);
+                        }
+                    }
+                    if (contentBox) {
+                        try {
+                            contentActor.allocate(contentBox);
+                        } catch {
+                            contentActor.allocate();
+                        }
+                    } else {
+                        contentActor.allocate();
+                    }
+                } catch { }
+            }
+
+            // e) Call this.pipeline?.repaint_effect?.() and this.background.queue_redraw?.()
+            // so the dynamic blur framebuffer updates immediately with the expanded size.
+            try { this.pipeline?.repaint_effect?.(); } catch { }
+            try { this.background.queue_redraw?.(); } catch { }
         }
     }
 

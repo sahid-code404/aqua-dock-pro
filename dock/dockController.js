@@ -199,6 +199,9 @@ export class DockController {
                     this._tooltip.position(this._hoverItem, this._geom);
                 }
             }
+            if (this._chrome?.container?._aquaDockSurface) {
+                this._chrome.container._aquaDockSurface.update_size?.();
+            }
         });
 
         this._connectSignals();

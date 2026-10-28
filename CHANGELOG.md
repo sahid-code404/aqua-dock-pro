@@ -1,5 +1,14 @@
 # Changelog
 
+## 285
+
+- Fix Blur My Shell dynamic blur follow during icon magnification (`AquaDockSurface._update_dynamic_size()`):
+  - In dynamic blur mode, update and match `background_group` dimensions to parent container bounds.
+  - Directly synchronize `pipeline.contentActor` position and size `(w, h)` to eliminate stale `(0, 0)` or resting dimensions in `BackdropCaptureEffect`.
+  - Explicitly allocate `this.background` and `this.pipeline.contentActor` via `Clutter.ActorBox`, updating `get_abs_allocation_vertices()` synchronously on each frame so BMS backdrop capture detects geometry expansion immediately.
+  - Invoke `pipeline.repaint_effect()` and `background.queue_redraw()` so the dynamic blur framebuffer re-captures the expanded dock region without lag.
+  - Hook synchronous `surface.update_size()` directly into `_engine.setFrameHook()` in `dockController.js` to eliminate 1-frame latency between icon springs and blur expansion.
+
 ## 284
 
 - Refine shift clamping and overflow centering in dock magnification (`AnimationEngine._applySpread()`):
