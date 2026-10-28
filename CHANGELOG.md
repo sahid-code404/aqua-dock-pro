@@ -1,5 +1,12 @@
 # Changelog
 
+## 275
+
+- Implement macOS-style sequential "one by one" fan open and close animation profile in `FAN_ANIM` ([fanView.js](file:///home/shaque/aqua-dock-pro/downloads/fanView.js)).
+- Increase sequential stagger between item launches (26ms on open, 20ms on close) so pills emerge one by one in a flowing wave rather than clustering simultaneously.
+- Apply natural macOS deceleration easing (`Clutter.AnimationMode.EASE_OUT_QUAD`) for fan expansion and accelerating collapse (`EASE_IN_QUAD`).
+- Reduce peak concurrent GPU compositor load by spreading active blur pipelines sequentially across the timeline.
+
 ## 274
 
 - Introduce macOS-style lightweight linear fan open/close animation profile (`FAN_ANIM` in `downloads/fanView.js`) for test evaluation.

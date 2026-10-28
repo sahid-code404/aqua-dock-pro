@@ -19,19 +19,19 @@ import { isBmsDockBlurActive, registerBmsTarget, unregisterBmsTarget, setupBackg
 const LABEL_WIDTH = 86;
 const CONTENT_GAP = 14;
 
-// Reversible macOS-style light linear / swift fan animation profile
+// Reversible macOS-style sequential "one by one" fan animation profile
 export const FAN_ANIM = {
     open: {
-        duration: 180,
-        stagger: 8,
-        mode: Clutter.AnimationMode.LINEAR,
-        fadeDuration: 150,
+        duration: 190,                              // Smooth 190ms arc travel per item
+        stagger: 26,                               // 26ms sequential stagger so pills emerge one by one
+        mode: Clutter.AnimationMode.EASE_OUT_QUAD,  // macOS-style deceleration into resting slots
+        fadeDuration: 160,                          // Smooth alpha fade-in
     },
     close: {
-        duration: 150,
-        stagger: 8,
-        mode: Clutter.AnimationMode.LINEAR,
-        fadeDuration: 130,
+        duration: 160,                              // Snappy 160ms collapse into dock folder
+        stagger: 20,                               // 20ms reverse cascade collapse
+        mode: Clutter.AnimationMode.EASE_IN_QUAD,   // Smooth acceleration into dock folder
+        fadeDuration: 130,                          // Clean fade-out
     },
 };
 
