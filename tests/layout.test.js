@@ -54,6 +54,11 @@ function chips() {
 const centered = computeLayout({ ...base }, chips(), monitor).geom;
 const start = computeLayout({ ...base, alignment: 'start' }, chips(), monitor).geom;
 const end = computeLayout({ ...base, alignment: 'end' }, chips(), monitor).geom;
+assert(centered.monitor && centered.monitor.x === monitor.x && centered.monitor.y === monitor.y &&
+    centered.monitor.width === monitor.width && centered.monitor.height === monitor.height,
+    'geom.monitor must match the provided monitor rectangle');
+assert(centered.edgeMargin === base.edgeMargin,
+    'geom.edgeMargin must match configured edgeMargin');
 assert(start.x < centered.x && centered.x < end.x, 'horizontal alignment order is wrong');
 assert(start.x >= monitor.x && end.x + end.width <= monitor.x + monitor.width,
     'aligned dock must stay inside its monitor');

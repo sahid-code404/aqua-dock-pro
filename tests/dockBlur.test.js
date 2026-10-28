@@ -880,6 +880,319 @@ shellResource._register();
     delete globalThis.global.blur_my_shell;
 }
 
+// ── 8. Static Blur Clip Live Dimension Tracking (Direct Child/Sibling) ────────
+{
+    const { AquaDockSurface } = await import('../dock/dockBlur.js');
+    const Main = await import('resource:///org/gnome/shell/ui/main.js');
+    const mockMonitor = { index: 0, x: 0, y: 0, width: 1920, height: 1080 };
+    Main.setLayoutManager({
+        primaryMonitor: mockMonitor,
+        findMonitorForActor: () => mockMonitor,
+    });
+
+    const mockStaticBg = {
+        x: 0,
+        y: 0,
+        scale_x: 1,
+        scale_y: 1,
+        set_pivot_point() {},
+        set_clip(x, y, w, h) {
+            this.clip = [x, y, w, h];
+        },
+    };
+
+    const parentActor = {
+        x: 200,
+        y: 900,
+        width: 600,
+        height: 100,
+        get_transformed_position: () => [200, 900],
+        get_transformed_size: () => [600, 100],
+        has_allocation: () => true,
+        connect: () => 1,
+        disconnect: () => {},
+    };
+
+    const bgGroup = {
+        parent: parentActor,
+        get_parent() { return this.parent; },
+        destroy() { this.destroyed = true; },
+        connect: () => 1,
+        disconnect: () => {},
+    };
+
+    // dash_background is a direct child of parentActor (sibling to bgGroup)
+    const dashBg = {
+        x: 50,
+        y: 10,
+        width: 500,
+        height: 80,
+        parent: parentActor,
+        get_parent() { return this.parent; },
+        has_allocation: () => true,
+        // Even if get_transformed_position returns stale values, live x/y/width/height must be used!
+        get_transformed_position: () => [9999, 9999],
+        get_transformed_size: () => [9999, 9999],
+        connect: () => 1,
+        disconnect: () => {},
+    };
+
+    const containerActor = {
+        has_allocation: () => true,
+        width: 600,
+        height: 100,
+        connect: () => 1,
+        disconnect: () => {},
+    };
+
+    const mockBlur = {
+        background: mockStaticBg,
+        background_group: bgGroup,
+        bg_manager: { destroy() {} },
+        pipeline: { destroy() {} },
+        rounded_pipeline: null,
+        corner_settings: { radius: 28, corners: 0 },
+    };
+
+    const mockDashBlur = {
+        is_static: true,
+        settings: { dash_to_dock: { STATIC_BLUR: true } },
+        connect: () => 1,
+    };
+
+    const target = {
+        content: containerActor,
+        background: dashBg,
+        content_parent: parentActor,
+    };
+
+    const surface = new AquaDockSurface(mockDashBlur, containerActor, target, mockBlur);
+    surface.update_size();
+
+    // parent_stage_x = 200, parent_stage_y = 900, parent_scale_x = 1, parent_scale_y = 1
+    // bg_stage_x = 200 + 50 * 1 = 250
+    // bg_stage_y = 900 + 10 * 1 = 910
+    // bg_stage_width = 500 * 1 = 500
+    // bg_stage_height = 80 * 1 = 80
+    // clip_x = 250 - 0 = 250, clip_y = 910 - 0 = 910, clip_w = 500, clip_h = 80
+    assert(mockStaticBg.clip[0] === 250, `Clip x should be 250 (got ${mockStaticBg.clip[0]})`);
+    assert(mockStaticBg.clip[1] === 910, `Clip y should be 910 (got ${mockStaticBg.clip[1]})`);
+    assert(mockStaticBg.clip[2] === 500, `Clip width should be 500 (got ${mockStaticBg.clip[2]})`);
+    assert(mockStaticBg.clip[3] === 80, `Clip height should be 80 (got ${mockStaticBg.clip[3]})`);
+
+    // Simulate live stretch (magnification spread): dashBg.x shifts to 30, width expands to 540
+    dashBg.x = 30;
+    dashBg.width = 540;
+    surface.update_size();
+
+    assert(mockStaticBg.clip[0] === 230, `Updated clip x should be 230 after live actor shift (got ${mockStaticBg.clip[0]})`);
+    assert(mockStaticBg.clip[2] === 540, `Updated clip width should be 540 after live actor spread (got ${mockStaticBg.clip[2]})`);
+
+    surface.destroy_dash();
+}
+
+// ── 9. Style Isolation: AquaDockSurface.override_style() Does Not Add BMS Classes ──
+{
+    const { AquaDockSurface } = await import('../dock/dockBlur.js');
+
+    class MockStyledActor {
+        constructor() {
+            this.classes = new Set();
+        }
+        add_style_class_name(c) { this.classes.add(c); }
+        remove_style_class_name(c) { this.classes.delete(c); }
+        has_style_class_name(c) { return this.classes.has(c); }
+        has_allocation() { return true; }
+        connect() { return 1; }
+        disconnect() {}
+    }
+
+    const dash = new MockStyledActor();
+    const container = new MockStyledActor();
+    const background = new MockStyledActor();
+
+    // Add foreign classes beforehand
+    dash.add_style_class_name('transparent-dash');
+    container.add_style_class_name('light-dash');
+    background.add_style_class_name('dark-dash');
+
+    const mockDashBlur = {
+        is_static: false,
+        settings: { dash_to_dock: { STYLE_DASH_TO_DOCK: 0 } },
+        connect: () => 1,
+    };
+
+    const target = {
+        content: dash,
+        background: background,
+        content_parent: container,
+    };
+
+    const mockBlur = {
+        background: { set_position() {}, set_size() {} },
+        background_group: { get_parent() { return null; }, destroy() {} },
+        bg_manager: { destroy() {} },
+        pipeline: { destroy() {} },
+        rounded_pipeline: null,
+        corner_settings: null,
+    };
+
+    const surface = new AquaDockSurface(mockDashBlur, container, target, mockBlur);
+
+    // Call override_style()
+    surface.override_style();
+
+    // Verify foreign classes were removed and NO new BMS classes were added
+    assert(!dash.has_style_class_name('transparent-dash'), 'transparent-dash should be removed from dash');
+    assert(!container.has_style_class_name('light-dash'), 'light-dash should be removed from container');
+    assert(!background.has_style_class_name('dark-dash'), 'dark-dash should be removed from background');
+    assert(dash.classes.size === 0, 'No BMS classes should be added to dash');
+    assert(container.classes.size === 0, 'No BMS classes should be added to container');
+    assert(background.classes.size === 0, 'No BMS classes should be added to background');
+
+    surface.destroy_dash();
+}
+
+// ── 10. BlurManager / DockBlurManager GSettings Change Listening & State Sync ──
+{
+    const { DockBlurManager, BlurManager } = await import('../dock/dockBlur.js');
+    assert(DockBlurManager === BlurManager, 'BlurManager must be exported as alias for DockBlurManager');
+
+    class MockSettings {
+        constructor(initialValues = {}) {
+            this.values = { ...initialValues };
+            this._listeners = new Map();
+        }
+        connect(sig, cb) {
+            if (!this._listeners.has(sig)) this._listeners.set(sig, []);
+            this._listeners.get(sig).push(cb);
+            return cb;
+        }
+        disconnect(cb) {
+            for (const [sig, list] of this._listeners.entries()) {
+                const idx = list.indexOf(cb);
+                if (idx !== -1) list.splice(idx, 1);
+            }
+        }
+        get_boolean(key) {
+            return Boolean(this.values[key]);
+        }
+        set_boolean(key, val) {
+            this.values[key] = val;
+            this.emit('changed', key);
+        }
+        emit(sig, key) {
+            const list = this._listeners.get(sig) || [];
+            for (const cb of [...list]) cb(this, key);
+        }
+        get settings_schema() {
+            return {
+                has_key: (k) => k in this.values,
+            };
+        }
+    }
+
+    const mockDashSettings = new MockSettings({
+        blur: true,
+        'static-blur': false,
+        pipeline: 'default',
+    });
+    const mockBmsSettings = new MockSettings({
+        sigma: 30,
+        brightness: 0.6,
+    });
+
+    const mockSurface = {
+        dash_container: null,
+        dash: null,
+        is_static: false,
+        updateCount: 0,
+        changeTypeCount: 0,
+        updatePipelineCount: 0,
+        change_blur_type() {
+            this.changeTypeCount++;
+            this.is_static = mockBmsDashBlur.is_static;
+        },
+        update_pipeline() {
+            this.updatePipelineCount++;
+        },
+        schedule_update() {
+            this.updateCount++;
+        },
+        remove_dash_blur() {
+            this.removed = true;
+        },
+    };
+
+    const mockBmsDashBlur = {
+        enabled: true,
+        is_static: false,
+        dashes: [mockSurface],
+        settings: { dash_to_dock: { STATIC_BLUR: false } },
+        connect: () => 1,
+        queue_discovery() {},
+    };
+
+    globalThis.global = {
+        blur_my_shell: {
+            _dash_to_dock_blur: mockBmsDashBlur,
+        },
+    };
+
+    const container = {
+        name: 'aquaDockContainer',
+        _isAquaDock: true,
+        _dockBlurEnabled: true,
+        width: 400,
+        height: 70,
+        connect: () => 1,
+        disconnect: () => {},
+    };
+    const bg = { width: 400, height: 70 };
+    container._dockBg = bg;
+    mockSurface.dash_container = container;
+    mockSurface.dash = bg;
+
+    let blurStateChanges = [];
+    const manager = new BlurManager({
+        container,
+        bg,
+        blurRegion: { hide() {} },
+        handle: null,
+        handleBlurRegion: null,
+        getConfig: () => ({ blurEffect: true }),
+        onBlurStateChanged: (active) => blurStateChanges.push(active),
+        bmsSettings: mockBmsSettings,
+        bmsDashToDockSettings: mockDashSettings,
+    });
+
+    assert(manager.bmsActive === true, 'manager should initially be active');
+    container._aquaDockSurface = mockSurface;
+
+    // 1. User toggles "Dock blur" OFF in BMS GSettings
+    mockDashSettings.set_boolean('blur', false);
+    assert(manager.bmsActive === false, 'bmsActive must become false when blur GSetting is turned OFF');
+    assert(blurStateChanges[blurStateChanges.length - 1] === false, 'onBlurStateChanged must emit false');
+
+    // 2. User toggles "Dock blur" back ON in BMS GSettings
+    mockDashSettings.set_boolean('blur', true);
+    assert(manager.bmsActive === true, 'bmsActive must become true when blur GSetting is turned ON');
+    assert(blurStateChanges[blurStateChanges.length - 1] === true, 'onBlurStateChanged must emit true');
+
+    // 3. User toggles static-blur in BMS GSettings
+    const prevTypeCount = mockSurface.changeTypeCount;
+    mockDashSettings.set_boolean('static-blur', true);
+    assert(mockSurface.changeTypeCount > prevTypeCount, 'change_blur_type must be invoked when static-blur is changed');
+
+    // 4. User modifies BMS main settings (e.g. sigma)
+    const prevUpdateCount = mockSurface.updateCount;
+    mockBmsSettings.set_boolean('sigma', true);
+    assert(mockSurface.updateCount > prevUpdateCount, 'surface update should be scheduled when BMS settings change');
+
+    manager.destroy();
+    delete globalThis.global.blur_my_shell;
+}
+
 GLib.spawn_sync(null, ['rm', '-rf', tmpShellDir], null, GLib.SpawnFlags.SEARCH_PATH, null);
 
 print('dockBlur: ok');

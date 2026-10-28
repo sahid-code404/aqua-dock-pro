@@ -1,5 +1,18 @@
 # Changelog
 
+## 283
+
+- Fix static blur clipping and alignment during icon magnification (`AquaDockSurface._update_static_size()`):
+  - Replace stale Clutter allocation dimensions with live actor coordinates and widths (`this.dash_background.x`, `this.dash_background.width`), guaranteeing instantaneous, frame-accurate static blur clip tracking as the dock expands without truncation at resting dock boundaries.
+- Constrain dock magnification spread within visible monitor boundaries (`AnimationEngine._applySpread()`):
+  - Pass monitor geometry and edge margins into layout data and dynamically clamp spread shifts so neither the dock pill nor edge icons (such as Finder or Trash) overflow past the screen edges during high magnification on dense docks.
+- Expand interactive overflow zone dynamically during magnification (`AnimationEngine._updateMagZone()`):
+  - Account for dynamic spread width and shift so that icons magnified at the outer wings of the dock retain full hover and click responsiveness.
+- Protect Aqua Dock glass styling from Blur My Shell stylesheet interference (`AquaDockSurface.override_style()`):
+  - Prevent BMS from injecting `.transparent-dash` or other foreign dash styles onto Aqua Dock actors, preserving configured pill colors, borders, and glass translucency.
+- Live synchronize BMS GSettings state changes (`DockBlurManager`):
+  - Connect to BMS schemas (`org.gnome.shell.extensions.blur-my-shell.dash-to-dock` and `org.gnome.shell.extensions.blur-my-shell`) to react immediately when the user toggles dock blur, changes blur type (static vs. dynamic), or modifies pipelines, smoothly updating dock pill opacity and swapping blur pipelines without requiring an extension restart.
+
 ## 282
 
 - Resolve GNOME Shell freeze / Mutter 100% CPU lockup when selecting Blur My Shell `static-blur`:

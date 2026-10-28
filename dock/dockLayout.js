@@ -468,6 +468,8 @@ export function computeLayout(base, chips, monitor, monitorFullscreen = false) {
         pick, band,
         firstItemCenter, lastItemCenter,
         edgeZone, strip, strut, autohideHandle,
+        monitor: { x: monitor.x, y: monitor.y, width: monitor.width, height: monitor.height },
+        edgeMargin: cfg.edgeMargin ?? 0,
         magZone: {
             restInset,
             growthPerScale,

@@ -341,7 +341,45 @@ export class AnimationEngine {
                 total += chip.extra;
             }
         }
-        const shift = -total / 2;
+        let shift = -total / 2;
+
+        const geom = this._cachedGeom;
+        if (geom?.monitor) {
+            const monitor = geom.monitor;
+            const edgeMargin = geom.edgeMargin ?? 0;
+            const stagePos = vert ? geom.y : geom.x;
+            const minBound = (vert ? monitor.y : monitor.x) + edgeMargin;
+            const maxBound = (vert ? monitor.y + monitor.height : monitor.x + monitor.width) - edgeMargin;
+
+            let minExt = stagePos + this._bgBaseX;
+            let maxExt = minExt + this._bgBaseW + total;
+
+            const cellW = this._cellW;
+            const iconSize = this._cachedCfg?.iconSize ?? cellW;
+            let pfx = 0;
+            for (const chip of chips) {
+                if (chip.item) {
+                    const scale = chip.item.scaleCurrent ?? 1;
+                    const extra = chip.extra ?? 0;
+                    const center = stagePos + chip.baseX + pfx + extra / 2 + cellW / 2;
+                    const halfIcon = (iconSize * scale) / 2;
+                    const iconStart = center - halfIcon;
+                    const iconEnd = center + halfIcon;
+                    if (iconStart < minExt) minExt = iconStart;
+                    if (iconEnd > maxExt) maxExt = iconEnd;
+                }
+                pfx += chip.extra ?? 0;
+            }
+
+            const minShift = minBound - minExt;
+            const maxShift = maxBound - maxExt;
+            if (minShift <= maxShift) {
+                shift = clamp(shift, minShift, maxShift);
+            } else {
+                shift = clamp(shift, maxShift, minShift);
+            }
+        }
+
         let prefix = 0;
         const prop = this._transProp;
         for (const chip of chips) {
@@ -452,8 +490,10 @@ export class AnimationEngine {
         const geom = this._cachedGeom;
         const sx = geom.x, sy = geom.y;
         const mainPad = mc.mainPad;
-        const mainStart = -mainPad;
-        const mainLength = geom.mainLen + mainPad * 2;
+        const curX = Math.round(this._bgCurrentX);
+        const curW = Math.round(this._bgCurrentX + this._bgCurrentW) - curX;
+        const mainStart = curX - mainPad;
+        const mainLength = curW + mainPad * 2;
         let mx, my, mw, mh;
         if (mc.side === 'left') {
             mx = sx + mc.dockH; my = sy + mainStart; mw = oh; mh = mainLength;
