@@ -1,5 +1,13 @@
 # Changelog
 
+## 272
+
+- Eliminate fan view animation lag and high CPU/GPU resource usage during downloads stack opening and closing.
+- Remove transform signals (`notify::translation-x`, `notify::translation-y`, `notify::scale-x`, `notify::scale-y`) from `AquaDockSurface` geometry listeners, preventing per-frame signal storms and synchronous CPU layout passes during Clutter `.ease()` transitions.
+- Nest Blur My Shell blur background group directly inside the hardware-eased `blurRegion` container, allowing Clutter to transform, scale, and fade the blur surface directly on the GPU.
+- Prevent continuous Cogl 2D texture churn and offscreen framebuffer reallocations in Blur My Shell's dynamic pipeline by keeping pill blur surface dimensions stable during animations.
+- Preserve full frosted glass blur on individual item pills, thumbnail layout, and smooth 60fps arc expansion/collapse animations without visual regressions.
+
 ## 271
 
 - Synchronize folder stack file context menu (Copy pill) styling and blur with Downloads stack pills (`dlItemRadius`, `dlItemBorderWidth`, `dlItemBorderColor`, `downloadsItemColor`).

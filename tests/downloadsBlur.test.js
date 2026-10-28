@@ -479,12 +479,16 @@ shellResource._register();
 
             row._isAquaDock = true;
             row._dockBlurEnabled = blurEnabled;
-            row._dockBg = labelPill;
-            row._dockContent = row;
-            row._dockContentParent = 'uiGroup';
+            row._dockBg = blurRegion;
+            row._dockContent = blurRegion;
+            row._dockContentParent = blurRegion;
             row._dockBlurRegion = blurRegion;
             row._dockRadius = radius;
             row.get_dock_radius = () => radius;
+            blurRegion._isAquaDock = true;
+            blurRegion._dockBlurEnabled = blurEnabled;
+            blurRegion._dockRadius = radius;
+            blurRegion.get_dock_radius = () => radius;
 
             if (!blurEnabled) blurRegion.hide();
 
@@ -506,7 +510,8 @@ shellResource._register();
     for (const item of items) {
         assert(item.row._isAquaDock === true, 'item row must be marked as AquaDock');
         assert(item.row._dockBlurEnabled === true, 'item row must have blur enabled when blurEffect is true');
-        assert(item.row._dockBg === item.labelPill, 'item row _dockBg points to labelPill');
+        assert(item.row._dockBg === item.blurRegion, 'item row _dockBg points to blurRegion');
+        assert(item.row._dockContentParent === item.blurRegion, 'item row _dockContentParent points to blurRegion');
         assert(item.row._dockBlurRegion === item.blurRegion, 'item row _dockBlurRegion points to its blurRegion');
         assert(item.row._dockRadius === 16, 'item row _dockRadius matches item radius');
         assert(item.row.effects.length === 0, 'row has NO native blur effect attached');

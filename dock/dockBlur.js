@@ -153,10 +153,6 @@ export class AquaDockSurface {
             'notify::y',
             'notify::width',
             'notify::height',
-            'notify::translation-x',
-            'notify::translation-y',
-            'notify::scale-x',
-            'notify::scale-y',
             'notify::opacity',
             'notify::visible',
             'notify::mapped',
@@ -272,57 +268,73 @@ export class AquaDockSurface {
         const parent = this.background_group.get_parent?.();
         if (!parent || !this.dash_background) return;
 
-        let x = this.dash_background.x ?? 0;
-        let y = this.dash_background.y ?? 0;
+        let x = 0;
+        let y = 0;
         let w = this.dash_background.width ?? 0;
         let h = this.dash_background.height ?? 0;
 
-        let isDirectSibling = false;
-        try {
-            isDirectSibling = (this.dash_background.get_parent?.() === parent);
-        } catch { }
-
-        if (isDirectSibling) {
-            const groupX = this.background_group.x ?? 0;
-            const groupY = this.background_group.y ?? 0;
-            x -= groupX;
-            y -= groupY;
+        if (this.dash_background === parent) {
+            // background_group is nested directly inside the background actor (e.g. blurRegion)
+            // Hardware-accelerated: x=0, y=0, w=parent.width, h=parent.height
+            // No Graphene transforms or allocation flushes needed!
+            w = parent.width ?? w;
+            h = parent.height ?? h;
+            if (typeof this.background_group.set_position === 'function') {
+                this.background_group.set_position(0, 0);
+            } else {
+                this.background_group.x = 0;
+                this.background_group.y = 0;
+            }
         } else {
-            if (typeof this.dash_background.get_allocation_box === 'function') {
-                try { this.dash_background.get_allocation_box(); } catch { }
-            }
-            if (typeof this.dash_background.apply_relative_transform_to_point === 'function') {
-                try {
-                    const corners = [
-                        [0, 0], [w, 0], [0, h], [w, h]
-                    ].map(([px, py]) => this.dash_background.apply_relative_transform_to_point(
-                        parent,
-                        new Graphene.Point3D({ x: px, y: py, z: 0 })
-                    ));
-                    const xs = corners.map(p => (p?.x ?? p?.[0] ?? 0));
-                    const ys = corners.map(p => (p?.y ?? p?.[1] ?? 0));
-                    const x1 = Math.min(...xs);
-                    const y1 = Math.min(...ys);
-                    x = x1;
-                    y = y1;
-                    w = Math.max(...xs) - x1;
-                    h = Math.max(...ys) - y1;
-                } catch { }
-            }
+            let isDirectSibling = false;
+            try {
+                isDirectSibling = (this.dash_background.get_parent?.() === parent);
+            } catch { }
 
-            let groupX = 0, groupY = 0;
-            if (typeof this.background_group.apply_relative_transform_to_point === 'function') {
-                try {
-                    const pt = this.background_group.apply_relative_transform_to_point(
-                        parent,
-                        new Graphene.Point3D({ x: 0, y: 0, z: 0 })
-                    );
-                    groupX = pt?.x ?? pt?.[0] ?? 0;
-                    groupY = pt?.y ?? pt?.[1] ?? 0;
-                } catch { }
+            if (isDirectSibling) {
+                x = this.dash_background.x ?? 0;
+                y = this.dash_background.y ?? 0;
+                const groupX = this.background_group.x ?? 0;
+                const groupY = this.background_group.y ?? 0;
+                x -= groupX;
+                y -= groupY;
+            } else {
+                if (typeof this.dash_background.get_allocation_box === 'function') {
+                    try { this.dash_background.get_allocation_box(); } catch { }
+                }
+                if (typeof this.dash_background.apply_relative_transform_to_point === 'function') {
+                    try {
+                        const corners = [
+                            [0, 0], [w, 0], [0, h], [w, h]
+                        ].map(([px, py]) => this.dash_background.apply_relative_transform_to_point(
+                            parent,
+                            new Graphene.Point3D({ x: px, y: py, z: 0 })
+                        ));
+                        const xs = corners.map(p => (p?.x ?? p?.[0] ?? 0));
+                        const ys = corners.map(p => (p?.y ?? p?.[1] ?? 0));
+                        const x1 = Math.min(...xs);
+                        const y1 = Math.min(...ys);
+                        x = x1;
+                        y = y1;
+                        w = Math.max(...xs) - x1;
+                        h = Math.max(...ys) - y1;
+                    } catch { }
+                }
+
+                let groupX = 0, groupY = 0;
+                if (typeof this.background_group.apply_relative_transform_to_point === 'function') {
+                    try {
+                        const pt = this.background_group.apply_relative_transform_to_point(
+                            parent,
+                            new Graphene.Point3D({ x: 0, y: 0, z: 0 })
+                        );
+                        groupX = pt?.x ?? pt?.[0] ?? 0;
+                        groupY = pt?.y ?? pt?.[1] ?? 0;
+                    } catch { }
+                }
+                x -= groupX;
+                y -= groupY;
             }
-            x -= groupX;
-            y -= groupY;
         }
 
         if (Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(w) && Number.isFinite(h) && w > 0 && h > 0) {
@@ -362,7 +374,14 @@ export class AquaDockSurface {
             let bg_stage_x, bg_stage_y, bg_stage_width, bg_stage_height;
             let parent_stage_x, parent_stage_y, parent_stage_width, parent_stage_height;
 
-            if (isDirectSibling && parent === Main.uiGroup) {
+            if (this.dash_background === parent) {
+                [parent_stage_x, parent_stage_y] = parent.get_transformed_position?.() ?? [parent.x, parent.y];
+                [parent_stage_width, parent_stage_height] = parent.get_transformed_size?.() ?? [parent.width, parent.height];
+                bg_stage_x = parent_stage_x;
+                bg_stage_y = parent_stage_y;
+                bg_stage_width = parent_stage_width;
+                bg_stage_height = parent_stage_height;
+            } else if (isDirectSibling && parent === Main.uiGroup) {
                 parent_stage_x = 0;
                 parent_stage_y = 0;
                 parent_stage_width = parent.width || (monitor.x + monitor.width);
@@ -445,7 +464,7 @@ export class AquaDockSurface {
         const blur = this.dash_blur?.add_blur?.(this.dash_container, target);
         if (!blur) return;
         let sibling = target.sibling ?? target.content;
-        if (sibling && typeof sibling.get_parent === 'function' && sibling.get_parent() !== target.content_parent) {
+        if (sibling === target.content_parent || (sibling && typeof sibling.get_parent === 'function' && sibling.get_parent() !== target.content_parent)) {
             sibling = null;
         }
         target.content_parent?.insert_child_below?.(blur.background_group, sibling);
@@ -558,7 +577,11 @@ function tryBlurAquaDock(dashBlur, container) {
     if (!blur) return;
 
     if (dash_box && typeof dash_box.insert_child_below === 'function') {
-        dash_box.insert_child_below(blur.background_group, target.sibling ?? dash);
+        let sibling = target.sibling ?? dash;
+        if (sibling === dash_box || (sibling && typeof sibling.get_parent === 'function' && sibling.get_parent() !== dash_box)) {
+            sibling = null;
+        }
+        dash_box.insert_child_below(blur.background_group, sibling);
     }
 
     const surface = new AquaDockSurface(dashBlur, container, target, blur);

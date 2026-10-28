@@ -166,6 +166,20 @@ export class FanView {
             blurRegion.set_size(labelPillW, pillH);
             blurRegion.opacity = 0;
 
+            row._isAquaDock = true;
+            row._dockBlurEnabled = blurActive;
+            row._dockBg = blurRegion;
+            row._dockContent = blurRegion;
+            row._dockContentParent = blurRegion;
+            row._dockBlurRegion = blurRegion;
+            row._dockRadius = radius;
+            row.get_dock_radius = () => radius;
+            blurRegion._isAquaDock = true;
+            blurRegion._dockBlurEnabled = blurActive;
+            blurRegion._dockRadius = radius;
+            blurRegion.get_dock_radius = () => radius;
+            setupBackgroundCorners(blurRegion, () => radius);
+
             if (blurActive) {
                 registerBmsTarget(row, () => radius);
             } else {
@@ -277,9 +291,6 @@ export class FanView {
 
         btn._isAquaDock = true;
         btn._dockBlurEnabled = this._blurActive;
-        btn._dockBg = labelPill;
-        btn._dockContent = btn;
-        btn._dockContentParent = Main.uiGroup;
         btn._dockRadius = radius;
         btn.get_dock_radius = () => radius;
 
