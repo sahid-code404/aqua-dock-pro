@@ -41,7 +41,7 @@ export class FileItemMenu {
 
     attach(actor, file, activate, anchor = actor) {
         actor._openFileMenu = () => this.openFor(anchor, file);
-        actor.set_button_mask(St.ButtonMask.ONE | St.ButtonMask.THREE);
+        actor.set_button_mask((St.ButtonMask.PRIMARY ?? St.ButtonMask.ONE) | (St.ButtonMask.SECONDARY ?? St.ButtonMask.THREE));
         actor.connect('clicked', (_actor, button) => {
             if (button === Clutter.BUTTON_SECONDARY) actor._openFileMenu();
             else if (button === Clutter.BUTTON_PRIMARY) activate?.();

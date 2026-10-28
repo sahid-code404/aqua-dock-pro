@@ -153,7 +153,6 @@ export class AquaDockSurface {
             'notify::y',
             'notify::width',
             'notify::height',
-            'notify::opacity',
             'notify::visible',
             'notify::mapped',
         ];
@@ -425,6 +424,8 @@ export class AquaDockSurface {
         const radius = (typeof this.dash_background?.get_dock_radius === 'function'
             ? this.dash_background.get_dock_radius()
             : (this.dash_background?._dockRadius ?? this.dash_container?._dockRadius ?? 28));
+        if (this._lastCornerRadius === radius) return;
+        this._lastCornerRadius = radius;
         if (this.corner_settings) {
             this.corner_settings.radius = radius;
         }
@@ -590,7 +591,9 @@ function tryBlurAquaDock(dashBlur, container) {
     }
     container._aquaDockSurface = surface;
     surface.schedule_update();
-    dashBlur.update_background?.();
+    if (container.name === 'aquaDockContainer' || container._isMainDock) {
+        dashBlur.update_background?.();
+    }
     if (container._aquaBlurManager && !container._aquaBlurManager.bmsActive) {
         container._aquaBlurManager.syncBlurState();
     }

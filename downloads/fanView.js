@@ -191,23 +191,20 @@ export class FanView {
             const initTy = anchorLY - (fy + rowH / 2);
             row.translation_x = initTx;
             row.translation_y = initTy;
-            row.scale_x = 0.55; row.scale_y = 0.55;
             row.opacity = 0;
             const delay = i * 16;
             row.ease({
-                translation_x: 0, translation_y: 0, scale_x: 1, scale_y: 1,
-                duration: 280, delay, mode: Clutter.AnimationMode.EASE_OUT_BACK,
+                translation_x: 0, translation_y: 0,
+                duration: 260, delay, mode: Clutter.AnimationMode.EASE_OUT_BACK,
             });
             row.ease({ opacity: 255, duration: 200, delay, mode: Clutter.AnimationMode.EASE_OUT_QUAD });
 
             if (blurActive) {
-                blurRegion.set_pivot_point((iconCx - pillLocalX) / labelPillW, 0.5);
                 blurRegion.translation_x = initTx;
                 blurRegion.translation_y = initTy;
-                blurRegion.scale_x = 0.55; blurRegion.scale_y = 0.55;
                 blurRegion.ease({
-                    translation_x: 0, translation_y: 0, scale_x: 1, scale_y: 1,
-                    duration: 280, delay, mode: Clutter.AnimationMode.EASE_OUT_BACK,
+                    translation_x: 0, translation_y: 0,
+                    duration: 260, delay, mode: Clutter.AnimationMode.EASE_OUT_BACK,
                 });
                 blurRegion.ease({ opacity: 255, duration: 200, delay, mode: Clutter.AnimationMode.EASE_OUT_QUAD });
             }
@@ -408,16 +405,14 @@ export class FanView {
                 br.ease({
                     translation_x: this._collapse.x - cx,
                     translation_y: this._collapse.y - cy,
-                    scale_x: 0.4,
-                    scale_y: 0.4,
-                    duration: 240,
+                    duration: 220,
                     delay,
                     mode: Clutter.AnimationMode.EASE_IN_QUAD,
                 });
                 br.ease({
                     opacity: 0,
                     duration: 180,
-                    delay: delay + 40,
+                    delay: delay + 20,
                     mode: Clutter.AnimationMode.EASE_IN_QUAD,
                 });
             });
@@ -427,13 +422,13 @@ export class FanView {
             const delay = (n - 1 - i) * 18;
             tile.ease({
                 translation_x: this._collapse.x - cx, translation_y: this._collapse.y - cy,
-                scale_x: 0.4, scale_y: 0.4, duration: 240, delay,
+                duration: 220, delay,
                 mode: Clutter.AnimationMode.EASE_IN_QUAD,
             });
-            tile.ease({ opacity: 0, duration: 180, delay: delay + 40, mode: Clutter.AnimationMode.EASE_IN_QUAD });
+            tile.ease({ opacity: 0, duration: 180, delay: delay + 20, mode: Clutter.AnimationMode.EASE_IN_QUAD });
         });
         actor.ease({
-            opacity: 0, duration: 260 + n * 18, mode: Clutter.AnimationMode.EASE_IN_QUAD,
+            opacity: 0, duration: 240 + n * 18, mode: Clutter.AnimationMode.EASE_IN_QUAD,
             onComplete: onDone,
         });
     }

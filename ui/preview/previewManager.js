@@ -181,7 +181,7 @@ export class PreviewManager {
                 accessible_name: windowTitle,
             });
             if (cfg.previewWindowActions)
-                btn.set_button_mask(St.ButtonMask.ONE | St.ButtonMask.THREE);
+                btn.set_button_mask((St.ButtonMask.PRIMARY ?? St.ButtonMask.ONE) | (St.ButtonMask.SECONDARY ?? St.ButtonMask.THREE));
             const col = new St.BoxLayout({
                 orientation: Clutter.Orientation.VERTICAL,
                 style_class: 'aqua-preview-content',

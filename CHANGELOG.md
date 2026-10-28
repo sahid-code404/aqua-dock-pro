@@ -1,5 +1,14 @@
 # Changelog
 
+## 273
+
+- Eliminate remaining fan view animation stutter, micro-freezes, and journal logging overhead.
+- Remove `notify::opacity` from `AquaDockSurface` geometry listeners to prevent per-frame redraw callback scheduling and redundant pipeline updates during opacity fades.
+- Cache corner radius in `update_corner_radius()` to eliminate redundant BMS shader and pipeline re-evaluations on every frame.
+- Keep pill blur region dimensions constant during fan arc expansion and collapse transitions, completely preventing Cogl texture recreation and offscreen framebuffer `clear4f` passes in Blur My Shell.
+- Guard `dashBlur.update_background()` in `tryBlurAquaDock` so popup pill creation does not trigger full dock CSS style invalidations.
+- Replace deprecated `St.ButtonMask.ONE` and `St.ButtonMask.THREE` with `St.ButtonMask.PRIMARY` and `St.ButtonMask.SECONDARY` across file item menus and window preview action buttons, eliminating dozens of synchronous systemd journal deprecation writes per open.
+
 ## 272
 
 - Eliminate fan view animation lag and high CPU/GPU resource usage during downloads stack opening and closing.
