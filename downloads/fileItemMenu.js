@@ -7,9 +7,9 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 
 import { _ } from '../core/i18n.js';
-import { logError } from '../core/utils.js';
+import { clamp, logError } from '../core/utils.js';
 import { copyFileToClipboard } from './fileClipboard.js';
-import { applyAlpha } from '../dock/dockLayout.js';
+import { applyStackMenuPillStyle } from './tileStyle.js';
 import {
     isBmsPopupBlurActive,
     isBmsDockBlurActive,
@@ -27,6 +27,7 @@ export class FileItemMenu {
         this._manager = null;
         this._menu = null;
         this._blurRegistered = false;
+        this._itemSignals = [];
     }
 
     bind(owner) {
@@ -92,34 +93,33 @@ export class FileItemMenu {
     }
 
     _styleMenu(menu, actionItems) {
-        const radius = this._cfg.menuRadius ?? 12;
-        const blurActive = isBmsMenuBlurActive(this._cfg);
-        const normalBg = this._cfg.highContrast ? 'rgba(0,0,0,0.98)'
-            : (this._cfg.menuBg || 'rgba(35,36,40,0.94)');
-        const background = blurActive ? applyAlpha(normalBg, 0.45) : normalBg;
-        const foreground = this._cfg.highContrast ? '#ffffff'
-            : (this._cfg.menuFg || 'rgba(235,235,240,0.90)');
-        const borderWidth = this._cfg.highContrast ? Math.max(2, this._cfg.menuBorderWidth ?? 1)
-            : (this._cfg.menuBorderWidth ?? 1);
-        const borderColor = this._cfg.highContrast ? '#ffffff'
-            : (this._cfg.menuBorderColor || 'rgba(255,255,255,0.12)');
-        const border = borderWidth > 0
-            ? `${borderWidth}px solid ${borderColor}` : 'none';
-
-        menu.actor.set_style('min-width: 0; max-width: 220px; -boxpointer-gap: 4px;');
+        menu.actor.set_style('min-width: 0; max-width: 220px; -boxpointer-gap: 6px; box-shadow: none;');
         menu.box.x_expand = false;
-        menu.box?.set_style(
-            `background-color: ${background}; border-radius: ${radius}px; ` +
-            `border: ${border}; min-width: 0; max-width: 220px; padding: 4px 0;`);
-        for (const item of actionItems ?? [])
-            item?.set_style('padding: 6px 10px; margin: 0 4px;');
-        const fontSize = (10.5 * (this._cfg.interfaceTextScale ?? 1)).toFixed(2);
-        for (const item of menu.box?.get_children?.() ?? [])
-            item.label?.set_style(`color: ${foreground}; font-size: ${fontSize}pt;`);
+
+        const blurActive = isBmsMenuBlurActive(this._cfg);
+
+        const updateHover = () => {
+            const isHovered = (actionItems ?? []).some(
+                item => item?.hover || item?.active || Boolean(item?.has_key_focus?.())
+            );
+            applyStackMenuPillStyle(this._cfg, menu.box, actionItems, isHovered, blurActive);
+        };
+
+        applyStackMenuPillStyle(this._cfg, menu.box, actionItems, false, blurActive);
+
+        for (const item of actionItems ?? []) {
+            if (!item || typeof item.connect !== 'function') continue;
+            this._itemSignals.push(
+                { actor: item, id: item.connect('notify::hover', updateHover) },
+                { actor: item, id: item.connect('notify::active', updateHover) },
+                { actor: item, id: item.connect('key-focus-in', updateHover) },
+                { actor: item, id: item.connect('key-focus-out', updateHover) }
+            );
+        }
     }
 
     _setupBlur(menu) {
-        const radius = this._cfg.menuRadius ?? 12;
+        const radius = this._cfg.dlItemRadius ?? clamp(this._cfg.dockRadius ?? 16, 6, 28);
         const blurActive = isBmsMenuBlurActive(this._cfg);
         if (!blurActive) return;
 
@@ -129,11 +129,15 @@ export class FileItemMenu {
             menu.actor._isAquaDock = true;
             menu.actor.name = 'aquaMenu';
             menu.actor._dockBlurEnabled = true;
-            menu.actor._dockBg = menu.actor;
+            menu.actor._dockBg = menu.box ?? menu.actor;
             menu.actor._dockContent = menu.actor;
             menu.actor._dockContentParent = Main.uiGroup;
             menu.actor._dockRadius = radius;
             menu.actor.get_dock_radius = () => radius;
+            if (menu.box) {
+                menu.box._dockRadius = radius;
+                menu.box.get_dock_radius = () => radius;
+            }
             registerBmsTarget(menu.actor, () => radius);
             this._blurRegistered = true;
         }
@@ -141,6 +145,10 @@ export class FileItemMenu {
 
     _destroyMenu() {
         if (!this._menu) return;
+        for (const { actor, id } of this._itemSignals) {
+            try { actor?.disconnect(id); } catch { }
+        }
+        this._itemSignals = [];
         if (this._blurRegistered) {
             unregisterBmsTarget(this._menu.actor);
             this._blurRegistered = false;

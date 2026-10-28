@@ -7,7 +7,7 @@
 
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
-import { applyTileStyle } from '../downloads/tileStyle.js';
+import { applyTileStyle, applyStackMenuPillStyle } from '../downloads/tileStyle.js';
 
 function assert(condition, message) {
     if (!condition) throw new Error(message);
@@ -102,6 +102,43 @@ shellResource._register();
     applyTileStyle({ ...cfgBase, blurEffect: true, highContrast: true }, labelPill, label, thumb, 10, false, '6px 14px');
     assert(labelPill.style.includes('background-color: rgba(0,0,0,0.96);'),
         'applyTileStyle should enforce high contrast solid background even if blurEffect is true');
+
+    // ── Stack Menu Pill (Copy action) Style & Synchronized Hover ──────────────
+    const menuBox = createMockPill();
+    const menuItem = createMockPill();
+    menuItem.label = createMockPill();
+
+    // When blurEffect is true: menuBox is transparent, item is transparent without inner margins
+    applyStackMenuPillStyle({ ...cfgBase, blurEffect: true }, menuBox, [menuItem], false, true);
+    assert(menuBox.style.includes('background-color: transparent !important;'),
+        'applyStackMenuPillStyle should make menuBox transparent when blur is active');
+    assert(menuBox.style.includes('border-radius: 12px;'),
+        'applyStackMenuPillStyle should match dlItemRadius');
+    assert(menuBox.style.includes('padding: 0;'),
+        'applyStackMenuPillStyle should zero menuBox padding so item covers entire pill');
+    assert(menuItem.style.includes('background-color: transparent !important;'),
+        'applyStackMenuPillStyle item should be transparent to avoid box blur');
+    assert(menuItem.style.includes('margin: 0 !important;'),
+        'applyStackMenuPillStyle item margin must be 0');
+    assert(menuItem.style.includes('padding: 6px 14px !important;'),
+        'applyStackMenuPillStyle item padding must match fan pill');
+
+    // On hover: whole menuBox lights up with rgba(255, 255, 255, 0.16), item remains transparent (no inner box)
+    applyStackMenuPillStyle({ ...cfgBase, blurEffect: true }, menuBox, [menuItem], true, true);
+    assert(menuBox.style.includes('background-color: rgba(255, 255, 255, 0.16) !important;'),
+        'applyStackMenuPillStyle menuBox must light up with hover highlight when hovered');
+    assert(menuItem.style.includes('background-color: transparent !important;'),
+        'applyStackMenuPillStyle item must remain transparent on hover to avoid nested box');
+
+    // When blur is false: menuBox falls back to stack item color
+    applyStackMenuPillStyle({ ...cfgBase, blurEffect: false }, menuBox, [menuItem], false, false);
+    assert(menuBox.style.includes('background-color: rgba(30,30,36,0.8) !important;'),
+        'applyStackMenuPillStyle menuBox must fallback to configured dlItemColor when blur is off');
+
+    // High contrast mode
+    applyStackMenuPillStyle({ ...cfgBase, blurEffect: true, highContrast: true }, menuBox, [menuItem], false, true);
+    assert(menuBox.style.includes('background-color: rgba(0,0,0,0.96) !important;'),
+        'applyStackMenuPillStyle menuBox must enforce solid high contrast background');
 }
 
 // ── 2. BMS Discoverability for PanelView and FanView ────────────────────────

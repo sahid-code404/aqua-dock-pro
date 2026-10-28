@@ -1,5 +1,11 @@
 # Changelog
 
+## 271
+
+- Synchronize folder stack file context menu (Copy pill) styling and blur with Downloads stack pills (`dlItemRadius`, `dlItemBorderWidth`, `dlItemBorderColor`, `downloadsItemColor`).
+- Eliminate inner rectangular box highlight on the Copy pill during hover and click; the entire pill now highlights smoothly as one cohesive pill matching the stack file name pills.
+- Override Blur My Shell popup styles for folder stack file menus to prevent dark menu tinting from overriding stack pill blur and transparency.
+
 ## 270
 
 - Enable blur across all Aqua Dock Pro context menus (dock item context menus, downloads and folder stack file item menus, and window preview action menus).

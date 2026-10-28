@@ -184,19 +184,57 @@
 .aqua-menu .popup-menu-item:active {
     background-color: rgba(255, 255, 255, 0.16);
 }
-.aqua-menu.aqua-file-item-menu .popup-menu-content {
-    min-width: 0;
-    max-width: 220px;
-    padding:   4px 0;
-}
-.aqua-menu.aqua-file-item-menu {
+/* ── File item menu in Downloads/folder stacks ───────────────────────────── */
+.aqua-menu.aqua-file-item-menu,
+.aqua-file-item-menu {
     min-width:       0;
     max-width:       220px;
-    -boxpointer-gap: 4px;
+    -boxpointer-gap: 6px;
+    box-shadow:      none;
 }
-.aqua-menu.aqua-file-item-menu .popup-menu-item {
-    padding: 6px 10px;
-    margin:  0 4px;
+.aqua-menu.aqua-file-item-menu .popup-menu-content,
+.aqua-file-item-menu .popup-menu-content,
+.transparent-dash .aqua-menu.aqua-file-item-menu .popup-menu-content,
+.aqua-menu.aqua-file-item-menu.transparent-dash .popup-menu-content,
+.bms-popup-background-transparent .aqua-menu.aqua-file-item-menu .popup-menu-content,
+.bms-popup-surface-transparent .aqua-menu.aqua-file-item-menu .popup-menu-content,
+.bms-popup-background-dark .aqua-menu.aqua-file-item-menu .popup-menu-content,
+.bms-popup-surface-dark .aqua-menu.aqua-file-item-menu .popup-menu-content,
+.bms-popup-background-light .aqua-menu.aqua-file-item-menu .popup-menu-content,
+.bms-popup-surface-light .aqua-menu.aqua-file-item-menu .popup-menu-content {
+    padding:          0 !important;
+    margin:           0 !important;
+    box-shadow:       none !important;
+    background-color: transparent !important;
+}
+.aqua-menu.aqua-file-item-menu .popup-menu-item,
+.aqua-file-item-menu .popup-menu-item {
+    background-color: transparent !important;
+    border:           none !important;
+    box-shadow:       none !important;
+    margin:           0 !important;
+    padding:          6px 14px !important;
+    transition:       none !important;
+}
+.aqua-menu.aqua-file-item-menu .popup-menu-item:hover,
+.aqua-menu.aqua-file-item-menu .popup-menu-item:focus,
+.aqua-menu.aqua-file-item-menu .popup-menu-item:active,
+.aqua-menu.aqua-file-item-menu .popup-menu-item:selected,
+.aqua-menu.aqua-file-item-menu .popup-menu-item:checked,
+.aqua-file-item-menu .popup-menu-item:hover,
+.aqua-file-item-menu .popup-menu-item:focus,
+.aqua-file-item-menu .popup-menu-item:active,
+.aqua-file-item-menu .popup-menu-item:selected,
+.aqua-file-item-menu .popup-menu-item:checked {
+    background-color: transparent !important;
+    border:           none !important;
+    box-shadow:       none !important;
+    margin:           0 !important;
+}
+.aqua-menu.aqua-file-item-menu .popup-menu-item .popup-menu-item-label,
+.aqua-file-item-menu .popup-menu-item .popup-menu-item-label,
+.aqua-file-item-menu .popup-menu-item StLabel {
+    font-weight: 500;
 }
 .aqua-menu .popup-separator-menu-item { padding: 0; }
 .aqua-menu .popup-separator-menu-item .popup-separator-menu-item-separator {
