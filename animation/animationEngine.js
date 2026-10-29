@@ -35,6 +35,7 @@ export class AnimationEngine {
         this._stepScratch = { nSteps: 1, st: 1, dampPow: 1 };
         this._lastDt = 16;
         this._heldItem = null;   // pinned to peak zoom while its menu is open
+        this._suppressMagnification = false; // suppresses magnification across dock when stack is open
         this._frameHook = null;  // optional () => void run at the end of each frame
         this._suspended = false; // a drag owns the chip translations
         this._animate = true;
@@ -67,8 +68,23 @@ export class AnimationEngine {
     // Keep the menu item magnified while its menu is open.
     setHeldItem(item) { this._heldItem = item; }
 
-    // Kept for backward compatibility; folder icons remain magnified when stack is opened.
-    setSuppressedItem(_item) {}
+    // Suppress dock magnification while a stack or modal view is open.
+    // Demagnifies hovered icons to 1.0 and prevents other dock apps from magnifying.
+    setMagnificationSuppressed(suppressed) {
+        const val = Boolean(suppressed);
+        if (this._suppressMagnification === val) return;
+        this._suppressMagnification = val;
+        this.kick();
+    }
+
+    get magnificationSuppressed() {
+        return this._suppressMagnification;
+    }
+
+    // Kept for backward compatibility; maps to dock magnification suppression.
+    setSuppressedItem(item) {
+        this.setMagnificationSuppressed(Boolean(item));
+    }
 
     // Keep the tooltip aligned while the icon magnifies.
     setFrameHook(fn) { this._frameHook = fn; }
@@ -275,7 +291,7 @@ export class AnimationEngine {
             magMain = clamp(magMain, geom.firstItemCenter, geom.lastItemCenter);
 
         const m = cfg.mag;
-        const inBand = haveLocal &&
+        const inBand = haveLocal && !this._suppressMagnification &&
             crossCoord >= geom.band.low && crossCoord <= geom.band.high;
         const step = subSteps(dt, m.damping, this._stepScratch);
         const nSteps = step.nSteps;

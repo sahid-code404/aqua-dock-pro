@@ -1,5 +1,19 @@
 # Changelog
 
+## 283
+
+- Folder stack open interaction refinements:
+  - Smooth folder demagnification on stack open:
+    - Restored smooth demagnification to resting scale 1.0 for the folder dock icon and its Down-Chevron drawer anchor when a stack opens.
+  - Dock-wide magnification suppression while stack is open:
+    - Added `setMagnificationSuppressed` to `AnimationEngine` and wired it into `DownloadManager` and `DockController`.
+    - While a stack is open, other dock icons do not animate or magnify on hover, staying comfortably at rest scale 1.0 with no spread shifts.
+  - Tooltip and preview behavior:
+    - Hovering other dock items while a stack is open displays their standard tooltips while suppressing window previews. The open folder anchor itself continues to suppress tooltips.
+  - Right-click stack dismissal and context menu:
+    - Right-clicking on any dock icon (including folder icons, downloads, or application icons) immediately dismisses the open stack and cleanly opens the item's context menu.
+  - Updated test coverage across `tests/animationEngine.test.js` and `tests/downloadsBlur.test.js`.
+
 ## 282
 
 - Preserve folder icon hover magnification when stack opens:

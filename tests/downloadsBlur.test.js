@@ -717,7 +717,9 @@ shellResource._register();
     };
 
     let stackOpenStateCalls = [];
+    let suppressionCalls = [];
     mockHost.kickEngine = () => {};
+    mockHost.setMagnificationSuppressed = (s) => suppressionCalls.push(s);
 
     const mockItem = {
         entry: { kind: 'downloads' },
@@ -730,18 +732,22 @@ shellResource._register();
     };
     const mockFolder = { get_uri: () => 'file:///home/user/Downloads' };
 
-    // 1st click: opens stack without demagnifying item
+    // 1st click: opens stack and suppresses magnification across dock (demagnifying folder)
     dlMgr.openFolderStack(mockItem, mockFolder);
     assert(dlMgr.stackOpen === true, 'openFolderStack opens stack on first click');
     assert(dlMgr.activeItem === mockItem, 'activeItem set to mockItem');
     assert(mockItem.isOpenState === true, 'setStackOpenState(true) called on item');
+    assert(suppressionCalls[suppressionCalls.length - 1] === true,
+        'setMagnificationSuppressed(true) called on stack open');
 
-    // 2nd click: toggles/closes stack
+    // 2nd click: toggles/closes stack and re-enables magnification
     dlMgr.openFolderStack(mockItem, mockFolder);
     assert(dlMgr.stackOpen === false, 'openFolderStack toggles closed on second click');
     assert(dlMgr.activeItem === null, 'activeItem cleared when closed');
     assert(mockItem.isOpenState === false, 'setStackOpenState(false) called on item when closed');
     assert(closedCount > 0, 'onClose/hide was called');
+    assert(suppressionCalls[suppressionCalls.length - 1] === false,
+        'setMagnificationSuppressed(false) called on stack close');
 }
 
 GLib.spawn_sync(null, ['rm', '-rf', tmpShellDir], null, GLib.SpawnFlags.SEARCH_PATH, null);

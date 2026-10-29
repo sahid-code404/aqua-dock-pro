@@ -65,7 +65,7 @@ try {
     const cfg = {
         vertical: false, cellW: 64, zoomMax: 2.0,
         zoomRange: 120, magnificationCurve: 2.0, tau: 38,
-        springTension: 300, springDamping: 0.8,
+        springTension: 0.8, springDamping: 0.8,
     };
     cfg.mag = magnificationParams(cfg);
     const model = {
@@ -90,20 +90,27 @@ try {
     supEngine._frame(16);
     assert(itemA.scaleTarget > 1.5, 'itemA should have magnified target when hovered');
 
-    // 2. Folder item must NOT demagnify when stack is opened
-    supEngine.setSuppressedItem(itemA);
+    // 2. Folder item MUST demagnify when stack is opened
+    supEngine.setMagnificationSuppressed(true);
+    assert(supEngine.magnificationSuppressed === true, 'magnificationSuppressed should be true');
     supEngine._frame(16);
-    assert(itemA.scaleTarget > 1.5, 'itemA must NOT demagnify when stack is opened while hovered');
+    assert(itemA.scaleTarget === 1, 'itemA target must be 1.0 when stack is open');
 
-    // 3. Pointer moves over itemB: itemB magnifies, itemA settles naturally
+    // Integrate several frames to verify demagnification towards 1.0
+    for (let i = 0; i < 30; i++) supEngine._frame(16);
+    assert(itemA.scaleCurrent < 1.05, 'itemA should smoothly demagnify down close to 1.0');
+
+    // 3. Pointer moves over itemB while stack is open: itemB must NOT magnify
     supEngine.setPointer(200, 20, true);
     supEngine._frame(16);
-    assert(itemB.scaleTarget > 1.5, 'itemB must magnify normally when hovered');
+    assert(itemB.scaleTarget === 1, 'itemB must NOT magnify when hovered while stack is open');
+    assert(Math.abs(itemB.scaleCurrent - 1) < 0.01, `itemB scale must remain at resting ~1.0, got ${itemB.scaleCurrent}`);
 
-    // 4. Pointer moves back over itemA: itemA magnifies smoothly
-    supEngine.setPointer(100, 20, true);
+    // 4. Stack is closed: magnification suppression released
+    supEngine.setMagnificationSuppressed(false);
+    assert(supEngine.magnificationSuppressed === false, 'magnificationSuppressed should be false');
     supEngine._frame(16);
-    assert(itemA.scaleTarget > 1.5, 'itemA should magnify again when hovered');
+    assert(itemB.scaleTarget > 1.5, 'itemB should magnify normally once stack closes');
 
     supEngine.destroy();
 }

@@ -154,13 +154,18 @@ export class DockController {
             getDownloadsItem: () => this._findItem('downloads'),
             isHidden: () => this._autohide?.hidden ?? false,
             kickEngine: () => this._engine.kick(),
+            setMagnificationSuppressed: suppressed =>
+                this._engine.setMagnificationSuppressed(suppressed),
             setSuppressedItem: item => this._engine.setSuppressedItem(item),
             hideTooltip: () => {
                 this._tooltip?.hide();
                 this._preview?.hide(true);
                 this._hoverItem = null;
             },
-            onStackClosed: () => this._autohide?.onDockLeft(),
+            onStackClosed: () => {
+                this._engine.setMagnificationSuppressed(false);
+                this._autohide?.onDockLeft();
+            },
         });
         this._trash = this._cfg.showTrash ? new TrashWatcher({
             getConfig: () => this._cfg,
@@ -745,6 +750,9 @@ export class DockController {
         catch { return Clutter.EVENT_PROPAGATE; }
         if (button !== 1 && button !== 2 && button !== 3)
             return Clutter.EVENT_PROPAGATE;
+        if (button === 3 && this._downloads?.stackOpen) {
+            try { this._downloads.closeStack(); } catch { }
+        }
         const item = this._pickItemRedirected(sx, sy);
         if (!item) return Clutter.EVENT_PROPAGATE;
         this._press = { item, sx, sy, button };
@@ -779,7 +787,7 @@ export class DockController {
         if (!item) { this._tooltip.hide(); this._preview.hide(false); return; }
         if (this._cfg.showTooltip) this._tooltip.scheduleShow(item, this._geom);
         else this._tooltip.hide();
-        this._preview.schedule(item);
+        if (!this._downloads?.stackOpen) this._preview.schedule(item);
     }
 
     _endHover() {
@@ -868,6 +876,9 @@ export class DockController {
         catch { return Clutter.EVENT_PROPAGATE; }
         if (button !== 1 && button !== 2 && button !== 3)
             return Clutter.EVENT_PROPAGATE;
+        if (button === 3 && this._downloads?.stackOpen) {
+            try { this._downloads.closeStack(); } catch { }
+        }
         const item = this._pickItemRedirected(sx, sy);
         if (!item) return Clutter.EVENT_PROPAGATE;
         this._press = { item, sx, sy, button };
@@ -891,7 +902,7 @@ export class DockController {
 
     _handleButton(type, button, sx, sy, item) {
         if (type === Clutter.EventType.BUTTON_PRESS) {
-            if (!item && this._downloads?.stackOpen) {
+            if (this._downloads?.stackOpen && (!item || button === 3)) {
                 try { this._downloads.closeStack(); } catch { }
             }
             this._press = item ? { item, sx, sy, button } : null;
@@ -929,9 +940,20 @@ export class DockController {
         return false;
     }
 
-    // Downloads opens its stack on any button; otherwise right-click opens the
-    // context menu and left/middle activate.
+    // Right-click opens the context menu (and closes any open stack);
+    // left/middle click activates or toggles folder stacks.
     _dispatch(item, button) {
+        if (button === 3) {
+            if (this._downloads?.stackOpen) {
+                try { this._downloads.closeStack(); } catch { }
+            }
+            this._tooltip?.hide();
+            this._preview?.hide(true);
+            this._hoverItem = null;
+            try { this._menu.openFor(item); }
+            catch (e) { logError(e, 'openMenu'); }
+            return;
+        }
         if (item.entry.kind === 'downloads') {
             this._tooltip?.hide();
             this._preview?.hide(true);
