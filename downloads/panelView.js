@@ -327,6 +327,7 @@ export class PanelView {
             }
             return;
         }
+        const bmsGroup = panel._aquaDockSurface?.background_group;
         if (view === 'grid') {
             panel.set_scale(0.88, 0.88);
             panel.ease({
@@ -346,6 +347,20 @@ export class PanelView {
                     mode: Clutter.AnimationMode.EASE_OUT_CUBIC,
                 });
             }
+            if (bmsGroup && blurEnabled) {
+                try {
+                    bmsGroup.set_pivot_point?.(0.5, 1.0);
+                    bmsGroup.set_scale?.(0.88, 0.88);
+                    bmsGroup.opacity = 0;
+                    bmsGroup.ease?.({
+                        opacity: 255,
+                        scale_x: 1,
+                        scale_y: 1,
+                        duration: 240,
+                        mode: Clutter.AnimationMode.EASE_OUT_CUBIC,
+                    });
+                } catch { }
+            }
         } else {
             panel.translation_y = 12; panel.scale_y = 0.9;
             panel.ease({
@@ -364,6 +379,21 @@ export class PanelView {
                     duration: 240,
                     mode: Clutter.AnimationMode.EASE_OUT_CUBIC,
                 });
+            }
+            if (bmsGroup && blurEnabled) {
+                try {
+                    bmsGroup.set_pivot_point?.(0.5, 1.0);
+                    bmsGroup.translation_y = 12;
+                    bmsGroup.scale_y = 0.9;
+                    bmsGroup.opacity = 0;
+                    bmsGroup.ease?.({
+                        opacity: 255,
+                        translation_y: 0,
+                        scale_y: 1,
+                        duration: 240,
+                        mode: Clutter.AnimationMode.EASE_OUT_CUBIC,
+                    });
+                } catch { }
             }
         }
         tiles.forEach((tile, i) => {
@@ -416,6 +446,17 @@ export class PanelView {
                 }
             } catch { }
         }
+        const bmsGroup = actor?._aquaDockSurface?.background_group;
+        if (bmsGroup) {
+            try {
+                bmsGroup.remove_all_transitions();
+                if (this._blurActive) {
+                    bmsGroup.opacity = 255;
+                    bmsGroup.translation_y = 0;
+                    bmsGroup.set_scale(1, 1);
+                }
+            } catch { }
+        }
         for (const tile of this._model.rows) {
             try {
                 tile.remove_all_transitions();
@@ -432,6 +473,10 @@ export class PanelView {
         if (this._blurRegion) {
             try { this._blurRegion.remove_all_transitions(); } catch { }
         }
+        const bmsGroup = actor?._aquaDockSurface?.background_group;
+        if (bmsGroup) {
+            try { bmsGroup.remove_all_transitions(); } catch { }
+        }
         if (this._reduce || !animationsEnabled()) { onDone(); return; }
         if (this._blurRegion && this._blurActive) {
             if (this._view === 'grid') {
@@ -439,6 +484,15 @@ export class PanelView {
             } else {
                 this._blurRegion.ease({ opacity: 0, scale_y: 0.9, translation_y: 12, duration: 200, mode: Clutter.AnimationMode.EASE_IN_CUBIC });
             }
+        }
+        if (bmsGroup && this._blurActive) {
+            try {
+                if (this._view === 'grid') {
+                    bmsGroup.ease?.({ opacity: 0, scale_x: 0.88, scale_y: 0.88, duration: 200, mode: Clutter.AnimationMode.EASE_IN_CUBIC });
+                } else {
+                    bmsGroup.ease?.({ opacity: 0, scale_y: 0.9, translation_y: 12, duration: 200, mode: Clutter.AnimationMode.EASE_IN_CUBIC });
+                }
+            } catch { }
         }
         if (this._view === 'grid') {
             actor.ease({ opacity: 0, scale_x: 0.88, scale_y: 0.88, duration: 200, mode: Clutter.AnimationMode.EASE_IN_CUBIC, onComplete: onDone });

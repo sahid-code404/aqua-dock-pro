@@ -246,6 +246,7 @@ export class AquaDockSurface {
         this._isChangingBlurType = false;
         this._isRemoving = false;
         this._lastStaticGeom = null;
+        this._lastDynamicGeom = null;
 
         this.set_blur(blur);
 
@@ -273,7 +274,7 @@ export class AquaDockSurface {
         }
 
         const parent = this.background_group?.get_parent?.();
-        if (parent && parent !== this.dash_container && parent !== this.dash && typeof parent.connect === 'function') {
+        if (parent && parent !== Main.uiGroup && parent !== this.dash_container && parent !== this.dash && typeof parent.connect === 'function') {
             for (const sig of GEOMETRY_SIGNALS) {
                 this._signals.connect(parent, sig, schedule);
             }
@@ -302,6 +303,13 @@ export class AquaDockSurface {
             }
         }
 
+        if (!this._isPopupType && Main.overview && typeof Main.overview.connect === 'function') {
+            const updateVis = () => this.update_visibility();
+            for (const sig of ['showing', 'shown', 'hiding', 'hidden']) {
+                this._signals.connect(Main.overview, sig, updateVis);
+            }
+        }
+
         if (this._isPopupType) {
             const popup = getBmsPopupSettings(dashBlur);
             const popupSettings = popup?.settings ?? getBmsSettings('org.gnome.shell.extensions.blur-my-shell.popup');
@@ -326,6 +334,7 @@ export class AquaDockSurface {
         this.rounded_pipeline = rounded_pipeline;
         this.corner_settings = corner_settings;
         this._isStatic = Boolean(rounded_pipeline);
+        this._lastCornerRadius = null;
 
         this._bgSignals.disconnectAll();
         if (background_group && typeof background_group.connect === 'function') {
@@ -372,7 +381,13 @@ export class AquaDockSurface {
         if (!this.background_group) return;
         let opacity = 255;
         let visible = true;
-        let ancestor = this.dash;
+        for (const actor of [this.dash_container, this.dash, this.dash_background]) {
+            if (actor) {
+                opacity = Math.round(opacity * ((actor.opacity ?? 255) / 255));
+                visible = visible && (actor.visible ?? true);
+            }
+        }
+        let ancestor = (this.dash ?? this.dash_container)?.get_parent?.();
         const parent = this.background_group.get_parent?.();
         while (ancestor && ancestor !== parent) {
             opacity = Math.round(opacity * ((ancestor.opacity ?? 255) / 255));
@@ -474,6 +489,16 @@ export class AquaDockSurface {
         }
 
         if (Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(w) && Number.isFinite(h) && w > 0 && h > 0) {
+            const last = this._lastDynamicGeom;
+            if (last &&
+                last.x === x &&
+                last.y === y &&
+                last.w === w &&
+                last.h === h) {
+                return;
+            }
+            this._lastDynamicGeom = { x, y, w, h };
+
             try { this.background?.remove_all_transitions?.(); } catch { }
             try { this.background_group?.remove_all_transitions?.(); } catch { }
             if (typeof this.background.set_position === 'function') {
@@ -530,8 +555,10 @@ export class AquaDockSurface {
                 bg_stage_width = parent_stage_width;
                 bg_stage_height = parent_stage_height;
             } else if (isDirectSibling) {
-                bg_stage_x = parent_stage_x + (this.dash_background.x ?? 0) * parent_scale_x;
-                bg_stage_y = parent_stage_y + (this.dash_background.y ?? 0) * parent_scale_y;
+                const transX = (this.dash_background.translation_x ?? 0) * parent_scale_x;
+                const transY = (this.dash_background.translation_y ?? 0) * parent_scale_y;
+                bg_stage_x = parent_stage_x + (this.dash_background.x ?? 0) * parent_scale_x + transX;
+                bg_stage_y = parent_stage_y + (this.dash_background.y ?? 0) * parent_scale_y + transY;
                 bg_stage_width = (this.dash_background.width ?? 0) * parent_scale_x;
                 bg_stage_height = (this.dash_background.height ?? 0) * parent_scale_y;
             } else {
@@ -678,6 +705,8 @@ export class AquaDockSurface {
         this.rounded_pipeline = null;
         this.corner_settings = null;
         this._lastStaticGeom = null;
+        this._lastDynamicGeom = null;
+        this._lastCornerRadius = null;
         this._isStatic = null;
 
         if (!bgGroup) return;
@@ -759,6 +788,8 @@ function tryBlurAquaDock(dashBlur, container) {
         if (existing.dash_background === dash_background &&
             existing.background_group?.get_parent?.() === dash_box) {
             container._aquaDockSurface = existing;
+            existing.update_size();
+            existing.update_corner_radius();
             return;
         }
         existing.remove_dash_blur();
@@ -782,7 +813,8 @@ function tryBlurAquaDock(dashBlur, container) {
         dashBlur.dashes.push(surface);
     }
     container._aquaDockSurface = surface;
-    surface.schedule_update();
+    surface.update_size();
+    surface.update_corner_radius();
     if (container.name === 'aquaDockContainer' || container._isMainDock) {
         dashBlur.update_background?.();
     }

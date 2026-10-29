@@ -67,6 +67,10 @@ export class FileItemMenu {
                 this._manager = new PopupMenu.PopupMenuManager(this._owner);
             this._manager.addMenu(menu);
             Main.uiGroup.add_child(menu.actor);
+            menu.connect('open-state-changed', (_m, open) => {
+                if (!open)
+                    this._destroyMenu();
+            });
             this._styleMenu(menu, [copyItem]);
             this._setupBlur(menu);
             menu.actor.hide();

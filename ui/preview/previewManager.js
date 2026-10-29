@@ -473,8 +473,12 @@ export class PreviewManager {
             }
 
             this._windowMenuStateId = menu.connect('open-state-changed', (_menu, open) => {
-                if (open) this._cancelGrace();
-                else if (this._box === owner) this.hide(false);
+                if (open) {
+                    this._cancelGrace();
+                } else {
+                    this._destroyWindowMenu();
+                    if (this._box === owner) this.hide(false);
+                }
             });
             menu.actor.hide();
             menu.open();

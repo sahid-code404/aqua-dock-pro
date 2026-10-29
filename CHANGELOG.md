@@ -1,5 +1,20 @@
 # Changelog
 
+## 277
+
+- Comprehensive blur architecture optimization, glitch/ghosting elimination, and instant apply/unapply dynamics:
+  - Fix square-corner glitch after switching blur modes: reset `_lastCornerRadius` to `null` in `destroy_dash()` and `set_blur()`, ensuring corner radius shaders apply immediately to newly created pipelines.
+  - Fix visibility evaluation when `parent === dash`: seed actor visibility and opacity from `dash_container`, `dash`, and `dash_background` in `AquaDockSurface.update_visibility()` before walking parent hierarchy.
+  - Eliminate `Main.uiGroup` signal flood: exclude `Main.uiGroup` from blur surface parent geometry connections, preventing shell-wide layout recalculations.
+  - Eliminate 1-frame transparent gap: synchronously execute `update_size()` and `update_corner_radius()` immediately upon blur surface instantiation and reuse in `tryBlurAquaDock()`.
+  - Fix overview transition restoration: connect `Main.overview` state transitions (`showing`, `shown`, `hiding`, `hidden`) so dock blur reliably re-engages when leaving overview.
+  - Fix static blur translation lag: incorporate `translation_x` and `translation_y` into live stage offset calculations in `_update_static_size()`.
+  - Add `_lastDynamicGeom` cache guard to `_update_dynamic_size()` to prevent redundant Cogl texture dirtying and layout passes.
+  - Fix memory leak in `downloads/fileItemMenu.js`: connect `open-state-changed` to destroy popup menus and unregister blur surfaces immediately upon dismissal.
+  - Fix window preview menu blur cleanup in `ui/preview/previewManager.js`: destroy menu blur surface immediately when closed.
+  - Synchronize `downloads/panelView.js` blur background group easing in lockstep with panel container cubic scale and opacity animations.
+  - Enhance tooltip hover tracking in `dock/dockController.js`: track horizontal dock spread translation alongside icon magnification scale.
+
 ## 276
 
 - Unify tooltip blur pipeline with context menu / popup blur pipeline from Blur My Shell:

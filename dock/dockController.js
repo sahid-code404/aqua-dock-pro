@@ -185,13 +185,19 @@ export class DockController {
         setDropDelegate(this._chrome.container, this._drag);
         // Track the tooltip to the hovered icon as it magnifies (runs only while
         // the frame loop is alive; free once the dock settles).
+        this._lastTooltipScale = -1;
+        this._lastTooltipTrans = NaN;
         this._engine.setFrameHook(() => {
             if (this._tooltip.shown && this._hoverItem) {
-                // Only reposition when the icon's scale changed — avoids
-                // expensive get_transformed_position/Size every frame.
+                // Reposition when the icon's scale or horizontal spread changed — avoids
+                // expensive get_transformed_position/Size on non-moving frames.
                 const sc = this._hoverItem.scaleCurrent;
-                if (sc !== this._lastTooltipScale) {
+                const trans = this._geom?.vert
+                    ? (this._hoverItem.translation_y ?? 0)
+                    : (this._hoverItem.translation_x ?? 0);
+                if (sc !== this._lastTooltipScale || trans !== this._lastTooltipTrans) {
                     this._lastTooltipScale = sc;
+                    this._lastTooltipTrans = trans;
                     this._tooltip.position(this._hoverItem, this._geom);
                 }
             }
@@ -760,6 +766,7 @@ export class DockController {
         if (item === this._hoverItem) return;
         this._hoverItem = item;
         this._lastTooltipScale = -1; // force tooltip reposition on new hover
+        this._lastTooltipTrans = NaN;
         if (!item) { this._tooltip.hide(); this._preview.hide(false); return; }
         if (this._cfg.showTooltip) this._tooltip.scheduleShow(item, this._geom);
         else this._tooltip.hide();

@@ -428,17 +428,23 @@ export class TooltipManager {
         }
 
         this._shown = true;
-        this.position(item, geom);
-
         this._bubble.opacity = 255;
         this._container.opacity = 255;
-        this._container.show();
         if (this._blurActive && this._blurRegion) {
             this._blurRegion.opacity = 255;
+        }
+
+        this.position(item, geom);
+
+        this._container.show();
+        if (this._blurActive && this._blurRegion) {
             this._blurRegion.show();
             if (this._container?._aquaDockSurface?.background_group) {
                 this._container._aquaDockSurface.background_group.show?.();
             }
+        }
+        if (this._container?._aquaDockSurface) {
+            this._container._aquaDockSurface.update_visibility();
         }
     }
 
