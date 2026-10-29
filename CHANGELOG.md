@@ -1,5 +1,12 @@
 # Changelog
 
+## 282
+
+- Preserve folder icon hover magnification when stack opens:
+  - Removed rest scale (1.0) suppression on stack open (`setSuppressedItem`), allowing folder dock icons and their open Down-Chevron anchor drawer tile to maintain natural Gaussian hover magnification under the cursor when the stack opens.
+  - Folder icons now magnify and respond to cursor proximity continuously while stacks are open, eliminating abrupt scale dips/shrinking on click.
+  - Updated animation engine test suite to verify folder icons maintain full target magnification when hovered with open stacks.
+
 ## 281
 
 - System Folder Icon & Pill Message Fix for Fan Stack Action Card:

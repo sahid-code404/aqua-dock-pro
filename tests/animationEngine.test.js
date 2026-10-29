@@ -88,28 +88,22 @@ try {
     // 1. Pointer over itemA: normally itemA magnifies
     supEngine.setPointer(100, 20, true);
     supEngine._frame(16);
-    assert(itemA.scaleTarget > 1.5, 'itemA should have magnified target without suppression');
+    assert(itemA.scaleTarget > 1.5, 'itemA should have magnified target when hovered');
 
-    // 2. Suppress itemA (e.g. stack opened for itemA)
+    // 2. Folder item must NOT demagnify when stack is opened
     supEngine.setSuppressedItem(itemA);
-    assert(itemA.scaleTarget === 1, 'itemA scaleTarget must immediately be set to 1 upon suppression');
-    assert(itemA.vel === 0, 'itemA velocity must be zeroed upon suppression');
-
-    // Next frame tick with pointer still over itemA: target remains 1.0!
     supEngine._frame(16);
-    assert(itemA.scaleTarget === 1, 'itemA scaleTarget must remain 1.0 even when hovered while suppressed');
+    assert(itemA.scaleTarget > 1.5, 'itemA must NOT demagnify when stack is opened while hovered');
 
-    // 3. Pointer moves over itemB: itemB magnifies, itemA stays at target 1.0!
+    // 3. Pointer moves over itemB: itemB magnifies, itemA settles naturally
     supEngine.setPointer(200, 20, true);
     supEngine._frame(16);
     assert(itemB.scaleTarget > 1.5, 'itemB must magnify normally when hovered');
-    assert(itemA.scaleTarget === 1, 'itemA must remain at target 1.0 while suppressed');
 
-    // 4. Release suppression (stack closed)
-    supEngine.setSuppressedItem(null);
+    // 4. Pointer moves back over itemA: itemA magnifies smoothly
     supEngine.setPointer(100, 20, true);
     supEngine._frame(16);
-    assert(itemA.scaleTarget > 1.5, 'itemA should magnify again once suppression is cleared');
+    assert(itemA.scaleTarget > 1.5, 'itemA should magnify again when hovered');
 
     supEngine.destroy();
 }

@@ -35,7 +35,6 @@ export class AnimationEngine {
         this._stepScratch = { nSteps: 1, st: 1, dampPow: 1 };
         this._lastDt = 16;
         this._heldItem = null;   // pinned to peak zoom while its menu is open
-        this._suppressedItem = null; // pinned to rest (1.0) while its stack/modal is open
         this._frameHook = null;  // optional () => void run at the end of each frame
         this._suspended = false; // a drag owns the chip translations
         this._animate = true;
@@ -68,18 +67,8 @@ export class AnimationEngine {
     // Keep the menu item magnified while its menu is open.
     setHeldItem(item) { this._heldItem = item; }
 
-    // Pin an item at resting scale (1.0) while its stack is open.
-    setSuppressedItem(item) {
-        if (this._suppressedItem === item) return;
-        this._suppressedItem = item;
-        if (item) {
-            item.vel = 0;
-            item.scaleTarget = 1;
-            this.kick();
-        } else {
-            this.kick();
-        }
-    }
+    // Kept for backward compatibility; folder icons remain magnified when stack is opened.
+    setSuppressedItem(_item) {}
 
     // Keep the tooltip aligned while the icon magnifies.
     setFrameHook(fn) { this._frameHook = fn; }
@@ -306,11 +295,10 @@ export class AnimationEngine {
                 continue;
             }
             let target = 1;
-            if (inBand && item !== this._suppressedItem)
+            if (inBand)
                 target = gaussianTarget(Math.abs(magMain - chip.center), m);
             // Right-click menu holds its icon at peak zoom until the menu closes.
             if (item === this._heldItem) target = zoomMax;
-            if (item === this._suppressedItem) target = 1;
             item.scaleTarget = target;
             if (item._landing) {
                 // The landing ease owns the actor transform, but DockItem records

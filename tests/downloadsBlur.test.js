@@ -716,9 +716,7 @@ shellResource._register();
         },
     };
 
-    let suppressedItem = null;
     let stackOpenStateCalls = [];
-    mockHost.setSuppressedItem = item => { suppressedItem = item; };
     mockHost.kickEngine = () => {};
 
     const mockItem = {
@@ -732,19 +730,17 @@ shellResource._register();
     };
     const mockFolder = { get_uri: () => 'file:///home/user/Downloads' };
 
-    // 1st click: opens stack
+    // 1st click: opens stack without demagnifying item
     dlMgr.openFolderStack(mockItem, mockFolder);
     assert(dlMgr.stackOpen === true, 'openFolderStack opens stack on first click');
     assert(dlMgr.activeItem === mockItem, 'activeItem set to mockItem');
     assert(mockItem.isOpenState === true, 'setStackOpenState(true) called on item');
-    assert(suppressedItem === mockItem, 'setSuppressedItem(mockItem) called on host');
 
     // 2nd click: toggles/closes stack
     dlMgr.openFolderStack(mockItem, mockFolder);
     assert(dlMgr.stackOpen === false, 'openFolderStack toggles closed on second click');
     assert(dlMgr.activeItem === null, 'activeItem cleared when closed');
     assert(mockItem.isOpenState === false, 'setStackOpenState(false) called on item when closed');
-    assert(suppressedItem === null, 'setSuppressedItem(null) called on host when closed');
     assert(closedCount > 0, 'onClose/hide was called');
 }
 

@@ -174,14 +174,12 @@ export class DownloadManager {
         this._activeItem = item;
         const cfg = this._host.getConfig();
         item.setStackOpenState?.(true);
-        this._host?.setSuppressedItem?.(item);
 
         this._stack.show(item, folder, cfg, () => {
             if (this._activeItem === item) {
                 try { item.setStackOpenState?.(false); } catch { }
                 this._activeItem = null;
             }
-            this._host?.setSuppressedItem?.(null);
             this._host?.kickEngine?.();
             this._host?.onStackClosed?.();
         }, { title, gicon });
@@ -192,7 +190,6 @@ export class DownloadManager {
             try { this._activeItem.setStackOpenState?.(false); } catch { }
             this._activeItem = null;
         }
-        this._host?.setSuppressedItem?.(null);
         this._host?.kickEngine?.();
         this._stack?.hide();
     }
