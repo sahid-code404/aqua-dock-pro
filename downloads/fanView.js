@@ -14,7 +14,7 @@ import { aboveDockY, fanOrientation, sideFanX } from './fanGeometry.js';
 import { applyTileStyle } from './tileStyle.js';
 import { SelectionModel } from './keyboardNav.js';
 import { buildPlaceIcon } from './placeIcon.js';
-import { isBmsDockBlurActive, registerBmsTarget, unregisterBmsTarget, setupBackgroundCorners } from '../dock/dockBlur.js';
+import { isBmsStackBlurActive, registerBmsTarget, unregisterBmsTarget, setupBackgroundCorners } from '../dock/dockBlur.js';
 
 const LABEL_WIDTH = 86;
 const CONTENT_GAP = 14;
@@ -135,7 +135,7 @@ export class FanView {
         fan._isAquaDock = true;
         fan._dockBlurEnabled = false;
 
-        const blurActive = Boolean(cfg.blurEffect && isBmsDockBlurActive());
+        const blurActive = isBmsStackBlurActive(cfg);
         this._blurActive = blurActive;
 
         const dockContainer = this.dockContainer;

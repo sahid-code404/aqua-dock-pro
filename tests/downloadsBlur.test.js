@@ -145,12 +145,14 @@ shellResource._register();
 {
     const {
         resolveAquaDockTarget,
+        isAquaPopupTarget,
+        isBmsStackBlurActive,
         setupBackgroundCorners,
         registerBmsTarget,
         unregisterBmsTarget,
     } = await import('../dock/dockBlur.js');
 
-    // PanelView BMS Target Discovery
+    // PanelView BMS Target Discovery & Popup Classification
     const panelBlurRegion = {
         width: 360,
         height: 420,
@@ -160,6 +162,7 @@ shellResource._register();
         get_name: () => 'aquaDownloadsPanel',
         name: 'aquaDownloadsPanel',
         _isAquaDock: true,
+        _blurType: 'popup',
         _dockBg: null,
         _dockBlurRegion: panelBlurRegion,
         _dockBlurEnabled: true,
@@ -170,8 +173,14 @@ shellResource._register();
         height: 420,
         get_dock_radius: () => 22,
         insert_child_below() {},
+        has_style_class_name(c) { return c === 'aqua-dl-panel'; },
     };
     panelContainer._dockBg = panelContainer;
+
+    assert(isAquaPopupTarget(panelContainer) === true,
+        'isAquaPopupTarget must identify aquaDownloadsPanel as a locked popup blur target');
+    assert(isAquaPopupTarget({ has_style_class_name: c => c === 'aqua-dl-panel' }) === true,
+        'isAquaPopupTarget must identify .aqua-dl-panel as a locked popup blur target');
 
     const resolvedPanel = resolveAquaDockTarget(panelContainer);
     assert(resolvedPanel !== null, 'resolveAquaDockTarget should resolve PanelView target');
@@ -181,6 +190,8 @@ shellResource._register();
         'resolved content_parent should point to panel container');
     assert(resolvedPanel.sibling === panelBlurRegion,
         'resolved sibling should point to _dockBlurRegion');
+    assert(resolvedPanel.is_popup === true,
+        'resolved is_popup must be true for PanelView');
 
     // PanelView blur disabled fallback
     panelContainer._dockBlurEnabled = false;
@@ -751,6 +762,64 @@ shellResource._register();
     assert(closedCount > 0, 'onClose/hide was called');
     assert(suppressionCalls[suppressionCalls.length - 1] === false,
         'setMagnificationSuppressed(false) called on stack close');
+
+    // ── 7. Locked Background Blur Invariants for Grid and List Views ──────────
+    {
+        const {
+            isAquaPopupTarget,
+            isBmsStackBlurActive,
+            resolveAquaDockTarget,
+        } = await import('../dock/dockBlur.js');
+
+        // Test locked popup target identification
+        assert(isAquaPopupTarget({ name: 'aquaDownloadsPanel', _blurType: 'popup' }) === true,
+            'isAquaPopupTarget must identify aquaDownloadsPanel as popup');
+        assert(isAquaPopupTarget({ has_style_class_name: c => c === 'aqua-dl-panel' }) === true,
+            'isAquaPopupTarget must identify .aqua-dl-panel as popup');
+        assert(isAquaPopupTarget({ has_style_class_name: c => c === 'aqua-dl-grid' || c === 'aqua-dl-panel' }) === true,
+            'isAquaPopupTarget must identify grid view stack as popup');
+        assert(isAquaPopupTarget({ has_style_class_name: c => c === 'aqua-dl-list' || c === 'aqua-dl-panel' }) === true,
+            'isAquaPopupTarget must identify list view stack as popup');
+
+        // Test resolution of grid and list view stack targets
+        const gridPanel = {
+            name: 'aquaDownloadsPanel',
+            _isAquaDock: true,
+            _blurType: 'popup',
+            _dockBlurEnabled: true,
+            _dockRadius: 20,
+            _dockBg: null,
+            _dockBlurRegion: { name: 'aqua-downloads-panel-blur-region' },
+            has_style_class_name: c => c === 'aqua-dl-panel' || c === 'aqua-dl-grid',
+        };
+        gridPanel._dockBg = gridPanel;
+        const resolvedGrid = resolveAquaDockTarget(gridPanel);
+        assert(resolvedGrid !== null, 'resolveAquaDockTarget must resolve grid stack target');
+        assert(resolvedGrid.is_popup === true, 'grid stack must resolve as is_popup');
+        assert(resolvedGrid.background === gridPanel, 'grid stack background must point to gridPanel');
+
+        const listPanel = {
+            name: 'aquaDownloadsPanel',
+            _isAquaDock: true,
+            _blurType: 'popup',
+            _dockBlurEnabled: true,
+            _dockRadius: 20,
+            _dockBg: null,
+            _dockBlurRegion: { name: 'aqua-downloads-panel-blur-region' },
+            has_style_class_name: c => c === 'aqua-dl-panel' || c === 'aqua-dl-list',
+        };
+        listPanel._dockBg = listPanel;
+        const resolvedList = resolveAquaDockTarget(listPanel);
+        assert(resolvedList !== null, 'resolveAquaDockTarget must resolve list stack target');
+        assert(resolvedList.is_popup === true, 'list stack must resolve as is_popup');
+        assert(resolvedList.background === listPanel, 'list stack background must point to listPanel');
+
+        // Test blur activation logic
+        assert(isBmsStackBlurActive({ blurEffect: false }) === false,
+            'isBmsStackBlurActive must return false when blurEffect is false');
+        assert(isBmsStackBlurActive({ blurEffect: true, highContrast: true }) === false,
+            'isBmsStackBlurActive must return false when highContrast is true');
+    }
 }
 
 GLib.spawn_sync(null, ['rm', '-rf', tmpShellDir], null, GLib.SpawnFlags.SEARCH_PATH, null);

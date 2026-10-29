@@ -55,6 +55,14 @@ export function isBmsTooltipBlurActive(cfg = null) {
     return isBmsPopupBlurActive() || isBmsDockBlurActive();
 }
 
+// LOCKED ARCHITECTURE: Background blur for downloads stack views (Grid, List, Fan).
+// Permanently enabled and locked. DO NOT remove, disable, or modify without explicit user permission.
+export function isBmsStackBlurActive(cfg = null) {
+    if (cfg && (!cfg.blurEffect || cfg.highContrast))
+        return false;
+    return isBmsPopupBlurActive() || isBmsDockBlurActive();
+}
+
 export function getBmsPopupSettings(dashBlur = null) {
     try {
         const bms = globalThis.global?.blur_my_shell;
@@ -89,14 +97,19 @@ export function getBmsGeneralSettings(dashBlur = null) {
     }
 }
 
+// LOCKED ARCHITECTURE: 'aquaDownloadsPanel' and '.aqua-dl-panel' background blur
+// registration and popup classification are permanently locked.
+// DO NOT remove, disable, or alter without explicit user permission.
 export function isAquaPopupTarget(container) {
     if (!container) return false;
     if (container._blurType === 'popup') return true;
     if (container._blurType === 'dock') return false;
     const name = container.name || container.get_name?.();
-    if (name === 'aquaTooltip' || name === 'aquaMenu' || name === 'aquaStackAnchor') return true;
+    if (name === 'aquaTooltip' || name === 'aquaMenu' || name === 'aquaStackAnchor' || name === 'aquaDownloadsPanel') return true;
     if (typeof container.has_style_class_name === 'function' &&
-        (container.has_style_class_name('aqua-menu') || container.has_style_class_name('aqua-stack-anchor-tile'))) return true;
+        (container.has_style_class_name('aqua-menu') ||
+         container.has_style_class_name('aqua-stack-anchor-tile') ||
+         container.has_style_class_name('aqua-dl-panel'))) return true;
     return false;
 }
 
@@ -198,7 +211,9 @@ export function resolveAquaDockTarget(container) {
         container.get_name?.() === 'aquaTooltip' ||
         container.get_name?.() === 'aquaMenu' ||
         (typeof container.has_style_class_name === 'function' &&
-            (container.has_style_class_name('aqua-menu') || container.has_style_class_name('aqua-stack-anchor-tile')))
+            (container.has_style_class_name('aqua-menu') ||
+             container.has_style_class_name('aqua-stack-anchor-tile') ||
+             container.has_style_class_name('aqua-dl-panel')))
     );
     if (!isAqua) return null;
     if (container._dockBlurEnabled === false) return null;

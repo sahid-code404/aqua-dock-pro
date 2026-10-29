@@ -381,6 +381,29 @@
     padding:          0;
     min-width:        340px;
 }
+/* LOCKED ARCHITECTURE: Background blur styling for grid and list view stack panels */
+.transparent-dash .aqua-dl-panel,
+.transparent-dash.aqua-dl-panel,
+.aqua-dl-panel.transparent-dash,
+.bms-popup-background-transparent .aqua-dl-panel,
+.bms-popup-background-transparent.aqua-dl-panel,
+.bms-popup-surface-transparent .aqua-dl-panel,
+.bms-popup-surface-transparent.aqua-dl-panel,
+.aqua-dl-panel.bms-popup-background-transparent,
+.aqua-dl-panel.bms-popup-surface-transparent {
+    background-color: rgba(28, 28, 32, 0.45) !important;
+    border:           1px solid rgba(255, 255, 255, 0.24) !important;
+}
+.bms-popup-background-dark .aqua-dl-panel,
+.bms-popup-surface-dark .aqua-dl-panel {
+    background-color: rgba(20, 20, 24, 0.55) !important;
+    border:           1px solid rgba(255, 255, 255, 0.20) !important;
+}
+.bms-popup-background-light .aqua-dl-panel,
+.bms-popup-surface-light .aqua-dl-panel {
+    background-color: rgba(240, 240, 245, 0.50) !important;
+    border:           1px solid rgba(0, 0, 0, 0.14) !important;
+}
 .aqua-dl-panel.aqua-dl-fan { min-width: 300px; }
 .aqua-dl-fan-panel {
     background-color: transparent;

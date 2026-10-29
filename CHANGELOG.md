@@ -1,5 +1,19 @@
 # Changelog
 
+## 285
+
+- Enable and lock background blur for Grid and List view folder stacks:
+  - First-Class Blur My Shell Popup Target for Grid & List Views:
+    - Added `aquaDownloadsPanel` and `.aqua-dl-panel` to `isAquaPopupTarget` in `dockBlur.js` to ensure Blur My Shell routes grid and list panels to its popup blur pipeline.
+    - Added `isBmsStackBlurActive` in `dockBlur.js` checking both popup and dock blur settings so stack panels blur seamlessly across all BMS configurations.
+    - Set `panel.name = 'aquaDownloadsPanel'`, `_blurType = 'popup'`, `_isAquaDock = true`, and `_dockContentParent = Main.uiGroup` in `downloads/panelView.js`.
+    - Registered `panel` with `registerBmsTarget(panel, () => radius)` after bounds and dimensions are applied, providing accurate geometry for hardware-accelerated frosted glass blur.
+    - Added frosted glass translucent panel styling (`.transparent-dash`, `.bms-popup-*`) in `stylesheet.css`.
+  - Architectural Lock Safeguard:
+    - Added permanent architectural lock comments in `downloads/panelView.js` and `dock/dockBlur.js`.
+    - Created `AGENTS.md` in repository root formally locking grid and list stack background blur so future AI assistants cannot remove, disable, or alter it without explicit permission.
+    - Added unit test coverage in `tests/downloadsBlur.test.js`.
+
 ## 284
 
 - Suppress tooltips dock-wide while folder stack is open:
