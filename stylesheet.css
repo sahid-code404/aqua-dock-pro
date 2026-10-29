@@ -109,13 +109,14 @@
 
 /* ── Stack Anchor Open Tile (macOS-style down-chevron button) ─────────────── */
 .aqua-stack-anchor-tile {
-    background-color: rgba(255, 255, 255, 0.14);
-    border:           1px solid rgba(255, 255, 255, 0.28);
-    box-shadow:       none;
+    background-color: rgba(235, 238, 245, 0.50);
+    border:           1px solid rgba(255, 255, 255, 0.40);
+    box-shadow:       0 2px 8px rgba(0, 0, 0, 0.12);
     transition:       background-color 130ms ease, border-color 130ms ease;
 }
 .aqua-stack-anchor-chevron {
     color:            #ffffff;
+    icon-shadow:      0 1px 2px rgba(0, 0, 0, 0.35);
 }
 .transparent-dash .aqua-stack-anchor-tile,
 .transparent-dash.aqua-stack-anchor-tile,
@@ -123,8 +124,18 @@
 .bms-popup-background-transparent .aqua-stack-anchor-tile,
 .bms-popup-background-transparent.aqua-stack-anchor-tile,
 .aqua-stack-anchor-tile.bms-popup-background-transparent {
-    background-color: rgba(255, 255, 255, 0.12) !important;
-    border:           1px solid rgba(255, 255, 255, 0.32) !important;
+    background-color: rgba(235, 238, 245, 0.45) !important;
+    border:           1px solid rgba(255, 255, 255, 0.45) !important;
+}
+.bms-popup-background-light .aqua-stack-anchor-tile,
+.bms-popup-surface-light .aqua-stack-anchor-tile {
+    background-color: rgba(245, 245, 250, 0.60) !important;
+    border:           1px solid rgba(255, 255, 255, 0.60) !important;
+}
+.bms-popup-background-dark .aqua-stack-anchor-tile,
+.bms-popup-surface-dark .aqua-stack-anchor-tile {
+    background-color: rgba(220, 222, 230, 0.42) !important;
+    border:           1px solid rgba(255, 255, 255, 0.38) !important;
 }
 .aqua-high-contrast .aqua-stack-anchor-tile {
     background-color: #000000;

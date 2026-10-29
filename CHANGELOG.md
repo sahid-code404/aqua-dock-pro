@@ -1,5 +1,14 @@
 # Changelog
 
+## 290
+
+- Update Down-Chevron drawer anchor tile styling to blend seamlessly across light and dark themes:
+  - Frosted Grayish-White Glass Appearance:
+    - Updated `.aqua-stack-anchor-tile` to a translucent frosted grayish-white tone (`rgba(235, 238, 245, 0.50)` default, `rgba(235, 238, 245, 0.45)` transparent, `rgba(245, 245, 250, 0.60)` light, `rgba(220, 222, 230, 0.42)` dark), replacing the previous dark/nearly-invisible low alpha styling.
+    - Added crisp semi-translucent borders (`rgba(255, 255, 255, 0.40)`) and a subtle soft elevation shadow (`0 2px 8px rgba(0, 0, 0, 0.12)`).
+  - High Contrast & Chevron Legibility:
+    - Added native `icon-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);` to `.aqua-stack-anchor-chevron`, ensuring the down-chevron maintains clean contrast on both light and dark desktop wallpapers and dock themes.
+
 ## 289
 
 - Fix context menu alignment and anchoring for folder stack items:
