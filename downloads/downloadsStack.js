@@ -13,8 +13,14 @@ import { FanView } from './fanView.js';
 import { PanelView } from './panelView.js';
 
 export class DownloadsStack {
-    constructor(getMonitor) {
-        this._getMonitor = getMonitor;
+    constructor(getMonitor, getContainer = null) {
+        if (typeof getMonitor === 'object' && getMonitor !== null && !(getMonitor instanceof Function)) {
+            this._getMonitor = getMonitor.getMonitor;
+            this._getContainer = getMonitor.getContainer ?? null;
+        } else {
+            this._getMonitor = getMonitor;
+            this._getContainer = getContainer;
+        }
         this._blocker = null;
         this._view = null;
         this._dying = null;
@@ -22,15 +28,39 @@ export class DownloadsStack {
         this._showGen = 0;
         this._onClose = null;
         this._cancellable = null;
+        this._anchor = null;
+        this._currentFolderUri = null;
     }
 
     get isOpen() { return this._opening || !!(this._blocker || this._view); }
     get view() { return this._view; }
     get blurRegion() { return this._view?.blurRegion ?? null; }
+    get anchor() { return this._anchor; }
+    get currentFolderUri() { return this._currentFolderUri; }
+
+    _resolveDockContainer(anchor) {
+        try {
+            const fromHost = this._getContainer?.();
+            if (fromHost) return fromHost;
+        } catch { }
+        let cur = anchor;
+        while (cur && cur !== Main.uiGroup) {
+            const parent = cur.get_parent?.();
+            if (parent === Main.uiGroup) return cur;
+            cur = parent;
+        }
+        try {
+            return Main.uiGroup?.find_child_by_name?.('aquaDockContainer') ?? null;
+        } catch {
+            return null;
+        }
+    }
 
     async show(anchor, folder, cfg, onClose, { title = _('Downloads'), gicon = null } = {}) {
         this._destroyNow();             // clear any lingering popup synchronously
         this._onClose = onClose;
+        this._anchor = anchor;
+        try { this._currentFolderUri = folder?.get_uri?.() ?? null; } catch { this._currentFolderUri = null; }
         const gen = ++this._showGen;
         this._opening = true;
         const cancellable = new Gio.Cancellable();
@@ -60,12 +90,17 @@ export class DownloadsStack {
         const mon = this._getMonitor?.();
         if (!mon) { this.hide(); return; }
         const origin = this._origin(anchor, mon, cfg);
+        const dockContainer = this._resolveDockContainer(anchor);
 
         const blocker = new St.Widget({ reactive: true, opacity: 0 });
         blocker.set_position(mon.x, mon.y);
         blocker.set_size(mon.width, mon.height);
         blocker.connect('button-press-event', () => { this.hide(); return Clutter.EVENT_STOP; });
-        Main.uiGroup.add_child(blocker);
+        if (dockContainer && typeof Main.uiGroup?.insert_child_below === 'function') {
+            Main.uiGroup.insert_child_below(blocker, dockContainer);
+        } else if (Main.uiGroup?.add_child) {
+            Main.uiGroup.add_child(blocker);
+        }
         this._blocker = blocker;
         this._opening = false;
 
@@ -80,6 +115,7 @@ export class DownloadsStack {
             origin,
             title,
             gicon,
+            dockContainer,
             close: () => this.hide(),
         };
         let view;
@@ -111,6 +147,8 @@ export class DownloadsStack {
         this._cancellable?.cancel();
         this._cancellable = null;
         this._opening = false;
+        this._anchor = null;
+        this._currentFolderUri = null;
         const view = this._view;
         const blocker = this._blocker;
         const onClose = this._onClose;
@@ -141,6 +179,8 @@ export class DownloadsStack {
 
     _destroyNow() {
         this._opening = false;
+        this._anchor = null;
+        this._currentFolderUri = null;
         this._cancellable?.cancel();
         this._cancellable = null;
         if (this._view) { this._destroyActor(this._view.actor); this._view = null; }
@@ -157,6 +197,7 @@ export class DownloadsStack {
         this._destroyNow();
         this._onClose = null;
         this._getMonitor = null;
+        this._getContainer = null;
     }
 
     _origin(anchor, mon, cfg) {

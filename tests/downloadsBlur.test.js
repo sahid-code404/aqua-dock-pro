@@ -626,10 +626,109 @@ shellResource._register();
 
     // Test DownloadsStack getter signatures
     const projectRoot = GLib.get_current_dir();
+    const Main = await import('resource:///org/gnome/shell/ui/main.js');
     const { DownloadsStack } = await import(`file://${projectRoot}/downloads/downloadsStack.js`);
-    const stack = new DownloadsStack(() => ({ x: 0, y: 0, width: 1920, height: 1080 }));
+    const mockContainer = { name: 'aquaDockContainer', get_parent: () => Main.uiGroup };
+    const stack = new DownloadsStack(
+        () => ({ x: 0, y: 0, width: 1920, height: 1080 }),
+        () => mockContainer
+    );
     assert(stack.blurRegion === null, 'DownloadsStack.blurRegion is null initially');
     assert(stack.view === null, 'DownloadsStack.view is null initially');
+    assert(stack.anchor === null, 'DownloadsStack.anchor is null initially');
+    assert(stack.currentFolderUri === null, 'DownloadsStack.currentFolderUri is null initially');
+
+    // Test _resolveDockContainer resolution
+    assert(stack._resolveDockContainer(null) === mockContainer,
+        '_resolveDockContainer resolves dockContainer from host callback');
+    const stackNoHost = new DownloadsStack(() => ({ x: 0, y: 0, width: 1920, height: 1080 }));
+    const mockAnchor = { get_parent: () => mockContainer };
+    assert(stackNoHost._resolveDockContainer(mockAnchor) === mockContainer,
+        '_resolveDockContainer resolves dockContainer from anchor parent');
+
+    // ── 5. Layering Order in Main.uiGroup (Stack Overlay Behind Dock Icons) ───────
+    const uiChildren = [];
+    const mockUiGroup = {
+        add_child(actor) {
+            uiChildren.push(actor);
+        },
+        insert_child_below(actor, sibling) {
+            const idx = uiChildren.indexOf(sibling);
+            if (idx >= 0) {
+                uiChildren.splice(idx, 0, actor);
+            } else {
+                uiChildren.unshift(actor);
+            }
+        },
+    };
+
+    const dock = { name: 'aquaDockContainer' };
+    mockUiGroup.add_child(dock);
+
+    // Blocker is inserted below dockContainer
+    const blocker = { name: 'blocker' };
+    mockUiGroup.insert_child_below(blocker, dock);
+
+    // Fan/Panel is inserted below dockContainer (above blocker)
+    const stackView = { name: 'fanView' };
+    mockUiGroup.insert_child_below(stackView, dock);
+
+    // Blur region is inserted below stackView (between blocker and stackView)
+    const blurRegion = { name: 'blurRegion' };
+    mockUiGroup.insert_child_below(blurRegion, stackView);
+
+    const blockerIdx = uiChildren.indexOf(blocker);
+    const blurIdx = uiChildren.indexOf(blurRegion);
+    const stackIdx = uiChildren.indexOf(stackView);
+    const dockIdx = uiChildren.indexOf(dock);
+
+    assert(blockerIdx >= 0 && blurIdx >= 0 && stackIdx >= 0 && dockIdx >= 0,
+        'all overlay and dock elements present in uiChildren');
+    assert(blockerIdx < blurIdx, 'blocker must be below blurRegion');
+    assert(blurIdx < stackIdx, 'blurRegion must be below stackView');
+    assert(stackIdx < dockIdx, 'stackView must be below dock (behind dock app icons)');
+    assert(blockerIdx < dockIdx, 'blocker must be below dock (behind dock app icons)');
+
+    // ── 6. DownloadManager Toggle Behavior ─────────────────────────────────────────
+    const { DownloadManager } = await import(`file://${projectRoot}/downloads/downloadManager.js`);
+    let closedCount = 0;
+    const mockHost = {
+        getConfig: () => ({ showDownloads: false, bounceHeight: 12, bounceDecay: 0.8 }),
+        getMonitor: () => ({ x: 0, y: 0, width: 1920, height: 1080 }),
+        getContainer: () => mockContainer,
+        onStackClosed: () => { closedCount++; },
+    };
+    const dlMgr = new DownloadManager(mockHost);
+    let mockIsOpen = false;
+    let mockAnchorItem = null;
+    dlMgr._stack = {
+        get isOpen() { return mockIsOpen; },
+        get anchor() { return mockAnchorItem; },
+        get currentFolderUri() { return 'file:///home/user/Downloads'; },
+        show(item, folder, cfg, onClose) {
+            mockIsOpen = true;
+            mockAnchorItem = item;
+        },
+        hide() {
+            mockIsOpen = false;
+            mockAnchorItem = null;
+            closedCount++;
+        },
+    };
+
+    const mockItem = { entry: { kind: 'downloads' }, bounce() {}, gicon: null };
+    const mockFolder = { get_uri: () => 'file:///home/user/Downloads' };
+
+    // 1st click: opens stack
+    dlMgr.openFolderStack(mockItem, mockFolder);
+    assert(dlMgr.stackOpen === true, 'openFolderStack opens stack on first click');
+    assert(dlMgr.activeItem === mockItem, 'activeItem set to mockItem');
+
+    // 2nd click: toggles/closes stack
+    dlMgr.openFolderStack(mockItem, mockFolder);
+    assert(dlMgr.stackOpen === false, 'openFolderStack toggles closed on second click');
+    assert(dlMgr.activeItem === null, 'activeItem cleared when closed');
+    assert(closedCount > 0, 'onClose/hide was called');
 }
 
 GLib.spawn_sync(null, ['rm', '-rf', tmpShellDir], null, GLib.SpawnFlags.SEARCH_PATH, null);

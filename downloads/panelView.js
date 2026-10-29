@@ -143,7 +143,12 @@ export class PanelView {
         panel.get_dock_radius = () => radius;
         setupBackgroundCorners(panel, () => radius);
 
-        Main.uiGroup.add_child(panel);
+        const dockContainer = this.dockContainer;
+        if (dockContainer && typeof Main.uiGroup?.insert_child_below === 'function') {
+            Main.uiGroup.insert_child_below(panel, dockContainer);
+        } else if (Main.uiGroup?.add_child) {
+            Main.uiGroup.add_child(panel);
+        }
         Main.uiGroup.insert_child_below(blurRegion, panel);
         if (!blurActive) {
             blurRegion.hide();

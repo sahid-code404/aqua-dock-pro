@@ -136,13 +136,15 @@ export class DownloadManager {
         this._flyer = null;
         this._iconQuery = null;
         this._gen = 0;
+        this._activeItem = null;
     }
 
     get stackOpen() { return this._stack?.isOpen ?? false; }
+    get activeItem() { return this._activeItem; }
 
     enable() {
         if (!this._stack && this._host)
-            this._stack = new DownloadsStack(this._host.getMonitor);
+            this._stack = new DownloadsStack(this._host.getMonitor, () => this._host.getContainer?.());
         if (!this._host.getConfig().showDownloads || this._watchUnsubscribe) return;
         this._watchUnsubscribe = subscribeDownloads(file => this._scheduleArrival(file));
     }
@@ -153,15 +155,31 @@ export class DownloadManager {
 
     openFolderStack(item, folder, title = _('Folder'), gicon = null) {
         if (!this._stack && this._host)
-            this._stack = new DownloadsStack(this._host.getMonitor);
+            this._stack = new DownloadsStack(this._host.getMonitor, () => this._host.getContainer?.());
         if (!this._stack) return;
+
+        // Toggle stack if already open for this exact anchor or folder URI
+        if (this._stack.isOpen) {
+            const folderUri = folder?.get_uri?.() ?? null;
+            const isSame = (this._stack.anchor === item) ||
+                (this._activeItem === item) ||
+                (folderUri && this._stack.currentFolderUri === folderUri);
+            this.closeStack();
+            if (isSame) return;
+        }
+
+        this._activeItem = item;
         const cfg = this._host.getConfig();
         try { item.bounce(Math.round(cfg.bounceHeight * 0.6), { decay: cfg.bounceDecay }); }
         catch { }
-        this._stack.show(item, folder, cfg, () => this._host.onStackClosed?.(), { title, gicon });
+        this._stack.show(item, folder, cfg, () => {
+            if (this._activeItem === item) this._activeItem = null;
+            this._host.onStackClosed?.();
+        }, { title, gicon });
     }
 
     closeStack() {
+        this._activeItem = null;
         this._stack?.hide();
     }
 

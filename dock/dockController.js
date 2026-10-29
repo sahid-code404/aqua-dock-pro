@@ -150,6 +150,7 @@ export class DockController {
         this._downloads = new DownloadManager({
             getConfig: () => this._cfg,
             getMonitor: () => this._getMonitor(),
+            getContainer: () => this._chrome?.container ?? null,
             getDownloadsItem: () => this._findItem('downloads'),
             isHidden: () => this._autohide?.hidden ?? false,
             kickEngine: () => this._engine.kick(),
@@ -882,6 +883,9 @@ export class DockController {
 
     _handleButton(type, button, sx, sy, item) {
         if (type === Clutter.EventType.BUTTON_PRESS) {
+            if (!item && this._downloads?.stackOpen) {
+                try { this._downloads.closeStack(); } catch { }
+            }
             this._press = item ? { item, sx, sy, button } : null;
             return item ? Clutter.EVENT_STOP : Clutter.EVENT_PROPAGATE;
         }
@@ -931,6 +935,9 @@ export class DockController {
                 this._downloads.openFolderStack(item, folder, item.entry.name, item.entry.gicon);
             } catch (e) { logError(e, 'open folder stack'); }
             return;
+        }
+        if (this._downloads?.stackOpen) {
+            try { this._downloads.closeStack(); } catch { }
         }
         if (button === 3) {
             try { this._menu.openFor(item); }

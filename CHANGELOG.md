@@ -1,5 +1,15 @@
 # Changelog
 
+## 278
+
+- Layer Downloads stack overlay layer behind dock container and application icons:
+  - Z-Order Hierarchy in `Main.uiGroup`: Place `blocker` widget, stack view (`fanView` / `panelView`), and blur regions underneath `aquaDockContainer`, ensuring the dock glass pill and all application icons (including the Downloads stack icon itself) permanently sit in the foreground visual plane.
+  - Authentic macOS Stacks Emergence: Stacks now expand outward and upward from behind the Downloads dock icon and retract behind it upon dismissal, preventing emerging items from overlapping the dock icon at $t = 0$.
+  - Reliable Dock Click & Toggle Semantics:
+    - Fix stack toggle in `DownloadManager`: Clicking the open Downloads icon or active folder stack icon now cleanly closes the stack instead of re-opening/bouncing it.
+    - Automatic Stack Dismissal on Dock Interaction: Clicking any other application icon, trash icon, or empty space on the dock pill automatically dismisses the open stack before performing the dock action.
+  - Add comprehensive unit tests in `tests/downloadsBlur.test.js` validating actor z-ordering in `Main.uiGroup` and toggle dismissal in `DownloadManager`.
+
 ## 277
 
 - Comprehensive blur architecture optimization, glitch/ghosting elimination, and instant apply/unapply dynamics:

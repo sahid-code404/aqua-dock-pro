@@ -138,7 +138,12 @@ export class FanView {
         const blurActive = Boolean(cfg.blurEffect && isBmsDockBlurActive());
         this._blurActive = blurActive;
 
-        Main.uiGroup.add_child(fan);
+        const dockContainer = this.dockContainer;
+        if (dockContainer && typeof Main.uiGroup?.insert_child_below === 'function') {
+            Main.uiGroup.insert_child_below(fan, dockContainer);
+        } else if (Main.uiGroup?.add_child) {
+            Main.uiGroup.add_child(fan);
+        }
 
         const anchorLX = originX - px, anchorLY = ay - py;
         this._collapse = { x: anchorLX, y: anchorLY };
