@@ -123,6 +123,18 @@ shellResource._register();
     assert(thumb.style.includes('background-color: rgba(255, 255, 255, 0.18);'),
         'applyTileStyle thumb must highlight on hover');
 
+    // Dynamic pill height scaling to match thumbnail/folder preview height
+    applyTileStyle(cfgBase, labelPill, label, thumb, 10, false, '0 12px', false, null, 40);
+    assert(labelPill.style.includes('min-height: 40px; height: 40px;'),
+        'applyTileStyle must set min-height and height when pillH is provided');
+
+    // Dynamic pill height inferred from labelPill.height if pillH is omitted
+    const pillWithHeight = createMockPill();
+    pillWithHeight.height = 36;
+    applyTileStyle(cfgBase, pillWithHeight, label, thumb, 10, false, '0 12px');
+    assert(pillWithHeight.style.includes('min-height: 36px; height: 36px;'),
+        'applyTileStyle must infer height from labelPill.height when pillH is not explicitly passed');
+
     // ── Stack Menu Pill (Copy action) Style & Synchronized Hover ──────────────
     const menuBox = createMockPill();
     const menuItem = createMockPill();

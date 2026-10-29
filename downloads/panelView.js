@@ -228,11 +228,15 @@ export class PanelView {
         return { thumb, thumbW, thumbH, thumbRadius: Math.round(Math.min(thumbW, thumbH) * 0.22) };
     }
 
-    _labelPill(text, extra = '') {
+    _labelPill(text, extra = '', pillH = 0) {
         const labelPill = new St.Bin({
             style_class: 'aqua-dl-fan-label-pill', x_expand: true,
             x_align: Clutter.ActorAlign.FILL, y_align: Clutter.ActorAlign.CENTER,
         });
+        if (pillH > 0) {
+            labelPill.set_height(pillH);
+            labelPill.height = pillH;
+        }
         const label = new St.Label({
             text, style_class: `aqua-dl-fan-label ${extra}`.trim(), x_expand: true,
             x_align: Clutter.ActorAlign.START, y_align: Clutter.ActorAlign.CENTER,
@@ -261,12 +265,12 @@ export class PanelView {
         }));
         box.add_child(thumb);
         box.add_child(this._contentGap());
-        const { labelPill, label } = this._labelPill(info.get_display_name());
+        const { labelPill, label } = this._labelPill(info.get_display_name(), '', thumbH);
         row.accessible_name = info.get_display_name();
         box.add_child(labelPill);
         row.set_child(box);
         row._thumb = thumb;
-        row._updatePillStyle = hover => applyTileStyle(this.cfg, labelPill, label, thumb, thumbRadius, hover, '4px 12px', this._blurActive);
+        row._updatePillStyle = hover => applyTileStyle(this.cfg, labelPill, label, thumb, thumbRadius, hover, '0 12px', this._blurActive, null, thumbH);
         row._updatePillStyle(false);
         row._activate = () => { launchUri(file.get_uri()); this.close(); };
         row._labelPill = labelPill;
@@ -286,11 +290,11 @@ export class PanelView {
         box.add_child(this._contentGap());
         const { labelPill, label } = this._labelPill(format(
             ngettext('+%d more item in Files', '+%d more items in Files', more), more),
-            'aqua-dl-fan-more');
+            'aqua-dl-fan-more', thumbH);
         box.add_child(labelPill);
         row.set_child(box);
         row._thumb = thumb;
-        row._updatePillStyle = hover => applyTileStyle(this.cfg, labelPill, label, thumb, thumbRadius, hover, '4px 12px', this._blurActive);
+        row._updatePillStyle = hover => applyTileStyle(this.cfg, labelPill, label, thumb, thumbRadius, hover, '0 12px', this._blurActive, null, thumbH);
         row._updatePillStyle(false);
         row._activate = () => { launchUri(this.folder.get_uri()); this.close(); };
         row.connect('clicked', row._activate);

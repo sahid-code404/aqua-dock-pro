@@ -1,5 +1,13 @@
 # Changelog
 
+## 293
+
+- Make file name pill height dynamic and match folder / thumbnail preview height in Grid and List views:
+  - Dynamic Matching Height: Scaled the filename pill height (`thumbH = Math.round(thumbSz * 0.72)`) to match the exact thickness and height of the adjacent thumbnail/folder box, scaling dynamically with dock icon/app size (`cfg.iconSize`).
+  - Balanced Centering: Zeroed vertical padding (`0 12px`) and vertically centered the label text inside the pill so the text is centered within the thicker pill.
+  - Context Menu Pill Alignment: Right-click "Copy" menu pill automatically adopts the dynamic pill height for alignment.
+
+
 ## 292
 
 - Show thumbnail previews and folder icons in a rectangular translucent box in folder stacks:

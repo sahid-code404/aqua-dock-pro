@@ -3,7 +3,7 @@
 import Clutter from 'gi://Clutter';
 import { clamp } from '../core/utils.js';
 
-export function applyTileStyle(cfg, labelPill, label, thumb, thumbRadius, hover, padding, isBlurActive = null, isAction = null) {
+export function applyTileStyle(cfg, labelPill, label, thumb, thumbRadius, hover, padding, isBlurActive = null, isAction = null, pillH = 0) {
     const bgAlpha = clamp(cfg.bgOpacity ?? 0.8, 0.12, 0.82).toFixed(2);
     const radius = cfg.dlItemRadius ?? clamp(cfg.dockRadius ?? 16, 6, 28);
     const bw = cfg.highContrast ? Math.max(2, cfg.dlItemBorderWidth ?? 1)
@@ -19,8 +19,11 @@ export function applyTileStyle(cfg, labelPill, label, thumb, thumbRadius, hover,
     const thumbBg = cfg.highContrast ? '#000000'
         : (hover ? 'rgba(255, 255, 255, 0.18)' : (cfg.dlItemThumbColor ?? 'rgba(46,46,54,0.70)'));
 
+    const targetH = pillH > 0 ? pillH : (labelPill && typeof labelPill.get_height === 'function' ? (labelPill.get_height() || 0) : (labelPill?.height || 0));
+    const heightStyle = targetH > 0 ? ` min-height: ${targetH}px; height: ${targetH}px;` : '';
+
     labelPill.set_style(
-        `background-color: ${pillBg}; border: ${border}; border-radius: ${radius}px; padding: ${padding};`);
+        `background-color: ${pillBg}; border: ${border}; border-radius: ${radius}px; padding: ${padding};${heightStyle}`);
     label.set_style(`color: ${fontColor}; font-size: ${(10.5 * (cfg.interfaceTextScale ?? 1)).toFixed(2)}pt;`);
 
     thumb.set_style(
