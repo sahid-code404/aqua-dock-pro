@@ -139,6 +139,13 @@ shellResource._register();
     applyStackMenuPillStyle({ ...cfgBase, blurEffect: true, highContrast: true }, menuBox, [menuItem], false, true);
     assert(menuBox.style.includes('background-color: rgba(0,0,0,0.96) !important;'),
         'applyStackMenuPillStyle menuBox must enforce solid high contrast background');
+
+    // Target height matching pill
+    applyStackMenuPillStyle({ ...cfgBase, blurEffect: false }, menuBox, [menuItem], false, false, 36);
+    assert(menuBox.style.includes('min-height: 36px; height: 36px;'),
+        'applyStackMenuPillStyle menuBox must set matching pill height when targetHeight is provided');
+    assert(menuItem.style.includes('min-height: 36px; height: 36px;'),
+        'applyStackMenuPillStyle menuItem must set matching pill height when targetHeight is provided');
 }
 
 // ── 2. BMS Discoverability for PanelView and FanView ────────────────────────
@@ -732,6 +739,95 @@ shellResource._register();
             'isBmsStackBlurActive must return false even when blurEffect is true');
         assert(isBmsStackBlurActive({ blurEffect: true, highContrast: true }) === false,
             'isBmsStackBlurActive must return false when highContrast is true');
+    }
+
+    // ── 8. FileItemMenu Anchor Alignment and Right-Click Triggers ─────────────
+    {
+        const { FileItemMenu } = await import(`file://${projectRoot}/downloads/fileItemMenu.js`);
+        const St = (await import('gi://St')).default;
+        const Clutter = (await import('gi://Clutter')).default;
+
+        const fileMenu = new FileItemMenu({ x: 0, y: 0, width: 1920, height: 1080 }, {});
+
+        // Test anchor resolution and right-click triggers
+        let openedWithAnchor = null;
+        fileMenu.openFor = (anchor, _file) => {
+            openedWithAnchor = anchor;
+        };
+
+        const mockLabelPill = { name: 'mockLabelPill', height: 36, get_height: () => 36 };
+        const mockRowBtn = {
+            _labelPill: mockLabelPill,
+            handlers: {},
+            connect(sig, cb) { this.handlers[sig] = cb; },
+            set_button_mask(mask) { this.mask = mask; },
+        };
+
+        fileMenu.attach(mockRowBtn, { get_uri: () => 'file:///tmp/test' }, () => {}, null);
+
+        // 1. Right-click press event opens menu immediately anchored to _labelPill
+        assert(typeof mockRowBtn.handlers['button-press-event'] === 'function',
+            'attach must connect button-press-event for responsive right-click');
+        const pressEvt = { get_button: () => Clutter.BUTTON_SECONDARY };
+        const pressRes = mockRowBtn.handlers['button-press-event'](mockRowBtn, pressEvt);
+        assert(pressRes === Clutter.EVENT_STOP, 'button-press-event must return EVENT_STOP');
+        assert(openedWithAnchor === mockLabelPill,
+            'right click press must open menu anchored to labelPill');
+
+        // 2. Right-click clicked event fallback also opens anchored to labelPill
+        openedWithAnchor = null;
+        assert(typeof mockRowBtn.handlers['clicked'] === 'function',
+            'attach must connect clicked event');
+        mockRowBtn.handlers['clicked'](mockRowBtn, Clutter.BUTTON_SECONDARY);
+        assert(openedWithAnchor === mockLabelPill,
+            'clicked fallback must open menu anchored to labelPill');
+
+        // 3. Test _setupAnchorAlignment positioning math
+        const mockAnchor = {
+            get_transformed_position: () => [800, 400],
+            get_transformed_size: () => [140, 36],
+            get_allocation_box: () => ({ x1: 800, y1: 400, get_width: () => 140, get_height: () => 36 }),
+        };
+
+        const mockBoxPointer = {
+            _arrowSide: St.Side.RIGHT,
+            get_preferred_size: () => [0, 0, 60, 32],
+            get_parent: () => ({
+                transform_stage_point: (sx, sy) => [true, sx, sy],
+                get_parent: () => null,
+            }),
+            setArrowOrigin(orig) { this.arrowOrigin = orig; },
+        };
+
+        const mockMenu = { _boxPointer: mockBoxPointer, actor: mockBoxPointer };
+        fileMenu._setupAnchorAlignment(mockMenu, mockAnchor);
+
+        let allocatedOrigin = null;
+        const mockAllocBox = {
+            set_origin(x, y) { allocatedOrigin = [x, y]; },
+        };
+
+        // When _arrowSide is RIGHT (menu placed to the left of the pill):
+        // pillCenterX = 800 + 70 = 870, pillCenterY = 400 + 18 = 418
+        // resX = 800 - 60 - 8 = 732
+        // resY = 418 - 32/2 = 402
+        mockBoxPointer._reposition(mockAllocBox);
+        assert(allocatedOrigin !== null, '_reposition must set allocation origin');
+        assert(allocatedOrigin[0] === 732, `_reposition X must be 732 (got ${allocatedOrigin[0]})`);
+        assert(allocatedOrigin[1] === 402, `_reposition Y must be 402 (got ${allocatedOrigin[1]})`);
+        // Verify center alignment:
+        const menuCenterY = allocatedOrigin[1] + 32 / 2;
+        const pillCenterY = 400 + 36 / 2;
+        assert(menuCenterY === pillCenterY,
+            `menu vertical center (${menuCenterY}) must match pill vertical center (${pillCenterY})`);
+        assert(mockBoxPointer.arrowOrigin === 16,
+            'setArrowOrigin should be centered on menu height (16)');
+
+        // When _arrowSide is LEFT (menu placed to the right of the pill):
+        mockBoxPointer._arrowSide = St.Side.LEFT;
+        mockBoxPointer._reposition(mockAllocBox);
+        assert(allocatedOrigin[0] === 948, `_reposition X to the right must be 948 (got ${allocatedOrigin[0]})`);
+        assert(allocatedOrigin[1] === 402, `_reposition Y must remain 402 (got ${allocatedOrigin[1]})`);
     }
 }
 

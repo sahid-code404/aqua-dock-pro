@@ -269,7 +269,8 @@ export class PanelView {
         row._updatePillStyle = hover => applyTileStyle(this.cfg, labelPill, label, thumb, thumbRadius, hover, '4px 12px', this._blurActive);
         row._updatePillStyle(false);
         row._activate = () => { launchUri(file.get_uri()); this.close(); };
-        this._fileMenu.attach(row, file, row._activate);
+        row._labelPill = labelPill;
+        this._fileMenu.attach(row, file, row._activate, labelPill);
         this._wireHover(row);
         return row;
     }

@@ -1,5 +1,20 @@
 # Changelog
 
+## 289
+
+- Fix context menu alignment and anchoring for folder stack items:
+  - Pixel-Perfect Vertical Centering:
+    - Fixed vertical misalignment in `FileItemMenu` caused by GNOME Shell's `BoxPointer` adding nested layout allocations to stage coordinates.
+    - Implemented dedicated `_setupAnchorAlignment()` overriding `_reposition` on `FileItemMenu`'s boxpointer to align the vertical center of the "Copy" pill with the exact vertical center of the clicked item's label pill (`resY = pillCenterY - natHeight / 2`).
+    - Configured matching height and vertical centering (`y_align: Clutter.ActorAlign.CENTER`) in `applyStackMenuPillStyle()` so the companion pill matches the target pill height.
+  - Zero-Arrow Geometry:
+    - Removed unused BoxPointer arrow margins and risers (`-arrow-rise: 0px`, `-arrow-base: 0px`, `-arrow-border-width: 0px`, `-arrow-border-radius: 0px`) in `stylesheet.css` and style definitions, ensuring the pill renders flush with an exact 8px gap.
+  - Responsive Right-Click & Pill Anchor Resolution:
+    - Connected `button-press-event` for secondary click to open the context menu immediately upon right-click mouse press.
+    - Standardized anchor resolution to `actor._labelPill ?? actor` across Fan, Grid, and List stack views.
+  - Unit Test Coverage:
+    - Added unit test coverage in `tests/downloadsBlur.test.js` validating vertical center alignment, horizontal offset, matching target height, and right-click triggers.
+
 ## 288
 
 - Remove background blur from downloads and folder stacks (Fan, Grid, and List views):

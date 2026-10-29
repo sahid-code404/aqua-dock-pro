@@ -214,10 +214,14 @@
 /* ── File item menu in Downloads/folder stacks ───────────────────────────── */
 .aqua-menu.aqua-file-item-menu,
 .aqua-file-item-menu {
-    min-width:       0;
-    max-width:       220px;
-    -boxpointer-gap: 6px;
-    box-shadow:      none;
+    min-width:            0;
+    max-width:            220px;
+    -boxpointer-gap:      8px;
+    -arrow-rise:          0px;
+    -arrow-base:          0px;
+    -arrow-border-width:  0px;
+    -arrow-border-radius: 0px;
+    box-shadow:           none;
 }
 .aqua-menu.aqua-file-item-menu .popup-menu-content,
 .aqua-file-item-menu .popup-menu-content,
