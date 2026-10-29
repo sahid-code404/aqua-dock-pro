@@ -2,7 +2,7 @@
 
 import { clamp } from '../core/utils.js';
 
-export function applyTileStyle(cfg, labelPill, label, thumb, thumbRadius, hover, padding, isBlurActive = null) {
+export function applyTileStyle(cfg, labelPill, label, thumb, thumbRadius, hover, padding, isBlurActive = null, isAction = null) {
     const bgAlpha = clamp(cfg.bgOpacity ?? 0.8, 0.12, 0.82).toFixed(2);
     const radius = cfg.dlItemRadius ?? clamp(cfg.dockRadius ?? 16, 6, 28);
     const bw = cfg.highContrast ? Math.max(2, cfg.dlItemBorderWidth ?? 1)
@@ -21,9 +21,19 @@ export function applyTileStyle(cfg, labelPill, label, thumb, thumbRadius, hover,
     labelPill.set_style(
         `background-color: ${pillBg}; border: ${border}; border-radius: ${radius}px; padding: ${padding};`);
     label.set_style(`color: ${fontColor}; font-size: ${(10.5 * (cfg.interfaceTextScale ?? 1)).toFixed(2)}pt;`);
-    thumb.set_style(
-        `border-radius: ${thumbRadius}px; background-color: ${thumbBg}; ` +
-        (bw > 0 ? `border: ${bw}px solid ${bc};` : 'border: none;'));
+
+    if (isAction === true) {
+        const actionBg = hover ? 'rgba(255, 255, 255, 0.24)' : (cfg.dlItemThumbColor ?? 'rgba(46, 46, 54, 0.75)');
+        thumb.set_style(
+            `border-radius: 999px; background-color: ${actionBg}; ` +
+            (bw > 0 ? `border: ${bw}px solid ${bc};` : 'border: 1px solid rgba(255,255,255,0.22);'));
+    } else if (isAction === false) {
+        thumb.set_style('background-color: transparent; border: none; box-shadow: none;');
+    } else {
+        thumb.set_style(
+            `border-radius: ${thumbRadius}px; background-color: ${thumbBg}; ` +
+            (bw > 0 ? `border: ${bw}px solid ${bc};` : 'border: none;'));
+    }
 }
 
 export function applyStackMenuPillStyle(cfg, menuBox, actionItems, hover = false, isBlurActive = null) {

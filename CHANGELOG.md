@@ -1,5 +1,24 @@
 # Changelog
 
+## 279
+
+- Exact macOS Fan Stack animation, visual design, and interactive behavior on Downloads and custom folders:
+  - Down-Chevron Anchor Button Transformation:
+    - When clicked to open, the folder icon transitions into a dark glassy rounded squircle tile (`.aqua-stack-anchor-tile`) containing a centered white down-chevron (`pan-down-symbolic`), matching authentic macOS drawer mechanics.
+    - Smoothly demagnifies to rest scale 1.0 and lift 0 over ~100ms with zero bounce.
+    - Stays resting on the dock pill in the foreground visual plane while the stack is open.
+    - Upon stack dismissal (clicking the chevron button, clicking another icon, or clicking outside), smoothly cross-fades back into the original folder artwork and re-enables normal hover magnification and tooltip.
+  - Layering and Card Emergence Behind Anchor:
+    - The fan cards emerge from *behind* the down-chevron anchor button with simultaneous spatial translation along the curve and smooth scale expansion ($0.25 \to 1.0$) with `EASE_OUT_QUAD` (180ms, 8ms stagger).
+    - Upon collapse, cards smoothly shrink back ($1.0 \to 0.25$) and plunge down behind the anchor button with `EASE_IN_QUAD` (150ms, 8ms stagger).
+  - Hover Magnification & Tooltip Coordination:
+    - While the stack is open, hovering over the down-chevron anchor button suppresses magnification (clamped at scale 1.0, lift 0) and hides its tooltip.
+    - Moving the pointer across other dock icons magnifies them freely via the Gaussian spring solver; clicking another icon dismisses the stack and activates the clicked app.
+  - Fan Stack Top Action Button & Clean File Cards:
+    - The top action is "Open in Files" (with overflow indicator if files exceed limit) with a dark elliptical label pill on the left and a circular dark glassy button on the right containing a white curved jump arrow (`go-jump-symbolic`).
+    - File cards in the fan stack float their file and folder thumbnails cleanly without opaque background bounding boxes, matching genuine macOS typography and iconography.
+  - Comprehensive unit test coverage in `tests/animationEngine.test.js` and `tests/downloadsBlur.test.js`.
+
 ## 278
 
 - Layer Downloads stack overlay layer behind dock container and application icons:

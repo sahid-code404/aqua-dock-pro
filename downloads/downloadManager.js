@@ -170,16 +170,27 @@ export class DownloadManager {
 
         this._activeItem = item;
         const cfg = this._host.getConfig();
-        try { item.bounce(Math.round(cfg.bounceHeight * 0.6), { decay: cfg.bounceDecay }); }
-        catch { }
+        item.setStackOpenState?.(true);
+        this._host?.setSuppressedItem?.(item);
+
         this._stack.show(item, folder, cfg, () => {
-            if (this._activeItem === item) this._activeItem = null;
-            this._host.onStackClosed?.();
+            if (this._activeItem === item) {
+                try { item.setStackOpenState?.(false); } catch { }
+                this._activeItem = null;
+            }
+            this._host?.setSuppressedItem?.(null);
+            this._host?.kickEngine?.();
+            this._host?.onStackClosed?.();
         }, { title, gicon });
     }
 
     closeStack() {
-        this._activeItem = null;
+        if (this._activeItem) {
+            try { this._activeItem.setStackOpenState?.(false); } catch { }
+            this._activeItem = null;
+        }
+        this._host?.setSuppressedItem?.(null);
+        this._host?.kickEngine?.();
         this._stack?.hide();
     }
 

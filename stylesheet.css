@@ -107,6 +107,23 @@
     background-color: transparent;
 }
 
+/* ── Stack Anchor Open Tile (macOS-style down-chevron button) ─────────────── */
+.aqua-stack-anchor-tile {
+    background-color: rgba(32, 32, 38, 0.85);
+    border:           1px solid rgba(255, 255, 255, 0.20);
+    box-shadow:       none;
+}
+.aqua-stack-anchor-chevron {
+    color:            #ffffff;
+}
+.aqua-high-contrast .aqua-stack-anchor-tile {
+    background-color: #000000;
+    border:           2px solid #ffffff;
+}
+.aqua-high-contrast .aqua-stack-anchor-chevron {
+    color:            #ffffff;
+}
+
 /* ── App-name tooltip (colours/radius/border set inline) ──────────────────── */
 .aqua-tooltip-container {
     background-color: transparent;
@@ -380,6 +397,15 @@
     letter-spacing: 0.01em;
 }
 .aqua-dl-fan-more { color: rgba(210, 210, 220, 0.80); }
+.aqua-dl-fan-action-thumb {
+    background-color: rgba(46, 46, 54, 0.75);
+    border:           1px solid rgba(255, 255, 255, 0.22);
+    border-radius:    999px;
+    box-shadow:       none;
+}
+.aqua-dl-fan-action-icon {
+    color:            #ffffff;
+}
 
 .aqua-dl-header { padding: 12px 12px 8px 16px; }
 .aqua-dl-hdr-label {

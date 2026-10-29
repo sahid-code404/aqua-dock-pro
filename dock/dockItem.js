@@ -86,9 +86,23 @@ class DockItem extends St.Widget {
         this._peakIcon.set_pivot_point(0, 0);
         const sourceScale = cfg.iconSize / Math.max(1, this._peakSourceSize);
         this._peakIcon.set_scale(sourceScale, sourceScale);
+        this._stackAnchor = new St.Bin({
+            style_class: 'aqua-stack-anchor-tile',
+            reactive: false,
+            x_align: Clutter.ActorAlign.CENTER,
+            y_align: Clutter.ActorAlign.CENTER,
+            visible: false,
+            opacity: 0,
+        });
+        this._stackAnchorIcon = new St.Icon({
+            icon_name: 'pan-down-symbolic',
+            style_class: 'aqua-stack-anchor-chevron',
+        });
+        this._stackAnchor.set_child(this._stackAnchorIcon);
         this._icon.add_child(this._focusPill);
         this._icon.add_child(this._restIcon);
         this._icon.add_child(this._peakIcon);
+        this._icon.add_child(this._stackAnchor);
 
         // BoxPointer combines transformed source extents with an unscaled
         // source content box. Anchoring to the magnified icon therefore shifts
@@ -126,6 +140,10 @@ class DockItem extends St.Widget {
         this.connect('destroy', () => {
             this._bounce?.destroy();
             this._bounce = null;
+            this._stackAnchor?.remove_all_transitions();
+            this._stackAnchor?.destroy();
+            this._stackAnchor = null;
+            this._stackAnchorIcon = null;
             this.onComposed = null;
             this.onAnimationSettled = null;
         });
@@ -176,8 +194,75 @@ class DockItem extends St.Widget {
         if (this._peakIcon) this._peakIcon.gicon = gicon;
     }
 
+    get isStackOpen() { return !!this._stackOpenState; }
+
+    setStackOpenState(isOpen, animate = true) {
+        if (this._stackOpenState === isOpen) return;
+        this._stackOpenState = isOpen;
+        const reduce = !animationsEnabled() || !animate;
+
+        this._stackAnchor?.remove_transition('opacity');
+        this._peakIcon?.remove_transition('opacity');
+        this._restIcon?.remove_transition('opacity');
+
+        if (isOpen) {
+            this._stackAnchor?.show();
+            if (reduce) {
+                if (this._stackAnchor) this._stackAnchor.opacity = 255;
+                if (this._peakIcon) this._peakIcon.opacity = 0;
+                if (this._restIcon) this._restIcon.opacity = 0;
+                return;
+            }
+            this._stackAnchor?.ease({
+                opacity: 255,
+                duration: 130,
+                mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+            });
+            this._peakIcon?.ease({
+                opacity: 0,
+                duration: 130,
+                mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+            });
+            this._restIcon?.ease({
+                opacity: 0,
+                duration: 130,
+                mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+            });
+        } else {
+            if (reduce) {
+                if (this._stackAnchor) {
+                    this._stackAnchor.opacity = 0;
+                    this._stackAnchor.hide();
+                }
+                const targetPeakOpacity = this._usingPeakTier ? 255 : 0;
+                const targetRestOpacity = this._usingPeakTier ? 0 : 255;
+                if (this._peakIcon) this._peakIcon.opacity = targetPeakOpacity;
+                if (this._restIcon) this._restIcon.opacity = targetRestOpacity;
+                return;
+            }
+            this._stackAnchor?.ease({
+                opacity: 0,
+                duration: 130,
+                mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+                onComplete: () => this._stackAnchor?.hide(),
+            });
+            const targetPeakOpacity = this._usingPeakTier ? 255 : 0;
+            const targetRestOpacity = this._usingPeakTier ? 0 : 255;
+            this._peakIcon?.ease({
+                opacity: targetPeakOpacity,
+                duration: 130,
+                mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+            });
+            this._restIcon?.ease({
+                opacity: targetRestOpacity,
+                duration: 130,
+                mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+            });
+        }
+    }
+
     _syncTextureTier(scale, force = false) {
-        if (this._stableArtwork) return;
+        if (this._stableArtwork || this._stackOpenState) return;
         const peak = usePeakTier(
             scale, this._peakTierThresholds, this._usingPeakTier, force);
         if (peak === this._usingPeakTier) return;
@@ -232,6 +317,12 @@ class DockItem extends St.Widget {
         this._peakIcon.set_position(0, 0);
         const sourceScale = restSize / Math.max(1, this._peakSourceSize);
         this._peakIcon.set_scale(sourceScale, sourceScale);
+        const anchorRadius = Math.round(restSize * 0.22);
+        const anchorIconSize = Math.round(restSize * 0.38);
+        this._stackAnchor.set_position(0, 0);
+        this._stackAnchor.set_size(restSize, restSize);
+        this._stackAnchor.set_style(`border-radius: ${anchorRadius}px;`);
+        this._stackAnchorIcon.icon_size = anchorIconSize;
         peakTierThresholds(cfg.zoomMax, this._peakTierThresholds);
         const restGap = Math.round((cfg.dockH - restSize) / 2);
         if (!vert) {
@@ -587,7 +678,20 @@ class DockItem extends St.Widget {
         this._pulsing = false;
         this.vel = 0;
         this.scaleCurrent = this.scaleTarget;
-        this._syncTextureTier(this.scaleCurrent, true);
+        if (this._stackOpenState) {
+            if (this._stackAnchor) {
+                this._stackAnchor.opacity = 255;
+                this._stackAnchor.show();
+            }
+            if (this._peakIcon) this._peakIcon.opacity = 0;
+            if (this._restIcon) this._restIcon.opacity = 0;
+        } else {
+            if (this._stackAnchor) {
+                this._stackAnchor.opacity = 0;
+                this._stackAnchor.hide();
+            }
+            this._syncTextureTier(this.scaleCurrent, true);
+        }
         this._icon.opacity = 255;
         this._icon.set_scale(this.scaleCurrent, this.scaleCurrent);
         const lift = this._baseLift();

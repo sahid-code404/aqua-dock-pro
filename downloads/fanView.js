@@ -19,19 +19,19 @@ import { isBmsDockBlurActive, registerBmsTarget, unregisterBmsTarget, setupBackg
 const LABEL_WIDTH = 86;
 const CONTENT_GAP = 14;
 
-// Reversible macOS-style light linear / swift fan animation profile
+// Reversible macOS-style swift fan animation profile
 export const FAN_ANIM = {
     open: {
         duration: 180,
         stagger: 8,
-        mode: Clutter.AnimationMode.LINEAR,
-        fadeDuration: 150,
+        mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+        fadeDuration: 140,
     },
     close: {
         duration: 150,
         stagger: 8,
-        mode: Clutter.AnimationMode.LINEAR,
-        fadeDuration: 130,
+        mode: Clutter.AnimationMode.EASE_IN_QUAD,
+        fadeDuration: 120,
     },
 };
 
@@ -81,13 +81,17 @@ export class FanView {
         const iconCx = this._thumbnailFirst
             ? leftPad + thumbSize / 2
             : leftPad + labelPillW + labelGap + thumbSize / 2;
+        this._iconCx = iconCx;
+        this._rowH = rowH;
 
         const builders = files.map(info => () => this._rowCard(info, thumbSize, rowW, rowH));
         if (overflow > 0)
-            builders.push(() => this._infoCard(format(
+            builders.push(() => this._actionCard(format(
                 ngettext('Open in Files · %d more item', 'Open in Files · %d more items', overflow),
                 overflow), thumbSize, rowW, rowH));
-        if (builders.length === 0)
+        else if (builders.length > 0)
+            builders.push(() => this._actionCard(_('Open in Files'), thumbSize, rowW, rowH));
+        else
             builders.push(() => this._infoCard(format(_('%s is empty'), this.title),
                 thumbSize, rowW, rowH));
         const n = builders.length;
@@ -210,12 +214,15 @@ export class FanView {
             if (reduce) return;
             const initTx = anchorLX - (fx + iconCx);
             const initTy = anchorLY - (fy + rowH / 2);
+            row.set_pivot_point(iconCx / rowW, 0.5);
             row.translation_x = initTx;
             row.translation_y = initTy;
+            row.set_scale(0.25, 0.25);
             row.opacity = 0;
             const delay = i * FAN_ANIM.open.stagger;
             row.ease({
                 translation_x: 0, translation_y: 0,
+                scale_x: 1.0, scale_y: 1.0,
                 duration: FAN_ANIM.open.duration,
                 delay,
                 mode: FAN_ANIM.open.mode,
@@ -228,10 +235,14 @@ export class FanView {
             });
 
             if (blurActive) {
+                blurRegion.set_pivot_point(0.5, 0.5);
                 blurRegion.translation_x = initTx;
                 blurRegion.translation_y = initTy;
+                blurRegion.set_scale(0.25, 0.25);
+                blurRegion.opacity = 0;
                 blurRegion.ease({
                     translation_x: 0, translation_y: 0,
+                    scale_x: 1.0, scale_y: 1.0,
                     duration: FAN_ANIM.open.duration,
                     delay,
                     mode: FAN_ANIM.open.mode,
@@ -259,12 +270,25 @@ export class FanView {
 
         if (reduce) {
             fan.opacity = 255;
-            if (blurActive) blurRegions.forEach(br => br.opacity = 255);
+            rows.forEach(r => {
+                r.set_scale(1, 1);
+                r.translation_x = 0;
+                r.translation_y = 0;
+                r.opacity = 255;
+            });
+            if (blurActive) {
+                blurRegions.forEach(br => {
+                    br.set_scale(1, 1);
+                    br.translation_x = 0;
+                    br.translation_y = 0;
+                    br.opacity = 255;
+                });
+            }
         }
         return fan;
     }
 
-    _card(thumbSize, w, h, extraClass = '') {
+    _card(thumbSize, w, h, extraClass = '', isAction = false) {
         const thumbW = thumbSize, thumbH = Math.round(thumbSize * 0.72);
         const thumbRadius = Math.round(Math.min(thumbW, thumbH) * 0.22);
         const radius = this.cfg.dlItemRadius ?? clamp(this.cfg.dockRadius ?? 16, 6, 28);
@@ -301,8 +325,9 @@ export class FanView {
             x_expand: false,
             reactive: false,
         });
+        const thumbClass = isAction ? 'aqua-dl-fan-thumb aqua-dl-fan-action-thumb' : 'aqua-dl-fan-thumb';
         const thumb = new St.Bin({
-            style_class: 'aqua-dl-fan-thumb', x_expand: false, y_expand: false,
+            style_class: thumbClass, x_expand: false, y_expand: false,
             x_align: Clutter.ActorAlign.END, y_align: Clutter.ActorAlign.CENTER,
         });
         thumb.set_size(thumbW, thumbH);
@@ -327,7 +352,7 @@ export class FanView {
         btn.get_dock_radius = () => radius;
 
         btn._updatePillStyle = hover =>
-            applyTileStyle(this.cfg, labelPill, label, thumb, thumbRadius, hover, '6px 14px', this._blurActive);
+            applyTileStyle(this.cfg, labelPill, label, thumb, thumbRadius, hover, '6px 14px', this._blurActive, isAction);
         btn._updatePillStyle(false);
 
         btn.connect('notify::hover', () => {
@@ -339,7 +364,7 @@ export class FanView {
     }
 
     _rowCard(info, thumbSize, w, h) {
-        const { btn, labelPill, label, thumb, thumbW, thumbH } = this._card(thumbSize, w, h);
+        const { btn, labelPill, label, thumb, thumbW, thumbH } = this._card(thumbSize, w, h, '', false);
         const file = this.folder.get_child(info.get_name());
         label.text = info.get_display_name();
         btn.accessible_name = label.text;
@@ -353,8 +378,23 @@ export class FanView {
         return btn;
     }
 
+    _actionCard(text, thumbSize, w, h) {
+        const { btn, label, thumb, thumbW, thumbH } = this._card(thumbSize, w, h, 'aqua-dl-fan-action', true);
+        label.text = text;
+        btn.accessible_name = text;
+        const iconSize = Math.round(thumbH * 0.54);
+        thumb.set_child(new St.Icon({
+            icon_name: 'go-jump-symbolic',
+            icon_size: iconSize,
+            style_class: 'aqua-dl-fan-action-icon',
+        }));
+        btn._activate = () => { launchUri(this.folder.get_uri()); this.close(); };
+        btn.connect('clicked', btn._activate);
+        return btn;
+    }
+
     _infoCard(text, thumbSize, w, h) {
-        const { btn, label, thumb, thumbW, thumbH } = this._card(thumbSize, w, h, 'aqua-dl-fan-more');
+        const { btn, label, thumb, thumbW, thumbH } = this._card(thumbSize, w, h, 'aqua-dl-fan-more', false);
         label.text = text;
         btn.accessible_name = text;
         const iconSize = Math.round(Math.min(thumbW, thumbH) * 0.72);
@@ -431,15 +471,21 @@ export class FanView {
         }
         const kids = this._model.rows;
         const n = kids.length;
+        const iconCx = this._iconCx ?? (this._thumbnailFirst
+            ? 6 + 56 / 2
+            : 6 + (this._labelPillWidth ?? 114) + CONTENT_GAP + 56 / 2);
+        const rowH = this._rowH ?? 60;
         if (this._blurActive) {
             this.blurRegions.forEach((br, i) => {
                 const tile = kids[i];
                 if (!tile) return;
-                const cx = tile.x + tile.width / 2, cy = tile.y + tile.height / 2;
                 const delay = (n - 1 - i) * FAN_ANIM.close.stagger;
+                br.remove_all_transitions();
                 br.ease({
-                    translation_x: this._collapse.x - cx,
-                    translation_y: this._collapse.y - cy,
+                    translation_x: this._collapse.x - (tile.x + iconCx),
+                    translation_y: this._collapse.y - (tile.y + rowH / 2),
+                    scale_x: 0.25,
+                    scale_y: 0.25,
                     duration: FAN_ANIM.close.duration,
                     delay,
                     mode: FAN_ANIM.close.mode,
@@ -453,11 +499,13 @@ export class FanView {
             });
         }
         kids.forEach((tile, i) => {
-            const cx = tile.x + tile.width / 2, cy = tile.y + tile.height / 2;
             const delay = (n - 1 - i) * FAN_ANIM.close.stagger;
+            tile.remove_all_transitions();
             tile.ease({
-                translation_x: this._collapse.x - cx,
-                translation_y: this._collapse.y - cy,
+                translation_x: this._collapse.x - (tile.x + iconCx),
+                translation_y: this._collapse.y - (tile.y + rowH / 2),
+                scale_x: 0.25,
+                scale_y: 0.25,
                 duration: FAN_ANIM.close.duration,
                 delay,
                 mode: FAN_ANIM.close.mode,

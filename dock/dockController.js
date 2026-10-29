@@ -154,6 +154,7 @@ export class DockController {
             getDownloadsItem: () => this._findItem('downloads'),
             isHidden: () => this._autohide?.hidden ?? false,
             kickEngine: () => this._engine.kick(),
+            setSuppressedItem: item => this._engine.setSuppressedItem(item),
             onStackClosed: () => this._autohide?.onDockLeft(),
         });
         this._trash = this._cfg.showTrash ? new TrashWatcher({
@@ -761,9 +762,11 @@ export class DockController {
     }
 
     // Update which icon is hovered and drive its tooltip. Suppressed while a
-    // menu is open or the dock is hidden.
+    // menu is open, the dock is hidden, or over the open stack anchor.
     _setHover(item) {
-        if (this._menu.active || this._autohide?.hidden || this._downloads?.stackOpen) item = null;
+        if (this._menu.active || this._autohide?.hidden ||
+            (this._downloads?.stackOpen && (item === this._downloads?.anchor || item === this._downloads?._activeItem)))
+            item = null;
         if (item === this._hoverItem) return;
         this._hoverItem = item;
         this._lastTooltipScale = -1; // force tooltip reposition on new hover

@@ -213,17 +213,14 @@ export class DownloadsStack {
             // horizontal centering (avoids rounding drift from restRect math).
             let cx;
             const icon = anchor._icon;
-            if (cfg.vertical && rest) {
-                // A side-dock icon magnifies into the screen. Its transformed
-                // centre therefore moves away from the pill; anchor side
-                // popups to the stable resting centre instead.
+            if (rest) {
                 cx = rx + rest.x + rest.w / 2;
             } else if (icon) {
                 const [ix] = icon.get_transformed_position();
                 const [iw] = icon.get_transformed_size();
                 cx = ix - tx + iw / 2;
             } else {
-                cx = rest ? rx + rest.x + rest.w / 2 : rx + anchor.width / 2;
+                cx = rx + anchor.width / 2;
             }
 
             // Y: use restRect (the icon's visual top at rest), NOT the icon

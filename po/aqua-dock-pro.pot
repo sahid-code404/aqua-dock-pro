@@ -18,83 +18,87 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=INTEGER; plural=EXPRESSION;\n"
 
-#: dock/dockItem.js:191
+#: dock/dockItem.js:276
 msgid "Applications"
 msgstr ""
 
-#: dock/dockItem.js:192 downloads/downloadManager.js:151
-#: downloads/downloadsStack.js:31 downloads/panelView.js:183
+#: dock/dockItem.js:277 downloads/downloadManager.js:153
+#: downloads/downloadsStack.js:59 downloads/panelView.js:196
 #: prefs/pages/downloadsPage.js:18 services/appTracker.js:377
 msgid "Downloads"
 msgstr ""
 
-#: dock/dockItem.js:193 downloads/downloadManager.js:154
+#: dock/dockItem.js:278 downloads/downloadManager.js:156
 #: menus/menuActions.js:40 prefs/pages/downloadsPage.js:49
 #: services/appTracker.js:387
 msgid "Folder"
 msgstr ""
 
-#: dock/dockItem.js:194 menus/menuActions.js:44 services/appTracker.js:455
+#: dock/dockItem.js:279 menus/menuActions.js:44 services/appTracker.js:455
 #: services/appTracker.js:456
 msgid "Location"
 msgstr ""
 
-#: dock/dockItem.js:195 menus/menuActions.js:48 menus/menuActions.js:51
+#: dock/dockItem.js:280 menus/menuActions.js:48 menus/menuActions.js:51
 #: menus/menuActions.js:52 menus/menuActions.js:61 menus/menuActions.js:62
 #: prefs/pages/devicesPage.js:104
 msgid "Mounted device"
 msgstr ""
 
-#: dock/dockItem.js:196 prefs/pages/dockPage.js:98
+#: dock/dockItem.js:281 prefs/pages/dockPage.js:98
 msgid "Trash"
 msgstr ""
 
-#: dock/dockItem.js:421
+#: dock/dockItem.js:512
 #, javascript-format
 msgid "%d open window"
 msgid_plural "%d open windows"
 msgstr[0] ""
 msgstr[1] ""
 
-#: dock/dockItem.js:422
+#: dock/dockItem.js:513
 msgid "running"
 msgstr ""
 
-#: dock/dockItem.js:425
+#: dock/dockItem.js:516
 #, javascript-format
 msgid "%d notification"
 msgid_plural "%d notifications"
 msgstr[0] ""
 msgstr[1] ""
 
-#: downloads/fanView.js:68
+#: downloads/fanView.js:90
 #, javascript-format
 msgid "Open in Files · %d more item"
 msgid_plural "Open in Files · %d more items"
 msgstr[0] ""
 msgstr[1] ""
 
-#: downloads/fanView.js:71
+#: downloads/fanView.js:93
+msgid "Open in Files"
+msgstr ""
+
+#: downloads/fanView.js:95
 #, javascript-format
 msgid "%s is empty"
 msgstr ""
 
-#: downloads/fileItemMenu.js:50 prefs/pages/aboutPage.js:51
+#: downloads/fileItemMenu.js:61 prefs/pages/aboutPage.js:51
 msgid "Copy"
 msgstr ""
 
-#: downloads/panelView.js:189
+#: downloads/panelView.js:202
 #, javascript-format
 msgid "%d item"
 msgid_plural "%d items"
 msgstr[0] ""
 msgstr[1] ""
 
-#: downloads/panelView.js:195
+#: downloads/panelView.js:208
 msgid "Open Folder"
 msgstr ""
 
-#: downloads/panelView.js:292
+#: downloads/panelView.js:305
 #, javascript-format
 msgid "+%d more item in Files"
 msgid_plural "+%d more items in Files"
@@ -170,7 +174,7 @@ msgstr ""
 msgid "Open Trash"
 msgstr ""
 
-#: menus/menuActions.js:74 menus/menuManager.js:181
+#: menus/menuActions.js:74 menus/menuManager.js:196
 msgid "Empty Trash"
 msgstr ""
 
@@ -202,31 +206,31 @@ msgstr ""
 msgid "Quit"
 msgstr ""
 
-#: menus/menuManager.js:171
+#: menus/menuManager.js:186
 msgid "Empty Trash?"
 msgstr ""
 
-#: menus/menuManager.js:172
+#: menus/menuManager.js:187
 msgid "All items in Trash will be permanently deleted."
 msgstr ""
 
-#: menus/menuManager.js:176 prefs/pages/aboutPage.js:71
+#: menus/menuManager.js:191 prefs/pages/aboutPage.js:71
 #: prefs/widgets/customItems.js:84
 msgid "Cancel"
 msgstr ""
 
-#: menus/menuManager.js:193
+#: menus/menuManager.js:208
 msgid "Trash could not be fully emptied"
 msgstr ""
 
-#: menus/menuManager.js:194
+#: menus/menuManager.js:209
 #, javascript-format
 msgid "%d item could not be removed."
 msgid_plural "%d items could not be removed."
 msgstr[0] ""
 msgstr[1] ""
 
-#: menus/menuManager.js:197
+#: menus/menuManager.js:212
 msgid "Trash emptied"
 msgstr ""
 
@@ -1629,44 +1633,44 @@ msgstr ""
 msgid "Remove"
 msgstr ""
 
-#: ui/preview/previewManager.js:205
+#: ui/preview/previewManager.js:214
 #, javascript-format
 msgid "Close %s"
 msgstr ""
 
-#: ui/preview/previewManager.js:249
+#: ui/preview/previewManager.js:258
 #, javascript-format
 msgid "+%d more window"
 msgid_plural "+%d more windows"
 msgstr[0] ""
 msgstr[1] ""
 
-#: ui/preview/previewManager.js:266
+#: ui/preview/previewManager.js:275
 msgid "Previous window page"
 msgstr ""
 
-#: ui/preview/previewManager.js:275
+#: ui/preview/previewManager.js:284
 #, javascript-format
 msgid "Page %d of %d"
 msgstr ""
 
-#: ui/preview/previewManager.js:286
+#: ui/preview/previewManager.js:295
 msgid "Next window page"
 msgstr ""
 
-#: ui/preview/previewManager.js:385
+#: ui/preview/previewManager.js:395
 msgid "Activate"
 msgstr ""
 
-#: ui/preview/previewManager.js:394
+#: ui/preview/previewManager.js:404
 msgid "Move to Current Workspace"
 msgstr ""
 
-#: ui/preview/previewManager.js:409
+#: ui/preview/previewManager.js:419
 #, javascript-format
 msgid "Move to Monitor %d"
 msgstr ""
 
-#: ui/preview/previewManager.js:415
+#: ui/preview/previewManager.js:425
 msgid "Close Window"
 msgstr ""
