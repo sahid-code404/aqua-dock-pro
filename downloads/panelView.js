@@ -179,7 +179,6 @@ export class PanelView {
         const px = clamp(Math.round(targetX), mon.x + 8, mon.x + mon.width - panelW - 8);
         const py = clamp(Math.round(targetY), mon.y + 8, mon.y + mon.height - natH - 8);
         panel.set_position(px, py);
-        panel.set_size(panelW, natH);
         blurRegion.set_position(px, py);
         blurRegion.set_size(panelW, natH);
         blurRegion.set_pivot_point(0.5, 1.0);
@@ -190,6 +189,10 @@ export class PanelView {
         } else {
             blurRegion.hide();
         }
+
+        this._model.setRows(tiles);
+        this._animateOpen(panel, tiles, view);
+        return panel;
     }
 
     _header(folder, count) {

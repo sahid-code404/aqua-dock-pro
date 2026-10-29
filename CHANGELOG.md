@@ -1,5 +1,12 @@
 # Changelog
 
+## 286
+
+- Fix folder stack opening for Grid and List views:
+  - Fixed a missing return statement in `PanelView.build()` that was causing `view.build()` to return `undefined`, triggering a `TypeError` when `downloadsStack.js` connected key event listeners and aborting stack opening.
+  - Restored `this._model.setRows(tiles)`, `this._animateOpen(...)`, and `return panel` in `PanelView.build()`.
+  - Grid and List views now open immediately upon clicking folder/downloads icons with full frosted glass background blur.
+
 ## 285
 
 - Enable and lock background blur for Grid and List view folder stacks:
