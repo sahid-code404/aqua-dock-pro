@@ -1,5 +1,16 @@
 # Changelog
 
+## 276
+
+- Unify tooltip blur pipeline with context menu / popup blur pipeline from Blur My Shell:
+  - Connect tooltips (`aquaTooltip`) and secondary context menus (`aquaMenu`) to Blur My Shell's popup blur pipeline (`org.gnome.shell.extensions.blur-my-shell.popup`), decoupling them from the main dock / dash-to-dock pipeline.
+  - Implement `isBmsTooltipBlurActive(cfg)` to enable tooltip blur whenever BMS popup blur or dock blur is active.
+  - Add `addBlurForTarget()` and `isAquaPopupTarget()` in `dock/dockBlur.js` to delegate shader pipeline instantiation (`STATIC_BLUR` and `PIPELINE`) cleanly to `settings.popup`.
+  - Dynamically track BMS popup settings changes (`changed::pipeline` and `changed::static-blur` on `org.gnome.shell.extensions.blur-my-shell.popup` and `changed::pipelines` on general BMS schema), updating shader pipelines and surface types immediately when the user configures popup blur in BMS.
+  - Protect popup blur surfaces during dock blur deactivations: tooltip blur surfaces survive `remove-dashes` if popup blur remains active.
+  - Sizing & positioning safeguards: guard manual actor repositioning in `TooltipManager.position()` to dynamic blur mode, letting static blur clipping handle monitor-cloned textures without distortion.
+  - Add comprehensive unit test coverage in `tests/tooltipBlur.test.js` and `tests/dockBlur.test.js`.
+
 ## 275
 
 - Fix static blur behavior and lifecycle integration with Blur My Shell (`dock/dockBlur.js`):

@@ -6,10 +6,11 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import { logError, TimeoutGroup, SignalGroup } from '../core/utils.js';
 import {
-    isBmsDockBlurActive,
+    isBmsTooltipBlurActive,
     registerBmsTarget,
     unregisterBmsTarget,
     setupBackgroundCorners,
+    getBmsSettings,
 } from '../dock/dockBlur.js';
 
 export function parseCssColor(str, defaultRgba = [0.125, 0.125, 0.141, 0.92]) {
@@ -117,6 +118,7 @@ export class TooltipManager {
 
         // Target properties for Blur My Shell discovery via resolveAquaDockTarget
         this._container._isAquaDock = true;
+        this._container._blurType = 'popup';
         this._container._dockBg = this._blurRegion;
         this._container._dockContent = this._container;
         this._container._dockBlurRegion = this._blurRegion;
@@ -150,6 +152,15 @@ export class TooltipManager {
                 'extension-state-changed',
                 () => this.style()
             );
+        }
+
+        const popupSettings = getBmsSettings('org.gnome.shell.extensions.blur-my-shell.popup');
+        if (popupSettings && typeof popupSettings.connect === 'function') {
+            this._signals.connect(popupSettings, 'changed::blur', () => this.style());
+        }
+        const dashSettings = getBmsSettings('org.gnome.shell.extensions.blur-my-shell.dash-to-dock');
+        if (dashSettings && typeof dashSettings.connect === 'function') {
+            this._signals.connect(dashSettings, 'changed::blur', () => this.style());
         }
 
         this._timers = new TimeoutGroup();
@@ -290,7 +301,7 @@ export class TooltipManager {
         setupBackgroundCorners(this._blurRegion, () => radius);
         setupBackgroundCorners(this._bubble, () => radius);
 
-        const blurActive = Boolean(cfg.blurEffect && isBmsDockBlurActive() && !cfg.highContrast);
+        const blurActive = Boolean(isBmsTooltipBlurActive(cfg));
         const normalBg = cfg.highContrast ? 'rgba(0,0,0,0.98)'
             : (cfg.tooltipBg || 'rgba(32,32,36,0.92)');
         const bg = cfg.highContrast ? 'rgba(0,0,0,0.98)'
@@ -324,7 +335,11 @@ export class TooltipManager {
                 unregisterBmsTarget(this._container);
                 if (this._blurRegion) this._blurRegion.hide();
                 try {
-                    for (const cls of ['transparent-dash', 'light-dash', 'dark-dash']) {
+                    for (const cls of [
+                        'transparent-dash', 'light-dash', 'dark-dash',
+                        'bms-popup-background-transparent', 'bms-popup-background-light', 'bms-popup-background-dark',
+                        'bms-popup-surface-transparent', 'bms-popup-surface-light', 'bms-popup-surface-dark',
+                    ]) {
                         this._bubble?.remove_style_class_name?.(cls);
                         this._container?.remove_style_class_name?.(cls);
                         this._blurRegion?.remove_style_class_name?.(cls);
@@ -498,7 +513,7 @@ export class TooltipManager {
             this._y = ny;
 
             const surface = this._container._aquaDockSurface;
-            if (surface?.background) {
+            if (surface?.background && !surface.is_static) {
                 try { surface.background.remove_all_transitions?.(); } catch { }
                 try { surface.background_group?.remove_all_transitions?.(); } catch { }
                 if (typeof surface.background.set_position === 'function') {

@@ -127,6 +127,7 @@ export class FileItemMenu {
 
         if (isBmsDockBlurActive() && menu?.actor) {
             menu.actor._isAquaDock = true;
+            menu.actor._blurType = 'popup';
             menu.actor.name = 'aquaMenu';
             menu.actor._dockBlurEnabled = true;
             menu.actor._dockBg = menu.box ?? menu.actor;

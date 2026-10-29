@@ -52,6 +52,11 @@ const {
     setupBackgroundCorners,
     registerBmsTarget,
     unregisterBmsTarget,
+    isBmsTooltipBlurActive,
+    isAquaPopupTarget,
+    addBlurForTarget,
+    getBmsPopupSettings,
+    AquaDockSurface,
 } = await import('../dock/dockBlur.js');
 
 // ── 1. CSS Color Parser ──────────────────────────────────────────────────────
@@ -688,6 +693,108 @@ const {
     assert(defaultMgr.blurRegion.visible === false, 'blurRegion must be hidden on init');
     assert(defaultMgr.container.visible === false, 'container must be hidden on init');
     defaultMgr.destroy();
+}
+
+// ── 11. Tooltip Follows Context Menu / Popup Blur Pipeline ──────────────────
+{
+    // A. isBmsTooltipBlurActive behavior
+    globalThis.global = {
+        blur_my_shell: {
+            _popup: { enabled: true },
+            _dash_to_dock_blur: { enabled: false },
+        },
+    };
+    assert(isBmsTooltipBlurActive({ blurEffect: true }) === true,
+        'isBmsTooltipBlurActive must be true when popup blur is active, even if dash blur is disabled');
+    assert(isBmsTooltipBlurActive({ blurEffect: false }) === false,
+        'isBmsTooltipBlurActive must be false when blurEffect is false');
+    assert(isBmsTooltipBlurActive({ blurEffect: true, highContrast: true }) === false,
+        'isBmsTooltipBlurActive must be false when highContrast is true');
+
+    globalThis.global.blur_my_shell._popup.enabled = false;
+    globalThis.global.blur_my_shell._dash_to_dock_blur.enabled = true;
+    assert(isBmsTooltipBlurActive({ blurEffect: true }) === true,
+        'isBmsTooltipBlurActive must be true when dash blur is active');
+
+    globalThis.global.blur_my_shell._dash_to_dock_blur.enabled = false;
+    assert(isBmsTooltipBlurActive({ blurEffect: true }) === false,
+        'isBmsTooltipBlurActive must be false when both popup and dash blur are disabled');
+
+    // B. isAquaPopupTarget classification
+    const tooltipActor = { name: 'aquaTooltip' };
+    const menuActor = { name: 'aquaMenu' };
+    const dockActor = { name: 'aquaDockContainer' };
+    const customPopupActor = { _blurType: 'popup' };
+    const customDockActor = { _blurType: 'dock' };
+
+    assert(isAquaPopupTarget(tooltipActor) === true, 'aquaTooltip must be identified as popup target');
+    assert(isAquaPopupTarget(menuActor) === true, 'aquaMenu must be identified as popup target');
+    assert(isAquaPopupTarget(customPopupActor) === true, '_blurType popup must be identified as popup target');
+    assert(isAquaPopupTarget(dockActor) === false, 'aquaDockContainer must not be identified as popup target');
+    assert(isAquaPopupTarget(customDockActor) === false, '_blurType dock must not be identified as popup target');
+
+    // C. addBlurForTarget pipeline delegation
+    let capturedStatic = null;
+    let capturedPipeline = null;
+    const mockDashBlur = {
+        enabled: true,
+        settings: {
+            dash_to_dock: { STATIC_BLUR: true, PIPELINE: 'dash_pipeline_heavy' },
+            popup: { STATIC_BLUR: false, PIPELINE: 'popup_pipeline_light' },
+        },
+        add_blur(container, target) {
+            capturedStatic = this.settings.dash_to_dock.STATIC_BLUR;
+            capturedPipeline = this.settings.dash_to_dock.PIPELINE;
+            return {
+                background: { set_position() {}, set_size() {}, set_clip() {} },
+                background_group: { get_parent: () => null, destroy() {} },
+                bg_manager: { destroy() {} },
+                pipeline: {
+                    change_pipeline_to(p) { this.current = p; },
+                    set_corner_radius() {},
+                    destroy() {},
+                },
+                rounded_pipeline: capturedStatic ? { update() {}, destroy() {} } : null,
+                corner_settings: { radius: 6 },
+            };
+        },
+        dashes: [],
+    };
+
+    // Tooltip should follow popup settings (STATIC_BLUR: false, PIPELINE: 'popup_pipeline_light')
+    const tooltipTarget = { content: tooltipActor, background: tooltipActor, is_popup: true };
+    const tooltipBlur = addBlurForTarget(mockDashBlur, tooltipActor, tooltipTarget);
+    assert(capturedStatic === false, 'tooltip must receive popup STATIC_BLUR (false), not dash STATIC_BLUR');
+    assert(capturedPipeline === 'popup_pipeline_light',
+        'tooltip must receive popup PIPELINE (popup_pipeline_light), not dash PIPELINE');
+    assert(tooltipBlur.rounded_pipeline === null, 'dynamic blur must not have rounded_pipeline');
+
+    // Main dock should continue to use dash settings (STATIC_BLUR: true, PIPELINE: 'dash_pipeline_heavy')
+    const dockTarget = { content: dockActor, background: dockActor, is_popup: false };
+    const dockBlur = addBlurForTarget(mockDashBlur, dockActor, dockTarget);
+    assert(capturedStatic === true, 'dock must receive dash STATIC_BLUR (true)');
+    assert(capturedPipeline === 'dash_pipeline_heavy', 'dock must receive dash PIPELINE');
+    assert(dockBlur.rounded_pipeline !== null, 'static blur must have rounded_pipeline');
+
+    // D. AquaDockSurface for tooltip: update_pipeline and is_static
+    const tooltipSurface = new AquaDockSurface(mockDashBlur, tooltipActor, tooltipTarget, tooltipBlur);
+    assert(tooltipSurface.is_static === false, 'tooltip surface is_static must be false');
+    assert(tooltipSurface._isPopupType === true, 'tooltip surface _isPopupType must be true');
+
+    // Update pipeline should pull from popup settings
+    tooltipSurface.update_pipeline();
+    assert(tooltipSurface.pipeline.current === 'popup_pipeline_light',
+        'AquaDockSurface update_pipeline on tooltip must set popup pipeline');
+
+    // If popup pipeline changes, update_pipeline updates to the new popup pipeline
+    mockDashBlur.settings.popup.PIPELINE = 'popup_pipeline_custom_frosted';
+    tooltipSurface.update_pipeline();
+    assert(tooltipSurface.pipeline.current === 'popup_pipeline_custom_frosted',
+        'AquaDockSurface update_pipeline on tooltip must follow changed popup pipeline');
+
+    // Clean up
+    tooltipSurface.destroy_dash();
+    delete globalThis.global.blur_my_shell;
 }
 
 GLib.spawn_sync(null, ['rm', '-rf', tmpShellDir], null, GLib.SpawnFlags.SEARCH_PATH, null);

@@ -9,7 +9,7 @@ import St from 'gi://St';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import { SignalGroup } from '../core/utils.js';
 
-function getBmsSettings(schemaId) {
+export function getBmsSettings(schemaId) {
     try {
         const defaultSource = Gio.SettingsSchemaSource.get_default();
         if (defaultSource && !defaultSource.lookup(schemaId, true)) {
@@ -47,6 +47,90 @@ export function isBmsMenuBlurActive(cfg = null) {
     if (cfg && (!cfg.blurEffect || cfg.highContrast))
         return false;
     return isBmsPopupBlurActive() || isBmsDockBlurActive();
+}
+
+export function isBmsTooltipBlurActive(cfg = null) {
+    if (cfg && (!cfg.blurEffect || cfg.highContrast))
+        return false;
+    return isBmsPopupBlurActive() || isBmsDockBlurActive();
+}
+
+export function getBmsPopupSettings(dashBlur = null) {
+    try {
+        const bms = globalThis.global?.blur_my_shell;
+        const bmsSettings = dashBlur?.settings ?? bms?.settings;
+        if (bmsSettings?.popup)
+            return bmsSettings.popup;
+        const gioSettings = getBmsSettings('org.gnome.shell.extensions.blur-my-shell.popup');
+        if (gioSettings) {
+            return {
+                settings: gioSettings,
+                get PIPELINE() {
+                    try { return gioSettings.get_string('pipeline'); } catch { return 'pipeline_default'; }
+                },
+                get STATIC_BLUR() {
+                    try { return gioSettings.get_boolean('static-blur'); } catch { return false; }
+                },
+                get BLUR() {
+                    try { return gioSettings.get_boolean('blur'); } catch { return true; }
+                },
+            };
+        }
+    } catch { }
+    return null;
+}
+
+export function getBmsGeneralSettings(dashBlur = null) {
+    try {
+        const bms = globalThis.global?.blur_my_shell;
+        return dashBlur?.settings?.settings ?? bms?.settings?.settings ?? getBmsSettings('org.gnome.shell.extensions.blur-my-shell');
+    } catch {
+        return null;
+    }
+}
+
+export function isAquaPopupTarget(container) {
+    if (!container) return false;
+    if (container._blurType === 'popup') return true;
+    if (container._blurType === 'dock') return false;
+    const name = container.name || container.get_name?.();
+    if (name === 'aquaTooltip' || name === 'aquaMenu') return true;
+    if (typeof container.has_style_class_name === 'function' && container.has_style_class_name('aqua-menu')) return true;
+    return false;
+}
+
+export function addBlurForTarget(dashBlur, container, target) {
+    if (!dashBlur || typeof dashBlur.add_blur !== 'function') return null;
+    const isPopup = isAquaPopupTarget(container) || Boolean(target?.is_popup);
+    if (!isPopup) {
+        return dashBlur.add_blur(container, target);
+    }
+
+    const popup = getBmsPopupSettings(dashBlur);
+    const isStatic = popup ? Boolean(popup.STATIC_BLUR) : false;
+    const pipelineName = popup?.PIPELINE ?? 'pipeline_default';
+
+    const proxyDashBlur = new Proxy(dashBlur, {
+        get(bmsTarget, prop, receiver) {
+            if (prop === 'settings') {
+                const realSettings = bmsTarget.settings;
+                return new Proxy(realSettings || {}, {
+                    get(sTarget, sProp, sReceiver) {
+                        if (sProp === 'dash_to_dock') {
+                            return {
+                                get STATIC_BLUR() { return isStatic; },
+                                get PIPELINE() { return pipelineName; },
+                            };
+                        }
+                        return Reflect.get(sTarget, sProp, sReceiver);
+                    },
+                });
+            }
+            return Reflect.get(bmsTarget, prop, receiver);
+        },
+    });
+
+    return dashBlur.add_blur.call(proxyDashBlur, container, target);
 }
 
 export function setupBackgroundCorners(background, getRadius = null) {
@@ -139,6 +223,7 @@ export function resolveAquaDockTarget(container) {
         slider: container._slider ?? null,
         theme_manager: container._themeManager ?? null,
         sibling,
+        is_popup: isAquaPopupTarget(container),
     };
 }
 
@@ -150,10 +235,14 @@ export class AquaDockSurface {
         this.dash_background = target.background;
         this.theme_manager = target.theme_manager;
         this.settings = dashBlur?.settings;
+        this._isPopupType = isAquaPopupTarget(dashContainer) || Boolean(target?.is_popup);
         this._signals = new SignalGroup();
         this._bgSignals = new SignalGroup();
         this._updateId = 0;
-        this.current_monitor_index = null;
+        this.current_monitor_index = (
+            Main.layoutManager?.findMonitorForActor?.(dashContainer) ??
+            Main.layoutManager?.primaryMonitor
+        )?.index ?? null;
         this._isChangingBlurType = false;
         this._isRemoving = false;
         this._lastStaticGeom = null;
@@ -196,14 +285,34 @@ export class AquaDockSurface {
             this._signals.connect(this.dash_container, 'destroy', () => this.remove_dash_blur());
 
         if (dashBlur && typeof dashBlur.connect === 'function') {
-            this._signals.connect(dashBlur, 'remove-dashes', () => this.remove_dash_blur(true));
+            this._signals.connect(dashBlur, 'remove-dashes', () => {
+                if (this._isPopupType && isBmsTooltipBlurActive()) {
+                    return;
+                }
+                this.remove_dash_blur(true);
+            });
             this._signals.connect(dashBlur, 'override-style', () => this.override_style());
             this._signals.connect(dashBlur, 'remove-style', () => this.remove_style());
             this._signals.connect(dashBlur, 'show', () => this.update_visibility());
             this._signals.connect(dashBlur, 'hide', () => this.update_visibility());
             this._signals.connect(dashBlur, 'update-size', schedule);
-            this._signals.connect(dashBlur, 'change-blur-type', () => this.change_blur_type());
-            this._signals.connect(dashBlur, 'update-pipeline', () => this.update_pipeline());
+            if (!this._isPopupType) {
+                this._signals.connect(dashBlur, 'change-blur-type', () => this.change_blur_type());
+                this._signals.connect(dashBlur, 'update-pipeline', () => this.update_pipeline());
+            }
+        }
+
+        if (this._isPopupType) {
+            const popup = getBmsPopupSettings(dashBlur);
+            const popupSettings = popup?.settings ?? getBmsSettings('org.gnome.shell.extensions.blur-my-shell.popup');
+            if (popupSettings && typeof popupSettings.connect === 'function') {
+                this._signals.connect(popupSettings, 'changed::pipeline', () => this.update_pipeline());
+                this._signals.connect(popupSettings, 'changed::static-blur', () => this.change_blur_type());
+            }
+            const generalSettings = getBmsGeneralSettings(dashBlur);
+            if (generalSettings && typeof generalSettings.connect === 'function') {
+                this._signals.connect(generalSettings, 'changed::pipelines', () => this.update_pipeline());
+            }
         }
 
         this.update_visibility();
@@ -216,11 +325,22 @@ export class AquaDockSurface {
         this.pipeline = pipeline;
         this.rounded_pipeline = rounded_pipeline;
         this.corner_settings = corner_settings;
+        this._isStatic = Boolean(rounded_pipeline);
 
         this._bgSignals.disconnectAll();
         if (background_group && typeof background_group.connect === 'function') {
             this._bgSignals.connect(background_group, 'destroy', () => this.remove_dash_blur());
         }
+    }
+
+    get is_static() {
+        if (this._isStatic !== undefined && this._isStatic !== null)
+            return this._isStatic;
+        if (this._isPopupType) {
+            const popup = getBmsPopupSettings(this.dash_blur);
+            return popup ? Boolean(popup.STATIC_BLUR) : false;
+        }
+        return Boolean(this.dash_blur?.is_static ?? this.settings?.dash_to_dock?.STATIC_BLUR);
     }
 
     schedule_update() {
@@ -259,7 +379,7 @@ export class AquaDockSurface {
             visible = visible && (ancestor.visible ?? true);
             ancestor = ancestor.get_parent?.();
         }
-        const unblurInOverview = Boolean(this.settings?.dash_to_dock?.UNBLUR_IN_OVERVIEW);
+        const unblurInOverview = !this._isPopupType && Boolean(this.settings?.dash_to_dock?.UNBLUR_IN_OVERVIEW);
         const overviewVisible = Boolean(Main.overview?.visible);
         if (this.background_group.opacity !== undefined)
             this.background_group.opacity = opacity;
@@ -272,7 +392,7 @@ export class AquaDockSurface {
         this.clear_pending_update();
         this.update_visibility();
 
-        if (this.dash_blur?.is_static) {
+        if (this.is_static) {
             this._update_static_size();
         } else {
             this._update_dynamic_size();
@@ -496,7 +616,11 @@ export class AquaDockSurface {
     }
 
     remove_style() {
-        const DASH_STYLES = ['transparent-dash', 'light-dash', 'dark-dash'];
+        const DASH_STYLES = [
+            'transparent-dash', 'light-dash', 'dark-dash',
+            'bms-popup-background-transparent', 'bms-popup-background-light', 'bms-popup-background-dark',
+            'bms-popup-surface-transparent', 'bms-popup-surface-light', 'bms-popup-surface-dark',
+        ];
         for (const actor of [this.dash, this.dash_container, this.dash_background]) {
             if (!actor) continue;
             for (const s of DASH_STYLES) {
@@ -512,7 +636,7 @@ export class AquaDockSurface {
             this.destroy_dash();
             const target = resolveAquaDockTarget(this.dash_container);
             if (!target) return;
-            const blur = this.dash_blur?.add_blur?.(this.dash_container, target);
+            const blur = addBlurForTarget(this.dash_blur, this.dash_container, target);
             if (!blur) return;
             let sibling = target.sibling ?? target.content;
             if (sibling === target.content_parent || (sibling && typeof sibling.get_parent === 'function' && sibling.get_parent() !== target.content_parent)) {
@@ -528,8 +652,11 @@ export class AquaDockSurface {
 
     update_pipeline() {
         try {
-            if (this.pipeline?.change_pipeline_to && this.settings?.dash_to_dock?.PIPELINE) {
-                this.pipeline.change_pipeline_to(this.settings.dash_to_dock.PIPELINE);
+            const pipelineName = this._isPopupType
+                ? (getBmsPopupSettings(this.dash_blur)?.PIPELINE ?? 'pipeline_default')
+                : (this.settings?.dash_to_dock?.PIPELINE ?? 'pipeline_default');
+            if (this.pipeline?.change_pipeline_to && pipelineName) {
+                this.pipeline.change_pipeline_to(pipelineName);
             }
             this.rounded_pipeline?.update?.();
         } catch { }
@@ -551,6 +678,7 @@ export class AquaDockSurface {
         this.rounded_pipeline = null;
         this.corner_settings = null;
         this._lastStaticGeom = null;
+        this._isStatic = null;
 
         if (!bgGroup) return;
         try { bgGroup.destroy?.(); } catch { }
@@ -638,7 +766,7 @@ function tryBlurAquaDock(dashBlur, container) {
 
     if (typeof dashBlur.add_blur !== 'function') return;
 
-    const blur = dashBlur.add_blur(container, target);
+    const blur = addBlurForTarget(dashBlur, container, target);
     if (!blur) return;
 
     if (dash_box && typeof dash_box.insert_child_below === 'function') {
@@ -736,7 +864,9 @@ export function registerBmsTarget(container, getRadius = null) {
     ensureBmsHooked();
     const bms = globalThis.global?.blur_my_shell;
     const dashBlur = bms?._dash_to_dock_blur;
-    if (dashBlur && dashBlur.enabled && typeof dashBlur.try_blur === 'function') {
+    const isPopup = isAquaPopupTarget(container);
+    const shouldBlur = dashBlur && (isPopup ? isBmsTooltipBlurActive() : dashBlur.enabled);
+    if (shouldBlur && typeof dashBlur.try_blur === 'function') {
         dashBlur.try_blur(container);
     }
 }

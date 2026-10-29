@@ -460,6 +460,7 @@ export class PreviewManager {
             if (blurActive && !isBmsPopupBlurActive() && isBmsDockBlurActive()) {
                 const radius = cfg.menuRadius ?? 12;
                 menu.actor._isAquaDock = true;
+                menu.actor._blurType = 'popup';
                 menu.actor.name = 'aquaMenu';
                 menu.actor._dockBlurEnabled = true;
                 menu.actor._dockBg = menu.actor;

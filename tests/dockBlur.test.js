@@ -654,6 +654,9 @@ shellResource._register();
         isBmsDockBlurActive,
         isBmsPopupBlurActive,
         isBmsMenuBlurActive,
+        isBmsTooltipBlurActive,
+        isAquaPopupTarget,
+        addBlurForTarget,
         registerBmsTarget,
         unregisterBmsTarget,
     } = await import('../dock/dockBlur.js');
@@ -663,6 +666,7 @@ shellResource._register();
     assert(isBmsPopupBlurActive() === false, 'isBmsPopupBlurActive must be false when BMS is absent');
     assert(isBmsDockBlurActive() === false, 'isBmsDockBlurActive must be false when BMS is absent');
     assert(isBmsMenuBlurActive({ blurEffect: true }) === false, 'isBmsMenuBlurActive must be false when BMS is absent');
+    assert(isBmsTooltipBlurActive({ blurEffect: true }) === false, 'isBmsTooltipBlurActive must be false when BMS is absent');
 
     // 2. Detection when BMS has popup blur active
     if (!globalThis.global) globalThis.global = {};
@@ -672,6 +676,7 @@ shellResource._register();
     };
     assert(isBmsPopupBlurActive() === true, 'isBmsPopupBlurActive must be true when _popup.enabled is true');
     assert(isBmsMenuBlurActive({ blurEffect: true }) === true, 'isBmsMenuBlurActive must be true with popup blur active');
+    assert(isBmsTooltipBlurActive({ blurEffect: true }) === true, 'isBmsTooltipBlurActive must be true with popup blur active');
     assert(isBmsMenuBlurActive({ blurEffect: false }) === false, 'isBmsMenuBlurActive must be false when blurEffect is false');
     assert(isBmsMenuBlurActive({ blurEffect: true, highContrast: true }) === false, 'isBmsMenuBlurActive must be false on highContrast');
 
@@ -696,6 +701,7 @@ shellResource._register();
     const resolvedMenu = resolveAquaDockTarget(menuContainer);
     assert(resolvedMenu !== null, 'resolveAquaDockTarget must resolve aquaMenu');
     assert(resolvedMenu.background === menuContainer._dockBg, 'resolved background must match menuBg');
+    assert(resolvedMenu.is_popup === true, 'resolvedMenu.is_popup must be true for aquaMenu');
 
     menuContainer._dockBlurEnabled = false;
     assert(resolveAquaDockTarget(menuContainer) === null, 'resolveAquaDockTarget must return null when blur is disabled');

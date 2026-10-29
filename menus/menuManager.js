@@ -261,6 +261,7 @@ export class MenuManager {
         if (isBmsDockBlurActive() && this._menu?.actor) {
             const menuActor = this._menu.actor;
             menuActor._isAquaDock = true;
+            menuActor._blurType = 'popup';
             menuActor.name = 'aquaMenu';
             menuActor._dockBlurEnabled = true;
             menuActor._dockBg = menuActor;
