@@ -67,18 +67,11 @@ msgid_plural "%d notifications"
 msgstr[0] ""
 msgstr[1] ""
 
-#: downloads/fanView.js:90
-#, javascript-format
-msgid "Open in Files · %d more item"
-msgid_plural "Open in Files · %d more items"
-msgstr[0] ""
-msgstr[1] ""
-
-#: downloads/fanView.js:93
+#: downloads/fanView.js:89
 msgid "Open in Files"
 msgstr ""
 
-#: downloads/fanView.js:95
+#: downloads/fanView.js:91
 #, javascript-format
 msgid "%s is empty"
 msgstr ""

@@ -85,11 +85,7 @@ export class FanView {
         this._rowH = rowH;
 
         const builders = files.map(info => () => this._rowCard(info, thumbSize, rowW, rowH));
-        if (overflow > 0)
-            builders.push(() => this._actionCard(format(
-                ngettext('Open in Files · %d more item', 'Open in Files · %d more items', overflow),
-                overflow), thumbSize, rowW, rowH));
-        else if (builders.length > 0)
+        if (builders.length > 0)
             builders.push(() => this._actionCard(_('Open in Files'), thumbSize, rowW, rowH));
         else
             builders.push(() => this._infoCard(format(_('%s is empty'), this.title),
@@ -379,15 +375,17 @@ export class FanView {
     }
 
     _actionCard(text, thumbSize, w, h) {
-        const { btn, label, thumb, thumbW, thumbH } = this._card(thumbSize, w, h, 'aqua-dl-fan-action', true);
+        const { btn, label, thumb, thumbW, thumbH } = this._card(thumbSize, w, h, 'aqua-dl-fan-action', false);
         label.text = text;
         btn.accessible_name = text;
-        const iconSize = Math.round(thumbH * 0.54);
-        thumb.set_child(new St.Icon({
-            icon_name: 'go-jump-symbolic',
-            icon_size: iconSize,
-            style_class: 'aqua-dl-fan-action-icon',
-        }));
+        label.clutter_text.set_ellipsize(0);
+        const folderGicon = this.gicon ?? Gio.ThemedIcon.new_with_default_fallbacks('folder');
+        const iconSize = Math.round(Math.min(thumbW, thumbH) * 0.78);
+        thumb.set_child(buildPlaceIcon(
+            folderGicon,
+            iconSize,
+            this.cfg.placeIconSourceSize,
+            'aqua-dl-fan-icon'));
         btn._activate = () => { launchUri(this.folder.get_uri()); this.close(); };
         btn.connect('clicked', btn._activate);
         return btn;

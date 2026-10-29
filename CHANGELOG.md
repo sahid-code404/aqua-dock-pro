@@ -1,5 +1,15 @@
 # Changelog
 
+## 281
+
+- System Folder Icon & Pill Message Fix for Fan Stack Action Card:
+  - System Folder Icon Replacement:
+    - Replaced the circular `go-jump-symbolic` curved jump arrow with the authentic system folder icon applied on the system (`Gio.ThemedIcon.new_with_default_fallbacks('folder')`), rendered cleanly via `buildPlaceIcon` at full high resolution.
+    - Removed the opaque circular background (`.aqua-dl-fan-action-thumb`), aligning the action card's thumbnail seamlessly with the floating file thumbnails throughout the fan.
+  - "Open in Files" Pill Message & Ellipsis Fix:
+    - Fixed label truncation where `"Open in Files · %d more items"` was being clipped into `"Open... tems"` by Pango middle-ellipsizing.
+    - Simplified action card label to `_('Open in Files')` and disabled middle-ellipsizing on the action pill (`set_ellipsize(0)`), ensuring clean, crisp, untruncated display across all monitor scales and localized languages.
+
 ## 280
 
 - Frosted glass blur for Down-Chevron Anchor drawer tile and instant tooltip dismissal on stack open:

@@ -407,15 +407,6 @@
     letter-spacing: 0.01em;
 }
 .aqua-dl-fan-more { color: rgba(210, 210, 220, 0.80); }
-.aqua-dl-fan-action-thumb {
-    background-color: rgba(46, 46, 54, 0.75);
-    border:           1px solid rgba(255, 255, 255, 0.22);
-    border-radius:    999px;
-    box-shadow:       none;
-}
-.aqua-dl-fan-action-icon {
-    color:            #ffffff;
-}
 
 .aqua-dl-header { padding: 12px 12px 8px 16px; }
 .aqua-dl-hdr-label {
