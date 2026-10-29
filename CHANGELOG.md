@@ -1,5 +1,15 @@
 # Changelog
 
+## 275
+
+- Fix static blur behavior and lifecycle integration with Blur My Shell (`dock/dockBlur.js`):
+  - Eliminate infinite layout freeze: removed self-referential `notify::allocation` listener on `background_group` in `AquaDockSurface.set_blur()`.
+  - Add geometry change guard (`_lastStaticGeom`) and positive bounds check in `_update_static_size()` to prevent continuous reallocation cycles.
+  - Implement frame-accurate live geometry tracking: compute stage coordinates directly from live actor dimensions (`this.dash_background.x`, `this.dash_background.width`) when `isDirectSibling` is true, ensuring static blur clip smoothly tracks dock magnification identically to dynamic blur.
+  - Prevent re-entrant recursive destruction in `change_blur_type()` and `remove_dash_blur()` with dedicated `_bgSignals` SignalGroup and lifecycle protection flags (`_isChangingBlurType`, `_isRemoving`).
+  - Protect Aqua Dock pill glass styling: prevent BMS from injecting `.transparent-dash` or other foreign dash styles in `override_style()`.
+  - Connect to BMS GSettings (`org.gnome.shell.extensions.blur-my-shell.dash-to-dock`) to react immediately when toggling static/dynamic blur or dock blur on/off.
+
 ## 274
 
 - Introduce macOS-style lightweight linear fan open/close animation profile (`FAN_ANIM` in `downloads/fanView.js`) for test evaluation.

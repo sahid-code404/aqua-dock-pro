@@ -1,12 +1,25 @@
 // Dock blur coordinator for Aqua Dock Pro.
 // Integrates with Blur my Shell pipelines at runtime via in-memory hooks.
 
+import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import Graphene from 'gi://Graphene';
 import Meta from 'gi://Meta';
 import St from 'gi://St';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import { SignalGroup } from '../core/utils.js';
+
+function getBmsSettings(schemaId) {
+    try {
+        const defaultSource = Gio.SettingsSchemaSource.get_default();
+        if (defaultSource && !defaultSource.lookup(schemaId, true)) {
+            return null;
+        }
+        return new Gio.Settings({ schema_id: schemaId });
+    } catch {
+        return null;
+    }
+}
 
 export function isBmsDockBlurActive() {
     try {
@@ -138,8 +151,12 @@ export class AquaDockSurface {
         this.theme_manager = target.theme_manager;
         this.settings = dashBlur?.settings;
         this._signals = new SignalGroup();
+        this._bgSignals = new SignalGroup();
         this._updateId = 0;
         this.current_monitor_index = null;
+        this._isChangingBlurType = false;
+        this._isRemoving = false;
+        this._lastStaticGeom = null;
 
         this.set_blur(blur);
 
@@ -200,9 +217,9 @@ export class AquaDockSurface {
         this.rounded_pipeline = rounded_pipeline;
         this.corner_settings = corner_settings;
 
+        this._bgSignals.disconnectAll();
         if (background_group && typeof background_group.connect === 'function') {
-            this._signals.connect(background_group, 'notify::allocation', () => this.schedule_update());
-            this._signals.connect(background_group, 'destroy', () => this.remove_dash_blur());
+            this._bgSignals.connect(background_group, 'destroy', () => this.remove_dash_blur());
         }
     }
 
@@ -365,7 +382,7 @@ export class AquaDockSurface {
             return;
         }
 
-        const parent = this.background_group.get_parent?.();
+        const parent = this.background_group?.get_parent?.();
         if (!parent || !this.dash_background) return;
 
         try {
@@ -373,46 +390,84 @@ export class AquaDockSurface {
             let bg_stage_x, bg_stage_y, bg_stage_width, bg_stage_height;
             let parent_stage_x, parent_stage_y, parent_stage_width, parent_stage_height;
 
-            if (this.dash_background === parent) {
-                [parent_stage_x, parent_stage_y] = parent.get_transformed_position?.() ?? [parent.x, parent.y];
-                [parent_stage_width, parent_stage_height] = parent.get_transformed_size?.() ?? [parent.width, parent.height];
-                bg_stage_x = parent_stage_x;
-                bg_stage_y = parent_stage_y;
-                bg_stage_width = parent_stage_width;
-                bg_stage_height = parent_stage_height;
-            } else if (isDirectSibling && parent === Main.uiGroup) {
+            if (parent === Main.uiGroup) {
                 parent_stage_x = 0;
                 parent_stage_y = 0;
                 parent_stage_width = parent.width || (monitor.x + monitor.width);
                 parent_stage_height = parent.height || (monitor.y + monitor.height);
-                bg_stage_x = this.dash_background.x ?? 0;
-                bg_stage_y = this.dash_background.y ?? 0;
-                bg_stage_width = this.dash_background.width ?? 0;
-                bg_stage_height = this.dash_background.height ?? 0;
             } else {
-                [parent_stage_x, parent_stage_y] = parent.get_transformed_position?.() ?? [0, 0];
-                [parent_stage_width, parent_stage_height] = parent.get_transformed_size?.() ?? [parent.width, parent.height];
-                [bg_stage_x, bg_stage_y] = this.dash_background.get_transformed_position?.() ?? [this.dash_background.x, this.dash_background.y];
-                [bg_stage_width, bg_stage_height] = this.dash_background.get_transformed_size?.() ?? [this.dash_background.width, this.dash_background.height];
+                [parent_stage_x, parent_stage_y] = parent.get_transformed_position?.() ?? [parent.x ?? 0, parent.y ?? 0];
+                [parent_stage_width, parent_stage_height] = parent.get_transformed_size?.() ?? [parent.width ?? 0, parent.height ?? 0];
             }
 
             const parent_scale_x = parent.width > 0 ? parent_stage_width / parent.width : 1;
             const parent_scale_y = parent.height > 0 ? parent_stage_height / parent.height : 1;
             if (parent_scale_x <= 0 || parent_scale_y <= 0) return;
 
+            if (this.dash_background === parent) {
+                bg_stage_x = parent_stage_x;
+                bg_stage_y = parent_stage_y;
+                bg_stage_width = parent_stage_width;
+                bg_stage_height = parent_stage_height;
+            } else if (isDirectSibling) {
+                bg_stage_x = parent_stage_x + (this.dash_background.x ?? 0) * parent_scale_x;
+                bg_stage_y = parent_stage_y + (this.dash_background.y ?? 0) * parent_scale_y;
+                bg_stage_width = (this.dash_background.width ?? 0) * parent_scale_x;
+                bg_stage_height = (this.dash_background.height ?? 0) * parent_scale_y;
+            } else {
+                [bg_stage_x, bg_stage_y] = this.dash_background.get_transformed_position?.() ?? [this.dash_background.x ?? 0, this.dash_background.y ?? 0];
+                [bg_stage_width, bg_stage_height] = this.dash_background.get_transformed_size?.() ?? [this.dash_background.width ?? 0, this.dash_background.height ?? 0];
+            }
+
             const background_x = (monitor.x - parent_stage_x) / parent_scale_x;
             const background_y = (monitor.y - parent_stage_y) / parent_scale_y;
+
+            const targetScaleX = 1 / parent_scale_x;
+            const targetScaleY = 1 / parent_scale_y;
 
             const clip_x = Math.floor(bg_stage_x - monitor.x);
             const clip_y = Math.floor(bg_stage_y - monitor.y);
             const clip_w = Math.ceil(bg_stage_width);
             const clip_h = Math.ceil(bg_stage_height);
 
+            if (clip_w <= 0 || clip_h <= 0) return;
+
+            if (!Number.isFinite(background_x) || !Number.isFinite(background_y) ||
+                !Number.isFinite(targetScaleX) || !Number.isFinite(targetScaleY) ||
+                !Number.isFinite(clip_x) || !Number.isFinite(clip_y) ||
+                !Number.isFinite(clip_w) || !Number.isFinite(clip_h)) {
+                return;
+            }
+
+            const last = this._lastStaticGeom;
+            if (last &&
+                last.background_x === background_x &&
+                last.background_y === background_y &&
+                last.targetScaleX === targetScaleX &&
+                last.targetScaleY === targetScaleY &&
+                last.clip_x === clip_x &&
+                last.clip_y === clip_y &&
+                last.clip_w === clip_w &&
+                last.clip_h === clip_h) {
+                return;
+            }
+
+            this._lastStaticGeom = {
+                background_x,
+                background_y,
+                targetScaleX,
+                targetScaleY,
+                clip_x,
+                clip_y,
+                clip_w,
+                clip_h,
+            };
+
             this.background.set_pivot_point?.(0, 0);
             try { this.background?.remove_all_transitions?.(); } catch { }
             try { this.background_group?.remove_all_transitions?.(); } catch { }
-            this.background.scale_x = 1 / parent_scale_x;
-            this.background.scale_y = 1 / parent_scale_y;
+            this.background.scale_x = targetScaleX;
+            this.background.scale_y = targetScaleY;
             this.background.x = background_x;
             this.background.y = background_y;
 
@@ -438,14 +493,6 @@ export class AquaDockSurface {
 
     override_style() {
         this.remove_style();
-        const DASH_STYLES = ['transparent-dash', 'light-dash', 'dark-dash'];
-        const styleIndex = this.settings?.dash_to_dock?.STYLE_DASH_TO_DOCK ?? 0;
-        const style = DASH_STYLES[styleIndex] ?? DASH_STYLES[0];
-        if (style) {
-            for (const actor of [this.dash, this.dash_container, this.dash_background]) {
-                actor?.add_style_class_name?.(style);
-            }
-        }
     }
 
     remove_style() {
@@ -459,18 +506,24 @@ export class AquaDockSurface {
     }
 
     change_blur_type() {
-        this.destroy_dash();
-        const target = resolveAquaDockTarget(this.dash_container);
-        if (!target) return;
-        const blur = this.dash_blur?.add_blur?.(this.dash_container, target);
-        if (!blur) return;
-        let sibling = target.sibling ?? target.content;
-        if (sibling === target.content_parent || (sibling && typeof sibling.get_parent === 'function' && sibling.get_parent() !== target.content_parent)) {
-            sibling = null;
+        if (this._isChangingBlurType) return;
+        this._isChangingBlurType = true;
+        try {
+            this.destroy_dash();
+            const target = resolveAquaDockTarget(this.dash_container);
+            if (!target) return;
+            const blur = this.dash_blur?.add_blur?.(this.dash_container, target);
+            if (!blur) return;
+            let sibling = target.sibling ?? target.content;
+            if (sibling === target.content_parent || (sibling && typeof sibling.get_parent === 'function' && sibling.get_parent() !== target.content_parent)) {
+                sibling = null;
+            }
+            target.content_parent?.insert_child_below?.(blur.background_group, sibling);
+            this.set_blur(blur);
+            this.schedule_update();
+        } finally {
+            this._isChangingBlurType = false;
         }
-        target.content_parent?.insert_child_below?.(blur.background_group, sibling);
-        this.set_blur(blur);
-        this.schedule_update();
     }
 
     update_pipeline() {
@@ -484,6 +537,12 @@ export class AquaDockSurface {
 
     destroy_dash() {
         this.clear_pending_update();
+        this._bgSignals?.disconnectAll();
+
+        try { this.rounded_pipeline?.destroy?.(); } catch { }
+        try { this.pipeline?.destroy?.(); } catch { }
+        try { this.bg_manager?.destroy?.(); } catch { }
+
         const bgGroup = this.background_group;
         this.background = null;
         this.background_group = null;
@@ -491,33 +550,38 @@ export class AquaDockSurface {
         this.pipeline = null;
         this.rounded_pipeline = null;
         this.corner_settings = null;
+        this._lastStaticGeom = null;
 
         if (!bgGroup) return;
-        try { this.rounded_pipeline?.destroy?.(); } catch { }
-        try { this.pipeline?.destroy?.(); } catch { }
-        try { this.bg_manager?.destroy?.(); } catch { }
         try { bgGroup.destroy?.(); } catch { }
     }
 
     remove_dash_blur(isBmsRemove = false) {
-        if (this.dash_container?._aquaDockSurface === this) {
-            this.dash_container._aquaDockSurface = null;
-        }
-        this._signals.disconnectAll();
-        this.remove_style();
-        this.destroy_dash();
-        if (Array.isArray(this.dash_blur?.dashes)) {
-            const idx = this.dash_blur.dashes.indexOf(this);
-            if (idx !== -1) {
-                this.dash_blur.dashes.splice(idx, 1);
+        if (this._isRemoving) return;
+        this._isRemoving = true;
+        try {
+            if (this.dash_container?._aquaDockSurface === this) {
+                this.dash_container._aquaDockSurface = null;
             }
-        }
-        if (this.dash_container?._aquaBlurManager) {
-            if (isBmsRemove) {
-                this.dash_container._aquaBlurManager.handleBmsBlurRemoved();
-            } else if (this.dash_container._aquaBlurManager.bmsActive) {
-                this.dash_container._aquaBlurManager.syncBlurState();
+            this._bgSignals?.disconnectAll();
+            this._signals.disconnectAll();
+            this.remove_style();
+            this.destroy_dash();
+            if (Array.isArray(this.dash_blur?.dashes)) {
+                const idx = this.dash_blur.dashes.indexOf(this);
+                if (idx !== -1) {
+                    this.dash_blur.dashes.splice(idx, 1);
+                }
             }
+            if (this.dash_container?._aquaBlurManager) {
+                if (isBmsRemove) {
+                    this.dash_container._aquaBlurManager.handleBmsBlurRemoved();
+                } else if (this.dash_container._aquaBlurManager.bmsActive) {
+                    this.dash_container._aquaBlurManager.syncBlurState();
+                }
+            }
+        } finally {
+            this._isRemoving = false;
         }
     }
 }
@@ -723,6 +787,8 @@ export class DockBlurManager {
         this._signals = new SignalGroup();
 
         this._bmsActive = false;
+        this._bmsDashSettings = null;
+        this._bmsSettings = null;
 
         if (this._container) {
             this._container._aquaBlurManager = this;
@@ -730,15 +796,65 @@ export class DockBlurManager {
 
         setupBackgroundCorners(this._bg, () => (this._getConfig?.()?.dockRadius ?? this._bg?._dockRadius ?? 28));
 
+        this._initBmsSettings();
+
         if (Main.extensionManager) {
             this._signals.connect(
                 Main.extensionManager,
                 'extension-state-changed',
-                () => this.syncBlurState()
+                () => {
+                    this._initBmsSettings();
+                    this.syncBlurState();
+                }
             );
         }
 
         this.syncBlurState();
+    }
+
+    _initBmsSettings() {
+        if (!this._bmsDashSettings) {
+            this._bmsDashSettings = getBmsSettings('org.gnome.shell.extensions.blur-my-shell.dash-to-dock');
+            if (this._bmsDashSettings) {
+                this._signals.connect(this._bmsDashSettings, 'changed', (settings, key) => {
+                    this._onBmsDashSettingsChanged(settings, key);
+                });
+            }
+        }
+        if (!this._bmsSettings) {
+            this._bmsSettings = getBmsSettings('org.gnome.shell.extensions.blur-my-shell');
+            if (this._bmsSettings) {
+                this._signals.connect(this._bmsSettings, 'changed', (settings, key) => {
+                    this._onBmsSettingsChanged(settings, key);
+                });
+            }
+        }
+    }
+
+    _onBmsDashSettingsChanged(settings, key) {
+        if (!key || key === 'blur') {
+            this.syncBlurState();
+        } else if (key === 'static-blur') {
+            const surface = this._container?._aquaDockSurface;
+            if (surface && typeof surface.change_blur_type === 'function') {
+                const bms = globalThis.global?.blur_my_shell;
+                const dashBlur = bms?._dash_to_dock_blur;
+                if (dashBlur) {
+                    try {
+                        dashBlur.is_static = settings.get_boolean('static-blur');
+                    } catch { }
+                }
+                surface.change_blur_type();
+            }
+        } else if (key === 'pipeline') {
+            this._container?._aquaDockSurface?.update_pipeline?.();
+        }
+    }
+
+    _onBmsSettingsChanged(settings, key) {
+        if (!key || key === 'pipelines') {
+            this._container?._aquaDockSurface?.update_pipeline?.();
+        }
     }
 
     get bmsActive() {
@@ -779,9 +895,16 @@ export class DockBlurManager {
     }
 
     syncBlurState() {
+        this._initBmsSettings();
         const cfg = this._getConfig?.() ?? {};
         const blurEnabled = Boolean(cfg.blurEffect);
-        const bmsActive = blurEnabled && isBmsDockBlurActive();
+        let bmsActive = blurEnabled && isBmsDockBlurActive();
+        if (bmsActive && this._bmsDashSettings) {
+            try {
+                if (!this._bmsDashSettings.get_boolean('blur'))
+                    bmsActive = false;
+            } catch { }
+        }
         const prevBms = this._bmsActive;
         this._bmsActive = bmsActive;
 
@@ -826,6 +949,8 @@ export class DockBlurManager {
 
     destroy() {
         this._signals.disconnectAll();
+        this._bmsDashSettings = null;
+        this._bmsSettings = null;
         if (this._container?._aquaAllocWatch && typeof this._container.disconnect === 'function') {
             try { this._container.disconnect(this._container._aquaAllocWatch); } catch { }
             this._container._aquaAllocWatch = null;
