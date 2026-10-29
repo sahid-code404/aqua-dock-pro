@@ -61,16 +61,43 @@ export function applyStackMenuPillStyle(cfg, menuBox, actionItems, hover = false
     for (const item of actionItems ?? []) {
         item?.set_style(
             `background-color: transparent !important; border: none !important; ` +
-            `border-radius: ${radius}px; padding: 6px 14px !important; margin: 0 !important; box-shadow: none !important; ${heightStyle}`
+            `border-radius: ${radius}px; padding: 0 16px !important; margin: 0 !important; spacing: 0 !important; box-shadow: none !important; ${heightStyle}`
         );
-        if (targetHeight > 0 && typeof item?.set_y_align === 'function') {
-            try { item.set_y_align(Clutter?.ActorAlign?.CENTER ?? 2); } catch { }
+        if (typeof item?.set_x_align === 'function') {
+            try { item.set_x_align(Clutter?.ActorAlign?.FILL ?? 0); } catch { }
+        }
+        if (typeof item?.set_y_align === 'function') {
+            try { item.set_y_align(Clutter?.ActorAlign?.FILL ?? 0); } catch { }
+        }
+        if (typeof item?.set_x_expand === 'function') {
+            try { item.set_x_expand(true); } catch { }
+        }
+        if (typeof item?.set_y_expand === 'function') {
+            try { item.set_y_expand(true); } catch { }
         }
         item?.label?.set_style(
-            `color: ${fontColor}; font-size: ${fontSize}pt; font-weight: 500;`
+            `color: ${fontColor}; font-size: ${fontSize}pt; font-weight: 500; text-align: center; margin: 0 !important; padding: 0 !important;`
         );
+        if (typeof item?.label?.set_x_align === 'function') {
+            try { item.label.set_x_align(Clutter?.ActorAlign?.CENTER ?? 2); } catch { }
+        }
         if (typeof item?.label?.set_y_align === 'function') {
             try { item.label.set_y_align(Clutter?.ActorAlign?.CENTER ?? 2); } catch { }
+        }
+        if (typeof item?.label?.set_x_expand === 'function') {
+            try { item.label.set_x_expand(true); } catch { }
+        }
+        if (typeof item?.label?.set_y_expand === 'function') {
+            try { item.label.set_y_expand(true); } catch { }
+        }
+        const ct = item?.label?.clutter_text;
+        if (ct) {
+            try {
+                ct.set_line_wrap(false);
+                ct.set_ellipsize(0);
+                if (typeof ct.set_x_align === 'function') ct.set_x_align(Clutter?.ActorAlign?.CENTER ?? 2);
+                if (typeof ct.set_y_align === 'function') ct.set_y_align(Clutter?.ActorAlign?.CENTER ?? 2);
+            } catch { }
         }
     }
 }

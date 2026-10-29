@@ -75,6 +75,32 @@ export class FileItemMenu {
                 catch (error) { logError(error, 'copy folder stack item'); }
             });
 
+            if (copyItem._ornamentIcon) {
+                try {
+                    copyItem._ornamentIcon.destroy();
+                    copyItem._ornamentIcon = null;
+                } catch { }
+            }
+
+            copyItem.x_expand = true;
+            copyItem.y_expand = true;
+            if (typeof copyItem.set_x_align === 'function') copyItem.set_x_align(Clutter.ActorAlign.FILL);
+            if (typeof copyItem.set_y_align === 'function') copyItem.set_y_align(Clutter.ActorAlign.FILL);
+
+            if (copyItem.label) {
+                copyItem.label.x_expand = true;
+                copyItem.label.y_expand = true;
+                if (typeof copyItem.label.set_x_align === 'function') copyItem.label.set_x_align(Clutter.ActorAlign.CENTER);
+                if (typeof copyItem.label.set_y_align === 'function') copyItem.label.set_y_align(Clutter.ActorAlign.CENTER);
+                const ct = copyItem.label.clutter_text;
+                if (ct) {
+                    ct.set_line_wrap(false);
+                    ct.set_ellipsize(0);
+                    if (typeof ct.set_x_align === 'function') ct.set_x_align(Clutter.ActorAlign.CENTER);
+                    if (typeof ct.set_y_align === 'function') ct.set_y_align(Clutter.ActorAlign.CENTER);
+                }
+            }
+
             if (!this._manager)
                 this._manager = new PopupMenu.PopupMenuManager(this._owner);
             this._manager.addMenu(menu);

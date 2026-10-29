@@ -51,6 +51,10 @@ shellResource._register();
         return {
             style: '',
             set_style(s) { this.style = s; },
+            set_x_align(a) { this.x_align = a; },
+            set_y_align(a) { this.y_align = a; },
+            set_x_expand(e) { this.x_expand = e; },
+            set_y_expand(e) { this.y_expand = e; },
         };
     }
 
@@ -120,8 +124,16 @@ shellResource._register();
         'applyStackMenuPillStyle item should be transparent to avoid box blur');
     assert(menuItem.style.includes('margin: 0 !important;'),
         'applyStackMenuPillStyle item margin must be 0');
-    assert(menuItem.style.includes('padding: 6px 14px !important;'),
-        'applyStackMenuPillStyle item padding must match fan pill');
+    assert(menuItem.style.includes('padding: 0 16px !important;'),
+        'applyStackMenuPillStyle item padding must be 0 16px to allow center alignment');
+    assert(menuItem.style.includes('spacing: 0 !important;'),
+        'applyStackMenuPillStyle item spacing must be 0');
+    assert(menuItem.label.style.includes('text-align: center;'),
+        'applyStackMenuPillStyle label style must center text');
+    assert(menuItem.x_expand === true && menuItem.y_expand === true,
+        'applyStackMenuPillStyle item must expand to fill menuBox');
+    assert(menuItem.label.x_align === 2 && menuItem.label.y_align === 2,
+        'applyStackMenuPillStyle label must be centered horizontally and vertically');
 
     // On hover: whole menuBox lights up with rgba(255, 255, 255, 0.16), item remains transparent (no inner box)
     applyStackMenuPillStyle({ ...cfgBase, blurEffect: true }, menuBox, [menuItem], true, true);

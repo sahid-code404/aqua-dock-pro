@@ -1,5 +1,13 @@
 # Changelog
 
+## 291
+
+- Center "Copy" context menu pill text perfectly in both horizontal and vertical axes:
+  - Eliminate Downward Offset: Removed vertical layout asymmetry caused by item padding and default box layout alignment, allowing the full pill height to be utilized.
+  - Perfect Centering: Set `x_expand`, `y_expand`, and `Clutter.ActorAlign.FILL` on the action item and `Clutter.ActorAlign.CENTER` on the label and ClutterText, centering the "Copy" label dead-center within the pill.
+  - Ornament Cleanup: Destroyed the hidden ornament icon and zeroed ornament geometry to eliminate horizontal asymmetry.
+  - Refined Styling: Added `text-align: center`, `spacing: 0`, and `padding: 0 16px !important;` to ensure consistent alignment regardless of text scale or screen density.
+
 ## 290
 
 - Update Down-Chevron drawer anchor tile styling to blend seamlessly across light and dark themes:
