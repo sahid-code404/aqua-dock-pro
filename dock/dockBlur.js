@@ -55,12 +55,9 @@ export function isBmsTooltipBlurActive(cfg = null) {
     return isBmsPopupBlurActive() || isBmsDockBlurActive();
 }
 
-// LOCKED ARCHITECTURE: Background blur for downloads stack views (Grid, List, Fan).
-// Permanently enabled and locked. DO NOT remove, disable, or modify without explicit user permission.
-export function isBmsStackBlurActive(cfg = null) {
-    if (cfg && (!cfg.blurEffect || cfg.highContrast))
-        return false;
-    return isBmsPopupBlurActive() || isBmsDockBlurActive();
+// Stack blur disabled per user directive.
+export function isBmsStackBlurActive(_cfg = null) {
+    return false;
 }
 
 export function getBmsPopupSettings(dashBlur = null) {
@@ -97,19 +94,15 @@ export function getBmsGeneralSettings(dashBlur = null) {
     }
 }
 
-// LOCKED ARCHITECTURE: 'aquaDownloadsPanel' and '.aqua-dl-panel' background blur
-// registration and popup classification are permanently locked.
-// DO NOT remove, disable, or alter without explicit user permission.
 export function isAquaPopupTarget(container) {
     if (!container) return false;
     if (container._blurType === 'popup') return true;
     if (container._blurType === 'dock') return false;
     const name = container.name || container.get_name?.();
-    if (name === 'aquaTooltip' || name === 'aquaMenu' || name === 'aquaStackAnchor' || name === 'aquaDownloadsPanel') return true;
+    if (name === 'aquaTooltip' || name === 'aquaMenu' || name === 'aquaStackAnchor') return true;
     if (typeof container.has_style_class_name === 'function' &&
         (container.has_style_class_name('aqua-menu') ||
-         container.has_style_class_name('aqua-stack-anchor-tile') ||
-         container.has_style_class_name('aqua-dl-panel'))) return true;
+         container.has_style_class_name('aqua-stack-anchor-tile'))) return true;
     return false;
 }
 
@@ -279,11 +272,6 @@ export class AquaDockSurface {
             'notify::y',
             'notify::width',
             'notify::height',
-            'notify::opacity',
-            'notify::scale-x',
-            'notify::scale-y',
-            'notify::translation-x',
-            'notify::translation-y',
             'notify::visible',
             'notify::mapped',
         ];
@@ -445,10 +433,8 @@ export class AquaDockSurface {
 
         let x = 0;
         let y = 0;
-        let w = (this.dash_background.width && this.dash_background.width > 0)
-            ? this.dash_background.width : (this.dash_background.get_width?.() ?? 0);
-        let h = (this.dash_background.height && this.dash_background.height > 0)
-            ? this.dash_background.height : (this.dash_background.get_height?.() ?? 0);
+        let w = this.dash_background.width ?? 0;
+        let h = this.dash_background.height ?? 0;
 
         if (this.dash_background === parent) {
             // background_group is nested directly inside the background actor (e.g. blurRegion)
@@ -475,21 +461,6 @@ export class AquaDockSurface {
                 const groupY = this.background_group.y ?? 0;
                 x -= groupX;
                 y -= groupY;
-
-                if (this._isPopupType) {
-                    try {
-                        const pivot = this.dash_background.get_pivot_point?.();
-                        if (pivot) {
-                            const px = pivot[0] ?? pivot.x ?? 0.5;
-                            const py = pivot[1] ?? pivot.y ?? 1.0;
-                            this.background_group.set_pivot_point?.(px, py);
-                        }
-                        this.background_group.scale_x = this.dash_background.scale_x ?? 1;
-                        this.background_group.scale_y = this.dash_background.scale_y ?? 1;
-                        this.background_group.translation_x = this.dash_background.translation_x ?? 0;
-                        this.background_group.translation_y = this.dash_background.translation_y ?? 0;
-                    } catch { }
-                }
             } else {
                 if (typeof this.dash_background.get_allocation_box === 'function') {
                     try { this.dash_background.get_allocation_box(); } catch { }
@@ -600,10 +571,8 @@ export class AquaDockSurface {
                 const transY = (this.dash_background.translation_y ?? 0) * parent_scale_y;
                 bg_stage_x = parent_stage_x + (this.dash_background.x ?? 0) * parent_scale_x + transX;
                 bg_stage_y = parent_stage_y + (this.dash_background.y ?? 0) * parent_scale_y + transY;
-                bg_stage_width = ((this.dash_background.width && this.dash_background.width > 0)
-                    ? this.dash_background.width : (this.dash_background.get_width?.() ?? 0)) * parent_scale_x;
-                bg_stage_height = ((this.dash_background.height && this.dash_background.height > 0)
-                    ? this.dash_background.height : (this.dash_background.get_height?.() ?? 0)) * parent_scale_y;
+                bg_stage_width = (this.dash_background.width ?? 0) * parent_scale_x;
+                bg_stage_height = (this.dash_background.height ?? 0) * parent_scale_y;
             } else {
                 [bg_stage_x, bg_stage_y] = this.dash_background.get_transformed_position?.() ?? [this.dash_background.x ?? 0, this.dash_background.y ?? 0];
                 [bg_stage_width, bg_stage_height] = this.dash_background.get_transformed_size?.() ?? [this.dash_background.width ?? 0, this.dash_background.height ?? 0];
@@ -796,15 +765,15 @@ function tryBlurAquaDock(dashBlur, container) {
     if (!target) return;
 
     const bg = target.background;
-    const w = (bg?.width && bg.width > 0) ? bg.width : (bg?.get_width?.() || (container?.width && container.width > 0 ? container.width : (container?.get_width?.() || 0)));
-    const h = (bg?.height && bg.height > 0) ? bg.height : (bg?.get_height?.() || (container?.height && container.height > 0 ? container.height : (container?.get_height?.() || 0)));
+    const w = (bg?.width && bg.width > 0) ? bg.width : (container?.width ?? 0);
+    const h = (bg?.height && bg.height > 0) ? bg.height : (container?.height ?? 0);
     if (w <= 0 || h <= 0) {
         if (!container._aquaAllocWatch && typeof container.connect === 'function') {
             container._aquaAllocWatch = container.connect('notify::allocation', () => {
                 const curW = (target.background?.width && target.background.width > 0)
-                    ? target.background.width : (target.background?.get_width?.() || (container?.width && container.width > 0 ? container.width : (container?.get_width?.() || 0)));
+                    ? target.background.width : (container?.width ?? 0);
                 const curH = (target.background?.height && target.background.height > 0)
-                    ? target.background.height : (target.background?.get_height?.() || (container?.height && container.height > 0 ? container.height : (container?.get_height?.() || 0)));
+                    ? target.background.height : (container?.height ?? 0);
                 if (curW > 0 && curH > 0) {
                     try { container.disconnect(container._aquaAllocWatch); } catch { }
                     container._aquaAllocWatch = null;

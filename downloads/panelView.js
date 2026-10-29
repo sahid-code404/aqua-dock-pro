@@ -1,7 +1,5 @@
 // Downloads grid and list view.
-// LOCKED ARCHITECTURE: Background blur on grid and list view stack is permanently
-// enabled and protected. DO NOT disable, bypass, or alter background blur for
-// grid/list views without explicit user permission.
+// Stack background blur disabled per user directive.
 
 import Clutter from 'gi://Clutter';
 import Gio from 'gi://Gio';
@@ -17,7 +15,7 @@ import { STACK_CLEARANCE, sideFanX } from './fanGeometry.js';
 import { applyTileStyle } from './tileStyle.js';
 import { SelectionModel } from './keyboardNav.js';
 import { buildPlaceIcon } from './placeIcon.js';
-import { isBmsStackBlurActive, registerBmsTarget, unregisterBmsTarget, setupBackgroundCorners } from '../dock/dockBlur.js';
+import { setupBackgroundCorners } from '../dock/dockBlur.js';
 import { applyAlpha } from '../dock/dockLayout.js';
 
 const GRID_COLS = 2;
@@ -123,39 +121,20 @@ export class PanelView {
             : (cfg.downloadsBorderColor ?? cfg.borderColor ?? 'rgba(255,255,255,0.16)');
         const border = bw > 0 ? `${bw}px solid ${bc}` : 'none';
 
-        // LOCKED ARCHITECTURE: Stack background blur is permanently enabled and protected.
-        const blurActive = isBmsStackBlurActive(cfg);
+        // Stack background blur disabled per user directive.
         const normalFill = cfg.downloadsPillColor ?? (cfg.pillColor ? applyAlpha(cfg.pillColor, clamp(cfg.bgOpacity ?? 0.8, 0.1, 1.0)) : `rgba(28,28,32,${a})`);
-        const frostedFill = cfg.downloadsPillColor
-            ? applyAlpha(cfg.downloadsPillColor, 0.50)
-            : (cfg.pillColor ? applyAlpha(cfg.pillColor, 0.50) : 'rgba(28, 28, 32, 0.50)');
-        const fill = cfg.highContrast ? 'rgba(0,0,0,0.96)'
-            : (blurActive ? frostedFill : normalFill);
+        const fill = cfg.highContrast ? 'rgba(0,0,0,0.96)' : normalFill;
         panel.set_style(`border-radius: ${radius}px; background-color: ${fill}; border: ${border};`);
         panel.set_pivot_point(0.5, 1.0);
         panel.opacity = 0;
 
-        const blurRegion = new St.Widget({
-            name: 'aqua-downloads-panel-blur-region',
-            style_class: 'aqua-blur-region',
-            reactive: false,
-        });
-        blurRegion._isAquaDock = true;
-        blurRegion._blurType = 'popup';
-        blurRegion._dockRadius = radius;
-        blurRegion.get_dock_radius = () => radius;
-        blurRegion.set_style(`border-radius: ${radius}px;`);
-        setupBackgroundCorners(blurRegion, () => radius);
-
-        this._blurRegion = blurRegion;
-        this._blurActive = blurActive;
+        this._blurRegion = null;
+        this._blurActive = false;
         panel._isAquaDock = true;
-        panel._blurType = 'popup';
-        panel._dockBlurEnabled = blurActive;
+        panel._blurType = null;
+        panel._dockBlurEnabled = false;
         panel._dockRadius = radius;
         panel.get_dock_radius = () => radius;
-        panel._blurRegion = blurRegion;
-        panel._dockBlurRegion = blurRegion;
         panel._dockBg = panel;
         panel._dockContent = panel;
         panel._dockContentParent = Main.uiGroup;
@@ -167,12 +146,6 @@ export class PanelView {
         } else if (Main.uiGroup?.add_child) {
             Main.uiGroup.add_child(panel);
         }
-        Main.uiGroup.insert_child_below(blurRegion, panel);
-
-        panel.connect('destroy', () => {
-            unregisterBmsTarget(panel);
-            try { blurRegion.destroy(); } catch { }
-        });
 
         this._fileMenu.bind(panel);
         const [, natH] = panel.get_preferred_height(panelW);
@@ -182,17 +155,6 @@ export class PanelView {
         const px = clamp(Math.round(targetX), mon.x + 8, mon.x + mon.width - panelW - 8);
         const py = clamp(Math.round(targetY), mon.y + 8, mon.y + mon.height - natH - 8);
         panel.set_position(px, py);
-        panel.set_size(panelW, natH);
-        blurRegion.set_position(px, py);
-        blurRegion.set_size(panelW, natH);
-        blurRegion.set_pivot_point(0.5, 1.0);
-        blurRegion.opacity = 255;
-
-        if (blurActive) {
-            registerBmsTarget(panel, () => radius);
-        } else {
-            blurRegion.hide();
-        }
 
         this._model.setRows(tiles);
         this._animateOpen(panel, tiles, view);

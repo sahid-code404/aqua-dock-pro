@@ -152,20 +152,15 @@ shellResource._register();
         unregisterBmsTarget,
     } = await import('../dock/dockBlur.js');
 
-    // PanelView BMS Target Discovery & Popup Classification
-    const panelBlurRegion = {
-        width: 360,
-        height: 420,
-        has_allocation: () => true,
-    };
+    // PanelView Target Discovery & Popup Classification (Stack blur disabled per user directive)
     const panelContainer = {
         get_name: () => 'aquaDownloadsPanel',
         name: 'aquaDownloadsPanel',
         _isAquaDock: true,
-        _blurType: 'popup',
+        _blurType: null,
         _dockBg: null,
-        _dockBlurRegion: panelBlurRegion,
-        _dockBlurEnabled: true,
+        _dockBlurRegion: null,
+        _dockBlurEnabled: false,
         _dockRadius: 22,
         get_children: () => [],
         has_allocation: () => true,
@@ -177,41 +172,53 @@ shellResource._register();
     };
     panelContainer._dockBg = panelContainer;
 
-    assert(isAquaPopupTarget(panelContainer) === true,
-        'isAquaPopupTarget must identify aquaDownloadsPanel as a locked popup blur target');
-    assert(isAquaPopupTarget({ has_style_class_name: c => c === 'aqua-dl-panel' }) === true,
-        'isAquaPopupTarget must identify .aqua-dl-panel as a locked popup blur target');
+    assert(isAquaPopupTarget(panelContainer) === false,
+        'isAquaPopupTarget must return false for aquaDownloadsPanel when stack blur is disabled');
+    assert(isAquaPopupTarget({ has_style_class_name: c => c === 'aqua-dl-panel' }) === false,
+        'isAquaPopupTarget must return false for .aqua-dl-panel when stack blur is disabled');
 
-    const resolvedPanel = resolveAquaDockTarget(panelContainer);
-    assert(resolvedPanel !== null, 'resolveAquaDockTarget should resolve PanelView target');
-    assert(resolvedPanel.background === panelContainer,
-        'resolved background should point to PanelView _dockBg');
-    assert(resolvedPanel.content_parent === panelContainer,
-        'resolved content_parent should point to panel container');
-    assert(resolvedPanel.sibling === panelBlurRegion,
-        'resolved sibling should point to _dockBlurRegion');
-    assert(resolvedPanel.is_popup === true,
-        'resolved is_popup must be true for PanelView');
-
-    // PanelView blur disabled fallback
-    panelContainer._dockBlurEnabled = false;
+    // Downloads stacks have _dockBlurEnabled = false
     assert(resolveAquaDockTarget(panelContainer) === null,
         'resolveAquaDockTarget must return null for PanelView when _dockBlurEnabled is false');
-    panelContainer._dockBlurEnabled = true;
 
-    // FanView BMS Target Discovery
-    const fanBlurRegion = {
-        width: 320,
-        height: 380,
+    // Down-Chevron drawer anchor remains an Aqua popup target with frosted glass blur
+    const anchorContainer = {
+        get_name: () => 'aquaStackAnchor',
+        name: 'aquaStackAnchor',
+        _isAquaDock: true,
+        _blurType: 'popup',
+        _dockBg: null,
+        _dockBlurRegion: null,
+        _dockBlurEnabled: true,
+        _dockRadius: 18,
+        get_children: () => [],
         has_allocation: () => true,
+        width: 48,
+        height: 48,
+        get_dock_radius: () => 18,
+        insert_child_below() {},
+        has_style_class_name(c) { return c === 'aqua-stack-anchor-tile'; },
     };
+    anchorContainer._dockBg = anchorContainer;
+
+    assert(isAquaPopupTarget(anchorContainer) === true,
+        'isAquaPopupTarget must identify aquaStackAnchor as a popup blur target');
+    assert(isAquaPopupTarget({ has_style_class_name: c => c === 'aqua-stack-anchor-tile' }) === true,
+        'isAquaPopupTarget must identify .aqua-stack-anchor-tile as a popup blur target');
+
+    const resolvedAnchor = resolveAquaDockTarget(anchorContainer);
+    assert(resolvedAnchor !== null, 'resolveAquaDockTarget should resolve aquaStackAnchor target');
+    assert(resolvedAnchor.background === anchorContainer, 'resolved background should point to anchorContainer');
+    assert(resolvedAnchor.is_popup === true, 'resolved is_popup must be true for anchorContainer');
+
+    // FanView Target Discovery
     const fanContainer = {
         get_name: () => 'aquaDownloadsFan',
         name: 'aquaDownloadsFan',
         _isAquaDock: true,
         _dockBg: null,
-        _dockBlurRegion: fanBlurRegion,
-        _dockBlurEnabled: true,
+        _dockBlurRegion: null,
+        _dockBlurEnabled: false,
         _dockRadius: 20,
         get_children: () => [],
         has_allocation: () => true,
@@ -222,29 +229,18 @@ shellResource._register();
     };
     fanContainer._dockBg = fanContainer;
 
-    const resolvedFan = resolveAquaDockTarget(fanContainer);
-    assert(resolvedFan !== null, 'resolveAquaDockTarget should resolve FanView target');
-    assert(resolvedFan.background === fanContainer,
-        'resolved background should point to FanView _dockBg');
-    assert(resolvedFan.sibling === fanBlurRegion,
-        'resolved sibling should point to fan _dockBlurRegion');
-
-    // FanView blur disabled fallback
-    fanContainer._dockBlurEnabled = false;
     assert(resolveAquaDockTarget(fanContainer) === null,
         'resolveAquaDockTarget must return null for FanView when _dockBlurEnabled is false');
-    fanContainer._dockBlurEnabled = true;
 
-    // FanView Item Pill BMS Target Discovery
-    const fanItemBlurRegion = { width: 140, height: 32, has_allocation: () => true };
+    // FanView Item Pill Target Discovery
     const fanItemPill = { width: 140, height: 32, has_allocation: () => true, _dockRadius: 14, get_dock_radius: () => 14 };
     const fanItemRow = {
         get_name: () => 'aquaDownloadsFanItem',
         name: 'aquaDownloadsFanItem',
         _isAquaDock: true,
         _dockBg: fanItemPill,
-        _dockBlurRegion: fanItemBlurRegion,
-        _dockBlurEnabled: true,
+        _dockBlurRegion: null,
+        _dockBlurEnabled: false,
         _dockRadius: 14,
         get_dock_radius: () => 14,
         width: 220,
@@ -252,15 +248,8 @@ shellResource._register();
         has_allocation: () => true,
         insert_child_below() {},
     };
-    const resolvedItem = resolveAquaDockTarget(fanItemRow);
-    assert(resolvedItem !== null, 'resolveAquaDockTarget should resolve Fan item pill target');
-    assert(resolvedItem.background === fanItemPill, 'resolved background should point to item labelPill');
-    assert(resolvedItem.sibling === fanItemBlurRegion, 'resolved sibling should point to item blurRegion');
-
-    fanItemRow._dockBlurEnabled = false;
     assert(resolveAquaDockTarget(fanItemRow) === null,
         'resolveAquaDockTarget must return null for Fan item when _dockBlurEnabled is false');
-    fanItemRow._dockBlurEnabled = true;
 
     // Test with stock BMS files if present
     const bmsTargetsPath = `${GLib.get_home_dir()}/.local/share/gnome-shell/extensions/blur-my-shell@aunetx/components/dock/dock_targets.js`;
@@ -325,23 +314,11 @@ shellResource._register();
         },
     };
 
-    registerBmsTarget(panelContainer);
-    assert(mockDashBlur.dashes.length === 1, 'registerBmsTarget should register panel into BMS dashes');
-    registerBmsTarget(fanContainer);
-    assert(mockDashBlur.dashes.length === 2, 'registerBmsTarget should register fan into BMS dashes');
-    registerBmsTarget(fanItemRow);
-    assert(mockDashBlur.dashes.length === 3, 'registerBmsTarget should register fan item into BMS dashes');
+    registerBmsTarget(anchorContainer);
+    assert(mockDashBlur.dashes.length === 1, 'registerBmsTarget should register anchorContainer into BMS dashes');
 
-    // When blur is disabled on fan container, it should not register into BMS dashes
-    fanContainer._dockBlurEnabled = false;
-    mockDashBlur.try_blur(fanContainer);
-    // Dashes length remains 3 (or drops to 2 if cleaned up)
-    fanContainer._dockBlurEnabled = true;
-
-    unregisterBmsTarget(panelContainer);
-    unregisterBmsTarget(fanContainer);
-    unregisterBmsTarget(fanItemRow);
-    assert(mockDashBlur.dashes.length === 0, 'unregisterBmsTarget should cleanly unregister popups');
+    unregisterBmsTarget(anchorContainer);
+    assert(mockDashBlur.dashes.length === 0, 'unregisterBmsTarget should cleanly unregister anchorContainer');
     delete globalThis.global.blur_my_shell;
 }
 
@@ -384,31 +361,21 @@ shellResource._register();
 
     function simulatePanelView(cfg) {
         const radius = cfg.downloadsBorderRadius ?? 24;
-        const blurEnabled = Boolean(cfg.blurEffect);
-        const frostedFill = 'rgba(28, 28, 32, 0.50)';
         const fill = cfg.highContrast ? 'rgba(0,0,0,0.96)'
-            : (blurEnabled ? frostedFill : (cfg.downloadsPillColor ?? 'rgba(28,28,32,0.8)'));
+            : (cfg.downloadsPillColor ?? 'rgba(28,28,32,0.8)');
 
         const panel = new MockActor('panel');
         panel.set_style(`border-radius: ${radius}px; background-color: ${fill}; border: 1px solid rgba(255,255,255,0.16);`);
 
-        const blurRegion = new MockActor('aqua-downloads-panel-blur-region');
-        blurRegion._dockRadius = radius;
-        blurRegion.set_style(`border-radius: ${radius}px;`);
-
-        panel._blurRegion = blurRegion;
-        panel._dockBlurRegion = blurRegion;
+        panel._blurRegion = null;
+        panel._dockBlurRegion = null;
         panel._dockBg = panel;
         panel._isAquaDock = true;
-        panel._dockBlurEnabled = blurEnabled;
+        panel._dockBlurEnabled = false;
         panel._dockRadius = radius;
         panel.get_dock_radius = () => radius;
 
-        if (!blurEnabled) {
-            blurRegion.hide();
-        }
-
-        return { panel, blurRegion };
+        return { panel };
     }
 
     const cfgBlur = {
@@ -416,57 +383,49 @@ shellResource._register();
         downloadsBorderRadius: 24,
     };
 
-    const { panel, blurRegion } = simulatePanelView(cfgBlur);
+    const { panel } = simulatePanelView(cfgBlur);
     assert(panel._isAquaDock === true, 'panel._isAquaDock must be true');
-    assert(panel._dockBlurEnabled === true, 'panel._dockBlurEnabled must be true when blurEffect is true');
+    assert(panel._dockBlurEnabled === false, 'panel._dockBlurEnabled must be false');
     assert(panel._dockBg === panel, 'panel._dockBg points to panel itself');
-    assert(panel._dockBlurRegion === blurRegion, 'panel._dockBlurRegion points to blurRegion');
     assert(panel._dockRadius === 24, 'panel._dockRadius matches configured downloadsBorderRadius');
     assert(panel.effects.length === 0, 'panel must have NO native Shell.BlurEffect attached');
-    assert(blurRegion.effects.length === 0, 'blurRegion must have NO native Shell.BlurEffect attached');
-    assert(panel.style.includes('background-color: rgba(28, 28, 32, 0.50);'),
-        'panel style must use frosted glass translucent background when blurEffect is true');
+    assert(panel._blurRegion === null, 'panel must have NO blurRegion');
+    assert(!panel.style.includes('background-color: transparent;'),
+        'panel style must use solid background even when blurEffect is true');
 
     // Panel animation sync: open
     panel.ease({ opacity: 255, scale_x: 1, scale_y: 1, duration: 240 });
-    blurRegion.ease({ opacity: 255, scale_x: 1, scale_y: 1, duration: 240 });
-    assert(panel.opacity === 255 && blurRegion.opacity === 255, 'panel and blurRegion ease to opacity 255');
+    assert(panel.opacity === 255, 'panel eases to opacity 255');
 
     // Settle animations
     panel.remove_all_transitions();
-    blurRegion.remove_all_transitions();
     panel.opacity = 255;
-    blurRegion.opacity = 255;
-    assert(blurRegion.opacity === 255, 'settle animations keeps blurRegion opacity at 255');
+    assert(panel.opacity === 255, 'settle animations keeps panel opacity at 255');
 
     // Close animation
     panel.ease({ opacity: 0, duration: 200 });
-    blurRegion.ease({ opacity: 0, duration: 200 });
-    assert(panel.opacity === 0 && blurRegion.opacity === 0, 'panel and blurRegion ease out together');
+    assert(panel.opacity === 0, 'panel eases out');
 
     // Panel with blurEffect: false fallback
-    const { panel: panelOff, blurRegion: blurRegionOff } = simulatePanelView({
+    const { panel: panelOff } = simulatePanelView({
         ...cfgBlur,
         blurEffect: false,
     });
     assert(panelOff._isAquaDock === true, 'panelOff._isAquaDock is true');
     assert(panelOff._dockBlurEnabled === false, 'panelOff._dockBlurEnabled must be false when blurEffect is false');
-    assert(blurRegionOff.visible === false, 'blurRegionOff must be hidden when blurEffect is false');
     assert(!panelOff.style.includes('background-color: transparent;'),
         'panelOff style must use solid background when blurEffect is false');
 
-    // Fan view simulation: bounding box blur is removed, blur is on individual item pills
+    // Fan view simulation: bounding and pill blur removed per user directive
     function simulateFanView(cfg, numItems = 3) {
-        const blurEnabled = Boolean(cfg.blurEffect);
         const radius = cfg.dlItemRadius ?? 16;
         const fan = new MockActor('fan');
         fan.name = 'aquaDownloadsFan';
         fan._isAquaDock = true;
         fan.set_style('background-color: transparent; border: none;');
-        fan._dockBlurEnabled = false; // Bounding blur box removed!
+        fan._dockBlurEnabled = false;
 
         const items = [];
-        const blurRegions = [];
 
         for (let i = 0; i < numItems; i++) {
             const row = new MockActor(`fan-row-${i}`);
@@ -480,57 +439,36 @@ shellResource._register();
             labelPill._dockRadius = radius;
             labelPill.get_dock_radius = () => radius;
 
-            const blurRegion = new MockActor(`aqua-downloads-fan-blur-region-${i}`);
-            blurRegion.width = 120;
-            blurRegion.height = 28;
-            blurRegion._dockRadius = radius;
-            blurRegion.set_style(`border-radius: ${radius}px;`);
-
             const thumb = new MockActor(`thumb-${i}`);
-            applyTileStyle(cfg, labelPill, new MockActor('label'), thumb, 8, false, '6px 14px', blurEnabled);
+            applyTileStyle(cfg, labelPill, new MockActor('label'), thumb, 8, false, '6px 14px', false);
 
             row._isAquaDock = true;
-            row._dockBlurEnabled = blurEnabled;
-            row._dockBg = blurRegion;
-            row._dockContent = blurRegion;
-            row._dockContentParent = blurRegion;
-            row._dockBlurRegion = blurRegion;
+            row._dockBlurEnabled = false;
             row._dockRadius = radius;
             row.get_dock_radius = () => radius;
-            blurRegion._isAquaDock = true;
-            blurRegion._dockBlurEnabled = blurEnabled;
-            blurRegion._dockRadius = radius;
-            blurRegion.get_dock_radius = () => radius;
 
-            if (!blurEnabled) blurRegion.hide();
-
-            items.push({ row, labelPill, blurRegion, thumb });
-            blurRegions.push(blurRegion);
+            items.push({ row, labelPill, thumb });
         }
 
-        fan._blurRegion = blurRegions[0] ?? null;
-        fan._blurRegions = blurRegions;
+        fan._blurRegion = null;
+        fan._blurRegions = [];
 
-        return { fan, items, blurRegions };
+        return { fan, items };
     }
 
-    const { fan, items, blurRegions: fanBlurRegions } = simulateFanView(cfgBlur);
+    const { fan, items } = simulateFanView(cfgBlur);
     assert(fan.name === 'aquaDownloadsFan', 'fan container name must be aquaDownloadsFan');
     assert(fan._isAquaDock === true, 'fan container must be marked as AquaDock');
     assert(fan._dockBlurEnabled === false, 'fan container must NOT have bounding blur enabled');
     assert(items.length === 3, 'fan view should have simulated item pills');
     for (const item of items) {
         assert(item.row._isAquaDock === true, 'item row must be marked as AquaDock');
-        assert(item.row._dockBlurEnabled === true, 'item row must have blur enabled when blurEffect is true');
-        assert(item.row._dockBg === item.blurRegion, 'item row _dockBg points to blurRegion');
-        assert(item.row._dockContentParent === item.blurRegion, 'item row _dockContentParent points to blurRegion');
-        assert(item.row._dockBlurRegion === item.blurRegion, 'item row _dockBlurRegion points to its blurRegion');
+        assert(item.row._dockBlurEnabled === false, 'item row blur must be disabled');
         assert(item.row._dockRadius === 16, 'item row _dockRadius matches item radius');
         assert(item.row.effects.length === 0, 'row has NO native blur effect attached');
         assert(item.labelPill.effects.length === 0, 'labelPill has NO native blur effect attached');
-        assert(item.blurRegion.effects.length === 0, 'blurRegion has NO native blur effect attached');
-        assert(item.labelPill.style.includes('background-color: transparent;'),
-            'item pill must have transparent background when blur is active');
+        assert(!item.labelPill.style.includes('background-color: transparent;'),
+            'item pill must have solid background when blur is disabled');
         assert(item.labelPill.style.includes('border-radius: 16px;'),
             'item pill must have rounded corners');
     }
@@ -538,25 +476,15 @@ shellResource._register();
     // Animation synchronization on pills
     for (const item of items) {
         item.row.ease({ opacity: 255, translation_x: 0, translation_y: 0, scale_x: 1, scale_y: 1 });
-        item.blurRegion.ease({ opacity: 255, translation_x: 0, translation_y: 0, scale_x: 1, scale_y: 1 });
-        assert(item.row.opacity === 255 && item.blurRegion.opacity === 255, 'pill and blurRegion ease in');
-        assert(item.row.scale_x === 1 && item.blurRegion.scale_x === 1, 'pill and blurRegion scale in');
+        assert(item.row.opacity === 255, 'pill eases in');
+        assert(item.row.scale_x === 1, 'pill scales in');
 
         item.row.remove_all_transitions();
-        item.blurRegion.remove_all_transitions();
         item.row.opacity = 255;
-        item.blurRegion.opacity = 255;
-        item.blurRegion.translation_x = 0;
-        item.blurRegion.translation_y = 0;
-        item.blurRegion.scale_x = 1;
-        item.blurRegion.scale_y = 1;
-        assert(item.blurRegion.opacity === 255, 'settle animations keeps blurRegion at 255');
-        assert(item.blurRegion.scale_x === 1, 'settle animations keeps blurRegion at scale 1');
 
         item.row.ease({ opacity: 0, scale_x: 0.4, scale_y: 0.4 });
-        item.blurRegion.ease({ opacity: 0, scale_x: 0.4, scale_y: 0.4 });
-        assert(item.row.opacity === 0 && item.blurRegion.opacity === 0, 'pill and blurRegion ease out');
-        assert(item.row.scale_x === 0.4 && item.blurRegion.scale_x === 0.4, 'pill and blurRegion scale out');
+        assert(item.row.opacity === 0, 'pill eases out');
+        assert(item.row.scale_x === 0.4, 'pill scales out');
     }
 
     // Fan view fallback when blurEffect: false
@@ -567,7 +495,6 @@ shellResource._register();
     assert(fanOff._dockBlurEnabled === false, 'fanOff has bounding blur disabled');
     for (const item of itemsOff) {
         assert(item.row._dockBlurEnabled === false, 'item row blur must be disabled when blurEffect is false');
-        assert(item.blurRegion.visible === false, 'item blurRegion must be hidden when blurEffect is false');
         assert(!item.labelPill.style.includes('background-color: transparent;'),
             'item pill must have solid background when blurEffect is false');
     }
@@ -581,21 +508,18 @@ shellResource._register();
     function simulateRealPanelView(cfg) {
         const a = (cfg.bgOpacity ?? 0.8).toFixed(2);
         const radius = cfg.downloadsBorderRadius ?? 24;
-        const blurActive = Boolean(cfg.blurEffect && isBmsDockBlurActive());
         const normalFill = cfg.downloadsPillColor ?? (cfg.pillColor ? applyAlpha(cfg.pillColor, cfg.bgOpacity ?? 0.8) : `rgba(28,28,32,${a})`);
-        const fill = cfg.highContrast ? 'rgba(0,0,0,0.96)' : (blurActive ? 'transparent' : normalFill);
+        const fill = cfg.highContrast ? 'rgba(0,0,0,0.96)' : normalFill;
 
         const panel = new MockActor('panel');
         panel.set_style(`border-radius: ${radius}px; background-color: ${fill}; border: 1px solid rgba(255,255,255,0.16);`);
-        const blurRegion = new MockActor('aqua-downloads-panel-blur-region');
-        panel._blurRegion = blurRegion;
-        panel._dockBlurRegion = blurRegion;
+        panel._blurRegion = null;
+        panel._dockBlurRegion = null;
         panel._dockBg = panel;
         panel._isAquaDock = true;
-        panel._dockBlurEnabled = blurActive;
+        panel._dockBlurEnabled = false;
         panel._dockRadius = radius;
-        if (!blurActive) blurRegion.hide();
-        return { panel, blurRegion, blurActive };
+        return { panel, blurActive: false };
     }
 
     const panelNoBms = simulateRealPanelView({
@@ -603,25 +527,23 @@ shellResource._register();
         pillColor: 'rgba(28,28,32,0.80)',
         bgOpacity: 0.60,
     });
-    assert(panelNoBms.blurActive === false, 'blurActive must be false when BMS is absent');
-    assert(panelNoBms.panel._dockBlurEnabled === false, 'panel._dockBlurEnabled must be false when BMS is absent');
-    assert(panelNoBms.blurRegion.visible === false, 'blurRegion must be hidden when BMS is absent');
+    assert(panelNoBms.blurActive === false, 'blurActive must be false');
+    assert(panelNoBms.panel._dockBlurEnabled === false, 'panel._dockBlurEnabled must be false');
     assert(!panelNoBms.panel.style.includes('background-color: transparent;'),
-        'panel must NOT have transparent background when BMS is absent');
+        'panel must NOT have transparent background');
     assert(panelNoBms.panel.style.includes('background-color: rgba(28, 28, 32, 0.480);'),
-        'panel must show normal transparency with configured pillColor and bgOpacity when BMS is absent');
+        'panel must show normal transparency with configured pillColor and bgOpacity');
 
     function simulateRealFanView(cfg) {
-        const blurActive = Boolean(cfg.blurEffect && isBmsDockBlurActive());
-        return simulateFanView({ ...cfg, blurEffect: blurActive }, 2);
+        return simulateFanView(cfg, 2);
     }
     const fanNoBms = simulateRealFanView({ blurEffect: true });
     assert(fanNoBms.fan._dockBlurEnabled === false, 'fanNoBms bounding blur must be disabled');
     for (const item of fanNoBms.items) {
-        assert(item.row._dockBlurEnabled === false, 'item row blur must be disabled when BMS is absent');
-        assert(item.blurRegion.visible === false, 'item blurRegion must be hidden when BMS is absent');
+        assert(item.row._dockBlurEnabled === false, 'item row blur must be disabled');
+        assert(item.blurRegion === undefined, 'item blurRegion must not exist');
         assert(!item.labelPill.style.includes('background-color: transparent;'),
-            'item pill must NOT have transparent background when BMS is absent');
+            'item pill must NOT have transparent background');
     }
 }
 
@@ -685,19 +607,13 @@ shellResource._register();
     const stackView = { name: 'fanView' };
     mockUiGroup.insert_child_below(stackView, dock);
 
-    // Blur region is inserted below stackView (between blocker and stackView)
-    const blurRegion = { name: 'blurRegion' };
-    mockUiGroup.insert_child_below(blurRegion, stackView);
-
     const blockerIdx = uiChildren.indexOf(blocker);
-    const blurIdx = uiChildren.indexOf(blurRegion);
     const stackIdx = uiChildren.indexOf(stackView);
     const dockIdx = uiChildren.indexOf(dock);
 
-    assert(blockerIdx >= 0 && blurIdx >= 0 && stackIdx >= 0 && dockIdx >= 0,
+    assert(blockerIdx >= 0 && stackIdx >= 0 && dockIdx >= 0,
         'all overlay and dock elements present in uiChildren');
-    assert(blockerIdx < blurIdx, 'blocker must be below blurRegion');
-    assert(blurIdx < stackIdx, 'blurRegion must be below stackView');
+    assert(blockerIdx < stackIdx, 'blocker must be below stackView');
     assert(stackIdx < dockIdx, 'stackView must be below dock (behind dock app icons)');
     assert(blockerIdx < dockIdx, 'blocker must be below dock (behind dock app icons)');
 
@@ -764,7 +680,7 @@ shellResource._register();
     assert(suppressionCalls[suppressionCalls.length - 1] === false,
         'setMagnificationSuppressed(false) called on stack close');
 
-    // ── 7. Locked Background Blur Invariants for Grid and List Views ──────────
+    // ── 7. Downloads & Folder Stack Blur Removal Verification ────────────────
     {
         const {
             isAquaPopupTarget,
@@ -772,52 +688,48 @@ shellResource._register();
             resolveAquaDockTarget,
         } = await import('../dock/dockBlur.js');
 
-        // Test locked popup target identification
-        assert(isAquaPopupTarget({ name: 'aquaDownloadsPanel', _blurType: 'popup' }) === true,
-            'isAquaPopupTarget must identify aquaDownloadsPanel as popup');
-        assert(isAquaPopupTarget({ has_style_class_name: c => c === 'aqua-dl-panel' }) === true,
-            'isAquaPopupTarget must identify .aqua-dl-panel as popup');
-        assert(isAquaPopupTarget({ has_style_class_name: c => c === 'aqua-dl-grid' || c === 'aqua-dl-panel' }) === true,
-            'isAquaPopupTarget must identify grid view stack as popup');
-        assert(isAquaPopupTarget({ has_style_class_name: c => c === 'aqua-dl-list' || c === 'aqua-dl-panel' }) === true,
-            'isAquaPopupTarget must identify list view stack as popup');
+        // Test popup target identification: stacks must NOT be popup targets
+        assert(isAquaPopupTarget({ name: 'aquaDownloadsPanel' }) === false,
+            'isAquaPopupTarget must NOT identify aquaDownloadsPanel as popup');
+        assert(isAquaPopupTarget({ has_style_class_name: c => c === 'aqua-dl-panel' }) === false,
+            'isAquaPopupTarget must NOT identify .aqua-dl-panel as popup');
+        assert(isAquaPopupTarget({ has_style_class_name: c => c === 'aqua-dl-grid' || c === 'aqua-dl-panel' }) === false,
+            'isAquaPopupTarget must NOT identify grid view stack as popup');
+        assert(isAquaPopupTarget({ has_style_class_name: c => c === 'aqua-dl-list' || c === 'aqua-dl-panel' }) === false,
+            'isAquaPopupTarget must NOT identify list view stack as popup');
 
-        // Test resolution of grid and list view stack targets
+        // Test resolution of grid and list view stack targets: null when blur disabled
         const gridPanel = {
             name: 'aquaDownloadsPanel',
             _isAquaDock: true,
-            _blurType: 'popup',
-            _dockBlurEnabled: true,
+            _blurType: null,
+            _dockBlurEnabled: false,
             _dockRadius: 20,
             _dockBg: null,
-            _dockBlurRegion: { name: 'aqua-downloads-panel-blur-region' },
             has_style_class_name: c => c === 'aqua-dl-panel' || c === 'aqua-dl-grid',
         };
         gridPanel._dockBg = gridPanel;
-        const resolvedGrid = resolveAquaDockTarget(gridPanel);
-        assert(resolvedGrid !== null, 'resolveAquaDockTarget must resolve grid stack target');
-        assert(resolvedGrid.is_popup === true, 'grid stack must resolve as is_popup');
-        assert(resolvedGrid.background === gridPanel, 'grid stack background must point to gridPanel');
+        assert(resolveAquaDockTarget(gridPanel) === null,
+            'resolveAquaDockTarget must return null for grid stack when _dockBlurEnabled is false');
 
         const listPanel = {
             name: 'aquaDownloadsPanel',
             _isAquaDock: true,
-            _blurType: 'popup',
-            _dockBlurEnabled: true,
+            _blurType: null,
+            _dockBlurEnabled: false,
             _dockRadius: 20,
             _dockBg: null,
-            _dockBlurRegion: { name: 'aqua-downloads-panel-blur-region' },
             has_style_class_name: c => c === 'aqua-dl-panel' || c === 'aqua-dl-list',
         };
         listPanel._dockBg = listPanel;
-        const resolvedList = resolveAquaDockTarget(listPanel);
-        assert(resolvedList !== null, 'resolveAquaDockTarget must resolve list stack target');
-        assert(resolvedList.is_popup === true, 'list stack must resolve as is_popup');
-        assert(resolvedList.background === listPanel, 'list stack background must point to listPanel');
+        assert(resolveAquaDockTarget(listPanel) === null,
+            'resolveAquaDockTarget must return null for list stack when _dockBlurEnabled is false');
 
-        // Test blur activation logic
+        // Test blur activation logic: isBmsStackBlurActive is always false
         assert(isBmsStackBlurActive({ blurEffect: false }) === false,
             'isBmsStackBlurActive must return false when blurEffect is false');
+        assert(isBmsStackBlurActive({ blurEffect: true }) === false,
+            'isBmsStackBlurActive must return false even when blurEffect is true');
         assert(isBmsStackBlurActive({ blurEffect: true, highContrast: true }) === false,
             'isBmsStackBlurActive must return false when highContrast is true');
     }

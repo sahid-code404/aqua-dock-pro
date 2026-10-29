@@ -1,17 +1,20 @@
 # Changelog
 
-## 287
+## 288
 
-- Fix and enhance frosted glass background blur for Grid and List view folder stacks:
-  - Frosted Glass Translucent Background Tint:
-    - Updated `PanelView.build()` to render a translucent dark background tint (`rgba(28, 28, 32, 0.50)`) when background blur is active instead of an invisible transparent fill, giving the stack panel authentic macOS frosted glass contrast, readability, and depth.
-  - Dimension and Allocation Resolution:
-    - Explicitly set `panel.set_size(panelW, natH)` upon panel geometry resolution alongside `panel.set_position(px, py)` so `AquaDockSurface` and Blur My Shell static/dynamic pipelines immediately receive positive non-zero dimensions without waiting for layout passes.
-    - Initialized geometry anchor `blurRegion.opacity = 255` to prevent composite visibility attenuation in `AquaDockSurface.update_visibility()`.
-    - Added dimension fallbacks in `tryBlurAquaDock` and `AquaDockSurface` to check `get_width()` / `get_height()` when width/height properties are zero.
-  - Live Transform & Opacity Synchronization:
-    - Added `'notify::opacity'`, `'notify::scale-x'`, `'notify::scale-y'`, `'notify::translation-x'`, and `'notify::translation-y'` to `AquaDockSurface` geometry signals, ensuring Blur My Shell background group smoothly tracks cubic scaling, sliding, and opacity easing in lockstep.
-    - Added sibling transform synchronization in `AquaDockSurface._update_dynamic_size` for popup and stack panels in `Main.uiGroup`.
+- Remove background blur from downloads and folder stacks (Fan, Grid, and List views):
+  - Stack Blur Removal:
+    - Disabled background blur across all stack views (`FanView`, Grid view, and List view `PanelView`) per user directive.
+    - Updated `isBmsStackBlurActive()` in `dock/dockBlur.js` to return `false`.
+    - Removed `aquaDownloadsPanel` and `.aqua-dl-panel` from popup blur target classification in `isAquaPopupTarget()` so Blur My Shell does not create blur surfaces for stack panels.
+    - Removed blur region actor creation, stage tree insertions into `Main.uiGroup`, and BMS target registrations from `PanelView.build()` and `FanView.build()`.
+    - Removed translucent blur CSS overrides (`.transparent-dash .aqua-dl-panel`, `.bms-popup-*`) from `stylesheet.css`.
+  - Solid & Translucent Dark Backgrounds:
+    - Restored authentic solid/translucent dark backgrounds (`.aqua-dl-panel`, `.aqua-dl-fan`, `applyTileStyle` fallback) with high contrast, crisp borders, and reliable readability.
+  - Preserved Frosted Glass Blur on Stack Drawer Anchor:
+    - Preserved frosted glass blur integration on the Down-Chevron drawer anchor (`aquaStackAnchor`, `.aqua-stack-anchor-tile`).
+  - Updated Architectural Guidelines & Tests:
+    - Updated `AGENTS.md` and test suite `tests/downloadsBlur.test.js` to reflect the user's explicit directive removing stack blur.
 
 ## 286
 

@@ -14,7 +14,7 @@ import { aboveDockY, fanOrientation, sideFanX } from './fanGeometry.js';
 import { applyTileStyle } from './tileStyle.js';
 import { SelectionModel } from './keyboardNav.js';
 import { buildPlaceIcon } from './placeIcon.js';
-import { isBmsStackBlurActive, registerBmsTarget, unregisterBmsTarget, setupBackgroundCorners } from '../dock/dockBlur.js';
+import { setupBackgroundCorners } from '../dock/dockBlur.js';
 
 const LABEL_WIDTH = 86;
 const CONTENT_GAP = 14;
@@ -135,8 +135,7 @@ export class FanView {
         fan._isAquaDock = true;
         fan._dockBlurEnabled = false;
 
-        const blurActive = isBmsStackBlurActive(cfg);
-        this._blurActive = blurActive;
+        this._blurActive = false;
 
         const dockContainer = this.dockContainer;
         if (dockContainer && typeof Main.uiGroup?.insert_child_below === 'function') {
@@ -157,8 +156,7 @@ export class FanView {
         const pillLocalY = Math.round((rowH - pillH) / 2);
 
         const rows = [];
-        const blurRegions = [];
-        this._blurRegions = blurRegions;
+        this._blurRegions = [];
 
         builders.forEach((make, i) => {
             const row = make();
@@ -170,42 +168,8 @@ export class FanView {
             fan.add_child(row);
             rows.push(row);
 
-            const blurRegion = new St.Widget({
-                name: 'aqua-downloads-fan-blur-region',
-                style_class: 'aqua-blur-region',
-                reactive: false,
-            });
-            blurRegion._dockRadius = radius;
-            blurRegion.set_style(`border-radius: ${radius}px;`);
-            row._blurRegion = blurRegion;
-            row._dockBlurRegion = blurRegion;
-            blurRegions.push(blurRegion);
-
-            Main.uiGroup.insert_child_below(blurRegion, fan);
-
-            blurRegion.set_position(px + fx + pillLocalX, py + fy + pillLocalY);
-            blurRegion.set_size(labelPillW, pillH);
-            blurRegion.opacity = 0;
-
             row._isAquaDock = true;
-            row._dockBlurEnabled = blurActive;
-            row._dockBg = blurRegion;
-            row._dockContent = blurRegion;
-            row._dockContentParent = blurRegion;
-            row._dockBlurRegion = blurRegion;
-            row._dockRadius = radius;
-            row.get_dock_radius = () => radius;
-            blurRegion._isAquaDock = true;
-            blurRegion._dockBlurEnabled = blurActive;
-            blurRegion._dockRadius = radius;
-            blurRegion.get_dock_radius = () => radius;
-            setupBackgroundCorners(blurRegion, () => radius);
-
-            if (blurActive) {
-                registerBmsTarget(row, () => radius);
-            } else {
-                blurRegion.hide();
-            }
+            row._dockBlurEnabled = false;
 
             if (reduce) return;
             const initTx = anchorLX - (fx + iconCx);
@@ -230,39 +194,12 @@ export class FanView {
                 mode: FAN_ANIM.open.mode,
             });
 
-            if (blurActive) {
-                blurRegion.set_pivot_point(0.5, 0.5);
-                blurRegion.translation_x = initTx;
-                blurRegion.translation_y = initTy;
-                blurRegion.set_scale(0.25, 0.25);
-                blurRegion.opacity = 0;
-                blurRegion.ease({
-                    translation_x: 0, translation_y: 0,
-                    scale_x: 1.0, scale_y: 1.0,
-                    duration: FAN_ANIM.open.duration,
-                    delay,
-                    mode: FAN_ANIM.open.mode,
-                });
-                blurRegion.ease({
-                    opacity: 255,
-                    duration: FAN_ANIM.open.fadeDuration,
-                    delay,
-                    mode: FAN_ANIM.open.mode,
-                });
-            }
-        });
-
-        fan.connect('destroy', () => {
-            rows.forEach(r => unregisterBmsTarget(r));
-            blurRegions.forEach(br => {
-                try { br.destroy(); } catch { }
-            });
         });
 
         this._model.setRows(rows);
         if (rows.length) this._model.select(0);
-        fan._blurRegion = this.blurRegion;
-        fan._blurRegions = blurRegions;
+        fan._blurRegion = null;
+        fan._blurRegions = [];
 
         if (reduce) {
             fan.opacity = 255;
@@ -272,14 +209,6 @@ export class FanView {
                 r.translation_y = 0;
                 r.opacity = 255;
             });
-            if (blurActive) {
-                blurRegions.forEach(br => {
-                    br.set_scale(1, 1);
-                    br.translation_x = 0;
-                    br.translation_y = 0;
-                    br.opacity = 255;
-                });
-            }
         }
         return fan;
     }
