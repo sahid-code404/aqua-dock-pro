@@ -1,5 +1,18 @@
 # Changelog
 
+## 280
+
+- Frosted glass blur for Down-Chevron Anchor drawer tile and instant tooltip dismissal on stack open:
+  - Down-Chevron Anchor Tile Frosted Glass & Blur:
+    - Register `aquaStackAnchor` as a first-class Blur My Shell (BMS) popup target in `dockBlur.js` (`isAquaPopupTarget` and `resolveAquaDockTarget`).
+    - Connect `DockItem._stackAnchor` to dynamic BMS surface pipeline via `registerBmsTarget(this._stackAnchor, () => this._anchorRadius)` when stack opens, and cleanly unregister on close or destroy.
+    - Update `.aqua-stack-anchor-tile` stylesheet with translucent frosted glass styling (`rgba(255, 255, 255, 0.14)` border `rgba(255, 255, 255, 0.28)`), and `.transparent-dash` / `.bms-popup` integration, replacing the previous opaque solid charcoal background so desktop blur and dock blur shine through.
+  - Immediate Tooltip Dismissal on Stack Open:
+    - Immediately dismiss and hide any active or scheduled tooltips and live window previews (`this._tooltip?.hide()`, `this._preview?.hide(true)`, `this._hoverItem = null`) when a downloads or folder stack is opened.
+    - Wire `hideTooltip` into the `DownloadManager` host callback to ensure stack openings from all input paths (click, touch, keyboard) instantaneously drop hover tooltips.
+    - Add public `anchor` getter to `DownloadManager` and reinforce hover suppression across `this._downloads?.anchor` and `activeItem` to guarantee tooltips remain hidden over the open stack anchor tile.
+  - Comprehensive unit test verification in `tests/dockBlur.test.js`.
+
 ## 279
 
 - Exact macOS Fan Stack animation, visual design, and interactive behavior on Downloads and custom folders:

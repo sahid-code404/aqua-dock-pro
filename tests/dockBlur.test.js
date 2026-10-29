@@ -751,6 +751,32 @@ shellResource._register();
     unregisterBmsTarget(testMenuActor);
     assert(!mockDashBlur.dashes.some(d => d.dash_container === testMenuActor), 'testMenuActor must be removed from BMS dashes');
     assert(!testMenuActor._aquaDockSurface, 'testMenuActor _aquaDockSurface must be cleared');
+
+    // 7. Stack down-chevron anchor drawer blur target resolution and BMS lifecycle
+    const anchorActor = {
+        name: 'aquaStackAnchor',
+        _isAquaDock: true,
+        _blurType: 'popup',
+        _dockBlurEnabled: true,
+        width: 64,
+        height: 64,
+        get_dock_radius: () => 14,
+        connect: () => 1,
+        disconnect: () => {},
+    };
+    assert(isAquaPopupTarget(anchorActor) === true, 'isAquaPopupTarget must return true for aquaStackAnchor');
+    const resolvedAnchor = resolveAquaDockTarget(anchorActor);
+    assert(resolvedAnchor !== null, 'resolveAquaDockTarget must resolve aquaStackAnchor');
+    assert(resolvedAnchor.is_popup === true, 'resolvedAnchor.is_popup must be true for aquaStackAnchor');
+
+    registerBmsTarget(anchorActor, () => 14);
+    assert(mockDashBlur.dashes.some(d => d.dash_container === anchorActor), 'anchorActor must be registered into BMS dashes');
+    assert(anchorActor._aquaDockSurface !== null, 'anchorActor must have _aquaDockSurface assigned');
+
+    unregisterBmsTarget(anchorActor);
+    assert(!mockDashBlur.dashes.some(d => d.dash_container === anchorActor), 'anchorActor must be removed from BMS dashes');
+    assert(!anchorActor._aquaDockSurface, 'anchorActor _aquaDockSurface must be cleared');
+
     delete globalThis.global.blur_my_shell;
 }
 

@@ -141,6 +141,7 @@ export class DownloadManager {
 
     get stackOpen() { return this._stack?.isOpen ?? false; }
     get activeItem() { return this._activeItem; }
+    get anchor() { return this._stack?.anchor ?? this._activeItem; }
 
     enable() {
         if (!this._stack && this._host)
@@ -157,6 +158,8 @@ export class DownloadManager {
         if (!this._stack && this._host)
             this._stack = new DownloadsStack(this._host.getMonitor, () => this._host.getContainer?.());
         if (!this._stack) return;
+
+        this._host?.hideTooltip?.();
 
         // Toggle stack if already open for this exact anchor or folder URI
         if (this._stack.isOpen) {

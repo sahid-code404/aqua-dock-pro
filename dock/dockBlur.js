@@ -94,8 +94,9 @@ export function isAquaPopupTarget(container) {
     if (container._blurType === 'popup') return true;
     if (container._blurType === 'dock') return false;
     const name = container.name || container.get_name?.();
-    if (name === 'aquaTooltip' || name === 'aquaMenu') return true;
-    if (typeof container.has_style_class_name === 'function' && container.has_style_class_name('aqua-menu')) return true;
+    if (name === 'aquaTooltip' || name === 'aquaMenu' || name === 'aquaStackAnchor') return true;
+    if (typeof container.has_style_class_name === 'function' &&
+        (container.has_style_class_name('aqua-menu') || container.has_style_class_name('aqua-stack-anchor-tile'))) return true;
     return false;
 }
 
@@ -186,15 +187,18 @@ export function resolveAquaDockTarget(container) {
         container.name === 'aquaDownloadsPanel' ||
         container.name === 'aquaDownloadsFan' ||
         container.name === 'aquaDownloadsFanItem' ||
+        container.name === 'aquaStackAnchor' ||
         container.name === 'aquaTooltip' ||
         container.name === 'aquaMenu' ||
         container.get_name?.() === 'aquaDockContainer' ||
         container.get_name?.() === 'aquaDownloadsPanel' ||
         container.get_name?.() === 'aquaDownloadsFan' ||
         container.get_name?.() === 'aquaDownloadsFanItem' ||
+        container.get_name?.() === 'aquaStackAnchor' ||
         container.get_name?.() === 'aquaTooltip' ||
         container.get_name?.() === 'aquaMenu' ||
-        (typeof container.has_style_class_name === 'function' && container.has_style_class_name('aqua-menu'))
+        (typeof container.has_style_class_name === 'function' &&
+            (container.has_style_class_name('aqua-menu') || container.has_style_class_name('aqua-stack-anchor-tile')))
     );
     if (!isAqua) return null;
     if (container._dockBlurEnabled === false) return null;

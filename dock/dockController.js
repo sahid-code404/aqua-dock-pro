@@ -155,6 +155,11 @@ export class DockController {
             isHidden: () => this._autohide?.hidden ?? false,
             kickEngine: () => this._engine.kick(),
             setSuppressedItem: item => this._engine.setSuppressedItem(item),
+            hideTooltip: () => {
+                this._tooltip?.hide();
+                this._preview?.hide(true);
+                this._hoverItem = null;
+            },
             onStackClosed: () => this._autohide?.onDockLeft(),
         });
         this._trash = this._cfg.showTrash ? new TrashWatcher({
@@ -765,7 +770,7 @@ export class DockController {
     // menu is open, the dock is hidden, or over the open stack anchor.
     _setHover(item) {
         if (this._menu.active || this._autohide?.hidden ||
-            (this._downloads?.stackOpen && (item === this._downloads?.anchor || item === this._downloads?._activeItem)))
+            (this._downloads?.stackOpen && (item === this._downloads?.anchor || item === this._downloads?.activeItem || item === this._downloads?._activeItem)))
             item = null;
         if (item === this._hoverItem) return;
         this._hoverItem = item;
@@ -928,11 +933,17 @@ export class DockController {
     // context menu and left/middle activate.
     _dispatch(item, button) {
         if (item.entry.kind === 'downloads') {
+            this._tooltip?.hide();
+            this._preview?.hide(true);
+            this._hoverItem = null;
             try { this._downloads.openStack(item); }
             catch (e) { logError(e, 'openStack'); }
             return;
         }
         if (item.entry.kind === 'folder') {
+            this._tooltip?.hide();
+            this._preview?.hide(true);
+            this._hoverItem = null;
             try {
                 const folder = Gio.File.new_for_uri(item.entry.uri);
                 this._downloads.openFolderStack(item, folder, item.entry.name, item.entry.gicon);
