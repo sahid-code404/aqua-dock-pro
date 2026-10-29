@@ -385,8 +385,9 @@ shellResource._register();
     function simulatePanelView(cfg) {
         const radius = cfg.downloadsBorderRadius ?? 24;
         const blurEnabled = Boolean(cfg.blurEffect);
+        const frostedFill = 'rgba(28, 28, 32, 0.50)';
         const fill = cfg.highContrast ? 'rgba(0,0,0,0.96)'
-            : (blurEnabled ? 'transparent' : (cfg.downloadsPillColor ?? 'rgba(28,28,32,0.8)'));
+            : (blurEnabled ? frostedFill : (cfg.downloadsPillColor ?? 'rgba(28,28,32,0.8)'));
 
         const panel = new MockActor('panel');
         panel.set_style(`border-radius: ${radius}px; background-color: ${fill}; border: 1px solid rgba(255,255,255,0.16);`);
@@ -423,8 +424,8 @@ shellResource._register();
     assert(panel._dockRadius === 24, 'panel._dockRadius matches configured downloadsBorderRadius');
     assert(panel.effects.length === 0, 'panel must have NO native Shell.BlurEffect attached');
     assert(blurRegion.effects.length === 0, 'blurRegion must have NO native Shell.BlurEffect attached');
-    assert(panel.style.includes('background-color: transparent;'),
-        'panel style must use transparent background when blurEffect is true');
+    assert(panel.style.includes('background-color: rgba(28, 28, 32, 0.50);'),
+        'panel style must use frosted glass translucent background when blurEffect is true');
 
     // Panel animation sync: open
     panel.ease({ opacity: 255, scale_x: 1, scale_y: 1, duration: 240 });

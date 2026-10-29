@@ -1,5 +1,18 @@
 # Changelog
 
+## 287
+
+- Fix and enhance frosted glass background blur for Grid and List view folder stacks:
+  - Frosted Glass Translucent Background Tint:
+    - Updated `PanelView.build()` to render a translucent dark background tint (`rgba(28, 28, 32, 0.50)`) when background blur is active instead of an invisible transparent fill, giving the stack panel authentic macOS frosted glass contrast, readability, and depth.
+  - Dimension and Allocation Resolution:
+    - Explicitly set `panel.set_size(panelW, natH)` upon panel geometry resolution alongside `panel.set_position(px, py)` so `AquaDockSurface` and Blur My Shell static/dynamic pipelines immediately receive positive non-zero dimensions without waiting for layout passes.
+    - Initialized geometry anchor `blurRegion.opacity = 255` to prevent composite visibility attenuation in `AquaDockSurface.update_visibility()`.
+    - Added dimension fallbacks in `tryBlurAquaDock` and `AquaDockSurface` to check `get_width()` / `get_height()` when width/height properties are zero.
+  - Live Transform & Opacity Synchronization:
+    - Added `'notify::opacity'`, `'notify::scale-x'`, `'notify::scale-y'`, `'notify::translation-x'`, and `'notify::translation-y'` to `AquaDockSurface` geometry signals, ensuring Blur My Shell background group smoothly tracks cubic scaling, sliding, and opacity easing in lockstep.
+    - Added sibling transform synchronization in `AquaDockSurface._update_dynamic_size` for popup and stack panels in `Main.uiGroup`.
+
 ## 286
 
 - Fix folder stack opening for Grid and List views:

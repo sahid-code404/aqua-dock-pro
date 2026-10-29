@@ -126,8 +126,11 @@ export class PanelView {
         // LOCKED ARCHITECTURE: Stack background blur is permanently enabled and protected.
         const blurActive = isBmsStackBlurActive(cfg);
         const normalFill = cfg.downloadsPillColor ?? (cfg.pillColor ? applyAlpha(cfg.pillColor, clamp(cfg.bgOpacity ?? 0.8, 0.1, 1.0)) : `rgba(28,28,32,${a})`);
+        const frostedFill = cfg.downloadsPillColor
+            ? applyAlpha(cfg.downloadsPillColor, 0.50)
+            : (cfg.pillColor ? applyAlpha(cfg.pillColor, 0.50) : 'rgba(28, 28, 32, 0.50)');
         const fill = cfg.highContrast ? 'rgba(0,0,0,0.96)'
-            : (blurActive ? 'transparent' : normalFill);
+            : (blurActive ? frostedFill : normalFill);
         panel.set_style(`border-radius: ${radius}px; background-color: ${fill}; border: ${border};`);
         panel.set_pivot_point(0.5, 1.0);
         panel.opacity = 0;
@@ -179,10 +182,11 @@ export class PanelView {
         const px = clamp(Math.round(targetX), mon.x + 8, mon.x + mon.width - panelW - 8);
         const py = clamp(Math.round(targetY), mon.y + 8, mon.y + mon.height - natH - 8);
         panel.set_position(px, py);
+        panel.set_size(panelW, natH);
         blurRegion.set_position(px, py);
         blurRegion.set_size(panelW, natH);
         blurRegion.set_pivot_point(0.5, 1.0);
-        blurRegion.opacity = 0;
+        blurRegion.opacity = 255;
 
         if (blurActive) {
             registerBmsTarget(panel, () => radius);
