@@ -718,7 +718,9 @@ shellResource._register();
 
     let stackOpenStateCalls = [];
     let suppressionCalls = [];
+    let hideTooltipCalls = 0;
     mockHost.kickEngine = () => {};
+    mockHost.hideTooltip = () => { hideTooltipCalls++; };
     mockHost.setMagnificationSuppressed = (s) => suppressionCalls.push(s);
 
     const mockItem = {
@@ -737,6 +739,7 @@ shellResource._register();
     assert(dlMgr.stackOpen === true, 'openFolderStack opens stack on first click');
     assert(dlMgr.activeItem === mockItem, 'activeItem set to mockItem');
     assert(mockItem.isOpenState === true, 'setStackOpenState(true) called on item');
+    assert(hideTooltipCalls > 0, 'hideTooltip called when stack opened');
     assert(suppressionCalls[suppressionCalls.length - 1] === true,
         'setMagnificationSuppressed(true) called on stack open');
 

@@ -775,10 +775,9 @@ export class DockController {
     }
 
     // Update which icon is hovered and drive its tooltip. Suppressed while a
-    // menu is open, the dock is hidden, or over the open stack anchor.
+    // menu is open, the dock is hidden, or any stack is open.
     _setHover(item) {
-        if (this._menu.active || this._autohide?.hidden ||
-            (this._downloads?.stackOpen && (item === this._downloads?.anchor || item === this._downloads?.activeItem || item === this._downloads?._activeItem)))
+        if (this._menu.active || this._autohide?.hidden || this._downloads?.stackOpen)
             item = null;
         if (item === this._hoverItem) return;
         this._hoverItem = item;
@@ -787,7 +786,7 @@ export class DockController {
         if (!item) { this._tooltip.hide(); this._preview.hide(false); return; }
         if (this._cfg.showTooltip) this._tooltip.scheduleShow(item, this._geom);
         else this._tooltip.hide();
-        if (!this._downloads?.stackOpen) this._preview.schedule(item);
+        this._preview.schedule(item);
     }
 
     _endHover() {

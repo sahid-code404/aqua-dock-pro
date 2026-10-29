@@ -1,5 +1,11 @@
 # Changelog
 
+## 284
+
+- Suppress tooltips dock-wide while folder stack is open:
+  - While any downloads or folder stack is open, all dock tooltips are completely suppressed on hover across all dock items (both the open stack folder and all other dock applications and shortcuts).
+  - Hovering dock icons during an open stack keeps tooltips and window previews hidden, maintaining a clean unobstructed view of the desktop and open fan/grid stack.
+
 ## 283
 
 - Folder stack open interaction refinements:
