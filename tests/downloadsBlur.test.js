@@ -106,6 +106,22 @@ shellResource._register();
     applyTileStyle({ ...cfgBase, blurEffect: true, highContrast: true }, labelPill, label, thumb, 10, false, '6px 14px');
     assert(labelPill.style.includes('background-color: rgba(0,0,0,0.96);'),
         'applyTileStyle should enforce high contrast solid background even if blurEffect is true');
+    assert(thumb.style.includes('background-color: #000000;') && thumb.style.includes('border: 2px solid #ffffff;'),
+        'applyTileStyle thumb must have high contrast border and background');
+
+    // Thumb styling: rectangular translucent box with border and corner radius
+    applyTileStyle(cfgBase, labelPill, label, thumb, 10, false, '6px 14px');
+    assert(thumb.style.includes('border-radius: 10px;'),
+        'applyTileStyle thumb must set border-radius to thumbRadius');
+    assert(thumb.style.includes('background-color: rgba(46,46,54,0.70);'),
+        'applyTileStyle thumb must use translucent box background');
+    assert(thumb.style.includes('border: 1px solid rgba(255,255,255,0.2);'),
+        'applyTileStyle thumb must have subtle translucent border');
+
+    // Thumb styling on hover: highlights with rgba(255, 255, 255, 0.18)
+    applyTileStyle(cfgBase, labelPill, label, thumb, 10, true, '6px 14px');
+    assert(thumb.style.includes('background-color: rgba(255, 255, 255, 0.18);'),
+        'applyTileStyle thumb must highlight on hover');
 
     // ── Stack Menu Pill (Copy action) Style & Synchronized Hover ──────────────
     const menuBox = createMockPill();

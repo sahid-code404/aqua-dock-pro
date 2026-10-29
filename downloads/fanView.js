@@ -213,7 +213,7 @@ export class FanView {
         return fan;
     }
 
-    _card(thumbSize, w, h, extraClass = '', isAction = false) {
+    _card(thumbSize, w, h, extraClass = '') {
         const thumbW = thumbSize, thumbH = Math.round(thumbSize * 0.72);
         const thumbRadius = Math.round(Math.min(thumbW, thumbH) * 0.22);
         const radius = this.cfg.dlItemRadius ?? clamp(this.cfg.dockRadius ?? 16, 6, 28);
@@ -250,10 +250,9 @@ export class FanView {
             x_expand: false,
             reactive: false,
         });
-        const thumbClass = isAction ? 'aqua-dl-fan-thumb aqua-dl-fan-action-thumb' : 'aqua-dl-fan-thumb';
         const thumb = new St.Bin({
-            style_class: thumbClass, x_expand: false, y_expand: false,
-            x_align: Clutter.ActorAlign.END, y_align: Clutter.ActorAlign.CENTER,
+            style_class: 'aqua-dl-fan-thumb', x_expand: false, y_expand: false,
+            x_align: Clutter.ActorAlign.CENTER, y_align: Clutter.ActorAlign.CENTER,
         });
         thumb.set_size(thumbW, thumbH);
         thumb.set_pivot_point(0.5, 0.5);
@@ -277,7 +276,7 @@ export class FanView {
         btn.get_dock_radius = () => radius;
 
         btn._updatePillStyle = hover =>
-            applyTileStyle(this.cfg, labelPill, label, thumb, thumbRadius, hover, '6px 14px', this._blurActive, isAction);
+            applyTileStyle(this.cfg, labelPill, label, thumb, thumbRadius, hover, '6px 14px', this._blurActive);
         btn._updatePillStyle(false);
 
         btn.connect('notify::hover', () => {
@@ -289,7 +288,7 @@ export class FanView {
     }
 
     _rowCard(info, thumbSize, w, h) {
-        const { btn, labelPill, label, thumb, thumbW, thumbH } = this._card(thumbSize, w, h, '', false);
+        const { btn, labelPill, label, thumb, thumbW, thumbH } = this._card(thumbSize, w, h, '');
         const file = this.folder.get_child(info.get_name());
         label.text = info.get_display_name();
         btn.accessible_name = label.text;
@@ -304,7 +303,7 @@ export class FanView {
     }
 
     _actionCard(text, thumbSize, w, h) {
-        const { btn, label, thumb, thumbW, thumbH } = this._card(thumbSize, w, h, 'aqua-dl-fan-action', false);
+        const { btn, label, thumb, thumbW, thumbH } = this._card(thumbSize, w, h, 'aqua-dl-fan-action');
         label.text = text;
         btn.accessible_name = text;
         label.clutter_text.set_ellipsize(0);
@@ -321,7 +320,7 @@ export class FanView {
     }
 
     _infoCard(text, thumbSize, w, h) {
-        const { btn, label, thumb, thumbW, thumbH } = this._card(thumbSize, w, h, 'aqua-dl-fan-more', false);
+        const { btn, label, thumb, thumbW, thumbH } = this._card(thumbSize, w, h, 'aqua-dl-fan-more');
         label.text = text;
         btn.accessible_name = text;
         const iconSize = Math.round(Math.min(thumbW, thumbH) * 0.72);

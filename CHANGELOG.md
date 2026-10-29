@@ -1,5 +1,12 @@
 # Changelog
 
+## 292
+
+- Show thumbnail previews and folder icons in a rectangular translucent box in folder stacks:
+  - Uniform Box Styling: Styled thumbnails, image previews, and folder icons with the authentic rectangular translucent box (`rgba(46, 46, 54, 0.70)` with subtle border and rounded corners) across both Fan view and Panel views, replacing the previous bare/transparent appearance.
+  - Dynamic App Size Scaling: Dynamically adjust box dimensions and corner radii according to dock app/icon size (`cfg.iconSize`).
+  - Synchronized Hover Highlights: Both the filename pill and rectangular thumbnail/folder box highlight in tandem on row hover.
+
 ## 291
 
 - Center "Copy" context menu pill text perfectly in both horizontal and vertical axes:
