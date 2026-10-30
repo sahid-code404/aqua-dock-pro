@@ -104,6 +104,17 @@ export class ActorPool {
                 btn._label.clutter_text?.set_ellipsize?.(2);
             }
 
+            // Reset labelPill blur state
+            if (btn._labelPill) {
+                btn._labelPill._dockBlurEnabled = false;
+                const kids = btn._labelPill.get_children?.() ?? [];
+                for (const k of kids) {
+                    if (k !== btn._label) {
+                        try { k.destroy?.(); } catch { /* intentionally ignored: pooled row or button actor may already be destroyed */ }
+                    }
+                }
+            }
+
             // Reset thumbnail child back to base icon if replaced
             if (btn._thumb && btn._icon) {
                 btn._thumb.remove_all_transitions?.();
@@ -225,8 +236,10 @@ export class ActorPool {
         btn.set_style('background-color: transparent; border: none; box-shadow: none;');
 
         const box = new St.BoxLayout({ style_class: 'aqua-dl-fan-row-inner' });
-        const labelPill = new St.Bin({
+        const labelPill = new St.Widget({
+            name: 'aquaDownloadsFanPill',
             style_class: 'aqua-dl-fan-label-pill',
+            layout_manager: new Clutter.BinLayout(),
             x_expand: true,
             x_align: Clutter.ActorAlign.START,
             y_align: Clutter.ActorAlign.CENTER,
@@ -240,7 +253,26 @@ export class ActorPool {
         });
         label.clutter_text.set_line_wrap(false);
         label.clutter_text.set_ellipsize(2);
-        labelPill.set_child(label);
+        labelPill.add_child(label);
+
+        if (typeof labelPill.set_child !== 'function') {
+            labelPill.set_child = (c) => {
+                labelPill.remove_all_children();
+                if (c) labelPill.add_child(c);
+            };
+        }
+        if (typeof labelPill.get_child !== 'function') {
+            labelPill.get_child = () => label;
+        }
+
+        labelPill.name = 'aquaDownloadsFanPill';
+        labelPill._isAquaDock = true;
+        labelPill._blurType = 'popup';
+        labelPill._dockBlurEnabled = false;
+        labelPill._dockBg = labelPill;
+        labelPill._dockContent = label;
+        labelPill._dockContentParent = labelPill;
+        labelPill._dockBlurRegion = label;
 
         const gap = new St.Widget({
             width: CONTENT_GAP,

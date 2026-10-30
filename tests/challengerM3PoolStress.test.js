@@ -974,7 +974,7 @@ print('\n--- 5. Destruction Safety: pool.clear() & DownloadsStack.destroy() ---'
 print('\n--- 6. AGENTS.md Invariants Verification ---');
 
 {
-    print('[Test 6.1] Invariant 1: Grid & List stack blur enabled, Fan stack strictly disabled...');
+    print('[Test 6.1] Invariant 1: Grid & List stack blur enabled, Fan view pills blur enabled, Fan canvas unblurred...');
 
     const mockDashBlur = {
         enabled: true,
@@ -1031,6 +1031,12 @@ print('\n--- 6. AGENTS.md Invariants Verification ---');
             'INVARIANT VIOLATION: Fan item card must NOT be an Aqua popup target');
         assert(resolveAquaDockTarget(card) === null,
             'INVARIANT VIOLATION: resolveAquaDockTarget must return null for Fan card');
+        assert(card._labelPill._dockBlurEnabled === true,
+            'INVARIANT VIOLATION: Fan item label pill must have _dockBlurEnabled === true');
+        assert(isAquaPopupTarget(card._labelPill) === true,
+            'INVARIANT VIOLATION: Fan item label pill must be an Aqua popup target');
+        assert(resolveAquaDockTarget(card._labelPill) !== null,
+            'INVARIANT VIOLATION: resolveAquaDockTarget must resolve Fan label pill target');
     }
     fanView.releaseRows();
     fanActor.destroy();
@@ -1077,7 +1083,7 @@ print('\n--- 6. AGENTS.md Invariants Verification ---');
     assert(isBmsStackBlurActive({ blurEffect: true, highContrast: true }) === false,
         'isBmsStackBlurActive must return false when highContrast is true');
 
-    print('  ✓ Invariant 1 strictly verified: Grid & List stacks enable blur, Fan stack strictly without blur.');
+    print('  ✓ Invariant 1 strictly verified: Grid, List, and Fan pills enable blur, Fan canvas strictly without blur.');
     pool.clear();
 }
 

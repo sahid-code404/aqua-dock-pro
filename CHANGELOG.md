@@ -2,9 +2,9 @@
 
 ## 295
 
-- Frosted Glass Background Blur for Grid & List Views:
-  - Enabled frosted glass background blur matching the dock pill (`AquaDockSurface` / Blur My Shell popup blur pipeline) on Downloads and custom folder stacks in Grid and List views (`PanelView`, `aquaDownloadsPanel`, `.aqua-dl-panel`).
-  - Maintained Fan view strictly blur-free (`aquaDownloadsFan`, `_dockBlurEnabled = false`), preserving clean authentic solid/translucent dark backgrounds (`.aqua-dl-fan`, `tileStyle.js`) for maximum contrast, readability, and performance.
+- Frosted Glass Background Blur for Stacks (Grid & List Views and Fan View Pills):
+  - Enabled frosted glass background blur matching the dock pill (`AquaDockSurface` / Blur My Shell popup blur pipeline) on Downloads and custom folder stacks in Grid and List views (`PanelView`, `aquaDownloadsPanel`, `.aqua-dl-panel`) as well as Fan View label pills (`aquaDownloadsFanPill`, `.aqua-dl-fan-label-pill`).
+  - Maintained outer Fan view canvas container unblurred (`aquaDownloadsFan`, `_dockBlurEnabled = false`), avoiding unsightly rectangular bounding backdrop blur across the desktop fan arc while ensuring fan item pills render authentic frosted glass.
   - Down-Chevron stack drawer anchor (`aquaStackAnchor`, `.aqua-stack-anchor-tile`) retains full BMS popup blur integration.
 - Super god-level optimization for custom folder and downloads stacks across Fan, Grid, and List views:
   - Stale-While-Revalidate (SWR) & 60s Sliding Cache: Replaced static 3.5-second TTL cache with a 60-second sliding expiration window that refreshes on active interaction and background revalidation (`GLib.idle_add(GLib.PRIORITY_LOW)`) after 8 seconds. Completely eliminates periodic 4th-open stutters during continuous repeated opening and closing.

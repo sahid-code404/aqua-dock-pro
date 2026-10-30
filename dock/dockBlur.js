@@ -88,12 +88,12 @@ export function isBmsTooltipBlurActive(cfg = null) {
 }
 
 /**
- * Evaluates whether Downloads stack views (Grid and List views) should use background blur.
+ * Evaluates whether Downloads stack views (Grid, List, and Fan View pills) should use background blur.
  * Active when blurEffect is enabled, highContrast is off, and Blur My Shell blur is active.
- * Invariant per user directive (2026-10-30): Grid & List views enable blur like the dock pill; Fan view remains without blur.
+ * Invariant per user directive (2026-10-30): Grid, List, and Fan View pills enable frosted blur matching the dock pill.
  *
  * @param {object|null} [cfg=null] - Dock configuration object.
- * @returns {boolean} True if Grid and List stack blur should be rendered.
+ * @returns {boolean} True if Grid, List, and Fan pill stack blur should be rendered.
  */
 export function isBmsStackBlurActive(cfg = null) {
     if (cfg && (!cfg.blurEffect || cfg.highContrast))
@@ -163,11 +163,12 @@ export function isAquaPopupTarget(container) {
     if (container._blurType === 'popup') return true;
     if (container._blurType === 'dock') return false;
     const name = container.name || container.get_name?.();
-    if (name === 'aquaTooltip' || name === 'aquaMenu' || name === 'aquaStackAnchor' || name === 'aquaDownloadsPanel') return true;
+    if (name === 'aquaTooltip' || name === 'aquaMenu' || name === 'aquaStackAnchor' || name === 'aquaDownloadsPanel' || name === 'aquaDownloadsFanPill') return true;
     if (typeof container.has_style_class_name === 'function' &&
         (container.has_style_class_name('aqua-menu') ||
          container.has_style_class_name('aqua-stack-anchor-tile') ||
-         container.has_style_class_name('aqua-dl-panel'))) return true;
+         container.has_style_class_name('aqua-dl-panel') ||
+         container.has_style_class_name('aqua-dl-fan-label-pill'))) return true;
     return false;
 }
 
@@ -278,6 +279,7 @@ export function resolveAquaDockTarget(container) {
         container.name === 'aquaDownloadsPanel' ||
         container.name === 'aquaDownloadsFan' ||
         container.name === 'aquaDownloadsFanItem' ||
+        container.name === 'aquaDownloadsFanPill' ||
         container.name === 'aquaStackAnchor' ||
         container.name === 'aquaTooltip' ||
         container.name === 'aquaMenu' ||
@@ -285,13 +287,15 @@ export function resolveAquaDockTarget(container) {
         container.get_name?.() === 'aquaDownloadsPanel' ||
         container.get_name?.() === 'aquaDownloadsFan' ||
         container.get_name?.() === 'aquaDownloadsFanItem' ||
+        container.get_name?.() === 'aquaDownloadsFanPill' ||
         container.get_name?.() === 'aquaStackAnchor' ||
         container.get_name?.() === 'aquaTooltip' ||
         container.get_name?.() === 'aquaMenu' ||
         (typeof container.has_style_class_name === 'function' &&
             (container.has_style_class_name('aqua-menu') ||
              container.has_style_class_name('aqua-stack-anchor-tile') ||
-             container.has_style_class_name('aqua-dl-panel')))
+             container.has_style_class_name('aqua-dl-panel') ||
+             container.has_style_class_name('aqua-dl-fan-label-pill')))
     );
     if (!isAqua) return null;
     if (container._dockBlurEnabled === false) return null;

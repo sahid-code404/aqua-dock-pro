@@ -15,6 +15,7 @@ import { getRowStyles } from './tileStyle.js';
 import { SelectionModel } from './keyboardNav.js';
 import { buildPlaceIcon } from './placeIcon.js';
 import { ActorPool, stopSubtreeTransitions } from './actorPool.js';
+import { isBmsStackBlurActive, registerBmsTarget, unregisterBmsTarget, setupBackgroundCorners } from '../dock/dockBlur.js';
 
 const LABEL_WIDTH = 86;
 const CONTENT_GAP = 14;
@@ -139,7 +140,9 @@ export class FanView {
         fan._isAquaDock = true;
         fan._dockBlurEnabled = false;
 
-        this._blurActive = false;
+        const radius = cfg.dlItemRadius ?? clamp(cfg.dockRadius ?? 16, 6, 28);
+        const blurActive = isBmsStackBlurActive(cfg);
+        this._blurActive = blurActive;
 
         const dockContainer = this.dockContainer;
         if (dockContainer && typeof Main.uiGroup?.insert_child_below === 'function') {
@@ -167,6 +170,10 @@ export class FanView {
 
             row._isAquaDock = true;
             row._dockBlurEnabled = false;
+
+            if (blurActive && row._labelPill) {
+                registerBmsTarget(row._labelPill, () => radius);
+            }
 
             if (reduce) return;
             const initTx = anchorLX - (fx + iconCx);
@@ -198,6 +205,14 @@ export class FanView {
         fan._blurRegion = null;
         fan._blurRegions = [];
 
+        fan.connect('destroy', () => {
+            for (const r of this._model?.rows ?? []) {
+                if (r._labelPill) {
+                    try { unregisterBmsTarget(r._labelPill); } catch { /* intentionally ignored: BMS target cleanup fallback */ }
+                }
+            }
+        });
+
         if (reduce) {
             fan.opacity = 255;
             rows.forEach(r => {
@@ -227,8 +242,20 @@ export class FanView {
         btn.set_size(w, h);
         if (extraClass) btn.add_style_class_name(extraClass);
         labelPill.set_size(labelPillW, pillH);
+        labelPill.width = labelPillW;
+        labelPill.height = pillH;
         labelPill._dockRadius = radius;
         labelPill.get_dock_radius = () => radius;
+
+        labelPill.name = 'aquaDownloadsFanPill';
+        labelPill._isAquaDock = true;
+        labelPill._blurType = 'popup';
+        labelPill._dockBlurEnabled = this._blurActive;
+        labelPill._dockBg = labelPill;
+        labelPill._dockContent = label;
+        labelPill._dockContentParent = labelPill;
+        labelPill._dockBlurRegion = label;
+        setupBackgroundCorners(labelPill, () => radius);
 
         label.width = this._labelWidth ?? LABEL_WIDTH;
         thumb.set_size(thumbW, thumbH);
@@ -398,6 +425,9 @@ export class FanView {
         for (const row of rows) {
             try {
                 stopSubtreeTransitions(row);
+                if (row._labelPill) {
+                    try { unregisterBmsTarget(row._labelPill); } catch { /* intentionally ignored: BMS target cleanup fallback */ }
+                }
                 const parent = row.get_parent?.();
                 if (parent) parent.remove_child(row);
             } catch { /* intentionally ignored: stack view row or blur actor may already be destroyed */ }

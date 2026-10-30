@@ -294,7 +294,39 @@ shellResource._register();
         'resolveAquaDockTarget must return null for FanView when _dockBlurEnabled is false');
 
     // FanView Item Pill Target Discovery
-    const fanItemPill = { width: 140, height: 32, has_allocation: () => true, _dockRadius: 14, get_dock_radius: () => 14 };
+    const fanItemPill = {
+        name: 'aquaDownloadsFanPill',
+        get_name: () => 'aquaDownloadsFanPill',
+        _isAquaDock: true,
+        _blurType: 'popup',
+        _dockBlurEnabled: true,
+        _dockBg: null,
+        _dockContent: null,
+        _dockContentParent: null,
+        _dockBlurRegion: null,
+        _dockRadius: 14,
+        get_dock_radius: () => 14,
+        width: 140,
+        height: 32,
+        has_allocation: () => true,
+        insert_child_below() {},
+        has_style_class_name(c) { return c === 'aqua-dl-fan-label-pill'; },
+    };
+    fanItemPill._dockBg = fanItemPill;
+    fanItemPill._dockContent = fanItemPill;
+    fanItemPill._dockContentParent = fanItemPill;
+
+    assert(isAquaPopupTarget(fanItemPill) === true,
+        'isAquaPopupTarget must identify aquaDownloadsFanPill as a popup blur target');
+    assert(isAquaPopupTarget({ has_style_class_name: c => c === 'aqua-dl-fan-label-pill' }) === true,
+        'isAquaPopupTarget must identify .aqua-dl-fan-label-pill as a popup blur target');
+
+    const resolvedFanPill = resolveAquaDockTarget(fanItemPill);
+    assert(resolvedFanPill !== null,
+        'resolveAquaDockTarget must resolve Fan pill target when _dockBlurEnabled is true');
+    assert(resolvedFanPill.is_popup === true,
+        'resolvedFanPill must resolve as popup target');
+
     const fanItemRow = {
         get_name: () => 'aquaDownloadsFanItem',
         name: 'aquaDownloadsFanItem',
@@ -477,7 +509,7 @@ shellResource._register();
     assert(!panelOff.style.includes('background-color: transparent;'),
         'panelOff style must use solid background when blurEffect is false');
 
-    // Fan view simulation: bounding and pill blur removed per user directive
+    // Fan view simulation: pill blur enabled matching dock pill when blurEffect is true and BMS is active
     function simulateFanView(cfg, numItems = 3) {
         const radius = cfg.dlItemRadius ?? 16;
         const fan = new MockActor('fan');
@@ -486,6 +518,7 @@ shellResource._register();
         fan.set_style('background-color: transparent; border: none;');
         fan._dockBlurEnabled = false;
 
+        const isBlur = Boolean(cfg.blurEffect) && Boolean(globalThis.global?.blur_my_shell);
         const items = [];
 
         for (let i = 0; i < numItems; i++) {
@@ -495,13 +528,17 @@ shellResource._register();
             row.height = 44;
 
             const labelPill = new MockActor(`label-pill-${i}`);
+            labelPill.name = 'aquaDownloadsFanPill';
+            labelPill._isAquaDock = true;
+            labelPill._blurType = 'popup';
+            labelPill._dockBlurEnabled = isBlur;
             labelPill.width = 120;
             labelPill.height = 28;
             labelPill._dockRadius = radius;
             labelPill.get_dock_radius = () => radius;
 
             const thumb = new MockActor(`thumb-${i}`);
-            applyTileStyle(cfg, labelPill, new MockActor('label'), thumb, 8, false, '6px 14px', false);
+            applyTileStyle(cfg, labelPill, new MockActor('label'), thumb, 8, false, '6px 14px', isBlur);
 
             row._isAquaDock = true;
             row._dockBlurEnabled = false;
@@ -527,9 +564,10 @@ shellResource._register();
         assert(item.row._dockBlurEnabled === false, 'item row blur must be disabled');
         assert(item.row._dockRadius === 16, 'item row _dockRadius matches item radius');
         assert(item.row.effects.length === 0, 'row has NO native blur effect attached');
-        assert(item.labelPill.effects.length === 0, 'labelPill has NO native blur effect attached');
+        assert(item.labelPill._isAquaDock === true, 'labelPill is marked as AquaDock');
+        assert(item.labelPill._dockBlurEnabled === false, 'labelPill blur must be disabled when BMS is absent');
         assert(!item.labelPill.style.includes('background-color: transparent;'),
-            'item pill must have solid background when blur is disabled');
+            'item pill must have solid background when BMS is absent');
         assert(item.labelPill.style.includes('border-radius: 16px;'),
             'item pill must have rounded corners');
     }
@@ -556,6 +594,7 @@ shellResource._register();
     assert(fanOff._dockBlurEnabled === false, 'fanOff has bounding blur disabled');
     for (const item of itemsOff) {
         assert(item.row._dockBlurEnabled === false, 'item row blur must be disabled when blurEffect is false');
+        assert(item.labelPill._dockBlurEnabled === false, 'item labelPill blur must be disabled when blurEffect is false');
         assert(!item.labelPill.style.includes('background-color: transparent;'),
             'item pill must have solid background when blurEffect is false');
     }
@@ -759,11 +798,17 @@ shellResource._register();
         assert(isAquaPopupTarget({ has_style_class_name: c => c === 'aqua-dl-list' || c === 'aqua-dl-panel' }) === true,
             'isAquaPopupTarget must identify list view stack as popup');
 
-        // Fan view must strictly NOT be a popup blur target
+        // Fan view container must strictly NOT be a popup blur target (prevents giant bounding blur box)
         assert(isAquaPopupTarget({ name: 'aquaDownloadsFan' }) === false,
             'isAquaPopupTarget must NOT identify aquaDownloadsFan as popup');
         assert(isAquaPopupTarget({ has_style_class_name: c => c === 'aqua-dl-fan' }) === false,
             'isAquaPopupTarget must NOT identify .aqua-dl-fan as popup');
+
+        // Fan view item label pill IS a popup blur target
+        assert(isAquaPopupTarget({ name: 'aquaDownloadsFanPill' }) === true,
+            'isAquaPopupTarget must identify aquaDownloadsFanPill as popup');
+        assert(isAquaPopupTarget({ has_style_class_name: c => c === 'aqua-dl-fan-label-pill' }) === true,
+            'isAquaPopupTarget must identify .aqua-dl-fan-label-pill as popup');
 
         // Test resolution of grid and list view stack targets
         const gridPanel = {
@@ -793,6 +838,25 @@ shellResource._register();
         const resolvedList = resolveAquaDockTarget(listPanel);
         assert(resolvedList !== null, 'resolveAquaDockTarget must resolve list stack target when _dockBlurEnabled is true');
         assert(resolvedList.is_popup === true, 'list stack must resolve as is_popup');
+
+        // Test Fan View pill blur target resolution when blur is active
+        const fanPillTarget = {
+            name: 'aquaDownloadsFanPill',
+            _isAquaDock: true,
+            _blurType: 'popup',
+            _dockBlurEnabled: true,
+            _dockRadius: 16,
+            _dockBg: null,
+            _dockContent: null,
+            _dockContentParent: null,
+            has_style_class_name: c => c === 'aqua-dl-fan-label-pill',
+        };
+        fanPillTarget._dockBg = fanPillTarget;
+        fanPillTarget._dockContent = fanPillTarget;
+        fanPillTarget._dockContentParent = fanPillTarget;
+        const resolvedFanPillInSec7 = resolveAquaDockTarget(fanPillTarget);
+        assert(resolvedFanPillInSec7 !== null, 'resolveAquaDockTarget must resolve fan pill target when _dockBlurEnabled is true');
+        assert(resolvedFanPillInSec7.is_popup === true, 'fan pill must resolve as is_popup');
 
         // Test blur activation logic
         assert(isBmsStackBlurActive({ blurEffect: false }) === false,
