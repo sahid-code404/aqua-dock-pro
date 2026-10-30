@@ -19,6 +19,13 @@ assert(left.curveSign === 1 && left.thumbnailFirst,
 assert(right.curveSign === -1 && !right.thumbnailFirst,
     'right-dock fan is not mirrored toward the left');
 
+const leftUpper = fanOrientation('LEFT', 150, monitor);
+const rightMixed = fanOrientation('Right', 1650, monitor);
+assert(leftUpper.curveSign === 1 && leftUpper.thumbnailFirst,
+    'uppercase LEFT fanOrientation failed');
+assert(rightMixed.curveSign === -1 && !rightMixed.thumbnailFirst,
+    'mixed case Right fanOrientation failed');
+
 const thickness = 84;
 const panelWidth = 320;
 const clearance = STACK_CLEARANCE;
@@ -30,6 +37,11 @@ const rightOrigin = 1650;
 const rightX = sideFanX('right', rightOrigin, thickness, panelWidth);
 assert(rightX + panelWidth === rightOrigin - thickness / 2 - clearance,
     'right fan does not clear the dock edge');
+
+const leftUpperX = sideFanX('LEFT', leftOrigin, thickness, panelWidth);
+assert(leftUpperX === leftX, 'uppercase LEFT sideFanX failed');
+const rightMixedX = sideFanX('Right', rightOrigin, thickness, panelWidth);
+assert(rightMixedX === rightX, 'mixed case Right sideFanX failed');
 
 const iconTop = 800;
 const popupBottom = 144;

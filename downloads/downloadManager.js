@@ -210,8 +210,14 @@ export class DownloadManager {
             const isSame = (this._stack.anchor === item) ||
                 (this._activeItem === item) ||
                 (folderUri && this._stack.currentFolderUri === folderUri);
-            this.closeStack();
+            this.closeStack(!isSame);
             if (isSame) return;
+        } else if (this._activeItem && this._activeItem !== item) {
+            try { this._activeItem.setStackOpenState?.(false, false); } catch { /* intentionally ignored */ }
+            this._activeItem = null;
+        }
+        if (this._stack.anchor && this._stack.anchor !== item) {
+            try { this._stack.anchor.setStackOpenState?.(false, false); } catch { /* intentionally ignored */ }
         }
 
         this._activeItem = item;
@@ -232,9 +238,9 @@ export class DownloadManager {
         }, { title, gicon });
     }
 
-    closeStack() {
+    closeStack(immediate = false) {
         if (this._activeItem) {
-            try { this._activeItem.setStackOpenState?.(false); } catch { /* intentionally ignored: stack item actor may already be destroyed or unparented */ }
+            try { this._activeItem.setStackOpenState?.(false, !immediate); } catch { /* intentionally ignored: stack item actor may already be destroyed or unparented */ }
             this._activeItem = null;
         }
         this._host?.setMagnificationSuppressed?.(false);

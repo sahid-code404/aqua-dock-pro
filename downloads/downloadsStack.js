@@ -41,7 +41,7 @@ export class DownloadsStack {
         });
     }
 
-    get isOpen() { return this._opening || !!(this._view || (this._blocker && this._blocker.visible)); }
+    get isOpen() { return this._opening || !!(this._view || this._dying || (this._blocker && this._blocker.visible)); }
     get view() { return this._view; }
     get blurRegion() { return this._view?.blurRegion ?? null; }
     get anchor() { return this._anchor; }
@@ -90,20 +90,35 @@ export class DownloadsStack {
         catch (e) {
             logError(e, 'enumerateRecent');
             if (gen === this._showGen) this.hide();
+            else if (this._anchor !== anchor) {
+                try { anchor.setStackOpenState?.(false, false); } catch { /* intentionally ignored */ }
+            }
             return;
         }
-        if (gen !== this._showGen) return;        // superseded or destroyed
+        if (gen !== this._showGen) {
+            if (this._anchor !== anchor) {
+                try { anchor.setStackOpenState?.(false, false); } catch { /* intentionally ignored */ }
+            }
+            return;        // superseded or destroyed
+        }
         if (listing.error) {
             this._cancellable = null;
             if (!cancellable.is_cancelled())
                 logError(listing.error, 'enumerateRecent');
             if (gen === this._showGen) this.hide();
+            else if (this._anchor !== anchor) {
+                try { anchor.setStackOpenState?.(false, false); } catch { /* intentionally ignored */ }
+            }
             return;
         }
         this._cancellable = null;
 
         const mon = this._getMonitor?.();
-        if (!mon) { this.hide(); return; }
+        if (!mon) {
+            this.hide();
+            try { anchor.setStackOpenState?.(false, false); } catch { /* intentionally ignored */ }
+            return;
+        }
         const origin = this._origin(anchor, mon, cfg);
         const dockContainer = this._resolveDockContainer(anchor);
 
@@ -174,8 +189,6 @@ export class DownloadsStack {
         this._cancellable?.cancel();
         this._cancellable = null;
         this._opening = false;
-        this._anchor = null;
-        this._currentFolderUri = null;
         const view = this._view;
         const onClose = this._onClose;
         this._view = null;
@@ -185,10 +198,15 @@ export class DownloadsStack {
             this._blocker.visible = false;
         }
         if (onClose) { try { onClose(); } catch (e) { logError(e, 'downloads onClose'); } }
-        if (!view) return;
+        if (!view) {
+            this._anchor = null;
+            this._currentFolderUri = null;
+            return;
+        }
 
         // Kill a previous still-dying actor so we never stack two fades.
         if (this._dying) {
+            try { this._dyingView?.settleAnimations?.(); } catch { /* intentionally ignored: view animation settlement failed during stack closing */ }
             this._dyingView?.releaseRows?.();
             this._destroyActor(this._dying);
             this._dying = null;
@@ -196,10 +214,15 @@ export class DownloadsStack {
         }
         this._dying = view.actor;
         this._dyingView = view;
+        const dyingAnchor = this._anchor;
         view.animateClose(() => {
             if (this._dying === view.actor) {
                 this._dying = null;
                 this._dyingView = null;
+                if (this._anchor === dyingAnchor) {
+                    this._anchor = null;
+                    this._currentFolderUri = null;
+                }
             }
             this._destroyActor(view.actor);
         });

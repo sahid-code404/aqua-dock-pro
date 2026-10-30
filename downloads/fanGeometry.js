@@ -13,9 +13,10 @@ export const STACK_CLEARANCE = 18;
  * @returns {{ curveSign: number, thumbnailFirst: boolean }} Curvature sign (+1 or -1) and thumbnail ordering flag.
  */
 export function fanOrientation(position, originX, monitor) {
-    if (position === 'left')
+    const pos = (position ?? 'bottom').toLowerCase();
+    if (pos === 'left')
         return { curveSign: 1, thumbnailFirst: true };
-    if (position === 'right')
+    if (pos === 'right')
         return { curveSign: -1, thumbnailFirst: false };
 
     const middle = monitor.x + monitor.width / 2;
@@ -38,9 +39,10 @@ export function fanOrientation(position, originX, monitor) {
 export function sideFanX(
     position, originX, dockThickness, panelWidth, clearance = STACK_CLEARANCE
 ) {
-    if (position === 'left')
+    const pos = (position ?? 'bottom').toLowerCase();
+    if (pos === 'left')
         return originX + dockThickness / 2 + clearance;
-    if (position === 'right')
+    if (pos === 'right')
         return originX - dockThickness / 2 - clearance - panelWidth;
     return null;
 }

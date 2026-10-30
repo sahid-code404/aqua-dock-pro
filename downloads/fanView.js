@@ -103,7 +103,8 @@ export class FanView {
         }
         const offsets = FAN_CELL_OFFSETS[n] ?? getFanCellOffsets(n);
         const cells = new Array(n);
-        const curveMul = orientation.curveSign * 45;
+        const curveMax = clamp(Math.round(mon.width * 0.055), 110, 160);
+        const curveMul = orientation.curveSign * curveMax;
         for (let i = 0; i < n; i++) {
             const off = offsets[i];
             cells[i] = {
@@ -428,18 +429,21 @@ export class FanView {
      */
     releaseRows() {
         const pool = this.pool ?? this._fallbackPool;
-        if (!pool) return;
         const rows = this._model?.rows ?? [];
         for (const row of rows) {
             try {
                 stopSubtreeTransitions(row);
+                row.translation_x = 0;
+                row.translation_y = 0;
+                row.set_scale(1.0, 1.0);
+                row.opacity = 255;
                 if (row._labelPill) {
                     try { unregisterBmsTarget(row._labelPill); } catch { /* intentionally ignored: BMS target cleanup fallback */ }
                 }
                 const parent = row.get_parent?.();
                 if (parent) parent.remove_child(row);
             } catch { /* intentionally ignored: stack view row or blur actor may already be destroyed */ }
-            pool.releaseFanItem(row);
+            pool?.releaseFanItem(row);
         }
         this._model?.setRows([]);
     }

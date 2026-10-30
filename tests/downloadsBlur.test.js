@@ -780,6 +780,41 @@ shellResource._register();
     assert(suppressionCalls[suppressionCalls.length - 1] === false,
         'setMagnificationSuppressed(false) called on stack close');
 
+    // Rapid item switch: item A must snap closed immediately with animate = false
+    const itemAStateCalls = [];
+    const mockItemA = {
+        entry: { kind: 'downloads' },
+        bounce() {},
+        gicon: null,
+        setStackOpenState(isOpen, animate) {
+            this.isOpenState = isOpen;
+            itemAStateCalls.push({ isOpen, animate });
+        },
+    };
+    const mockFolderA = { get_uri: () => 'file:///home/user/Downloads' };
+    const mockItemB = {
+        entry: { kind: 'folder' },
+        bounce() {},
+        gicon: null,
+        setStackOpenState(isOpen, animate) {
+            this.isOpenState = isOpen;
+        },
+    };
+    const mockFolderB = { get_uri: () => 'file:///home/user/Screenshots' };
+
+    dlMgr.openFolderStack(mockItemA, mockFolderA);
+    assert(dlMgr.activeItem === mockItemA, 'activeItem set to mockItemA');
+    assert(mockItemA.isOpenState === true, 'mockItemA open state is true');
+
+    dlMgr.openFolderStack(mockItemB, mockFolderB);
+    assert(dlMgr.activeItem === mockItemB, 'activeItem switched to mockItemB');
+    assert(mockItemA.isOpenState === false, 'mockItemA open state closed on item switch');
+    const lastACall = itemAStateCalls[itemAStateCalls.length - 1];
+    assert(lastACall?.isOpen === false && lastACall?.animate === false,
+        'item A must close immediately (animate = false) when switching to item B');
+    assert(mockItemB.isOpenState === true, 'mockItemB opened');
+    dlMgr.closeStack();
+
     // ── 7. Downloads & Folder Stack Blur Verification (Grid & List enabled, Fan disabled) ──
     {
         const {

@@ -2,6 +2,11 @@
 
 ## 295
 
+- Stack Open/Close Lifecycle Hardening & Curvature Polish:
+  - Dual Stack Anchor Illumination Glitch Resolution: Synchronously snap closed any prior active stack anchor (`immediate = true` / 0ms) when switching between dock folder/downloads items in `downloads/downloadManager.js`, eliminating simultaneous dual down-chevron highlights.
+  - Ghost Stack Open & Abandoned Promise Guard: Defensively shut abandoned or superseded stack anchors (`setStackOpenState(false, false)`) in `downloads/downloadsStack.js` if asynchronous directory enumeration is superseded, cancelled, or encounters an error, preventing stuck illuminated down-chevrons without an open popup.
+  - Scale 0.25 Clustered Stack Squishing Prevention: Included `this._dying` in `DownloadsStack.isOpen` to correctly track in-flight dismissal states, and explicitly reset item geometry (`translation_x = 0; translation_y = 0; set_scale(1.0, 1.0); opacity = 255;`) in `fanView.js:releaseRows()` before returning cards to the actor pool.
+  - Responsive Mac-Style Fan Arc Curvature: Replaced static 45px deflection with monitor-scaled dynamic curvature (`clamp(Math.round(mon.width * 0.055), 110, 160)`), rendering an authentic, graceful macOS fan arc across widescreen (1080p, 1600p, 4K) displays while safely handling case-insensitive dock edge orientations.
 - Zero-Stutter Instant Stack Emergence & Shader Signal Silencing:
   - Immediate Cold-Start GPU Texture Warming: Ensured `warmTextureCache(res.files)` runs immediately on Phase 2 enumeration completion before resolving listings in `downloads/fileEnumerator.js`, completely eliminating cold-start texture decoding frame drops.
   - Startup Idle Prewarming: Introduced `prewarmStartupFolders` in `downloads/fileEnumerator.js` scheduled at idle startup via `GLib.idle_add(GLib.PRIORITY_LOW)` in `downloads/downloadManager.js`, keeping Downloads and user custom folders hot in memory.
