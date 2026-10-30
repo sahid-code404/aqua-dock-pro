@@ -363,6 +363,11 @@ export class AquaDockSurface {
             'notify::height',
             'notify::visible',
             'notify::mapped',
+            'notify::opacity',
+            'notify::scale-x',
+            'notify::scale-y',
+            'notify::translation-x',
+            'notify::translation-y',
         ];
 
         for (const sig of GEOMETRY_SIGNALS) {
@@ -480,21 +485,28 @@ export class AquaDockSurface {
 
     update_visibility() {
         if (!this.background_group) return;
+        const parent = this.background_group.get_parent?.();
         let opacity = 255;
         let visible = true;
-        for (const actor of [this.dash_container, this.dash, this.dash_background]) {
-            if (actor) {
+
+        if (parent && (parent === this.dash_container || parent === this.dash)) {
+            // Background group is nested directly inside the dock or popup container.
+            // Clutter already modulates parent opacity down to children in the scene graph.
+            visible = (this.dash_container?.visible ?? true) && (this.dash_background?.visible ?? true);
+        } else {
+            const uniqueActors = new Set([this.dash_container, this.dash, this.dash_background].filter(Boolean));
+            for (const actor of uniqueActors) {
                 opacity = Math.round(opacity * ((actor.opacity ?? 255) / 255));
                 visible = visible && (actor.visible ?? true);
             }
+            let ancestor = (this.dash ?? this.dash_container)?.get_parent?.();
+            while (ancestor && ancestor !== parent) {
+                opacity = Math.round(opacity * ((ancestor.opacity ?? 255) / 255));
+                visible = visible && (ancestor.visible ?? true);
+                ancestor = ancestor.get_parent?.();
+            }
         }
-        let ancestor = (this.dash ?? this.dash_container)?.get_parent?.();
-        const parent = this.background_group.get_parent?.();
-        while (ancestor && ancestor !== parent) {
-            opacity = Math.round(opacity * ((ancestor.opacity ?? 255) / 255));
-            visible = visible && (ancestor.visible ?? true);
-            ancestor = ancestor.get_parent?.();
-        }
+
         const unblurInOverview = !this._isPopupType && Boolean(this.settings?.dash_to_dock?.UNBLUR_IN_OVERVIEW);
         const overviewVisible = Boolean(Main.overview?.visible);
         if (this.background_group.opacity !== undefined)

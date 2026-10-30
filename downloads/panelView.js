@@ -75,18 +75,24 @@ export class PanelView {
         const tiles = shown.map(info => this._row(info, view, thumbSz));
         if (more > 0) tiles.push(this._moreRow(more, view, thumbSz, firstHidden));
 
-        const panel = new St.BoxLayout({
+        const panel = new St.Widget({
             name: 'aquaDownloadsPanel',
             style_class: `aqua-dl-panel aqua-dl-${view}`,
-            orientation: Clutter.Orientation.VERTICAL,
+            layout_manager: new Clutter.BinLayout(),
             reactive: true,
             can_focus: true,
         });
         panel.name = 'aquaDownloadsPanel';
         this._actor = panel;
         if (cfg.highContrast) panel.add_style_class_name('aqua-high-contrast');
-        panel.add_child(this._header(folder, this.totalFiles ?? files.length));
-        panel.add_child(new St.Widget({ style_class: 'aqua-dl-divider' }));
+
+        const content = new St.BoxLayout({
+            orientation: Clutter.Orientation.VERTICAL,
+            x_expand: true,
+            y_expand: true,
+        });
+        content.add_child(this._header(folder, this.totalFiles ?? files.length));
+        content.add_child(new St.Widget({ style_class: 'aqua-dl-divider' }));
 
         let box;
         if (view === 'grid') {
@@ -114,7 +120,7 @@ export class PanelView {
             box.get_layout_manager().set_spacing(rowSpacing);
             for (const t of tiles) box.add_child(t);
         }
-        panel.add_child(box);
+        content.add_child(box);
 
         panel.set_width(panelW);
         const a = clamp(cfg.bgOpacity ?? 0.8, 0.1, 1.0).toFixed(2);
@@ -141,6 +147,8 @@ export class PanelView {
                 name: 'aquaDownloadsPanelBlurRegion',
                 style_class: 'aqua-blur-region',
                 reactive: false,
+                x_expand: true,
+                y_expand: true,
             });
             blurRegion._isAquaDock = true;
             blurRegion._blurType = 'popup';
@@ -148,8 +156,11 @@ export class PanelView {
             blurRegion.get_dock_radius = () => radius;
             blurRegion.set_style(`border-radius: ${radius}px;`);
             setupBackgroundCorners(blurRegion, () => radius);
+            panel.add_child(blurRegion);
         }
         this._blurRegion = blurRegion;
+
+        panel.add_child(content);
 
         panel._isAquaDock = true;
         panel._blurType = 'popup';
@@ -158,7 +169,7 @@ export class PanelView {
         panel.get_dock_radius = () => radius;
         panel._dockBg = panel;
         panel._dockContent = panel;
-        panel._dockContentParent = Main.uiGroup;
+        panel._dockContentParent = panel;
         if (blurRegion) {
             panel._blurRegion = blurRegion;
             panel._dockBlurRegion = blurRegion;
@@ -166,29 +177,18 @@ export class PanelView {
         setupBackgroundCorners(panel, () => radius);
 
         const dockContainer = this.dockContainer;
-        if (blurRegion) {
-            if (dockContainer && typeof Main.uiGroup?.insert_child_below === 'function') {
-                Main.uiGroup.insert_child_below(blurRegion, dockContainer);
-                Main.uiGroup.insert_child_above(panel, blurRegion);
-            } else if (Main.uiGroup?.add_child) {
-                Main.uiGroup.add_child(blurRegion);
-                Main.uiGroup.add_child(panel);
-            }
-        } else {
-            if (dockContainer && typeof Main.uiGroup?.insert_child_below === 'function') {
-                Main.uiGroup.insert_child_below(panel, dockContainer);
-            } else if (Main.uiGroup?.add_child) {
-                Main.uiGroup.add_child(panel);
-            }
+        if (dockContainer && typeof Main.uiGroup?.insert_child_below === 'function') {
+            Main.uiGroup.insert_child_below(panel, dockContainer);
+        } else if (Main.uiGroup?.add_child) {
+            Main.uiGroup.add_child(panel);
         }
 
         panel.connect('destroy', () => {
             unregisterBmsTarget(panel);
-            try { blurRegion?.destroy(); } catch { /* intentionally ignored: blur region destroyed */ }
         });
 
         this._fileMenu.bind(panel);
-        const [, natH] = panel.get_preferred_height(panelW);
+        const [, natH] = content.get_preferred_height(panelW);
         const sideX = sideFanX(cfg.position, originX, cfg.dockH, panelW);
         const targetX = sideX ?? originX - panelW / 2;
         const targetY = cfg.vertical ? ay - natH / 2 : ay - natH - panelGap;
@@ -228,13 +228,6 @@ export class PanelView {
         panel.set_pivot_point(pivotX, pivotY);
         this._pivot = { x: pivotX, y: pivotY };
         this._trans = { x: transX, y: transY };
-
-        if (blurRegion) {
-            blurRegion.set_position(px, py);
-            blurRegion.set_size(panelW, natH);
-            blurRegion.set_pivot_point(pivotX, pivotY);
-            blurRegion.opacity = 0;
-        }
 
         if (blurActive) {
             registerBmsTarget(panel, () => radius);
@@ -412,7 +405,6 @@ export class PanelView {
             return;
         }
 
-        const bmsGroup = panel._aquaDockSurface?.background_group;
         const initScale = 0.80;
         const transX = this._trans?.x ?? 0;
         const transY = this._trans?.y ?? 18;
@@ -435,50 +427,6 @@ export class PanelView {
             duration: 160,
             mode: Clutter.AnimationMode.EASE_OUT_QUAD,
         });
-
-        if (this._blurRegion && blurEnabled) {
-            if (this._pivot) this._blurRegion.set_pivot_point?.(this._pivot.x, this._pivot.y);
-            this._blurRegion.set_scale(initScale, initScale);
-            this._blurRegion.translation_x = transX;
-            this._blurRegion.translation_y = transY;
-            this._blurRegion.opacity = 0;
-            this._blurRegion.ease({
-                scale_x: 1,
-                scale_y: 1,
-                translation_x: 0,
-                translation_y: 0,
-                duration: 250,
-                mode: Clutter.AnimationMode.EASE_OUT_BACK,
-            });
-            this._blurRegion.ease({
-                opacity: 255,
-                duration: 160,
-                mode: Clutter.AnimationMode.EASE_OUT_QUAD,
-            });
-        }
-
-        if (bmsGroup && blurEnabled) {
-            try {
-                if (this._pivot) bmsGroup.set_pivot_point?.(this._pivot.x, this._pivot.y);
-                bmsGroup.set_scale?.(initScale, initScale);
-                bmsGroup.translation_x = transX;
-                bmsGroup.translation_y = transY;
-                bmsGroup.opacity = 0;
-                bmsGroup.ease?.({
-                    scale_x: 1,
-                    scale_y: 1,
-                    translation_x: 0,
-                    translation_y: 0,
-                    duration: 250,
-                    mode: Clutter.AnimationMode.EASE_OUT_BACK,
-                });
-                bmsGroup.ease?.({
-                    opacity: 255,
-                    duration: 160,
-                    mode: Clutter.AnimationMode.EASE_OUT_QUAD,
-                });
-            } catch { /* intentionally ignored: stack view actor property update failed on disposed actor */ }
-        }
 
         for (const tile of tiles) {
             tile.opacity = 255;
@@ -520,29 +468,6 @@ export class PanelView {
             actor.translation_y = 0;
             actor.set_scale(1, 1);
         } catch { /* intentionally ignored: stack view row or blur actor may already be destroyed */ }
-        if (this._blurRegion) {
-            try {
-                this._blurRegion.remove_all_transitions();
-                if (this._blurActive) {
-                    this._blurRegion.opacity = 255;
-                    this._blurRegion.translation_x = 0;
-                    this._blurRegion.translation_y = 0;
-                    this._blurRegion.set_scale(1, 1);
-                }
-            } catch { /* intentionally ignored: stack view row or blur actor may already be destroyed */ }
-        }
-        const bmsGroup = actor?._aquaDockSurface?.background_group;
-        if (bmsGroup) {
-            try {
-                bmsGroup.remove_all_transitions();
-                if (this._blurActive) {
-                    bmsGroup.opacity = 255;
-                    bmsGroup.translation_x = 0;
-                    bmsGroup.translation_y = 0;
-                    bmsGroup.set_scale(1, 1);
-                }
-            } catch { /* intentionally ignored: stack view row or blur actor may already be destroyed */ }
-        }
         for (const tile of this._model.rows) {
             try {
                 stopSubtreeTransitions(tile);
@@ -575,13 +500,6 @@ export class PanelView {
         const actor = this._actor;
         if (!actor) { onDone(); return; }
         stopSubtreeTransitions(actor);
-        if (this._blurRegion) {
-            try { this._blurRegion.remove_all_transitions(); } catch { /* intentionally ignored: stack view row or blur actor may already be destroyed */ }
-        }
-        const bmsGroup = actor?._aquaDockSurface?.background_group;
-        if (bmsGroup) {
-            try { bmsGroup.remove_all_transitions(); } catch { /* intentionally ignored: stack view row or blur actor may already be destroyed */ }
-        }
         if (this._reduce || !animationsEnabled()) {
             this.releaseRows();
             onDone();
@@ -599,31 +517,6 @@ export class PanelView {
         const transY = this._trans?.y ?? 18;
         const closeDuration = 150;
         const closeMode = Clutter.AnimationMode.EASE_IN_CUBIC;
-
-        if (this._blurRegion && this._blurActive) {
-            this._blurRegion.ease({
-                opacity: 0,
-                scale_x: targetScale,
-                scale_y: targetScale,
-                translation_x: transX,
-                translation_y: transY,
-                duration: closeDuration,
-                mode: closeMode,
-            });
-        }
-        if (bmsGroup && this._blurActive) {
-            try {
-                bmsGroup.ease?.({
-                    opacity: 0,
-                    scale_x: targetScale,
-                    scale_y: targetScale,
-                    translation_x: transX,
-                    translation_y: transY,
-                    duration: closeDuration,
-                    mode: closeMode,
-                });
-            } catch { /* intentionally ignored: stack view actor property update failed on disposed actor */ }
-        }
 
         actor.ease({
             opacity: 0,
