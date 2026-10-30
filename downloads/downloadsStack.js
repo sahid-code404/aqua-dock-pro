@@ -2,6 +2,7 @@
 
 import Clutter from 'gi://Clutter';
 import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
 import St from 'gi://St';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
@@ -33,6 +34,11 @@ export class DownloadsStack {
         this._anchor = null;
         this._currentFolderUri = null;
         this._pool = new ActorPool(16);
+        this._prewarmId = GLib.idle_add(GLib.PRIORITY_LOW, () => {
+            this._prewarmId = 0;
+            try { this._pool?.prewarm(12); } catch { /* intentionally ignored: pool prewarm failed */ }
+            return GLib.SOURCE_REMOVE;
+        });
     }
 
     get isOpen() { return this._opening || !!(this._blocker || this._view); }
@@ -217,6 +223,10 @@ export class DownloadsStack {
     }
 
     destroy() {
+        if (this._prewarmId) {
+            GLib.source_remove(this._prewarmId);
+            this._prewarmId = 0;
+        }
         this._showGen++;
         this._destroyNow();
         this._pool?.clear();

@@ -208,11 +208,14 @@ export class PanelView {
         const thumbRadius = Math.round(Math.min(thumbW, thumbH) * 0.22);
 
         thumb.set_size(thumbW, thumbH);
+        thumb.width = thumbW;
+        thumb.height = thumbH;
         const iconSize = Math.round(Math.min(thumbW, thumbH) * 0.78);
         const gicon = iconForInfo(info);
         if (icon && !icon.is_destroyed?.()) {
             icon.gicon = gicon;
             icon.icon_size = iconSize;
+            icon.set_size(iconSize, iconSize);
             if (thumb.get_child() !== icon) thumb.set_child(icon);
         } else {
             const newIcon = new St.Icon({
@@ -220,6 +223,7 @@ export class PanelView {
                 icon_size: iconSize,
                 style_class: 'aqua-dl-fan-icon',
             });
+            newIcon.set_size(iconSize, iconSize);
             row._icon = newIcon;
             thumb.set_child(newIcon);
         }
@@ -257,11 +261,14 @@ export class PanelView {
         const thumbRadius = Math.round(Math.min(thumbW, thumbH) * 0.22);
 
         thumb.set_size(thumbW, thumbH);
+        thumb.width = thumbW;
+        thumb.height = thumbH;
         const iconSize = Math.round(Math.min(thumbW, thumbH) * 0.72);
         const gicon = firstHidden ? iconForInfo(firstHidden) : getCachedThemedIcon('folder-download');
         if (icon && !icon.is_destroyed?.()) {
             icon.gicon = gicon;
             icon.icon_size = iconSize;
+            icon.set_size(iconSize, iconSize);
             if (thumb.get_child() !== icon) thumb.set_child(icon);
         } else {
             const newIcon = new St.Icon({
@@ -269,6 +276,7 @@ export class PanelView {
                 icon_size: iconSize,
                 style_class: 'aqua-dl-fan-icon',
             });
+            newIcon.set_size(iconSize, iconSize);
             row._icon = newIcon;
             thumb.set_child(newIcon);
         }
@@ -386,11 +394,10 @@ export class PanelView {
                 } catch { /* intentionally ignored: stack view actor property update failed on disposed actor */ }
             }
         }
-        tiles.forEach((tile, i) => {
-            tile.opacity = 0; tile.translation_y = 6;
-            const delay = view === 'grid' ? 50 + Math.floor(i / GRID_COLS) * 30 : 50 + i * 22;
-            tile.ease({ opacity: 255, translation_y: 0, duration: 200, delay, mode: Clutter.AnimationMode.EASE_OUT_QUAD });
-        });
+        for (const tile of tiles) {
+            tile.opacity = 255;
+            tile.translation_y = 0;
+        }
     }
 
     handleKey(ev) {

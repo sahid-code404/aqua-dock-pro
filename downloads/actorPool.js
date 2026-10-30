@@ -18,6 +18,23 @@ export class ActorPool {
     }
 
     /**
+     * Prewarm the pool during idle time to eliminate first-open allocation stutter.
+     * @param {number} [count=12] Target number of items to pre-instantiate
+     */
+    prewarm(count = 12) {
+        if (typeof global === 'undefined' || !global.stage) return;
+        const target = Math.min(count, this._maxCapacity);
+        while (this._panelPool.length < target) {
+            const card = this._factory?.createPanelCard ? this._factory.createPanelCard('grid') : this._createPanelCard('grid');
+            this._panelPool.push(card);
+        }
+        while (this._fanPool.length < target) {
+            const card = this._factory?.createFanCard ? this._factory.createFanCard() : this._createFanCard();
+            this._fanPool.push(card);
+        }
+    }
+
+    /**
      * Acquire a fan item card from the pool or create a new composite.
      * @returns {object} { btn, box, labelPill, label, gap, thumb, icon }
      */
