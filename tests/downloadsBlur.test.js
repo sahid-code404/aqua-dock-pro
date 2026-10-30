@@ -200,15 +200,15 @@ shellResource._register();
         unregisterBmsTarget,
     } = await import('../dock/dockBlur.js');
 
-    // PanelView Target Discovery & Popup Classification (Stack blur disabled per user directive)
+    // PanelView Target Discovery & Popup Classification (Grid & List views enable blur like dock pill)
     const panelContainer = {
         get_name: () => 'aquaDownloadsPanel',
         name: 'aquaDownloadsPanel',
         _isAquaDock: true,
-        _blurType: null,
+        _blurType: 'popup',
         _dockBg: null,
         _dockBlurRegion: null,
-        _dockBlurEnabled: false,
+        _dockBlurEnabled: true,
         _dockRadius: 22,
         get_children: () => [],
         has_allocation: () => true,
@@ -220,14 +220,27 @@ shellResource._register();
     };
     panelContainer._dockBg = panelContainer;
 
-    assert(isAquaPopupTarget(panelContainer) === false,
-        'isAquaPopupTarget must return false for aquaDownloadsPanel when stack blur is disabled');
-    assert(isAquaPopupTarget({ has_style_class_name: c => c === 'aqua-dl-panel' }) === false,
-        'isAquaPopupTarget must return false for .aqua-dl-panel when stack blur is disabled');
+    assert(isAquaPopupTarget(panelContainer) === true,
+        'isAquaPopupTarget must return true for aquaDownloadsPanel when blur is enabled');
+    assert(isAquaPopupTarget({ has_style_class_name: c => c === 'aqua-dl-panel' }) === true,
+        'isAquaPopupTarget must return true for .aqua-dl-panel when blur is enabled');
 
-    // Downloads stacks have _dockBlurEnabled = false
-    assert(resolveAquaDockTarget(panelContainer) === null,
-        'resolveAquaDockTarget must return null for PanelView when _dockBlurEnabled is false');
+    // PanelView resolves to a BMS target when _dockBlurEnabled is true
+    const resolvedPanel = resolveAquaDockTarget(panelContainer);
+    assert(resolvedPanel !== null, 'resolveAquaDockTarget must resolve PanelView when _dockBlurEnabled is true');
+    assert(resolvedPanel.is_popup === true, 'PanelView must resolve as popup');
+
+    // FanView strictly has _dockBlurEnabled = false and is not an Aqua popup target
+    const fanTestTarget = {
+        get_name: () => 'aquaDownloadsFan',
+        name: 'aquaDownloadsFan',
+        _isAquaDock: true,
+        _blurType: null,
+        _dockBlurEnabled: false,
+        has_style_class_name(c) { return c === 'aqua-dl-fan'; },
+    };
+    assert(isAquaPopupTarget(fanTestTarget) === false, 'FanView must NOT be an Aqua popup target');
+    assert(resolveAquaDockTarget(fanTestTarget) === null, 'resolveAquaDockTarget must return null for FanView');
 
     // Down-Chevron drawer anchor remains an Aqua popup target with frosted glass blur
     const anchorContainer = {
@@ -728,7 +741,7 @@ shellResource._register();
     assert(suppressionCalls[suppressionCalls.length - 1] === false,
         'setMagnificationSuppressed(false) called on stack close');
 
-    // ── 7. Downloads & Folder Stack Blur Removal Verification ────────────────
+    // ── 7. Downloads & Folder Stack Blur Verification (Grid & List enabled, Fan disabled) ──
     {
         const {
             isAquaPopupTarget,
@@ -736,48 +749,54 @@ shellResource._register();
             resolveAquaDockTarget,
         } = await import('../dock/dockBlur.js');
 
-        // Test popup target identification: stacks must NOT be popup targets
-        assert(isAquaPopupTarget({ name: 'aquaDownloadsPanel' }) === false,
-            'isAquaPopupTarget must NOT identify aquaDownloadsPanel as popup');
-        assert(isAquaPopupTarget({ has_style_class_name: c => c === 'aqua-dl-panel' }) === false,
-            'isAquaPopupTarget must NOT identify .aqua-dl-panel as popup');
-        assert(isAquaPopupTarget({ has_style_class_name: c => c === 'aqua-dl-grid' || c === 'aqua-dl-panel' }) === false,
-            'isAquaPopupTarget must NOT identify grid view stack as popup');
-        assert(isAquaPopupTarget({ has_style_class_name: c => c === 'aqua-dl-list' || c === 'aqua-dl-panel' }) === false,
-            'isAquaPopupTarget must NOT identify list view stack as popup');
+        // Test popup target identification: Grid and List view panels ARE popup targets
+        assert(isAquaPopupTarget({ name: 'aquaDownloadsPanel' }) === true,
+            'isAquaPopupTarget must identify aquaDownloadsPanel as popup');
+        assert(isAquaPopupTarget({ has_style_class_name: c => c === 'aqua-dl-panel' }) === true,
+            'isAquaPopupTarget must identify .aqua-dl-panel as popup');
+        assert(isAquaPopupTarget({ has_style_class_name: c => c === 'aqua-dl-grid' || c === 'aqua-dl-panel' }) === true,
+            'isAquaPopupTarget must identify grid view stack as popup');
+        assert(isAquaPopupTarget({ has_style_class_name: c => c === 'aqua-dl-list' || c === 'aqua-dl-panel' }) === true,
+            'isAquaPopupTarget must identify list view stack as popup');
 
-        // Test resolution of grid and list view stack targets: null when blur disabled
+        // Fan view must strictly NOT be a popup blur target
+        assert(isAquaPopupTarget({ name: 'aquaDownloadsFan' }) === false,
+            'isAquaPopupTarget must NOT identify aquaDownloadsFan as popup');
+        assert(isAquaPopupTarget({ has_style_class_name: c => c === 'aqua-dl-fan' }) === false,
+            'isAquaPopupTarget must NOT identify .aqua-dl-fan as popup');
+
+        // Test resolution of grid and list view stack targets
         const gridPanel = {
             name: 'aquaDownloadsPanel',
             _isAquaDock: true,
-            _blurType: null,
-            _dockBlurEnabled: false,
+            _blurType: 'popup',
+            _dockBlurEnabled: true,
             _dockRadius: 20,
             _dockBg: null,
             has_style_class_name: c => c === 'aqua-dl-panel' || c === 'aqua-dl-grid',
         };
         gridPanel._dockBg = gridPanel;
-        assert(resolveAquaDockTarget(gridPanel) === null,
-            'resolveAquaDockTarget must return null for grid stack when _dockBlurEnabled is false');
+        const resolvedGrid = resolveAquaDockTarget(gridPanel);
+        assert(resolvedGrid !== null, 'resolveAquaDockTarget must resolve grid stack target when _dockBlurEnabled is true');
+        assert(resolvedGrid.is_popup === true, 'grid stack must resolve as is_popup');
 
         const listPanel = {
             name: 'aquaDownloadsPanel',
             _isAquaDock: true,
-            _blurType: null,
-            _dockBlurEnabled: false,
+            _blurType: 'popup',
+            _dockBlurEnabled: true,
             _dockRadius: 20,
             _dockBg: null,
             has_style_class_name: c => c === 'aqua-dl-panel' || c === 'aqua-dl-list',
         };
         listPanel._dockBg = listPanel;
-        assert(resolveAquaDockTarget(listPanel) === null,
-            'resolveAquaDockTarget must return null for list stack when _dockBlurEnabled is false');
+        const resolvedList = resolveAquaDockTarget(listPanel);
+        assert(resolvedList !== null, 'resolveAquaDockTarget must resolve list stack target when _dockBlurEnabled is true');
+        assert(resolvedList.is_popup === true, 'list stack must resolve as is_popup');
 
-        // Test blur activation logic: isBmsStackBlurActive is always false
+        // Test blur activation logic
         assert(isBmsStackBlurActive({ blurEffect: false }) === false,
             'isBmsStackBlurActive must return false when blurEffect is false');
-        assert(isBmsStackBlurActive({ blurEffect: true }) === false,
-            'isBmsStackBlurActive must return false even when blurEffect is true');
         assert(isBmsStackBlurActive({ blurEffect: true, highContrast: true }) === false,
             'isBmsStackBlurActive must return false when highContrast is true');
     }

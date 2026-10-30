@@ -613,16 +613,26 @@ print('\n--- 4. Deep Freeze & Invariant Preservation ---');
         name: 'aquaFanView',
         get_name: () => 'aquaFanView',
         style_class: 'aqua-dl-fan',
+        has_style_class_name: cls => cls === 'aqua-dl-fan',
     };
     const mockPanelActor = {
-        name: 'aquaPanelView',
-        get_name: () => 'aquaPanelView',
+        name: 'aquaDownloadsPanel',
+        get_name: () => 'aquaDownloadsPanel',
         style_class: 'aqua-dl-panel',
+        has_style_class_name: cls => cls === 'aqua-dl-panel',
+        _isAquaDock: true,
+        _blurType: 'popup',
+        _dockBlurEnabled: true,
+        _dockRadius: 20,
+        get_dock_radius: () => 20,
     };
+    mockPanelActor._dockBg = mockPanelActor;
+
     const mockTileActor = {
         name: 'aquaTileRow',
         get_name: () => 'aquaTileRow',
         style_class: 'aqua-dl-row',
+        has_style_class_name: cls => cls === 'aqua-dl-row',
     };
 
     assert(isAquaPopupTarget(mockFanActor) === false,
@@ -630,17 +640,20 @@ print('\n--- 4. Deep Freeze & Invariant Preservation ---');
     assert(resolveAquaDockTarget(mockFanActor) === null,
         'INVARIANT VIOLATION: FanView must NOT resolve to a BMS target');
 
-    assert(isAquaPopupTarget(mockPanelActor) === false,
-        'INVARIANT VIOLATION: PanelView must NOT be recognized as aqua popup target');
-    assert(resolveAquaDockTarget(mockPanelActor) === null,
-        'INVARIANT VIOLATION: PanelView must NOT resolve to a BMS target');
+    assert(isAquaPopupTarget(mockPanelActor) === true,
+        'INVARIANT VIOLATION: PanelView MUST be recognized as aqua popup target (2026-10-30 user directive)');
+    const resolvedPanel = resolveAquaDockTarget(mockPanelActor);
+    assert(resolvedPanel !== null,
+        'INVARIANT VIOLATION: PanelView must resolve to a BMS target');
+    assert(resolvedPanel.is_popup === true,
+        'INVARIANT VIOLATION: resolvedPanel.is_popup must be true');
 
     assert(isAquaPopupTarget(mockTileActor) === false,
         'INVARIANT VIOLATION: Tile row must NOT be recognized as aqua popup target');
     assert(resolveAquaDockTarget(mockTileActor) === null,
         'INVARIANT VIOLATION: Tile row must NOT resolve to a BMS target');
 
-    print('  ✓ Invariant 1 Verified: Downloads stack views strictly avoid all BMS blur registration.');
+    print('  ✓ Invariant 1 Verified: Grid & List stack views enable blur; Fan view strictly avoids blur.');
 
     const mockChevronAnchor = {
         name: 'aquaStackAnchor',

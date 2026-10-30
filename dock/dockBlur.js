@@ -87,16 +87,18 @@ export function isBmsTooltipBlurActive(cfg = null) {
     return isBmsPopupBlurActive() || isBmsDockBlurActive();
 }
 
-// Stack blur disabled per user directive.
 /**
- * Evaluates whether Downloads stack views (fan, grid, list) should use background blur.
- * Invariant per AGENTS.md: ALWAYS returns false to preserve authentic clean dark surfaces.
+ * Evaluates whether Downloads stack views (Grid and List views) should use background blur.
+ * Active when blurEffect is enabled, highContrast is off, and Blur My Shell blur is active.
+ * Invariant per user directive (2026-10-30): Grid & List views enable blur like the dock pill; Fan view remains without blur.
  *
- * @param {object|null} [_cfg=null] - Optional configuration parameter (unused).
- * @returns {boolean} Always false per AGENTS.md invariant.
+ * @param {object|null} [cfg=null] - Dock configuration object.
+ * @returns {boolean} True if Grid and List stack blur should be rendered.
  */
-export function isBmsStackBlurActive(_cfg = null) {
-    return false;
+export function isBmsStackBlurActive(cfg = null) {
+    if (cfg && (!cfg.blurEffect || cfg.highContrast))
+        return false;
+    return isBmsPopupBlurActive() || isBmsDockBlurActive();
 }
 
 /**
@@ -161,10 +163,11 @@ export function isAquaPopupTarget(container) {
     if (container._blurType === 'popup') return true;
     if (container._blurType === 'dock') return false;
     const name = container.name || container.get_name?.();
-    if (name === 'aquaTooltip' || name === 'aquaMenu' || name === 'aquaStackAnchor') return true;
+    if (name === 'aquaTooltip' || name === 'aquaMenu' || name === 'aquaStackAnchor' || name === 'aquaDownloadsPanel') return true;
     if (typeof container.has_style_class_name === 'function' &&
         (container.has_style_class_name('aqua-menu') ||
-         container.has_style_class_name('aqua-stack-anchor-tile'))) return true;
+         container.has_style_class_name('aqua-stack-anchor-tile') ||
+         container.has_style_class_name('aqua-dl-panel'))) return true;
     return false;
 }
 

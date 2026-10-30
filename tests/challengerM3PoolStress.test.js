@@ -194,6 +194,7 @@ class MockActor {
         if (this.destroyed) return;
         this.destroyed = true;
         totalActorsDestroyed++;
+        this.emit('destroy');
         if (this._parent) {
             this._parent.remove_child(this);
             this._parent = null;
@@ -973,12 +974,36 @@ print('\n--- 5. Destruction Safety: pool.clear() & DownloadsStack.destroy() ---'
 print('\n--- 6. AGENTS.md Invariants Verification ---');
 
 {
-    print('[Test 6.1] Invariant 1: Zero stack blur surfaces attached...');
+    print('[Test 6.1] Invariant 1: Grid & List stack blur enabled, Fan stack strictly disabled...');
+
+    const mockDashBlur = {
+        enabled: true,
+        is_static: false,
+        settings: {
+            dash_to_dock: { STATIC_BLUR: false, PIPELINE: 'default' },
+            popup: { STATIC_BLUR: false, PIPELINE: 'default' },
+        },
+        dashes: [],
+        try_blur() {},
+        queue_discovery() {},
+        update_background() {},
+        add_blur(dash_container, target) {
+            return {
+                background: { x: 0, y: 0, width: 48, height: 48, set_position() {}, set_size() {}, set_clip() {} },
+                background_group: { parent: dash_container, get_parent() { return this.parent; }, destroy() {} },
+                bg_manager: { destroy() {} },
+                pipeline: { set_corner_radius() {}, destroy() {} },
+                rounded_pipeline: null,
+                corner_settings: { radius: 14, corners: 0 },
+            };
+        },
+    };
+    globalThis.global = { blur_my_shell: { _dash_to_dock_blur: mockDashBlur } };
 
     const pool = new ActorPool(16);
     const testFiles = [makeMockFileInfo('fileA.txt'), makeMockFileInfo('fileB.png')];
 
-    // FanView
+    // FanView: blur strictly disabled
     const fanView = new FanView({
         folder: mockFolder,
         files: testFiles,
@@ -1010,7 +1035,7 @@ print('\n--- 6. AGENTS.md Invariants Verification ---');
     fanView.releaseRows();
     fanActor.destroy();
 
-    // PanelView (Grid & List)
+    // PanelView (Grid & List): blur enabled like dock pill per user directive (2026-10-30)
     for (const viewType of ['grid', 'list']) {
         const panelView = new PanelView({
             folder: mockFolder,
@@ -1024,13 +1049,13 @@ print('\n--- 6. AGENTS.md Invariants Verification ---');
         });
         const panelActor = panelView.build();
 
-        assert(panelActor._dockBlurEnabled === false,
-            `INVARIANT VIOLATION: PanelView(${viewType}) must have _dockBlurEnabled === false`);
+        assert(panelActor._dockBlurEnabled === true,
+            `INVARIANT VIOLATION: PanelView(${viewType}) must have _dockBlurEnabled === true`);
         assert(panelActor._isAquaDock === true, `PanelView(${viewType}) marked as _isAquaDock`);
-        assert(isAquaPopupTarget(panelActor) === false,
-            `INVARIANT VIOLATION: isAquaPopupTarget must return false for PanelView(${viewType})`);
-        assert(resolveAquaDockTarget(panelActor) === null,
-            `INVARIANT VIOLATION: resolveAquaDockTarget must return null for PanelView(${viewType})`);
+        assert(isAquaPopupTarget(panelActor) === true,
+            `INVARIANT VIOLATION: isAquaPopupTarget must return true for PanelView(${viewType})`);
+        assert(resolveAquaDockTarget(panelActor) !== null,
+            `INVARIANT VIOLATION: resolveAquaDockTarget must resolve target for PanelView(${viewType})`);
 
         for (const row of panelView._model.rows) {
             assert(row._dockBlurEnabled === false,
@@ -1047,10 +1072,12 @@ print('\n--- 6. AGENTS.md Invariants Verification ---');
     // Overall stack blur active check
     assert(isBmsStackBlurActive({ blurEffect: false }) === false,
         'isBmsStackBlurActive must be false when blurEffect is false');
-    assert(isBmsStackBlurActive({ blurEffect: true }) === false,
-        'INVARIANT VIOLATION: isBmsStackBlurActive must ALWAYS return false even when blurEffect is true');
+    assert(isBmsStackBlurActive({ blurEffect: true }) === true,
+        'isBmsStackBlurActive must return true when blurEffect is true and BMS is active');
+    assert(isBmsStackBlurActive({ blurEffect: true, highContrast: true }) === false,
+        'isBmsStackBlurActive must return false when highContrast is true');
 
-    print('  ✓ Invariant 1 strictly verified: Zero stack blur surfaces across Fan, Grid, and List views.');
+    print('  ✓ Invariant 1 strictly verified: Grid & List stacks enable blur, Fan stack strictly without blur.');
     pool.clear();
 }
 

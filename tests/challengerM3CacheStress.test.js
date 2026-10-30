@@ -618,23 +618,32 @@ print('\n[Part 3] Invariant Stress: 500 simulated BMS enable/disable cycles & an
         const mockPanel = {
             name: 'aquaDownloadsPanel',
             _isAquaDock: true,
-            _dockBlurEnabled: false,
+            _dockBlurEnabled: true,
+            _blurType: 'popup',
+            _dockRadius: 20,
             has_style_class_name: cls => cls === 'aqua-dl-panel',
         };
+        mockPanel._dockBg = mockPanel;
 
         const mockGrid = {
             name: 'aquaDownloadsPanel',
             _isAquaDock: true,
-            _dockBlurEnabled: false,
+            _dockBlurEnabled: true,
+            _blurType: 'popup',
+            _dockRadius: 20,
             has_style_class_name: cls => cls === 'aqua-dl-grid' || cls === 'aqua-dl-panel',
         };
+        mockGrid._dockBg = mockGrid;
 
         const mockList = {
             name: 'aquaDownloadsPanel',
             _isAquaDock: true,
-            _dockBlurEnabled: false,
+            _dockBlurEnabled: true,
+            _blurType: 'popup',
+            _dockRadius: 20,
             has_style_class_name: cls => cls === 'aqua-dl-list' || cls === 'aqua-dl-panel',
         };
+        mockList._dockBg = mockList;
 
         const mockFanCard = {
             _isAquaDock: true,
@@ -684,25 +693,29 @@ print('\n[Part 3] Invariant Stress: 500 simulated BMS enable/disable cycles & an
         };
         mockAnchorByClass._dockBg = mockAnchorByClass;
 
-        // Invariant 1: Downloads stacks (Fan, Grid, List) MUST ALWAYS be rejected by isAquaPopupTarget
+        // Invariant 1: Fan view stacks strictly avoid blur; Grid & List view panels enable blur (2026-10-30 user directive)
         assert(isAquaPopupTarget(mockFan) === false,
             `Cycle ${c}: isAquaPopupTarget must reject Fan stack`);
-        assert(isAquaPopupTarget(mockPanel) === false,
-            `Cycle ${c}: isAquaPopupTarget must reject Panel stack`);
-        assert(isAquaPopupTarget(mockGrid) === false,
-            `Cycle ${c}: isAquaPopupTarget must reject Grid view`);
-        assert(isAquaPopupTarget(mockList) === false,
-            `Cycle ${c}: isAquaPopupTarget must reject List view`);
+        assert(isAquaPopupTarget(mockPanel) === true,
+            `Cycle ${c}: isAquaPopupTarget must accept Panel stack`);
+        assert(isAquaPopupTarget(mockGrid) === true,
+            `Cycle ${c}: isAquaPopupTarget must accept Grid view`);
+        assert(isAquaPopupTarget(mockList) === true,
+            `Cycle ${c}: isAquaPopupTarget must accept List view`);
         assert(isAquaPopupTarget(mockFanCard) === false,
             `Cycle ${c}: isAquaPopupTarget must reject Fan item card`);
         assert(isAquaPopupTarget(mockPanelRow) === false,
             `Cycle ${c}: isAquaPopupTarget must reject Panel row item`);
 
-        // Invariant 1: resolveAquaDockTarget must return null for stacks
+        // Fan view resolveAquaDockTarget must return null; Grid & List panels must resolve as popup targets
         assert(resolveAquaDockTarget(mockFan) === null,
             `Cycle ${c}: resolveAquaDockTarget must return null for Fan stack`);
-        assert(resolveAquaDockTarget(mockPanel) === null,
-            `Cycle ${c}: resolveAquaDockTarget must return null for Panel stack`);
+        assert(resolveAquaDockTarget(mockPanel) !== null,
+            `Cycle ${c}: resolveAquaDockTarget must resolve Panel stack`);
+        assert(resolveAquaDockTarget(mockGrid) !== null,
+            `Cycle ${c}: resolveAquaDockTarget must resolve Grid view`);
+        assert(resolveAquaDockTarget(mockList) !== null,
+            `Cycle ${c}: resolveAquaDockTarget must resolve List view`);
 
         // Invariant 2: Down-Chevron drawer anchor MUST ALWAYS be accepted by isAquaPopupTarget
         assert(isAquaPopupTarget(mockAnchorByName) === true,

@@ -16,6 +16,7 @@ import { getRowStyles } from './tileStyle.js';
 import { SelectionModel } from './keyboardNav.js';
 import { buildPlaceIcon } from './placeIcon.js';
 import { applyAlpha } from '../dock/dockLayout.js';
+import { isBmsStackBlurActive, registerBmsTarget, unregisterBmsTarget, setupBackgroundCorners } from '../dock/dockBlur.js';
 import { ActorPool, stopSubtreeTransitions } from './actorPool.js';
 
 const GRID_COLS = 2;
@@ -124,29 +125,67 @@ export class PanelView {
             : (cfg.downloadsBorderColor ?? cfg.borderColor ?? 'rgba(255,255,255,0.16)');
         const border = bw > 0 ? `${bw}px solid ${bc}` : 'none';
 
-        // Stack background blur disabled per user directive.
+        // Frosted glass background blur enabled for Grid & List views (matching dock pill)
+        const blurActive = isBmsStackBlurActive(cfg);
+        this._blurActive = blurActive;
+
         const normalFill = cfg.downloadsPillColor ?? (cfg.pillColor ? applyAlpha(cfg.pillColor, clamp(cfg.bgOpacity ?? 0.8, 0.1, 1.0)) : `rgba(28,28,32,${a})`);
-        const fill = cfg.highContrast ? 'rgba(0,0,0,0.96)' : normalFill;
+        const fill = cfg.highContrast ? 'rgba(0,0,0,0.96)'
+            : (blurActive ? 'transparent' : normalFill);
         panel.set_style(`border-radius: ${radius}px; background-color: ${fill}; border: ${border};`);
         panel.opacity = 0;
 
-        this._blurRegion = null;
-        this._blurActive = false;
+        let blurRegion = null;
+        if (blurActive) {
+            blurRegion = new St.Widget({
+                name: 'aquaDownloadsPanelBlurRegion',
+                style_class: 'aqua-blur-region',
+                reactive: false,
+            });
+            blurRegion._isAquaDock = true;
+            blurRegion._blurType = 'popup';
+            blurRegion._dockRadius = radius;
+            blurRegion.get_dock_radius = () => radius;
+            blurRegion.set_style(`border-radius: ${radius}px;`);
+            setupBackgroundCorners(blurRegion, () => radius);
+        }
+        this._blurRegion = blurRegion;
+
         panel._isAquaDock = true;
-        panel._blurType = null;
-        panel._dockBlurEnabled = false;
+        panel._blurType = 'popup';
+        panel._dockBlurEnabled = blurActive;
         panel._dockRadius = radius;
         panel.get_dock_radius = () => radius;
         panel._dockBg = panel;
         panel._dockContent = panel;
         panel._dockContentParent = Main.uiGroup;
+        if (blurRegion) {
+            panel._blurRegion = blurRegion;
+            panel._dockBlurRegion = blurRegion;
+        }
+        setupBackgroundCorners(panel, () => radius);
 
         const dockContainer = this.dockContainer;
-        if (dockContainer && typeof Main.uiGroup?.insert_child_below === 'function') {
-            Main.uiGroup.insert_child_below(panel, dockContainer);
-        } else if (Main.uiGroup?.add_child) {
-            Main.uiGroup.add_child(panel);
+        if (blurRegion) {
+            if (dockContainer && typeof Main.uiGroup?.insert_child_below === 'function') {
+                Main.uiGroup.insert_child_below(blurRegion, dockContainer);
+                Main.uiGroup.insert_child_above(panel, blurRegion);
+            } else if (Main.uiGroup?.add_child) {
+                Main.uiGroup.add_child(blurRegion);
+                Main.uiGroup.add_child(panel);
+            }
+        } else {
+            if (dockContainer && typeof Main.uiGroup?.insert_child_below === 'function') {
+                Main.uiGroup.insert_child_below(panel, dockContainer);
+            } else if (Main.uiGroup?.add_child) {
+                Main.uiGroup.add_child(panel);
+            }
         }
+
+        panel.connect('destroy', () => {
+            unregisterBmsTarget(panel);
+            try { blurRegion?.destroy(); } catch { /* intentionally ignored: blur region destroyed */ }
+        });
 
         this._fileMenu.bind(panel);
         const [, natH] = panel.get_preferred_height(panelW);
@@ -156,6 +195,7 @@ export class PanelView {
         const px = clamp(Math.round(targetX), mon.x + 8, mon.x + mon.width - panelW - 8);
         const py = clamp(Math.round(targetY), mon.y + 8, mon.y + mon.height - natH - 8);
         panel.set_position(px, py);
+        panel.set_size(panelW, natH);
 
         // Dynamic anchor-relative pivot point so stack springs directly out from clicked icon
         let pivotX = 0.5;
@@ -188,6 +228,17 @@ export class PanelView {
         panel.set_pivot_point(pivotX, pivotY);
         this._pivot = { x: pivotX, y: pivotY };
         this._trans = { x: transX, y: transY };
+
+        if (blurRegion) {
+            blurRegion.set_position(px, py);
+            blurRegion.set_size(panelW, natH);
+            blurRegion.set_pivot_point(pivotX, pivotY);
+            blurRegion.opacity = 0;
+        }
+
+        if (blurActive) {
+            registerBmsTarget(panel, () => radius);
+        }
 
         this._model.setRows(tiles);
         this._animateOpen(panel, tiles, view);

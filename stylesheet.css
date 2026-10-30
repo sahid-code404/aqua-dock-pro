@@ -410,6 +410,14 @@
     padding:          0;
     min-width:        340px;
 }
+.transparent-dash .aqua-dl-panel,
+.transparent-dash.aqua-dl-panel,
+.aqua-dl-panel.transparent-dash,
+.bms-popup .aqua-dl-panel,
+.bms-popup.aqua-dl-panel,
+.aqua-dl-panel.bms-popup {
+    background-color: transparent !important;
+}
 .aqua-dl-panel.aqua-dl-fan { min-width: 300px; }
 .aqua-dl-fan-panel {
     background-color: transparent;
