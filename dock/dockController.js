@@ -847,23 +847,13 @@ export class DockController {
     _pickItem(stageX, stageY) {
         const geom = this._geom;
         if (!geom) return null;
-        const cx = this._chrome.container?.x ?? geom.x;
-        const cy = this._chrome.container?.y ?? geom.y;
-        let main, cross;
-        if (typeof cx === 'number' && typeof cy === 'number' &&
-            Number.isFinite(cx) && Number.isFinite(cy)) {
-            const lx = stageX - cx;
-            const ly = stageY - cy;
-            main = geom.vert ? ly : lx;
-            cross = geom.vert ? lx : ly;
-        } else {
-            let p;
-            try { p = this._chrome.container.transform_stage_point(stageX, stageY); }
-            catch { return null; }
-            if (!p?.[0]) return null;
-            main = geom.vert ? p[2] : p[1];
-            cross = geom.vert ? p[1] : p[2];
-        }
+        let p;
+        try { p = this._chrome.container.transform_stage_point(stageX, stageY); }
+        catch { return null; }
+        if (!p?.[0]) return null;
+        const vert = geom.vert;
+        const main = vert ? p[2] : p[1];
+        const cross = vert ? p[1] : p[2];
         const pickLow = geom.pick.low, pickHigh = geom.pick.high;
         if (cross < pickLow || cross > pickHigh) return null;
         const chips = this._factory.chips;

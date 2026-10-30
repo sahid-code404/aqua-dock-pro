@@ -265,26 +265,17 @@ export class AnimationEngine {
         const geom = this._cachedGeom;
 
         // Cached stage→local pointer mapping.
-        // Analytical delta (pointer - container position) eliminates the 3-element JS Array
-        // [success, x, y] allocation that GJS creates on every transform_stage_point() call.
         let haveLocal = false, lx = 0, ly = 0;
         if (this._pointerInside && this._container) {
-            const cx = this._container.x ?? 0, cy = this._container.y ?? 0;
+            const cx = this._container.x, cy = this._container.y;
             if (this._ptPX === this._pointerX && this._ptPY === this._pointerY &&
                 this._ptCX === cx && this._ptCY === cy) {
                 haveLocal = this._ptHave; lx = this._ptLX; ly = this._ptLY;
             } else {
-                if (typeof cx === 'number' && typeof cy === 'number' &&
-                    Number.isFinite(cx) && Number.isFinite(cy)) {
-                    lx = this._pointerX - cx;
-                    ly = this._pointerY - cy;
-                    haveLocal = Number.isFinite(lx) && Number.isFinite(ly);
-                } else {
-                    try {
-                        const p = this._container.transform_stage_point(this._pointerX, this._pointerY);
-                        if (p?.[0]) { haveLocal = true; lx = p[1]; ly = p[2]; }
-                    } catch (e) { logError(e, 'transform_stage_point'); }
-                }
+                try {
+                    const p = this._container.transform_stage_point(this._pointerX, this._pointerY);
+                    if (p?.[0]) { haveLocal = true; lx = p[1]; ly = p[2]; }
+                } catch (e) { logError(e, 'transform_stage_point'); }
                 this._ptPX = this._pointerX; this._ptPY = this._pointerY;
                 this._ptCX = cx; this._ptCY = cy;
                 this._ptHave = haveLocal; this._ptLX = lx; this._ptLY = ly;
