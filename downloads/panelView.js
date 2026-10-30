@@ -33,6 +33,8 @@ export class PanelView {
         this._reduce = false;
         this._fileMenu = new FileItemMenu(opts.mon, opts.cfg);
         this._blurRegion = null;
+        this._pivot = null;
+        this._trans = null;
     }
 
     get actor() { return this._actor; }
@@ -126,7 +128,6 @@ export class PanelView {
         const normalFill = cfg.downloadsPillColor ?? (cfg.pillColor ? applyAlpha(cfg.pillColor, clamp(cfg.bgOpacity ?? 0.8, 0.1, 1.0)) : `rgba(28,28,32,${a})`);
         const fill = cfg.highContrast ? 'rgba(0,0,0,0.96)' : normalFill;
         panel.set_style(`border-radius: ${radius}px; background-color: ${fill}; border: ${border};`);
-        panel.set_pivot_point(0.5, 1.0);
         panel.opacity = 0;
 
         this._blurRegion = null;
@@ -155,6 +156,38 @@ export class PanelView {
         const px = clamp(Math.round(targetX), mon.x + 8, mon.x + mon.width - panelW - 8);
         const py = clamp(Math.round(targetY), mon.y + 8, mon.y + mon.height - natH - 8);
         panel.set_position(px, py);
+
+        // Dynamic anchor-relative pivot point so stack springs directly out from clicked icon
+        let pivotX = 0.5;
+        let pivotY = 1.0;
+        let transX = 0;
+        let transY = 18;
+
+        if (cfg.position === 'LEFT') {
+            pivotX = 0.0;
+            pivotY = clamp((ay - py) / Math.max(1, natH), 0.05, 0.95);
+            transX = -18;
+            transY = 0;
+        } else if (cfg.position === 'RIGHT') {
+            pivotX = 1.0;
+            pivotY = clamp((ay - py) / Math.max(1, natH), 0.05, 0.95);
+            transX = 18;
+            transY = 0;
+        } else if (cfg.position === 'TOP') {
+            pivotX = clamp((originX - px) / Math.max(1, panelW), 0.05, 0.95);
+            pivotY = 0.0;
+            transX = 0;
+            transY = -18;
+        } else {
+            pivotX = clamp((originX - px) / Math.max(1, panelW), 0.05, 0.95);
+            pivotY = 1.0;
+            transX = 0;
+            transY = 18;
+        }
+
+        panel.set_pivot_point(pivotX, pivotY);
+        this._pivot = { x: pivotX, y: pivotY };
+        this._trans = { x: transX, y: transY };
 
         this._model.setRows(tiles);
         this._animateOpen(panel, tiles, view);
@@ -308,15 +341,17 @@ export class PanelView {
         return row;
     }
 
-    _animateOpen(panel, tiles, view) {
+    _animateOpen(panel, tiles, _view) {
         const blurEnabled = Boolean(this._blurActive);
         if (this._reduce) {
             panel.opacity = 255;
             panel.set_scale(1, 1);
+            panel.translation_x = 0;
             panel.translation_y = 0;
             if (this._blurRegion && blurEnabled) {
                 this._blurRegion.opacity = 255;
                 this._blurRegion.set_scale(1, 1);
+                this._blurRegion.translation_x = 0;
                 this._blurRegion.translation_y = 0;
             }
             for (const tile of tiles) {
@@ -325,75 +360,75 @@ export class PanelView {
             }
             return;
         }
+
         const bmsGroup = panel._aquaDockSurface?.background_group;
-        if (view === 'grid') {
-            panel.set_scale(0.88, 0.88);
-            panel.ease({
-                opacity: 255,
+        const initScale = 0.80;
+        const transX = this._trans?.x ?? 0;
+        const transY = this._trans?.y ?? 18;
+
+        panel.set_scale(initScale, initScale);
+        panel.translation_x = transX;
+        panel.translation_y = transY;
+        panel.opacity = 0;
+
+        panel.ease({
+            scale_x: 1,
+            scale_y: 1,
+            translation_x: 0,
+            translation_y: 0,
+            duration: 250,
+            mode: Clutter.AnimationMode.EASE_OUT_BACK,
+        });
+        panel.ease({
+            opacity: 255,
+            duration: 160,
+            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+        });
+
+        if (this._blurRegion && blurEnabled) {
+            if (this._pivot) this._blurRegion.set_pivot_point?.(this._pivot.x, this._pivot.y);
+            this._blurRegion.set_scale(initScale, initScale);
+            this._blurRegion.translation_x = transX;
+            this._blurRegion.translation_y = transY;
+            this._blurRegion.opacity = 0;
+            this._blurRegion.ease({
                 scale_x: 1,
                 scale_y: 1,
-                duration: 220,
-                mode: Clutter.AnimationMode.EASE_OUT_CUBIC,
+                translation_x: 0,
+                translation_y: 0,
+                duration: 250,
+                mode: Clutter.AnimationMode.EASE_OUT_BACK,
             });
-            if (this._blurRegion && blurEnabled) {
-                this._blurRegion.set_scale(0.88, 0.88);
-                this._blurRegion.ease({
-                    opacity: 255,
+            this._blurRegion.ease({
+                opacity: 255,
+                duration: 160,
+                mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+            });
+        }
+
+        if (bmsGroup && blurEnabled) {
+            try {
+                if (this._pivot) bmsGroup.set_pivot_point?.(this._pivot.x, this._pivot.y);
+                bmsGroup.set_scale?.(initScale, initScale);
+                bmsGroup.translation_x = transX;
+                bmsGroup.translation_y = transY;
+                bmsGroup.opacity = 0;
+                bmsGroup.ease?.({
                     scale_x: 1,
                     scale_y: 1,
-                    duration: 220,
-                    mode: Clutter.AnimationMode.EASE_OUT_CUBIC,
-                });
-            }
-            if (bmsGroup && blurEnabled) {
-                try {
-                    bmsGroup.set_pivot_point?.(0.5, 1.0);
-                    bmsGroup.set_scale?.(0.88, 0.88);
-                    bmsGroup.opacity = 0;
-                    bmsGroup.ease?.({
-                        opacity: 255,
-                        scale_x: 1,
-                        scale_y: 1,
-                        duration: 220,
-                        mode: Clutter.AnimationMode.EASE_OUT_CUBIC,
-                    });
-                } catch { /* intentionally ignored: stack view actor property update failed on disposed actor */ }
-            }
-        } else {
-            panel.translation_y = 12; panel.scale_y = 0.9;
-            panel.ease({
-                opacity: 255,
-                translation_y: 0,
-                scale_y: 1,
-                duration: 220,
-                mode: Clutter.AnimationMode.EASE_OUT_CUBIC,
-            });
-            if (this._blurRegion && blurEnabled) {
-                this._blurRegion.translation_y = 12; this._blurRegion.scale_y = 0.9;
-                this._blurRegion.ease({
-                    opacity: 255,
+                    translation_x: 0,
                     translation_y: 0,
-                    scale_y: 1,
-                    duration: 220,
-                    mode: Clutter.AnimationMode.EASE_OUT_CUBIC,
+                    duration: 250,
+                    mode: Clutter.AnimationMode.EASE_OUT_BACK,
                 });
-            }
-            if (bmsGroup && blurEnabled) {
-                try {
-                    bmsGroup.set_pivot_point?.(0.5, 1.0);
-                    bmsGroup.translation_y = 12;
-                    bmsGroup.scale_y = 0.9;
-                    bmsGroup.opacity = 0;
-                    bmsGroup.ease?.({
-                        opacity: 255,
-                        translation_y: 0,
-                        scale_y: 1,
-                        duration: 220,
-                        mode: Clutter.AnimationMode.EASE_OUT_CUBIC,
-                    });
-                } catch { /* intentionally ignored: stack view actor property update failed on disposed actor */ }
-            }
+                bmsGroup.ease?.({
+                    opacity: 255,
+                    duration: 160,
+                    mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+                });
+            } catch { /* intentionally ignored: stack view actor property update failed on disposed actor */ }
         }
+
         for (const tile of tiles) {
             tile.opacity = 255;
             tile.translation_y = 0;
@@ -430,6 +465,7 @@ export class PanelView {
         try {
             actor.remove_all_transitions();
             actor.opacity = 255;
+            actor.translation_x = 0;
             actor.translation_y = 0;
             actor.set_scale(1, 1);
         } catch { /* intentionally ignored: stack view row or blur actor may already be destroyed */ }
@@ -438,6 +474,7 @@ export class PanelView {
                 this._blurRegion.remove_all_transitions();
                 if (this._blurActive) {
                     this._blurRegion.opacity = 255;
+                    this._blurRegion.translation_x = 0;
                     this._blurRegion.translation_y = 0;
                     this._blurRegion.set_scale(1, 1);
                 }
@@ -449,6 +486,7 @@ export class PanelView {
                 bmsGroup.remove_all_transitions();
                 if (this._blurActive) {
                     bmsGroup.opacity = 255;
+                    bmsGroup.translation_x = 0;
                     bmsGroup.translation_y = 0;
                     bmsGroup.set_scale(1, 1);
                 }
@@ -502,26 +540,47 @@ export class PanelView {
             this.releaseRows();
             onDone();
         };
+
+        const targetScale = 0.80;
+        const transX = this._trans?.x ?? 0;
+        const transY = this._trans?.y ?? 18;
+        const closeDuration = 150;
+        const closeMode = Clutter.AnimationMode.EASE_IN_CUBIC;
+
         if (this._blurRegion && this._blurActive) {
-            if (this._view === 'grid') {
-                this._blurRegion.ease({ opacity: 0, scale_x: 0.88, scale_y: 0.88, duration: 170, mode: Clutter.AnimationMode.EASE_IN_CUBIC });
-            } else {
-                this._blurRegion.ease({ opacity: 0, scale_y: 0.9, translation_y: 12, duration: 170, mode: Clutter.AnimationMode.EASE_IN_CUBIC });
-            }
+            this._blurRegion.ease({
+                opacity: 0,
+                scale_x: targetScale,
+                scale_y: targetScale,
+                translation_x: transX,
+                translation_y: transY,
+                duration: closeDuration,
+                mode: closeMode,
+            });
         }
         if (bmsGroup && this._blurActive) {
             try {
-                if (this._view === 'grid') {
-                    bmsGroup.ease?.({ opacity: 0, scale_x: 0.88, scale_y: 0.88, duration: 170, mode: Clutter.AnimationMode.EASE_IN_CUBIC });
-                } else {
-                    bmsGroup.ease?.({ opacity: 0, scale_y: 0.9, translation_y: 12, duration: 170, mode: Clutter.AnimationMode.EASE_IN_CUBIC });
-                }
+                bmsGroup.ease?.({
+                    opacity: 0,
+                    scale_x: targetScale,
+                    scale_y: targetScale,
+                    translation_x: transX,
+                    translation_y: transY,
+                    duration: closeDuration,
+                    mode: closeMode,
+                });
             } catch { /* intentionally ignored: stack view actor property update failed on disposed actor */ }
         }
-        if (this._view === 'grid') {
-            actor.ease({ opacity: 0, scale_x: 0.88, scale_y: 0.88, duration: 170, mode: Clutter.AnimationMode.EASE_IN_CUBIC, onComplete: finish });
-        } else {
-            actor.ease({ opacity: 0, scale_y: 0.9, translation_y: 12, duration: 170, mode: Clutter.AnimationMode.EASE_IN_CUBIC, onComplete: finish });
-        }
+
+        actor.ease({
+            opacity: 0,
+            scale_x: targetScale,
+            scale_y: targetScale,
+            translation_x: transX,
+            translation_y: transY,
+            duration: closeDuration,
+            mode: closeMode,
+            onComplete: finish,
+        });
     }
 }

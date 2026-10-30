@@ -6,7 +6,8 @@
   - Intelligent On-Hover Precaching & Texture Warming: Asynchronously pre-warms folder file listings, FileInfo metadata, and St.TextureCache GPU textures upon pointer hover over dock folder/download items, ensuring instant 0ms open latency upon click.
   - Idle Background ActorPool Prewarming: Pre-instantiates panel item cards and fan item cards during idle time (`GLib.idle_add`) upon extension launch, eliminating cold-start actor instantiation lag and memory churn.
   - Locked Widget Allocations: Explicitly constrains thumbnail, icon, and label pill dimensions to prevent asynchronous icon texture decoding from triggering layout reflow ripples across the stack.
-  - Sweet Spring & Cubic Physics Easing: Upgraded Fan, Grid, and List view opening/closing animations to fluid organic curves with gentle deceleration and natural settle, eliminating nested staggered timeline jitter and FBO re-compositing thrashing.
+  - macOS Spring Bloom Animation for Grid & List Views: Dynamic anchor-relative pivot point and directional emergence vector matching the clicked dock icon (bottom, left, right, top), organic spring bloom with subtle tactile overshoot (`Clutter.AnimationMode.EASE_OUT_BACK`, 250ms), and swift collapse into the anchor icon (`Clutter.AnimationMode.EASE_IN_CUBIC`, 150ms).
+  - Sweet Spring & Cubic Physics Easing for Fan View: Upgraded Fan view opening/closing animations to fluid organic curves with gentle deceleration and natural settle (`EASE_OUT_CUBIC`, 220ms; `EASE_IN_CUBIC`, 160ms).
 
 ## 294
 
