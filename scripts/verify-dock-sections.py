@@ -104,6 +104,18 @@ def verify_dock_sections(root_dir: Path = Path('.'), verbose: bool = True) -> bo
     pos_activeAquaContainers = blur_content.find("const activeAquaContainers = new Set();")
     pos_cleanupBms = blur_content.find("export function cleanupBms")
 
+    # Anchor existence verification
+    for name, pos in [
+        ("import Gio from 'gi://Gio';", pos_import_gio),
+        ("export function getBmsGeneralSettings", pos_getBmsGeneralSettings),
+        ("export function isAquaPopupTarget", pos_isAquaPopupTarget),
+        ("export class AquaDockSurface", pos_aquaDockSurface),
+        ("const activeAquaContainers = new Set();", pos_activeAquaContainers),
+        ("export function cleanupBms", pos_cleanupBms),
+    ]:
+        if pos == -1:
+            errors.append(f"dockBlur.js: Expected anchor target '{name}' was not found in file")
+
     if 1 in blur_positions and pos_import_gio != -1:
         if blur_positions[1][0] >= pos_import_gio:
             errors.append("dockBlur.js: SECTION 1 does not precede 'import Gio'")
@@ -205,6 +217,18 @@ def verify_dock_sections(root_dir: Path = Path('.'), verbose: bool = True) -> bo
     pos_relayout = find_method_offset(ctrl_content, r'^\s*relayout\s*\(')
     pos_pointer_exit = find_method_offset(ctrl_content, r'^\s*_enableFocusPointerExit\s*\(')
     pos_destroy = find_method_offset(ctrl_content, r'^\s*destroy\s*\(')
+
+    # Anchor existence verification
+    for name, pos in [
+        ("export class DockController", pos_ctrl_class),
+        ("enableDashManagement()", pos_dash_mgmt),
+        ("_connectSignals()", pos_connect_signals),
+        ("relayout()", pos_relayout),
+        ("_enableFocusPointerExit()", pos_pointer_exit),
+        ("destroy()", pos_destroy),
+    ]:
+        if pos == -1:
+            errors.append(f"dockController.js: Expected anchor target '{name}' was not found in file")
 
     if 1 in ctrl_positions and pos_ctrl_class != -1:
         if ctrl_positions[1][0] >= pos_ctrl_class:
