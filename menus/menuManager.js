@@ -243,8 +243,17 @@ export class MenuManager {
         const border = bw > 0 ? `${bw}px solid ${bc}` : 'none';
 
         const box = this._menu.box;
-        if (box)
-            box.set_style(`background-color: ${bg}; border-radius: ${radius}px; border: ${border};`);
+        if (box) {
+            if (blurActive) {
+                box.remove_style_class_name('aqua-menu-content-solid');
+                box.add_style_class_name('popup-menu-content');
+            } else {
+                box.remove_style_class_name('popup-menu-content');
+                box.add_style_class_name('aqua-menu-content');
+                box.add_style_class_name('aqua-menu-content-solid');
+            }
+            box.set_style(`background-color: ${bg} !important; border-radius: ${radius}px; border: ${border};`);
+        }
 
         this._menuTextColor = fg;
         this._menuTextSize = (10.5 * (cfg.interfaceTextScale ?? 1)).toFixed(2);
@@ -254,7 +263,16 @@ export class MenuManager {
         const cfg = this._host.getConfig();
         const radius = cfg.menuRadius ?? 12;
         const blurActive = isBmsMenuBlurActive(cfg);
-        if (!blurActive) return;
+        if (!blurActive) {
+            if (this._menu?.actor) {
+                this._menu.actor._dockBlurEnabled = false;
+                if (this._blurRegistered) {
+                    unregisterBmsTarget(this._menu.actor);
+                    this._blurRegistered = false;
+                }
+            }
+            return;
+        }
 
         // If Blur My Shell popup blur is active, BMS natively creates the blur surface for popup-menu-content.
         if (isBmsPopupBlurActive()) return;

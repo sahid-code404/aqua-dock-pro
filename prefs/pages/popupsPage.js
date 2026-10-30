@@ -56,6 +56,10 @@ export function buildPopupsPage(window, s) {
         _('Use the same colour theme, border, and frosted glass blur pipeline as the custom context menu'));
     tipToggle.add_row(tipMenuTheme);
 
+    const tipBlur = switchRow(s, 'tooltip-blur-effect', _('BMS background blur'),
+        _('Enable Blur My Shell background blur for tooltips; fallbacks to normal background when disabled'));
+    tipToggle.add_row(tipBlur);
+
     const tipRadius = spinRow(s, 'tooltip-radius', _('Corner radius'),
         _('Tooltip corner radius (pixels)'), 0, 30, 1, 0);
     tipToggle.add_row(tipRadius);
@@ -98,10 +102,15 @@ export function buildPopupsPage(window, s) {
         _('Pixels; 0 hides it'), 0, 6, 1, 0));
     menu.add(menuStyle);
 
+    const menuBlur = switchRow(s, 'menu-blur-effect', _('BMS background blur'),
+        _('Enable Blur My Shell background blur for context menus; fallbacks to normal background when disabled'));
+    menu.add(menuBlur);
+
     const syncMenuSensitivity = () => {
         const useGnomeDefault = s.get_boolean('menu-use-gnome-default');
         menuRadius.set_sensitive(!useGnomeDefault);
         menuStyle.set_sensitive(!useGnomeDefault);
+        menuBlur.set_sensitive(!useGnomeDefault);
     };
     syncMenuSensitivity();
     (window._settingsSignalIds ??= []).push(s.connect('changed::menu-use-gnome-default', syncMenuSensitivity));

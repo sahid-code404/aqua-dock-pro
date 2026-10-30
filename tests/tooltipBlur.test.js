@@ -382,6 +382,18 @@ const {
     currentCfg.tooltipUseMenuTheme = false;
     mgr.style();
 
+    // Test fallback when tooltipBlurEffect is explicitly false
+    currentCfg.tooltipBlurEffect = false;
+    mgr.style();
+    assert(mgr.blurActive === false, 'blurActive must be false when tooltipBlurEffect is false');
+    assert(mgr.bubble.style.includes('background-color: rgba(32,32,36,0.92);'),
+        'bubble must fallback to normal background color when tooltipBlurEffect is false');
+    assert(mgr.container._dockBlurEnabled === false,
+        'container._dockBlurEnabled must be false when tooltipBlurEffect is false');
+    currentCfg.tooltipBlurEffect = true;
+    mgr.style();
+    assert(mgr.blurActive === true, 'blurActive restores when tooltipBlurEffect is re-enabled');
+
     const resolvedMgr = resolveAquaDockTarget(mgr.container);
     assert(resolvedMgr !== null, 'resolveAquaDockTarget must resolve mgr.container');
     assert(resolvedMgr.background === mgr.blurRegion,

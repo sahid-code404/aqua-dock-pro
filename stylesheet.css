@@ -195,13 +195,17 @@
     -boxpointer-gap: 8px;
     box-shadow:  none;
 }
-.aqua-menu .popup-menu-content {
+.aqua-menu .popup-menu-content,
+.aqua-menu .aqua-menu-content {
     background-color: rgba(35, 36, 40, 0.94);
     border-radius:    12px;
     box-shadow:       none;
     padding:          5px 0;
     min-width:        220px;
     max-width:        220px;
+}
+.aqua-menu .aqua-menu-content-solid {
+    background-color: rgba(35, 36, 40, 0.94) !important;
 }
 .transparent-dash .aqua-menu .popup-menu-content,
 .aqua-menu.transparent-dash .popup-menu-content,

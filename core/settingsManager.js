@@ -132,6 +132,7 @@ function computeConfig(s) {
         tooltipBorderColor: s.get_string('tooltip-border-color'),
         tooltipBorderWidth: s.get_int('tooltip-border-width'),
         tooltipUseMenuTheme: s.get_boolean('tooltip-use-menu-theme'),
+        tooltipBlurEffect: s.get_boolean('tooltip-blur-effect'),
 
         // ── Context menu ──
         menuUseGnomeDefault: s.get_boolean('menu-use-gnome-default'),
@@ -140,6 +141,7 @@ function computeConfig(s) {
         menuFg: s.get_string('menu-text-color'),
         menuBorderColor: s.get_string('menu-border-color'),
         menuBorderWidth: s.get_int('menu-border-width'),
+        menuBlurEffect: s.get_boolean('menu-blur-effect'),
 
         // ── Previews ──
         showPreviews: s.get_boolean('show-previews'),

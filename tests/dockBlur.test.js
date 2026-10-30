@@ -680,6 +680,10 @@ shellResource._register();
     assert(isBmsTooltipBlurActive({ blurEffect: true }) === true, 'isBmsTooltipBlurActive must be true with popup blur active');
     assert(isBmsMenuBlurActive({ blurEffect: false }) === false, 'isBmsMenuBlurActive must be false when blurEffect is false');
     assert(isBmsMenuBlurActive({ blurEffect: true, highContrast: true }) === false, 'isBmsMenuBlurActive must be false on highContrast');
+    assert(isBmsMenuBlurActive({ blurEffect: true, menuBlurEffect: false }) === false, 'isBmsMenuBlurActive must be false when menuBlurEffect is false');
+    assert(isBmsTooltipBlurActive({ blurEffect: true, tooltipBlurEffect: false }) === false, 'isBmsTooltipBlurActive must be false when tooltipBlurEffect is false');
+    assert(isBmsMenuBlurActive({ blurEffect: true, tooltipBlurEffect: false }) === true, 'menu blur is not affected by tooltipBlurEffect: false');
+    assert(isBmsTooltipBlurActive({ blurEffect: true, menuBlurEffect: false }) === true, 'tooltip blur is not affected by menuBlurEffect: false');
 
     // 3. Detection when BMS popup blur is disabled but dock blur is active
     globalThis.global.blur_my_shell = {

@@ -411,6 +411,11 @@
       <summary>Match context menu colour theme and styling pipeline for tooltips</summary>
     </key>
 
+    <key name="tooltip-blur-effect" type="b">
+      <default>true</default>
+      <summary>Enable Blur My Shell background blur for tooltips</summary>
+    </key>
+
     <!-- ── Context Menu ─────────────────────────────────────────────── -->
     <key name="menu-use-gnome-default" type="b">
       <default>false</default>
@@ -442,6 +447,11 @@
       <default>1</default>
       <range min="0" max="6"/>
       <summary>Context menu border width in pixels; 0 disables border</summary>
+    </key>
+
+    <key name="menu-blur-effect" type="b">
+      <default>true</default>
+      <summary>Enable Blur My Shell background blur for context menus</summary>
     </key>
 
     <!-- ── Window Previews ────────────────────────────────────────────── -->

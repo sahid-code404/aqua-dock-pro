@@ -118,6 +118,7 @@ export const TOOLTIP_KEYS = Object.freeze(new Set([
     'tooltip-border-color',
     'tooltip-border-width',
     'tooltip-use-menu-theme',
+    'tooltip-blur-effect',
 ]));
 
 export const ITEM_REFRESH_KEYS = Object.freeze(new Set([
@@ -147,6 +148,7 @@ export const PASSIVE_CONFIG_KEYS = Object.freeze(new Set([
     'menu-text-color',
     'menu-border-color',
     'menu-border-width',
+    'menu-blur-effect',
     'show-previews',
     'preview-delay',
     'preview-size',
@@ -196,6 +198,7 @@ export const SETTING_CONFIG_PROPERTIES = deepFreeze({
     'tooltip-border-color': ['tooltipBorderColor'],
     'tooltip-border-width': ['tooltipBorderWidth'],
     'tooltip-use-menu-theme': ['tooltipUseMenuTheme'],
+    'tooltip-blur-effect': ['tooltipBlurEffect'],
 
     'indicator-style': ['indicatorStyle'],
     'indicator-size': ['indicatorSize'],
@@ -219,6 +222,7 @@ export const SETTING_CONFIG_PROPERTIES = deepFreeze({
     'menu-text-color': ['menuFg'],
     'menu-border-color': ['menuBorderColor'],
     'menu-border-width': ['menuBorderWidth'],
+    'menu-blur-effect': ['menuBlurEffect'],
 
     'show-previews': ['showPreviews'],
     'preview-delay': ['previewDelay'],

@@ -73,7 +73,7 @@ export function isBmsPopupBlurActive() {
  * @returns {boolean} True if menu blur should be rendered.
  */
 export function isBmsMenuBlurActive(cfg = null) {
-    if (cfg && (!cfg.blurEffect || cfg.highContrast))
+    if (cfg && (!cfg.blurEffect || cfg.menuBlurEffect === false || cfg.highContrast))
         return false;
     return isBmsPopupBlurActive() || isBmsDockBlurActive();
 }
@@ -85,7 +85,7 @@ export function isBmsMenuBlurActive(cfg = null) {
  * @returns {boolean} True if tooltip blur should be rendered.
  */
 export function isBmsTooltipBlurActive(cfg = null) {
-    if (cfg && (!cfg.blurEffect || cfg.highContrast))
+    if (cfg && (!cfg.blurEffect || cfg.tooltipBlurEffect === false || cfg.highContrast))
         return false;
     return isBmsPopupBlurActive() || isBmsDockBlurActive();
 }
