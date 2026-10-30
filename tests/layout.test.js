@@ -67,6 +67,30 @@ const left = computeLayout({
 }, chips(), monitor).geom;
 assert(left.y >= monitor.y && left.y + left.height <= monitor.y + monitor.height,
     'vertical dock must stay inside its monitor');
+
+// Top panel clearance (vertical docks on left/right edges)
+const monitorWithTopPanel = { x: 100, y: 50, width: 1600, height: 900, topInset: 48 };
+const leftStartPanel = computeLayout({
+    ...base,
+    vertical: true,
+    position: 'left',
+    alignment: 'start',
+}, chips(), monitorWithTopPanel).geom;
+assert(leftStartPanel.y >= monitorWithTopPanel.y + monitorWithTopPanel.topInset,
+    'left dock (start alignment) must not cross the top panel bar');
+
+const rightCenterPanel = computeLayout({
+    ...base,
+    vertical: true,
+    position: 'right',
+    alignment: 'center',
+}, chips(), monitorWithTopPanel).geom;
+assert(rightCenterPanel.y >= monitorWithTopPanel.y + monitorWithTopPanel.topInset,
+    'right dock (center alignment) must stay below the top panel bar');
+assert(rightCenterPanel.strip.y === monitorWithTopPanel.y + monitorWithTopPanel.topInset,
+    'right dock strip must start below the top panel bar');
+assert(rightCenterPanel.strut.y === monitorWithTopPanel.y + monitorWithTopPanel.topInset,
+    'right dock strut must start below the top panel bar');
 assert(centered.strut?.h > 0, 'always-visible dock should reserve work area');
 assert(computeLayout({ ...base }, chips(), monitor, true).geom.strut === null,
     'fullscreen dock must not reserve work area');

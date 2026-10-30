@@ -192,8 +192,9 @@ export class PanelView {
         const sideX = sideFanX(cfg.position, originX, cfg.dockH, panelW);
         const targetX = sideX ?? originX - panelW / 2;
         const targetY = cfg.vertical ? ay - natH / 2 : ay - natH - panelGap;
+        const topInset = mon.topInset ?? 0;
         const px = clamp(Math.round(targetX), mon.x + 8, mon.x + mon.width - panelW - 8);
-        const py = clamp(Math.round(targetY), mon.y + 8, mon.y + mon.height - natH - 8);
+        const py = clamp(Math.round(targetY), mon.y + topInset + 8, mon.y + mon.height - natH - 8);
         panel.set_position(px, py);
         panel.set_size(panelW, natH);
 

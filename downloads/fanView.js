@@ -131,8 +131,9 @@ export class FanView {
         const targetY = cfg.vertical
             ? ay - bottomCy
             : aboveDockY(ay, bottomCy + rowH / 2);
+        const topInset = mon.topInset ?? 0;
         const px = clamp(Math.round(targetX), mon.x + 8, mon.x + mon.width - panelW - 8);
-        const py = clamp(Math.round(targetY), mon.y + 8, mon.y + mon.height - panelH - 8);
+        const py = clamp(Math.round(targetY), mon.y + topInset + 8, mon.y + mon.height - panelH - 8);
         fan.set_position(px, py);
         fan.set_size(panelW, panelH);
         fan.set_style('background-color: transparent; border: none;');

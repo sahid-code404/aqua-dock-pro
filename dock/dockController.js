@@ -235,7 +235,34 @@ export class DockController {
     }
 
     _getMonitor() {
-        return Main.layoutManager.monitors?.[this._monitorIndex] ?? null;
+        const mon = Main.layoutManager?.monitors?.[this._monitorIndex] ?? null;
+        if (!mon) return null;
+        const fs = monitorInFullscreen(this._monitorIndex);
+        let topInset = 0;
+        let bottomInset = 0;
+        if (!fs) {
+            try {
+                const workarea = Main.layoutManager.getWorkAreaForMonitor?.(this._monitorIndex);
+                if (workarea) {
+                    topInset = Math.max(0, workarea.y - mon.y);
+                    bottomInset = Math.max(0, (mon.y + mon.height) - (workarea.y + workarea.height));
+                }
+            } catch { /* intentionally ignored: workarea query may fail during initialization */ }
+            try {
+                const isPrimary = this._monitorIndex === (Main.layoutManager.primaryIndex ?? 0);
+                const panel = Main.panel;
+                const panelBox = Main.layoutManager.panelBox;
+                if (panel && (panel.visible ?? true)) {
+                    const panelH = panel.height || panelBox?.height || 0;
+                    if (isPrimary && panelH > topInset)
+                        topInset = panelH;
+                }
+            } catch { /* intentionally ignored: panel query may fail in test environments */ }
+        }
+        return Object.assign(Object.create(Object.getPrototypeOf(mon) || Object.prototype), mon, {
+            topInset,
+            bottomInset,
+        });
     }
 
     _findItem(kind) {
@@ -460,6 +487,19 @@ export class DockController {
         s.connect(Main.overview, 'item-drag-begin', () => {
             this._chrome.enforceDashGap(this._cfg);
         });
+
+        if (global.display) {
+            try {
+                s.connect(global.display, 'workareas-changed', () => this.relayout());
+            } catch { /* intentionally ignored: workareas-changed signal unavailable */ }
+        }
+        const panelBox = Main.layoutManager?.panelBox;
+        if (panelBox) {
+            try {
+                s.connect(panelBox, 'notify::height', () => this.relayout());
+                s.connect(panelBox, 'notify::visible', () => this.relayout());
+            } catch { /* intentionally ignored: panelBox signal unavailable */ }
+        }
     }
 
     _syncNotificationSubscription() {

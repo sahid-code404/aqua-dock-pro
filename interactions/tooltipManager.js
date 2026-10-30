@@ -523,9 +523,10 @@ export class TooltipManager {
                 ty = cy - bh * 0.5;
             }
 
+            const topInset = mon.topInset ?? 0;
             const monR = mon.x + mon.width, monB = mon.y + mon.height;
             tx = Math.max(mon.x + 4, Math.min(tx, monR - bw - 4));
-            ty = Math.max(mon.y + 4, Math.min(ty, monB - bh - 4));
+            ty = Math.max(mon.y + topInset + 4, Math.min(ty, monB - bh - 4));
 
             const nx = Math.round(tx), ny = Math.round(ty);
 

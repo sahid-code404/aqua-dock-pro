@@ -2,6 +2,10 @@
 
 ## 295
 
+- Top Panel Bar Clearance on Side Docks (Left & Right Edge Alignment):
+  - Prevent Top Bar Overlap: Integrated GNOME Shell top panel clearance (`topInset`) derived dynamically from workarea struts and `Main.panel` / `Main.layoutManager.panelBox` height across `dock/dockController.js` and `dock/dockLayout.js`. Vertical docks on the left or right edge now strictly constrain positioning and auto-shrink budgets below the top panel bar (`y >= monitor.y + topInset`), eliminating overlap with top status indicators.
+  - Dynamic Workarea & Panel Observer: Subscribed to `global.display`'s `'workareas-changed'` and `Main.layoutManager.panelBox` height and visibility property notifications to trigger automatic relayout passes when panels toggle or resize.
+  - Popups & Overlays Bound Within Usable Area: Constrained tooltip bubbles, window previews, and folder stack views (`PanelView`, `FanView`) to respect `topInset`, preventing popup elements from encroaching on the GNOME Shell top bar.
 - Stack Open/Close Lifecycle Hardening & Curvature Polish:
   - Dual Stack Anchor Illumination Glitch Resolution: Synchronously snap closed any prior active stack anchor (`immediate = true` / 0ms) when switching between dock folder/downloads items in `downloads/downloadManager.js`, eliminating simultaneous dual down-chevron highlights.
   - Ghost Stack Open & Abandoned Promise Guard: Defensively shut abandoned or superseded stack anchors (`setStackOpenState(false, false)`) in `downloads/downloadsStack.js` if asynchronous directory enumeration is superseded, cancelled, or encounters an error, preventing stuck illuminated down-chevrons without an open popup.

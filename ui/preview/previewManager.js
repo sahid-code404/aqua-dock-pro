@@ -531,8 +531,9 @@ export class PreviewManager {
             else { px = ix - w - gap; py = iy + ih / 2 - h / 2; }
             const mon = this._getMonitor?.();
             if (mon) {
+                const topInset = mon.topInset ?? 0;
                 px = clamp(px, mon.x + 8, mon.x + mon.width - w - 8);
-                py = clamp(py, mon.y + 8, mon.y + mon.height - h - 8);
+                py = clamp(py, mon.y + topInset + 8, mon.y + mon.height - h - 8);
             }
             box.set_position(Math.round(px), Math.round(py));
         } catch (e) { logError(e, 'preview.position'); }

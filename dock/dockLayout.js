@@ -306,8 +306,12 @@ function applyAutoShrink(base, chips, monitor) {
     }
 
     const natural = pad * 2 + nIcons * c.cellW + fixedStructures;
-    const avail = Math.max(1,
-        (c.vertical ? monitor.height : monitor.width) - 2 * c.edgeMargin - 8);
+    const topInset = monitor.topInset ?? 0;
+    const bottomInset = monitor.bottomInset ?? 0;
+    const availSpan = c.vertical
+        ? Math.max(1, monitor.height - topInset - bottomInset)
+        : monitor.width;
+    const avail = Math.max(1, availSpan - 2 * c.edgeMargin - 8);
     if (natural <= avail) return c;
 
     // Normally separators/spacers keep their historical pixel sizes. Only when
@@ -416,6 +420,12 @@ export function computeLayout(base, chips, monitor, monitorFullscreen = false) {
     // Floating position (all three sides share the same edge margin). Alignment
     // changes only the main-axis origin; center remains the compatible default.
     const alignPad = Math.max(12, Math.round(16 * cfg.scale));
+    const topInset = monitor.topInset ?? 0;
+    const bottomInset = monitor.bottomInset ?? 0;
+    const availSpan = vert
+        ? Math.max(0, monitor.height - topInset - bottomInset)
+        : monitor.width;
+
     const mainOrigin = (available, length) => {
         const room = Math.max(0, available - length);
         if (cfg.alignment === 'start') return Math.min(alignPad, room);
@@ -425,14 +435,15 @@ export function computeLayout(base, chips, monitor, monitorFullscreen = false) {
     let x, y;
     if (side === 'left') {
         x = monitor.x + cfg.edgeMargin;
-        y = Math.round(monitor.y + mainOrigin(monitor.height, height));
+        y = Math.round(monitor.y + topInset + mainOrigin(availSpan, height));
     } else if (side === 'right') {
         x = monitor.x + monitor.width - width - cfg.edgeMargin;
-        y = Math.round(monitor.y + mainOrigin(monitor.height, height));
+        y = Math.round(monitor.y + topInset + mainOrigin(availSpan, height));
     } else {
         x = Math.round(monitor.x + mainOrigin(monitor.width, width));
         y = Math.round(monitor.y + monitor.height - height - cfg.edgeMargin);
     }
+    if (vert) y = Math.max(monitor.y + topInset, y);
     let hiddenX = x, hiddenY = y;
     if (side === 'left') hiddenX = monitor.x - width - 4;
     else if (side === 'right') hiddenX = monitor.x + monitor.width + 4;
@@ -486,8 +497,8 @@ export function computeLayout(base, chips, monitor, monitorFullscreen = false) {
     else edgeZone = { x, y: y + height, w: width, h: em };
 
     let strip;
-    if (side === 'left') strip = { x: monitor.x, y: monitor.y, w: 2, h: monitor.height };
-    else if (side === 'right') strip = { x: monitor.x + monitor.width - 2, y: monitor.y, w: 2, h: monitor.height };
+    if (side === 'left') strip = { x: monitor.x, y: monitor.y + topInset, w: 2, h: availSpan };
+    else if (side === 'right') strip = { x: monitor.x + monitor.width - 2, y: monitor.y + topInset, w: 2, h: availSpan };
     else strip = { x: monitor.x, y: monitor.y + monitor.height - 2, w: monitor.width, h: 2 };
 
     // The hidden marker is a clipped copy of the pill, not a separately sized
@@ -498,8 +509,8 @@ export function computeLayout(base, chips, monitor, monitorFullscreen = false) {
     const peek = Math.min(thick, Math.max(1, Math.round(cfg.borderWidth ?? 1)));
     const mainStart = vert ? y : x;
     const mainEnd = mainStart + (vert ? height : width);
-    const monitorStart = vert ? monitor.y : monitor.x;
-    const monitorEnd = monitorStart + (vert ? monitor.height : monitor.width);
+    const monitorStart = vert ? (monitor.y + topInset) : monitor.x;
+    const monitorEnd = vert ? (monitor.y + monitor.height - bottomInset) : (monitor.x + monitor.width);
     const visibleStart = Math.max(mainStart, monitorStart);
     const visibleEnd = Math.max(visibleStart, Math.min(mainEnd, monitorEnd));
     const visibleLength = visibleEnd - visibleStart;
@@ -536,8 +547,8 @@ export function computeLayout(base, chips, monitor, monitorFullscreen = false) {
     let strut = null;
     if (!cfg.autoHideActive && !monitorFullscreen) {
         const reserve = Math.max(1, em + thick + em);
-        if (side === 'left') strut = { x: monitor.x, y: monitor.y, w: reserve, h: monitor.height };
-        else if (side === 'right') strut = { x: monitor.x + monitor.width - reserve, y: monitor.y, w: reserve, h: monitor.height };
+        if (side === 'left') strut = { x: monitor.x, y: monitor.y + topInset, w: reserve, h: availSpan };
+        else if (side === 'right') strut = { x: monitor.x + monitor.width - reserve, y: monitor.y + topInset, w: reserve, h: availSpan };
         else strut = { x: monitor.x, y: monitor.y + monitor.height - reserve, w: monitor.width, h: reserve };
     }
 
