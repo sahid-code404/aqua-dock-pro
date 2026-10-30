@@ -22,16 +22,16 @@ const CONTENT_GAP = 14;
 // Reversible macOS-style swift fan animation profile
 export const FAN_ANIM = deepFreeze({
     open: {
-        duration: 180,
-        stagger: 8,
-        mode: Clutter.AnimationMode.EASE_OUT_QUAD,
-        fadeDuration: 140,
+        duration: 220,
+        stagger: 9,
+        mode: Clutter.AnimationMode.EASE_OUT_CUBIC,
+        fadeDuration: 160,
     },
     close: {
-        duration: 150,
-        stagger: 8,
-        mode: Clutter.AnimationMode.EASE_IN_QUAD,
-        fadeDuration: 120,
+        duration: 160,
+        stagger: 6,
+        mode: Clutter.AnimationMode.EASE_IN_CUBIC,
+        fadeDuration: 130,
     },
 });
 
@@ -232,6 +232,8 @@ export class FanView {
 
         label.width = this._labelWidth ?? LABEL_WIDTH;
         thumb.set_size(thumbW, thumbH);
+        thumb.width = thumbW;
+        thumb.height = thumbH;
 
         if (btn._thumbnailFirst !== this._thumbnailFirst) {
             box.remove_all_children();
@@ -282,6 +284,7 @@ export class FanView {
         if (icon && !icon.is_destroyed?.()) {
             icon.gicon = gicon;
             icon.icon_size = iconSize;
+            icon.set_size(iconSize, iconSize);
             if (thumb.get_child() !== icon) thumb.set_child(icon);
         } else {
             const newIcon = new St.Icon({
@@ -289,6 +292,7 @@ export class FanView {
                 icon_size: iconSize,
                 style_class: 'aqua-dl-fan-icon',
             });
+            newIcon.set_size(iconSize, iconSize);
             btn._icon = newIcon;
             thumb.set_child(newIcon);
         }
@@ -305,11 +309,13 @@ export class FanView {
         label.clutter_text.set_ellipsize(0);
         const folderGicon = this.gicon ?? getCachedThemedIcon('folder', true);
         const iconSize = Math.round(Math.min(thumbW, thumbH) * 0.78);
-        thumb.set_child(buildPlaceIcon(
+        const iconActor = buildPlaceIcon(
             folderGicon,
             iconSize,
             this.cfg.placeIconSourceSize,
-            'aqua-dl-fan-icon'));
+            'aqua-dl-fan-icon');
+        iconActor.set_size(iconSize, iconSize);
+        thumb.set_child(iconActor);
         btn._activate = () => { launchUri(this.folder.get_uri()); this.close(); };
         btn._openFileMenu = null;
         return btn;
@@ -320,11 +326,13 @@ export class FanView {
         label.text = text;
         btn.accessible_name = text;
         const iconSize = Math.round(Math.min(thumbW, thumbH) * 0.72);
-        thumb.set_child(buildPlaceIcon(
+        const iconActor = buildPlaceIcon(
             this.gicon ?? getCachedThemedIcon('folder-download'),
             iconSize,
             this.cfg.placeIconSourceSize,
-            'aqua-dl-fan-icon'));
+            'aqua-dl-fan-icon');
+        iconActor.set_size(iconSize, iconSize);
+        thumb.set_child(iconActor);
         btn._activate = () => { launchUri(this.folder.get_uri()); this.close(); };
         btn._openFileMenu = null;
         return btn;

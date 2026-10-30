@@ -811,7 +811,22 @@ export class DockController {
         this._hoverItem = item;
         this._lastTooltipScale = -1; // force tooltip reposition on new hover
         this._lastTooltipTrans = NaN;
-        if (!item) { this._tooltip.hide(); this._preview.hide(false); return; }
+        if (!item) {
+            this._downloads?.cancelPrewarm();
+            this._tooltip.hide();
+            this._preview.hide(false);
+            return;
+        }
+        if (item.entry?.kind === 'downloads') {
+            this._downloads?.prewarm(null, this._cfg);
+        } else if (item.entry?.kind === 'folder' && item.entry?.uri) {
+            try {
+                const folder = Gio.File.new_for_uri(item.entry.uri);
+                this._downloads?.prewarm(folder, this._cfg);
+            } catch { /* intentionally ignored: invalid URI in custom folder hover */ }
+        } else {
+            this._downloads?.cancelPrewarm();
+        }
         if (this._cfg.showTooltip) this._tooltip.scheduleShow(item, this._geom);
         else this._tooltip.hide();
         this._preview.schedule(item);
@@ -819,6 +834,7 @@ export class DockController {
 
     _endHover() {
         this._cancelEndHover();
+        this._downloads?.cancelPrewarm();
         this._hoverItem = null;
         this._tooltip.hide();
         this._preview.hide(false);

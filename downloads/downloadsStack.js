@@ -9,7 +9,7 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import { clamp, logError } from '../core/utils.js';
 import { _ } from '../core/i18n.js';
-import { enumerateRecent } from './fileEnumerator.js';
+import { enumerateRecent, prewarmFolderListing } from './fileEnumerator.js';
 import { FanView } from './fanView.js';
 import { PanelView } from './panelView.js';
 import { ActorPool } from './actorPool.js';
@@ -46,6 +46,12 @@ export class DownloadsStack {
     get blurRegion() { return this._view?.blurRegion ?? null; }
     get anchor() { return this._anchor; }
     get currentFolderUri() { return this._currentFolderUri; }
+
+    prewarm(folder, cfg) {
+        if (!folder || !cfg) return;
+        const max = clamp(cfg.downloadsMaxFiles ?? 11, 3, 11);
+        prewarmFolderListing(folder, cfg.downloadsSort ?? 'newest', max);
+    }
 
     _resolveDockContainer(anchor) {
         try {

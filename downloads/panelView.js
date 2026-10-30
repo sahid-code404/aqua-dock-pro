@@ -332,7 +332,7 @@ export class PanelView {
                 opacity: 255,
                 scale_x: 1,
                 scale_y: 1,
-                duration: 240,
+                duration: 220,
                 mode: Clutter.AnimationMode.EASE_OUT_CUBIC,
             });
             if (this._blurRegion && blurEnabled) {
@@ -341,7 +341,7 @@ export class PanelView {
                     opacity: 255,
                     scale_x: 1,
                     scale_y: 1,
-                    duration: 240,
+                    duration: 220,
                     mode: Clutter.AnimationMode.EASE_OUT_CUBIC,
                 });
             }
@@ -354,7 +354,7 @@ export class PanelView {
                         opacity: 255,
                         scale_x: 1,
                         scale_y: 1,
-                        duration: 240,
+                        duration: 220,
                         mode: Clutter.AnimationMode.EASE_OUT_CUBIC,
                     });
                 } catch { /* intentionally ignored: stack view actor property update failed on disposed actor */ }
@@ -365,7 +365,7 @@ export class PanelView {
                 opacity: 255,
                 translation_y: 0,
                 scale_y: 1,
-                duration: 240,
+                duration: 220,
                 mode: Clutter.AnimationMode.EASE_OUT_CUBIC,
             });
             if (this._blurRegion && blurEnabled) {
@@ -374,7 +374,7 @@ export class PanelView {
                     opacity: 255,
                     translation_y: 0,
                     scale_y: 1,
-                    duration: 240,
+                    duration: 220,
                     mode: Clutter.AnimationMode.EASE_OUT_CUBIC,
                 });
             }
@@ -388,7 +388,7 @@ export class PanelView {
                         opacity: 255,
                         translation_y: 0,
                         scale_y: 1,
-                        duration: 240,
+                        duration: 220,
                         mode: Clutter.AnimationMode.EASE_OUT_CUBIC,
                     });
                 } catch { /* intentionally ignored: stack view actor property update failed on disposed actor */ }
@@ -504,24 +504,24 @@ export class PanelView {
         };
         if (this._blurRegion && this._blurActive) {
             if (this._view === 'grid') {
-                this._blurRegion.ease({ opacity: 0, scale_x: 0.88, scale_y: 0.88, duration: 200, mode: Clutter.AnimationMode.EASE_IN_CUBIC });
+                this._blurRegion.ease({ opacity: 0, scale_x: 0.88, scale_y: 0.88, duration: 170, mode: Clutter.AnimationMode.EASE_IN_CUBIC });
             } else {
-                this._blurRegion.ease({ opacity: 0, scale_y: 0.9, translation_y: 12, duration: 200, mode: Clutter.AnimationMode.EASE_IN_CUBIC });
+                this._blurRegion.ease({ opacity: 0, scale_y: 0.9, translation_y: 12, duration: 170, mode: Clutter.AnimationMode.EASE_IN_CUBIC });
             }
         }
         if (bmsGroup && this._blurActive) {
             try {
                 if (this._view === 'grid') {
-                    bmsGroup.ease?.({ opacity: 0, scale_x: 0.88, scale_y: 0.88, duration: 200, mode: Clutter.AnimationMode.EASE_IN_CUBIC });
+                    bmsGroup.ease?.({ opacity: 0, scale_x: 0.88, scale_y: 0.88, duration: 170, mode: Clutter.AnimationMode.EASE_IN_CUBIC });
                 } else {
-                    bmsGroup.ease?.({ opacity: 0, scale_y: 0.9, translation_y: 12, duration: 200, mode: Clutter.AnimationMode.EASE_IN_CUBIC });
+                    bmsGroup.ease?.({ opacity: 0, scale_y: 0.9, translation_y: 12, duration: 170, mode: Clutter.AnimationMode.EASE_IN_CUBIC });
                 }
             } catch { /* intentionally ignored: stack view actor property update failed on disposed actor */ }
         }
         if (this._view === 'grid') {
-            actor.ease({ opacity: 0, scale_x: 0.88, scale_y: 0.88, duration: 200, mode: Clutter.AnimationMode.EASE_IN_CUBIC, onComplete: finish });
+            actor.ease({ opacity: 0, scale_x: 0.88, scale_y: 0.88, duration: 170, mode: Clutter.AnimationMode.EASE_IN_CUBIC, onComplete: finish });
         } else {
-            actor.ease({ opacity: 0, scale_y: 0.9, translation_y: 12, duration: 200, mode: Clutter.AnimationMode.EASE_IN_CUBIC, onComplete: finish });
+            actor.ease({ opacity: 0, scale_y: 0.9, translation_y: 12, duration: 170, mode: Clutter.AnimationMode.EASE_IN_CUBIC, onComplete: finish });
         }
     }
 }

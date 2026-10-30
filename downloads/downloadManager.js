@@ -151,6 +151,7 @@ export class DownloadManager {
         this._iconQuery = null;
         this._gen = 0;
         this._activeItem = null;
+        this._prewarmTimerId = 0;
     }
 
     get stackOpen() { return this._stack?.isOpen ?? false; }
@@ -162,6 +163,28 @@ export class DownloadManager {
             this._stack = new DownloadsStack(this._host.getMonitor, () => this._host.getContainer?.());
         if (!this._host.getConfig().showDownloads || this._watchUnsubscribe) return;
         this._watchUnsubscribe = subscribeDownloads(file => this._scheduleArrival(file));
+    }
+
+    prewarm(folder = null, cfg = null) {
+        if (this._prewarmTimerId) {
+            this._timers.remove(this._prewarmTimerId);
+            this._prewarmTimerId = 0;
+        }
+        this._prewarmTimerId = this._timers.addOnce(40, () => {
+            this._prewarmTimerId = 0;
+            if (!this._stack && this._host)
+                this._stack = new DownloadsStack(this._host.getMonitor, () => this._host.getContainer?.());
+            const target = folder ?? downloadsDir();
+            const conf = cfg ?? this._host?.getConfig();
+            this._stack?.prewarm(target, conf);
+        });
+    }
+
+    cancelPrewarm() {
+        if (this._prewarmTimerId) {
+            this._timers.remove(this._prewarmTimerId);
+            this._prewarmTimerId = 0;
+        }
     }
 
     openStack(item) {
@@ -237,6 +260,10 @@ export class DownloadManager {
         this._gen++;
         this._iconQuery?.cancel();
         this._iconQuery = null;
+        if (this._prewarmTimerId) {
+            this._timers.remove(this._prewarmTimerId);
+            this._prewarmTimerId = 0;
+        }
         this._arrivalQueue.length = 0;
         this._pendingArrivalUris.clear();
         if (this._arrivalDrainId) {
@@ -422,6 +449,10 @@ export class DownloadManager {
         if (this._watchUnsubscribe) {
             this._watchUnsubscribe();
             this._watchUnsubscribe = null;
+        }
+        if (this._prewarmTimerId) {
+            this._timers.remove(this._prewarmTimerId);
+            this._prewarmTimerId = 0;
         }
         if (this._debounceId) {
             this._timers.remove(this._debounceId);

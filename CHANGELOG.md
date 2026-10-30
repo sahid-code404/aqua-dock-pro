@@ -1,5 +1,13 @@
 # Changelog
 
+## 295
+
+- Super god-level optimization for custom folder and downloads stacks across Fan, Grid, and List views:
+  - Intelligent On-Hover Precaching & Texture Warming: Asynchronously pre-warms folder file listings, FileInfo metadata, and St.TextureCache GPU textures upon pointer hover over dock folder/download items, ensuring instant 0ms open latency upon click.
+  - Idle Background ActorPool Prewarming: Pre-instantiates panel item cards and fan item cards during idle time (`GLib.idle_add`) upon extension launch, eliminating cold-start actor instantiation lag and memory churn.
+  - Locked Widget Allocations: Explicitly constrains thumbnail, icon, and label pill dimensions to prevent asynchronous icon texture decoding from triggering layout reflow ripples across the stack.
+  - Sweet Spring & Cubic Physics Easing: Upgraded Fan, Grid, and List view opening/closing animations to fluid organic curves with gentle deceleration and natural settle, eliminating nested staggered timeline jitter and FBO re-compositing thrashing.
+
 ## 294
 
 - Comprehensive codebase audit, lifecycle hardening, and god-level optimization across Aqua Dock Pro:

@@ -2,6 +2,7 @@
 
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
+import St from 'gi://St';
 
 import { getCachedFileIcon } from '../services/fileService.js';
 
@@ -181,4 +182,41 @@ export function iconForInfo(info) {
         if (thumbPath) return getCachedFileIcon(thumbPath);
     } catch { /* intentionally ignored: thumbnail attribute lookup fallback to standard file icon */ }
     return info.get_icon();
+}
+
+function warmTextureCache(files) {
+    if (typeof global === 'undefined' || !global.stage) return;
+    try {
+        const cache = St.TextureCache?.get_default?.();
+        if (!cache?.load_gicon) return;
+        for (const info of files) {
+            try {
+                const gicon = iconForInfo(info);
+                if (gicon) cache.load_gicon(null, gicon, 48, 1, 1);
+            } catch { /* intentionally ignored: individual texture pre-warm failure */ }
+        }
+    } catch { /* intentionally ignored: texture cache unavailable */ }
+}
+
+/**
+ * Asynchronously prewarms folder listing and GPU texture cache on hover.
+ *
+ * @param {Gio.File} folder - GIO directory to prewarm.
+ * @param {'newest'|'name'|'type'} [sort='newest'] - Sorting criterion.
+ * @param {number} [limit=11] - Maximum number of files to prewarm.
+ */
+export function prewarmFolderListing(folder, sort = 'newest', limit = 11) {
+    if (!folder) return;
+    limit = Math.max(1, Math.trunc(limit) || 11);
+    const folderUri = folder?.get_uri?.() ?? '';
+    if (!folderUri) return;
+    const cacheKey = `${folderUri}:${sort}:${limit}`;
+    const cached = getCachedListing(cacheKey);
+    if (cached) {
+        if (cached.files?.length) warmTextureCache(cached.files);
+        return;
+    }
+    enumerateRecent(folder, null, sort, limit).then(res => {
+        if (res?.files?.length) warmTextureCache(res.files);
+    }).catch(() => {});
 }

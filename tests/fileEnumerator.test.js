@@ -1,7 +1,7 @@
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 
-import { enumerateRecent, invalidateListingCache } from '../downloads/fileEnumerator.js';
+import { enumerateRecent, invalidateListingCache, prewarmFolderListing } from '../downloads/fileEnumerator.js';
 
 function assert(condition, message) {
     if (!condition) throw new Error(message);
@@ -32,6 +32,11 @@ try {
 
     const newestListing = await enumerateRecent(folder, null, 'newest', 3);
     assert(newestListing.files.length === 3, 'newest sort returned wrong count');
+
+    // Test prewarming
+    prewarmFolderListing(folder, 'name', 5);
+    const prewarmed = await enumerateRecent(folder, null, 'name', 5);
+    assert(!prewarmed.error && prewarmed.files.length === 5, 'prewarmed listing failed');
 
     const missing = await enumerateRecent(
         Gio.File.new_for_path(`${path}-missing`), null, 'name', 5);
