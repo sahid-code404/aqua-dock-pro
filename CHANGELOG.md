@@ -8,6 +8,7 @@
   - Locked Widget Allocations: Explicitly constrains thumbnail, icon, and label pill dimensions to prevent asynchronous icon texture decoding from triggering layout reflow ripples across the stack.
   - macOS Spring Bloom Animation for Grid & List Views: Dynamic anchor-relative pivot point and directional emergence vector matching the clicked dock icon (bottom, left, right, top), organic spring bloom with subtle tactile overshoot (`Clutter.AnimationMode.EASE_OUT_BACK`, 250ms), and swift collapse into the anchor icon (`Clutter.AnimationMode.EASE_IN_CUBIC`, 150ms).
   - Sweet Spring & Cubic Physics Easing for Fan View: Upgraded Fan view opening/closing animations to fluid organic curves with gentle deceleration and natural settle (`EASE_OUT_CUBIC`, 220ms; `EASE_IN_CUBIC`, 160ms).
+  - Spatial Between-App Hover & Click Picking: When the cursor is between dock items, it dynamically resolves to the nearer app (displaying that app's name in the tooltip and allowing click-to-activate), while suppressing tooltip labels and click activation in the exact middle deadzone between items.
 
 ## 294
 

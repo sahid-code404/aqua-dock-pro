@@ -872,21 +872,59 @@ export class DockController {
         const cross = vert ? p[1] : p[2];
         const pickLow = geom.pick.low, pickHigh = geom.pick.high;
         if (cross < pickLow || cross > pickHigh) return null;
+
         const chips = this._factory.chips;
         const transProp = vert ? 'translation_y' : 'translation_x';
-        let best = null, bestDist = Infinity;
+
+        // Collect interactive items with their live coordinates along main axis
+        const items = [];
         for (const chip of chips) {
             if (!chip.item) continue;
             const tt = Number.isFinite(chip.spreadOffset)
                 ? chip.spreadOffset
                 : (chip.actor[transProp] ?? 0);
             const bx = chip.baseX + tt;
-            if (bx - 12 > main) break;
-            if (main > bx + chip.w + 12) continue;
-            const dist = Math.abs(main - (chip.center + tt));
-            if (dist < bestDist) { best = chip.item; bestDist = dist; }
+            const bw = chip.w;
+            const center = chip.center + tt;
+            items.push({ bx, bw, center, item: chip.item });
         }
-        return best;
+        if (items.length === 0) return null;
+
+        const first = items[0];
+        const last = items[items.length - 1];
+
+        // Outside dock items bounds with standard grace padding
+        if (main < first.bx - 12 || main > last.bx + last.bw + 12) return null;
+
+        // Pointer is before the first item center or after the last item center
+        if (main < first.center) return first.item;
+        if (main > last.center) return last.item;
+
+        // Pointer is between first.center and last.center.
+        // Locate which adjacent pair of items the pointer falls between.
+        for (let i = 0; i < items.length - 1; i++) {
+            const a = items[i];
+            const b = items[i + 1];
+            if (main >= a.center && main <= b.center) {
+                const midpoint = (a.center + b.center) / 2;
+                const distFromMid = Math.abs(main - midpoint);
+
+                // Deadzone in the exact middle between the two apps:
+                // When in the exact middle, return null so no app name is shown
+                // in the tooltip and clicking does not activate either app.
+                // Scaled to the inter-item gap with a minimum 3px threshold.
+                const gap = Math.max(0, b.bx - (a.bx + a.bw));
+                const deadzone = Math.max(3, Math.round(gap * 0.35));
+
+                if (distFromMid <= deadzone)
+                    return null;
+
+                // When in between apps, if closer to near app, return that app
+                return main < midpoint ? a.item : b.item;
+            }
+        }
+
+        return null;
     }
 
     // Redirect the cross-axis coordinate into the pill centre (for the mag zone,

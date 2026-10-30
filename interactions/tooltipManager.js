@@ -1,5 +1,6 @@
 // Hover tooltip label lifecycle, pure rounded pill bubble placement, and Blur My Shell integration.
 
+import GLib from 'gi://GLib';
 import St from 'gi://St';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
@@ -174,6 +175,7 @@ export class TooltipManager {
 
         this._timers = new TimeoutGroup();
         this._shown = false;
+        this._lastShownAt = 0;
         this._showId = 0;
         this._pendingItem = null;
         this._pendingGeom = null;
@@ -375,7 +377,9 @@ export class TooltipManager {
     scheduleShow(item, geom) {
         if (!this._getConfig?.()?.showTooltip) { this.hide(); return; }
         if (!item) { this.hide(); return; }
-        if (this._shown) {
+        const now = GLib.get_monotonic_time();
+        const isWarm = (now - this._lastShownAt) < 350 * 1000;
+        if (this._shown || isWarm) {
             this.cancel();
             this.show(item, geom);
             return;
@@ -572,6 +576,9 @@ export class TooltipManager {
     hide() {
         this.cancel();
         this._removeTransitions();
+        if (this._shown) {
+            this._lastShownAt = GLib.get_monotonic_time();
+        }
         this._shown = false;
         this._w = null;
         this._h = null;
