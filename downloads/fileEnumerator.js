@@ -5,9 +5,48 @@ import GLib from 'gi://GLib';
 
 import { getCachedFileIcon } from '../services/fileService.js';
 
-const ATTRS =
+const ATTRS_HEAVY =
     'standard::name,standard::display-name,standard::icon,' +
     'standard::content-type,thumbnail::path,time::modified';
+
+const ATTRS_SCAN_NEWEST = 'standard::name,time::modified';
+const ATTRS_SCAN_NAME = 'standard::name,standard::display-name';
+const ATTRS_SCAN_TYPE = 'standard::name,standard::content-type,time::modified';
+
+const LISTING_CACHE_CAPACITY = 16;
+const LISTING_CACHE_TTL_US = 3500 * 1000; // 3.5 seconds TTL for instant consecutive toggles
+const listingCache = new Map();
+
+function getCachedListing(key) {
+    const entry = listingCache.get(key);
+    if (!entry) return null;
+    const now = GLib.get_monotonic_time();
+    if ((now - entry.timestamp) > LISTING_CACHE_TTL_US) {
+        listingCache.delete(key);
+        return null;
+    }
+    listingCache.delete(key);
+    listingCache.set(key, entry);
+    return entry.result;
+}
+
+function putCachedListing(key, result) {
+    if (listingCache.size >= LISTING_CACHE_CAPACITY) {
+        const oldestKey = listingCache.keys().next().value;
+        if (oldestKey !== undefined) listingCache.delete(oldestKey);
+    }
+    listingCache.set(key, { timestamp: GLib.get_monotonic_time(), result });
+}
+
+export function invalidateListingCache(folderUri = null) {
+    if (!folderUri) {
+        listingCache.clear();
+        return;
+    }
+    for (const [key] of listingCache) {
+        if (key.startsWith(folderUri)) listingCache.delete(key);
+    }
+}
 
 /**
  * Asynchronously enumerates recent files within a folder with sorting and item limits.
@@ -20,60 +59,112 @@ const ATTRS =
  */
 export function enumerateRecent(folder, cancellable = null, sort = 'newest', limit = 11) {
     return new Promise(resolve => {
-        const out = [];
+        limit = Math.max(1, Math.trunc(limit) || 11);
+        const folderUri = folder?.get_uri?.() ?? '';
+        const cacheKey = `${folderUri}:${sort}:${limit}`;
+        if (!cancellable?.is_cancelled()) {
+            const cached = getCachedListing(cacheKey);
+            if (cached) {
+                resolve(cached);
+                return;
+            }
+        }
+
+        let scanAttrs = ATTRS_SCAN_NEWEST;
+        if (sort === 'name') scanAttrs = ATTRS_SCAN_NAME;
+        else if (sort === 'type') scanAttrs = ATTRS_SCAN_TYPE;
+
+        const compare = sort === 'name'
+            ? (a, b) => a.displayName.localeCompare(b.displayName)
+            : sort === 'type'
+                ? (a, b) => a.type.localeCompare(b.type) || a.displayName.localeCompare(b.displayName)
+                : (a, b) => b.mtime - a.mtime;
+
         let total = 0;
         let en = null;
         let done = false;
-        limit = Math.max(1, Math.trunc(limit) || 11);
-        const compare = sort === 'name'
-            ? (a, b) => a.name.localeCompare(b.name)
-            : sort === 'type'
-                ? (a, b) => a.type.localeCompare(b.type) || a.name.localeCompare(b.name)
-                : (a, b) => b.mtime - a.mtime;
-        const finish = (error = null) => {
+        const candidates = [];
+
+        const finish = (error = null, finalFiles = null) => {
             if (done) return;
             done = true;
-            out.sort(compare);
-            if (out.length > limit) out.length = limit;
-            resolve({ files: out.map(entry => entry.info), total, error });
-        };
-        const closeAndFinish = error => {
             try { en?.close_async(GLib.PRIORITY_DEFAULT, null, null); } catch { /* intentionally ignored: file enumerator stream may already be closed */ }
-            finish(error);
+            if (error) {
+                resolve({ files: [], total, error });
+                return;
+            }
+            const res = { files: finalFiles || [], total, error: null };
+            if (res.files.length > 0) putCachedListing(cacheKey, res);
+            resolve(res);
         };
+
+        const fetchPhase2 = () => {
+            candidates.sort(compare);
+            if (candidates.length > limit) candidates.length = limit;
+            if (candidates.length === 0) {
+                finish(null, []);
+                return;
+            }
+
+            let pending = candidates.length;
+            const finalFiles = new Array(candidates.length);
+            candidates.forEach((cand, idx) => {
+                const childFile = folder.get_child(cand.name);
+                childFile.query_info_async(
+                    ATTRS_HEAVY, Gio.FileQueryInfoFlags.NONE, GLib.PRIORITY_DEFAULT, cancellable,
+                    (fl, qres) => {
+                        if (cancellable?.is_cancelled()) {
+                            finish(new Error('Operation cancelled'));
+                            return;
+                        }
+                        try { finalFiles[idx] = fl.query_info_finish(qres); }
+                        catch { finalFiles[idx] = cand.rawInfo; }
+                        pending--;
+                        if (pending === 0) {
+                            finish(null, finalFiles.filter(Boolean));
+                        }
+                    }
+                );
+            });
+        };
+
         const readBatch = () => {
-            en.next_files_async(64, GLib.PRIORITY_DEFAULT, cancellable, (e, res) => {
+            en.next_files_async(256, GLib.PRIORITY_DEFAULT, cancellable, (e, res) => {
                 let infos;
                 try { infos = e.next_files_finish(res); }
-                catch (error) { closeAndFinish(error); return; }
+                catch (error) { finish(error); return; }
                 if (!infos || infos.length === 0) {
-                    closeAndFinish(null);
+                    fetchPhase2();
                     return;
                 }
                 for (const info of infos) {
-                    if (info.get_name().startsWith('.')) continue;
+                    const name = info.get_name();
+                    if (name.startsWith('.')) continue;
                     total++;
-                    out.push({
-                        info,
-                        name: info.get_display_name() ?? info.get_name(),
-                        type: info.get_content_type() ?? '',
-                        mtime: info.get_modification_date_time()?.to_unix() ?? 0,
+                    const displayName = (sort === 'name') ? (info.get_display_name() ?? name) : name;
+                    candidates.push({
+                        name,
+                        displayName,
+                        type: sort === 'type' ? (info.get_content_type() ?? '') : '',
+                        mtime: sort !== 'name' ? (info.get_modification_date_time()?.to_unix() ?? 0) : 0,
+                        rawInfo: info,
                     });
                 }
-                // Bound retained FileInfo objects even for very large folders.
-                out.sort(compare);
-                if (out.length > limit) out.length = limit;
+                candidates.sort(compare);
+                if (candidates.length > limit) candidates.length = limit;
                 readBatch();
             });
         };
+
         try {
             folder.enumerate_children_async(
-                ATTRS, Gio.FileQueryInfoFlags.NONE, GLib.PRIORITY_DEFAULT, cancellable,
+                scanAttrs, Gio.FileQueryInfoFlags.NONE, GLib.PRIORITY_DEFAULT, cancellable,
                 (f, res) => {
                     try { en = f.enumerate_children_finish(res); }
                     catch (error) { finish(error); return; }
                     readBatch();
-                });
+                }
+            );
         } catch (error) { finish(error); }
     });
 }

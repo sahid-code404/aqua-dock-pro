@@ -11,6 +11,7 @@ import { TimeoutGroup, animationsEnabled, logError } from '../core/utils.js';
 import { _ } from '../core/i18n.js';
 import { clearIconCaches, downloadsDir, getCachedThemedIcon } from '../services/fileService.js';
 import { DownloadsStack } from './downloadsStack.js';
+import { invalidateListingCache } from './fileEnumerator.js';
 
 const COOLDOWN_US = 1200 * 1000;
 const DEBOUNCE_MS = 80;
@@ -260,6 +261,7 @@ export class DownloadManager {
 
         this._pendingArrivalUris.add(uri);
         this._arrivalQueue.push({ file, uri });
+        try { invalidateListingCache(file.get_parent()?.get_uri?.()); } catch { /* intentionally ignored: cache invalidation on invalid file parent */ }
 
         if (this._debounceId) this._timers.remove(this._debounceId);
         this._debounceId = this._timers.addOnce(DEBOUNCE_MS, () => {
