@@ -2,6 +2,13 @@
 
 ## 295
 
+- Zero-Stutter Instant Stack Emergence & Shader Signal Silencing:
+  - Immediate Cold-Start GPU Texture Warming: Ensured `warmTextureCache(res.files)` runs immediately on Phase 2 enumeration completion before resolving listings in `downloads/fileEnumerator.js`, completely eliminating cold-start texture decoding frame drops.
+  - Startup Idle Prewarming: Introduced `prewarmStartupFolders` in `downloads/fileEnumerator.js` scheduled at idle startup via `GLib.idle_add(GLib.PRIORITY_LOW)` in `downloads/downloadManager.js`, keeping Downloads and user custom folders hot in memory.
+  - Elimination of Prewarm Hover Delay: Dropped arbitrary 40ms gate in `downloadManager.js` to begin async enumeration and texture cache warming instantly upon hover.
+  - Persistent Modal Shield Reuse: Converted the full-screen modal `blocker` actor in `downloads/downloadsStack.js` into a retained persistent widget across stack toggles, eliminating heavy actor allocation and destruction churn.
+  - Inline CSS Parsing Bypass via Applied Style Keys: Attached `key` to `getRowStyles` in `downloads/tileStyle.js` and cached `_appliedStyleKey` on row cards in `fanView.js` and `panelView.js`, skipping redundant `set_style()` parsing passes on reused actors.
+  - Nested Popup Geometry Signal Silencing: In `dock/dockBlur.js`, skipped connecting redundant `notify::scale-*` and `notify::translation-*` signals for nested popup blur targets (`aquaDownloadsFanPill`, `aquaDownloadsPanel`), eliminating hundreds of spurious redraw callbacks during open eases.
 - Frosted Glass Background Blur for Stacks (Grid & List Views and Fan View Pills):
   - Enabled frosted glass background blur matching the dock pill (`AquaDockSurface` / Blur My Shell popup blur pipeline) on Downloads and custom folder stacks in Grid and List views (`PanelView`, `aquaDownloadsPanel`, `.aqua-dl-panel`) as well as Fan View label pills (`aquaDownloadsFanPill`, `.aqua-dl-fan-label-pill`).
   - Maintained outer Fan view canvas container unblurred (`aquaDownloadsFan`, `_dockBlurEnabled = false`), avoiding unsightly rectangular bounding backdrop blur across the desktop fan arc while ensuring fan item pills render authentic frosted glass.

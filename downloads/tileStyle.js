@@ -90,7 +90,7 @@ export function getRowStyles(cfg, thumbRadius, padding = '0 12px', isBlurActive 
         HOVER_ROW_STYLES.set(key, hover);
     }
 
-    return { normal, hover };
+    return { normal, hover, key };
 }
 
 /**

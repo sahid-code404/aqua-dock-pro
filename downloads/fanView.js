@@ -282,9 +282,17 @@ export class FanView {
         btn.get_dock_radius = () => radius;
 
         const rowStyles = getRowStyles(this.cfg, thumbRadius, '6px 14px', this._blurActive, 0, labelPill);
-        label.set_style(rowStyles.normal.label);
+        if (btn._appliedStyleKey !== rowStyles.key) {
+            btn._appliedStyleKey = rowStyles.key;
+            label.set_style(rowStyles.normal.label);
+            labelPill.set_style(rowStyles.normal.pill);
+            thumb.set_style(rowStyles.normal.thumb);
+            btn._appliedHover = false;
+        }
 
         btn._updatePillStyle = hover => {
+            if (btn._appliedHover === hover) return;
+            btn._appliedHover = hover;
             const s = hover ? rowStyles.hover : rowStyles.normal;
             labelPill.set_style(s.pill);
             thumb.set_style(s.thumb);

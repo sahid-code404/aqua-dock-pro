@@ -311,9 +311,17 @@ export class PanelView {
         labelPill.height = thumbH;
 
         const rowStyles = getRowStyles(this.cfg, thumbRadius, '0 12px', this._blurActive, thumbH, labelPill);
-        label.set_style(rowStyles.normal.label);
+        if (row._appliedStyleKey !== rowStyles.key) {
+            row._appliedStyleKey = rowStyles.key;
+            label.set_style(rowStyles.normal.label);
+            labelPill.set_style(rowStyles.normal.pill);
+            thumb.set_style(rowStyles.normal.thumb);
+            row._appliedHover = false;
+        }
 
         row._updatePillStyle = hover => {
+            if (row._appliedHover === hover) return;
+            row._appliedHover = hover;
             const s = hover ? rowStyles.hover : rowStyles.normal;
             labelPill.set_style(s.pill);
             thumb.set_style(s.thumb);
@@ -366,9 +374,17 @@ export class PanelView {
         labelPill.height = thumbH;
 
         const rowStyles = getRowStyles(this.cfg, thumbRadius, '0 12px', this._blurActive, thumbH, labelPill);
-        label.set_style(rowStyles.normal.label);
+        if (row._appliedStyleKey !== rowStyles.key) {
+            row._appliedStyleKey = rowStyles.key;
+            label.set_style(rowStyles.normal.label);
+            labelPill.set_style(rowStyles.normal.pill);
+            thumb.set_style(rowStyles.normal.thumb);
+            row._appliedHover = false;
+        }
 
         row._updatePillStyle = hover => {
+            if (row._appliedHover === hover) return;
+            row._appliedHover = hover;
             const s = hover ? rowStyles.hover : rowStyles.normal;
             labelPill.set_style(s.pill);
             thumb.set_style(s.thumb);

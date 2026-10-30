@@ -41,7 +41,7 @@ export class DownloadsStack {
         });
     }
 
-    get isOpen() { return this._opening || !!(this._blocker || this._view); }
+    get isOpen() { return this._opening || !!(this._view || (this._blocker && this._blocker.visible)); }
     get view() { return this._view; }
     get blurRegion() { return this._view?.blurRegion ?? null; }
     get anchor() { return this._anchor; }
@@ -107,16 +107,27 @@ export class DownloadsStack {
         const origin = this._origin(anchor, mon, cfg);
         const dockContainer = this._resolveDockContainer(anchor);
 
-        const blocker = new St.Widget({ reactive: true, opacity: 0 });
+        let blocker = this._blocker;
+        if (!blocker || blocker.is_destroyed?.()) {
+            blocker = new St.Widget({ reactive: true, opacity: 0 });
+            blocker.connect('button-press-event', () => { this.hide(); return Clutter.EVENT_STOP; });
+            this._blocker = blocker;
+        }
         blocker.set_position(mon.x, mon.y);
         blocker.set_size(mon.width, mon.height);
-        blocker.connect('button-press-event', () => { this.hide(); return Clutter.EVENT_STOP; });
-        if (dockContainer && typeof Main.uiGroup?.insert_child_below === 'function') {
-            Main.uiGroup.insert_child_below(blocker, dockContainer);
-        } else if (Main.uiGroup?.add_child) {
-            Main.uiGroup.add_child(blocker);
+        blocker.visible = true;
+        blocker.opacity = 0;
+        const bParent = blocker.get_parent?.();
+        if (bParent !== Main.uiGroup) {
+            if (bParent) {
+                try { bParent.remove_child(blocker); } catch { /* intentionally ignored: blocker unparenting failed */ }
+            }
+            if (dockContainer && typeof Main.uiGroup?.insert_child_below === 'function') {
+                Main.uiGroup.insert_child_below(blocker, dockContainer);
+            } else if (Main.uiGroup?.add_child) {
+                Main.uiGroup.add_child(blocker);
+            }
         }
-        this._blocker = blocker;
         this._opening = false;
 
         const files = listing.files;
@@ -166,13 +177,13 @@ export class DownloadsStack {
         this._anchor = null;
         this._currentFolderUri = null;
         const view = this._view;
-        const blocker = this._blocker;
         const onClose = this._onClose;
         this._view = null;
-        this._blocker = null;
         this._onClose = null;
 
-        if (blocker) { try { blocker.destroy(); } catch { /* intentionally ignored: modal blocker or stack view actor may already be destroyed */ } }
+        if (this._blocker && !this._blocker.is_destroyed?.()) {
+            this._blocker.visible = false;
+        }
         if (onClose) { try { onClose(); } catch (e) { logError(e, 'downloads onClose'); } }
         if (!view) return;
 
@@ -224,7 +235,9 @@ export class DownloadsStack {
             this._dying = null;
             this._dyingView = null;
         }
-        if (this._blocker) { try { this._blocker.destroy(); } catch { /* intentionally ignored: modal blocker or stack view actor may already be destroyed */ } this._blocker = null; }
+        if (this._blocker && !this._blocker.is_destroyed?.()) {
+            this._blocker.visible = false;
+        }
     }
 
     _destroyActor(actor) {
@@ -239,6 +252,10 @@ export class DownloadsStack {
         }
         this._showGen++;
         this._destroyNow();
+        if (this._blocker) {
+            try { this._blocker.destroy(); } catch { /* intentionally ignored: modal blocker actor may already be destroyed */ }
+            this._blocker = null;
+        }
         this._pool?.clear();
         this._pool = null;
         this._onClose = null;

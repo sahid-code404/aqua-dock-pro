@@ -11,7 +11,7 @@ import { TimeoutGroup, animationsEnabled, logError } from '../core/utils.js';
 import { _ } from '../core/i18n.js';
 import { clearIconCaches, downloadsDir, getCachedThemedIcon } from '../services/fileService.js';
 import { DownloadsStack } from './downloadsStack.js';
-import { invalidateListingCache } from './fileEnumerator.js';
+import { invalidateListingCache, prewarmStartupFolders } from './fileEnumerator.js';
 
 const COOLDOWN_US = 1200 * 1000;
 const DEBOUNCE_MS = 80;
@@ -161,7 +161,16 @@ export class DownloadManager {
     enable() {
         if (!this._stack && this._host)
             this._stack = new DownloadsStack(this._host.getMonitor, () => this._host.getContainer?.());
-        if (!this._host.getConfig().showDownloads || this._watchUnsubscribe) return;
+        const cfg = this._host.getConfig();
+        const customUris = [];
+        if (cfg.customFolderUri) customUris.push(cfg.customFolderUri);
+        if (Array.isArray(cfg.customDockItems)) {
+            for (const item of cfg.customDockItems) {
+                if (item?.type === 'folder' && item?.uri) customUris.push(item.uri);
+            }
+        }
+        prewarmStartupFolders([downloadsDir(), ...customUris]);
+        if (!cfg.showDownloads || this._watchUnsubscribe) return;
         this._watchUnsubscribe = subscribeDownloads(file => this._scheduleArrival(file));
     }
 
@@ -170,14 +179,11 @@ export class DownloadManager {
             this._timers.remove(this._prewarmTimerId);
             this._prewarmTimerId = 0;
         }
-        this._prewarmTimerId = this._timers.addOnce(40, () => {
-            this._prewarmTimerId = 0;
-            if (!this._stack && this._host)
-                this._stack = new DownloadsStack(this._host.getMonitor, () => this._host.getContainer?.());
-            const target = folder ?? downloadsDir();
-            const conf = cfg ?? this._host?.getConfig();
-            this._stack?.prewarm(target, conf);
-        });
+        if (!this._stack && this._host)
+            this._stack = new DownloadsStack(this._host.getMonitor, () => this._host.getContainer?.());
+        const target = folder ?? downloadsDir();
+        const conf = cfg ?? this._host?.getConfig();
+        this._stack?.prewarm(target, conf);
     }
 
     cancelPrewarm() {

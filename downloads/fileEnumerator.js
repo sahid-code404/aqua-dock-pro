@@ -79,7 +79,6 @@ function _scheduleBackgroundRevalidate(folder, sort, limit, cacheKey) {
         return GLib.SOURCE_REMOVE;
     });
 }
-
 function _doEnumerate(folder, cancellable, sort, limit, cacheKey = null) {
     return new Promise(resolve => {
         let scanAttrs = ATTRS_SCAN_NEWEST;
@@ -106,7 +105,10 @@ function _doEnumerate(folder, cancellable, sort, limit, cacheKey = null) {
                 return;
             }
             const res = { files: finalFiles || [], total, error: null };
-            if (cacheKey && res.files.length > 0) putCachedListing(cacheKey, res);
+            if (res.files.length > 0) {
+                warmTextureCache(res.files);
+                if (cacheKey) putCachedListing(cacheKey, res);
+            }
             resolve(res);
         };
 
@@ -258,4 +260,25 @@ export function prewarmFolderListing(folder, sort = 'newest', limit = 11) {
     enumerateRecent(folder, null, sort, limit).then(res => {
         if (res?.files?.length) warmTextureCache(res.files);
     }).catch(() => {});
+}
+
+/**
+ * Asynchronously prewarms folder listings during idle system startup.
+ *
+ * @param {Array<Gio.File|string>} [foldersOrUris=[]] - Folders or URIs to prewarm.
+ */
+export function prewarmStartupFolders(foldersOrUris = []) {
+    if (typeof GLib === 'undefined' || !GLib.idle_add) return;
+    GLib.idle_add(GLib.PRIORITY_LOW, () => {
+        try {
+            for (const item of foldersOrUris) {
+                if (!item) continue;
+                try {
+                    const folder = (typeof item === 'string') ? Gio.File.new_for_uri(item) : item;
+                    prewarmFolderListing(folder);
+                } catch { /* intentionally ignored: invalid startup folder URI */ }
+            }
+        } catch { /* intentionally ignored: startup folder prewarm failed */ }
+        return GLib.SOURCE_REMOVE;
+    });
 }

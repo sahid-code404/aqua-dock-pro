@@ -374,7 +374,27 @@ export class AquaDockSurface {
             'notify::translation-y',
         ];
 
-        for (const sig of GEOMETRY_SIGNALS) {
+        const isNestedPopup = this._isPopupType && (
+            this.dash_background === this.background_group?.get_parent?.() ||
+            this.dash_container === this.background_group?.get_parent?.()
+        );
+
+        const signalsToConnect = isNestedPopup
+            ? [
+                'notify::allocation',
+                'notify::position',
+                'notify::size',
+                'notify::x',
+                'notify::y',
+                'notify::width',
+                'notify::height',
+                'notify::visible',
+                'notify::mapped',
+                'notify::opacity',
+              ]
+            : GEOMETRY_SIGNALS;
+
+        for (const sig of signalsToConnect) {
             if (this.dash && typeof this.dash.connect === 'function')
                 this._signals.connect(this.dash, sig, schedule);
             if (this.dash_container && this.dash_container !== this.dash && typeof this.dash_container.connect === 'function')
@@ -385,7 +405,7 @@ export class AquaDockSurface {
 
         const parent = this.background_group?.get_parent?.();
         if (parent && parent !== Main.uiGroup && parent !== this.dash_container && parent !== this.dash && typeof parent.connect === 'function') {
-            for (const sig of GEOMETRY_SIGNALS) {
+            for (const sig of signalsToConnect) {
                 this._signals.connect(parent, sig, schedule);
             }
         }
