@@ -406,6 +406,11 @@
       <summary>Tooltip border width in pixels; 0 disables border</summary>
     </key>
 
+    <key name="tooltip-use-menu-theme" type="b">
+      <default>true</default>
+      <summary>Match context menu colour theme and styling pipeline for tooltips</summary>
+    </key>
+
     <!-- ── Context Menu ─────────────────────────────────────────────── -->
     <key name="menu-use-gnome-default" type="b">
       <default>false</default>

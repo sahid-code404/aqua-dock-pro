@@ -13,7 +13,7 @@ import {
     setupBackgroundCorners,
     getBmsSettings,
 } from '../dock/dockBlur.js';
-import { getAnalyticalIconGeometry } from '../dock/dockLayout.js';
+import { applyAlpha, getAnalyticalIconGeometry } from '../dock/dockLayout.js';
 
 /**
  * Parses a CSS color string (hex #rgb/#rgba/#rrggbb/#rrggbbaa, rgb(), rgba(), or standard names)
@@ -305,7 +305,8 @@ export class TooltipManager {
             this.hide();
             return;
         }
-        const radius = cfg.tooltipRadius ?? 6;
+        const useMenuTheme = cfg.tooltipUseMenuTheme !== false;
+        const radius = useMenuTheme ? (cfg.menuRadius ?? 10) : (cfg.tooltipRadius ?? 6);
         this._radius = radius;
         this._container._dockRadius = radius;
         this._blurRegion._dockRadius = radius;
@@ -315,15 +316,21 @@ export class TooltipManager {
 
         const blurActive = Boolean(isBmsTooltipBlurActive(cfg));
         const normalBg = cfg.highContrast ? 'rgba(0,0,0,0.98)'
-            : (cfg.tooltipBg || 'rgba(32,32,36,0.92)');
+            : (useMenuTheme
+                ? (cfg.menuBg || 'rgba(35,36,40,0.94)')
+                : (cfg.tooltipBg || 'rgba(32,32,36,0.92)'));
         const bg = cfg.highContrast ? 'rgba(0,0,0,0.98)'
-            : (blurActive ? 'transparent' : normalBg);
+            : (blurActive ? applyAlpha(normalBg, 0.45) : normalBg);
         const fg = cfg.highContrast ? '#ffffff'
-            : (cfg.tooltipFg || 'rgba(242,242,244,1.0)');
-        const bw = cfg.highContrast ? Math.max(2, cfg.tooltipBorderWidth ?? 1)
-            : (cfg.tooltipBorderWidth ?? cfg.borderWidth ?? 1);
+            : (useMenuTheme
+                ? (cfg.menuFg || 'rgba(235,235,240,0.90)')
+                : (cfg.tooltipFg || 'rgba(242,242,244,1.0)'));
+        const bw = cfg.highContrast ? Math.max(2, (useMenuTheme ? (cfg.menuBorderWidth ?? 1) : (cfg.tooltipBorderWidth ?? 1)))
+            : (useMenuTheme ? (cfg.menuBorderWidth ?? 1) : (cfg.tooltipBorderWidth ?? cfg.borderWidth ?? 1));
         const bc = cfg.highContrast ? '#ffffff'
-            : (cfg.tooltipBorderColor ?? cfg.borderColor ?? 'rgba(255,255,255,0.16)');
+            : (useMenuTheme
+                ? (cfg.menuBorderColor || 'rgba(255,255,255,0.12)')
+                : (cfg.tooltipBorderColor ?? cfg.borderColor ?? 'rgba(255,255,255,0.16)'));
         const border = bw > 0 ? `${bw}px solid ${bc}` : 'none';
 
         this._bubble.set_style(

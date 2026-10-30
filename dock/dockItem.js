@@ -179,16 +179,18 @@ class DockItem extends St.Widget {
         const drawnW = size * sx;
         const drawnH = size * sy;
 
+        const gap = 8;
         let x;
         let y;
+        const pos = this._cfg?.position ?? (this._vert ? 'left' : 'bottom');
         if (!this._vert) {
             x = drawnX + drawnW / 2;
-            y = drawnY;
+            y = pos === 'top' ? drawnY + drawnH + gap : drawnY - gap;
         } else if (!this._isRight) {
-            x = drawnX + drawnW;
+            x = drawnX + drawnW + gap;
             y = drawnY + drawnH / 2;
         } else {
-            x = drawnX;
+            x = drawnX - gap;
             y = drawnY + drawnH / 2;
         }
 

@@ -51,10 +51,16 @@ export function buildPopupsPage(window, s) {
         'dialog-information-symbolic');
     tipToggle.add_row(spinRow(s, 'tooltip-delay', _('Show delay'),
         _('Delay before it appears (milliseconds)'), 0, 2000, 25, 0));
-    tipToggle.add_row(spinRow(s, 'tooltip-radius', _('Corner radius'),
-        _('Tooltip corner radius (pixels)'), 0, 30, 1, 0));
 
-    const tipStyle = expanderRow(_('Tooltip colours'), _('Tooltip fill, text and outline.'),
+    const tipMenuTheme = switchRow(s, 'tooltip-use-menu-theme', _('Match context menu theme'),
+        _('Use the same colour theme, border, and frosted glass blur pipeline as the custom context menu'));
+    tipToggle.add_row(tipMenuTheme);
+
+    const tipRadius = spinRow(s, 'tooltip-radius', _('Corner radius'),
+        _('Tooltip corner radius (pixels)'), 0, 30, 1, 0);
+    tipToggle.add_row(tipRadius);
+
+    const tipStyle = expanderRow(_('Tooltip colours'), _('Custom tooltip fill, text and outline (when not matching context menu).'),
         'applications-graphics-symbolic');
     tipStyle.add_row(colorRow(window, s, 'tooltip-bg-color', _('Background'), _('Tooltip background')));
     tipStyle.add_row(colorRow(window, s, 'tooltip-text-color', _('Text'), _('Tooltip text colour')));
@@ -62,6 +68,14 @@ export function buildPopupsPage(window, s) {
     tipStyle.add_row(spinRow(s, 'tooltip-border-width', _('Border width'),
         _('Pixels; 0 hides it'), 0, 6, 1, 0));
     tipToggle.add_row(tipStyle);
+
+    const syncTipSensitivity = () => {
+        const useMenuTheme = s.get_boolean('tooltip-use-menu-theme');
+        tipRadius.set_sensitive(!useMenuTheme);
+        tipStyle.set_sensitive(!useMenuTheme);
+    };
+    syncTipSensitivity();
+    (window._settingsSignalIds ??= []).push(s.connect('changed::tooltip-use-menu-theme', syncTipSensitivity));
     tip.add(tipToggle);
     p.add(tip);
 

@@ -131,6 +131,7 @@ function computeConfig(s) {
         tooltipFg: s.get_string('tooltip-text-color'),
         tooltipBorderColor: s.get_string('tooltip-border-color'),
         tooltipBorderWidth: s.get_int('tooltip-border-width'),
+        tooltipUseMenuTheme: s.get_boolean('tooltip-use-menu-theme'),
 
         // ── Context menu ──
         menuUseGnomeDefault: s.get_boolean('menu-use-gnome-default'),

@@ -152,9 +152,9 @@
     box-shadow:       none;
 }
 .aqua-tooltip-bubble {
-    background-color: rgba(32, 32, 36, 0.92);
-    color:            #f2f2f4;
-    border-radius:    6px;
+    background-color: rgba(35, 36, 40, 0.94);
+    color:            rgba(235, 235, 240, 0.90);
+    border-radius:    10px;
     padding:          5px 12px;
     font-size:        10pt;
     font-weight:      500;
@@ -164,8 +164,18 @@
 }
 .transparent-dash .aqua-tooltip-bubble,
 .transparent-dash.aqua-tooltip-bubble,
-.aqua-tooltip-bubble.transparent-dash {
+.aqua-tooltip-bubble.transparent-dash,
+.bms-popup-background-transparent .aqua-tooltip-bubble,
+.bms-popup-surface-transparent .aqua-tooltip-bubble {
     background-color: transparent !important;
+}
+.bms-popup-background-dark .aqua-tooltip-bubble,
+.bms-popup-surface-dark .aqua-tooltip-bubble {
+    background-color: rgba(35, 36, 40, 0.45) !important;
+}
+.bms-popup-background-light .aqua-tooltip-bubble,
+.bms-popup-surface-light .aqua-tooltip-bubble {
+    background-color: rgba(240, 240, 245, 0.45) !important;
 }
 .aqua-tooltip {
     background-color: transparent;
@@ -182,6 +192,7 @@
 .aqua-menu,
 .aqua-menu .popup-menu-boxpointer {
     -arrow-rise: 0;
+    -boxpointer-gap: 8px;
     box-shadow:  none;
 }
 .aqua-menu .popup-menu-content {

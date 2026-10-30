@@ -298,6 +298,7 @@ const {
         tooltipFg: 'rgba(242,242,244,1.0)',
         tooltipBorderWidth: 1,
         tooltipBorderColor: 'rgba(255,255,255,0.16)',
+        tooltipUseMenuTheme: false,
         blurEffect: true,
         highContrast: false,
     };
@@ -359,12 +360,27 @@ const {
 
     mgr.style();
     assert(mgr.blurActive === true, 'blurActive must be true when blurEffect and BMS are enabled');
-    assert(mgr.bubble.style.includes('background-color: transparent;'),
-        'bubble must have transparent background when blur is active');
+    assert(mgr.bubble.style.includes('background-color: rgba(32, 32, 36, 0.414);'),
+        'bubble must have frosted translucent background matching color pipeline when blur is active');
     assert(mgr.bubble.style.includes('border-radius: 6px;'),
         'bubble must retain border-radius when blur is active');
     assert(mgr.container._dockBlurEnabled === true,
         'container._dockBlurEnabled must be true when blur is active');
+
+    // Test with tooltipUseMenuTheme: true
+    currentCfg.tooltipUseMenuTheme = true;
+    currentCfg.menuRadius = 10;
+    currentCfg.menuBg = 'rgba(35,36,40,0.94)';
+    currentCfg.menuFg = 'rgba(235,235,240,0.90)';
+    currentCfg.menuBorderColor = 'rgba(255,255,255,0.12)';
+    currentCfg.menuBorderWidth = 1;
+    mgr.style();
+    assert(mgr.bubble.style.includes('border-radius: 10px;'),
+        'bubble must inherit menuRadius when tooltipUseMenuTheme is active');
+    assert(mgr.bubble.style.includes('background-color: rgba(35, 36, 40, 0.423);'),
+        'bubble must inherit menuBg with blur pipeline alpha when tooltipUseMenuTheme is active');
+    currentCfg.tooltipUseMenuTheme = false;
+    mgr.style();
 
     const resolvedMgr = resolveAquaDockTarget(mgr.container);
     assert(resolvedMgr !== null, 'resolveAquaDockTarget must resolve mgr.container');

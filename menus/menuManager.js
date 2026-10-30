@@ -16,7 +16,7 @@ import { appWindowsForConfig, TimeoutGroup } from '../core/utils.js';
 import { _, format, ngettext } from '../core/i18n.js';
 import { emptyTrash } from '../services/fileService.js';
 import { notifyUser, openPopupMenu } from '../compat/shell.js';
-import { applyAlpha } from '../dock/dockLayout.js';
+import { applyAlpha, getAnalyticalIconGeometry } from '../dock/dockLayout.js';
 import {
     isBmsPopupBlurActive,
     isBmsDockBlurActive,
@@ -50,7 +50,7 @@ export class MenuManager {
         const geom = this._host.getGeom();
         const side = geom?.vert
             ? (geom.side === 'left' ? St.Side.LEFT : St.Side.RIGHT)
-            : St.Side.BOTTOM;
+            : (geom.side === 'top' ? St.Side.TOP : St.Side.BOTTOM);
         const anchor = item.menuAnchor ?? item._icon ?? item;
 
         if (this._useGnomeAppMenu(item)) {
@@ -65,6 +65,7 @@ export class MenuManager {
             this._attachMenu(item);
             this._style();
             this._setupBlur();
+            this._setupAnchorAlignment(this._menu, item);
             this._menu.actor.hide();
 
             populateMenu(this._menu, item.entry, {
@@ -273,6 +274,138 @@ export class MenuManager {
             registerBmsTarget(menuActor, () => radius);
             this._blurRegistered = true;
         }
+    }
+
+    _setupAnchorAlignment(menu, item) {
+        const boxPointer = menu._boxPointer ?? menu.actor;
+        if (!boxPointer) return;
+
+        const host = this._host;
+        boxPointer._reposition = function(allocationBox) {
+            const geom = host.getGeom?.();
+            const geo = getAnalyticalIconGeometry(item, geom);
+            let ix, iy, iw, ih, cx, cy;
+            if (geo) {
+                ix = geo.ix; iy = geo.iy; iw = geo.iw; ih = geo.ih;
+                cx = geo.cx; cy = geo.cy;
+            } else {
+                const icon = item?._icon ?? item;
+                let pos = [0, 0], size = [48, 48];
+                try {
+                    pos = typeof icon?.get_transformed_position === 'function'
+                        ? icon.get_transformed_position() : [icon?.x ?? 0, icon?.y ?? 0];
+                    size = typeof icon?.get_transformed_size === 'function'
+                        ? icon.get_transformed_size() : [icon?.width ?? 48, icon?.height ?? 48];
+                } catch {
+                    /* fallback */
+                }
+                ix = pos[0]; iy = pos[1];
+                iw = size[0]; ih = size[1];
+                cx = ix + iw * 0.5;
+                cy = iy + ih * 0.5;
+            }
+
+            const [, , natWidth, natHeight] = this.get_preferred_size();
+            const gap = 8;
+
+            let resX = 0;
+            let resY = 0;
+
+            const arrowSide = this._arrowSide;
+            switch (arrowSide) {
+            case St.Side.BOTTOM:
+                resX = cx - natWidth * 0.5;
+                resY = iy - natHeight - gap;
+                break;
+            case St.Side.TOP:
+                resX = cx - natWidth * 0.5;
+                resY = iy + ih + gap;
+                break;
+            case St.Side.LEFT:
+                resX = ix + iw + gap;
+                resY = cy - natHeight * 0.5;
+                break;
+            case St.Side.RIGHT:
+                resX = ix - natWidth - gap;
+                resY = cy - natHeight * 0.5;
+                break;
+            default:
+                resX = cx - natWidth * 0.5;
+                resY = iy - natHeight - gap;
+                break;
+            }
+
+            const monitorIndex = Main.layoutManager?.findIndexForActor?.(this) ??
+                Main.layoutManager?.primaryIndex ?? 0;
+            const workarea = Main.layoutManager?.getWorkAreaForMonitor?.(monitorIndex);
+            if (workarea) {
+                const pad = 8;
+                resX = Math.max(workarea.x + pad, Math.min(resX, workarea.x + workarea.width - natWidth - pad));
+                resY = Math.max(workarea.y + pad, Math.min(resY, workarea.y + workarea.height - natHeight - pad));
+            }
+
+            let parent = this.get_parent();
+            let success = false;
+            let x = resX;
+            let y = resY;
+            while (!success && parent) {
+                try {
+                    [success, x, y] = parent.transform_stage_point(resX, resY);
+                } catch {
+                    success = true;
+                    x = resX;
+                    y = resY;
+                    break;
+                }
+                if (!success) parent = parent.get_parent();
+            }
+
+            allocationBox.set_origin(Math.round(x), Math.round(y));
+            if (typeof this.setArrowOrigin === 'function') {
+                const arrowOrigin = arrowSide === St.Side.LEFT || arrowSide === St.Side.RIGHT
+                    ? Math.round(cy - resY)
+                    : Math.round(cx - resX);
+                this.setArrowOrigin(arrowOrigin);
+            }
+        };
+
+        boxPointer._calculateArrowSide = function(arrowSide) {
+            const geom = host.getGeom?.();
+            const geo = getAnalyticalIconGeometry(item, geom);
+            let iy = 0, ih = 48, ix = 0, iw = 48;
+            if (geo) {
+                ix = geo.ix; iy = geo.iy; iw = geo.iw; ih = geo.ih;
+            } else {
+                const icon = item?._icon ?? item;
+                try {
+                    const pos = icon?.get_transformed_position?.() ?? [0, 0];
+                    const size = icon?.get_transformed_size?.() ?? [48, 48];
+                    ix = pos[0]; iy = pos[1]; iw = size[0]; ih = size[1];
+                } catch { /* ignore */ }
+            }
+            const monitorIndex = Main.layoutManager?.findIndexForActor?.(this) ?? 0;
+            const workarea = Main.layoutManager?.getWorkAreaForMonitor?.(monitorIndex);
+            const [, , natWidth, natHeight] = this.get_preferred_size();
+            const gap = 8;
+            if (arrowSide === St.Side.BOTTOM && workarea) {
+                if (iy - natHeight - gap < workarea.y && (iy + ih + gap + natHeight <= workarea.y + workarea.height)) {
+                    return St.Side.TOP;
+                }
+            } else if (arrowSide === St.Side.TOP && workarea) {
+                if (iy + ih + gap + natHeight > workarea.y + workarea.height && (iy - natHeight - gap >= workarea.y)) {
+                    return St.Side.BOTTOM;
+                }
+            } else if (arrowSide === St.Side.LEFT && workarea) {
+                if (ix + iw + gap + natWidth > workarea.x + workarea.width && (ix - natWidth - gap >= workarea.x)) {
+                    return St.Side.RIGHT;
+                }
+            } else if (arrowSide === St.Side.RIGHT && workarea) {
+                if (ix - gap - natWidth < workarea.x && (ix + iw + gap + natWidth <= workarea.x + workarea.width)) {
+                    return St.Side.LEFT;
+                }
+            }
+            return arrowSide;
+        };
     }
 
     _styleItems() {

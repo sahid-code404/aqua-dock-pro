@@ -117,6 +117,7 @@ export const TOOLTIP_KEYS = Object.freeze(new Set([
     'tooltip-text-color',
     'tooltip-border-color',
     'tooltip-border-width',
+    'tooltip-use-menu-theme',
 ]));
 
 export const ITEM_REFRESH_KEYS = Object.freeze(new Set([
@@ -194,6 +195,7 @@ export const SETTING_CONFIG_PROPERTIES = deepFreeze({
     'tooltip-text-color': ['tooltipFg'],
     'tooltip-border-color': ['tooltipBorderColor'],
     'tooltip-border-width': ['tooltipBorderWidth'],
+    'tooltip-use-menu-theme': ['tooltipUseMenuTheme'],
 
     'indicator-style': ['indicatorStyle'],
     'indicator-size': ['indicatorSize'],
