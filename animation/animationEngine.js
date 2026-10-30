@@ -495,6 +495,7 @@ export class AnimationEngine {
         this._cachedCfg = null;
         this._cachedGeom = null;
         this._cachedBg = null;
+        this._cachedBlurRegion = null;
         this._cachedMagZone = null;
         this._cachedMagConst = null;
         this._heldItem = null;

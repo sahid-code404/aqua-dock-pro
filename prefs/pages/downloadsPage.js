@@ -27,16 +27,20 @@ export function buildDownloadsPage(window, s) {
     window.add(p);
 
     const stack = group(_('Downloads stack'), _('How the folder opens from the dock.'));
-    stack.add(switchRow(s, 'show-downloads', _('Downloads folder stack'),
-        _('Show the Downloads folder stack on the dock')));
-    stack.add(comboRow(window, s, 'downloads-view', _('View'),
+    const dlToggle = switchRow(s, 'show-downloads', _('Downloads folder stack'),
+        _('Show the Downloads folder stack on the dock'));
+    stack.add(dlToggle);
+    const viewRow = comboRow(window, s, 'downloads-view', _('View'),
         _('Layout used when the stack opens'),
-        [_('Fan'), _('Grid'), _('List')], ['fan', 'grid', 'list']));
-    stack.add(spinRow(s, 'downloads-max-files', _('Files shown'),
-        _('Maximum number of recent files in the stack'), 3, 11, 1, 0));
-    stack.add(comboRow(window, s, 'downloads-sort', _('Sort files'),
+        [_('Fan'), _('Grid'), _('List')], ['fan', 'grid', 'list']);
+    stack.add(viewRow);
+    const filesRow = spinRow(s, 'downloads-max-files', _('Files shown'),
+        _('Maximum number of recent files in the stack'), 3, 11, 1, 0);
+    stack.add(filesRow);
+    const sortRow = comboRow(window, s, 'downloads-sort', _('Sort files'),
         _('Order used by Downloads and the custom folder stack'),
-        [_('Newest first'), _('Name'), _('File type')], ['newest', 'name', 'type']));
+        [_('Newest first'), _('Name'), _('File type')], ['newest', 'name', 'type']);
+    stack.add(sortRow);
 
     const panelStyle = expanderRow(_('Panel colours and border'),
         _('The stack panel styling.'), 'applications-graphics-symbolic');
@@ -89,6 +93,15 @@ export function buildDownloadsPage(window, s) {
         _('Display the configured items in the dock’s locations section')));
     buildCustomItemsEditor(window, s, dockItems);
     p.add(dockItems);
+
+    const syncDownloadsSensitivity = () => {
+        const enabled = s.get_boolean('show-downloads');
+        viewRow.set_sensitive(enabled);
+        filesRow.set_sensitive(enabled);
+        panelStyle.set_sensitive(enabled);
+    };
+    syncDownloadsSensitivity();
+    (window._settingsSignalIds ??= []).push(s.connect('changed::show-downloads', syncDownloadsSensitivity));
 
     const syncBlurSensitivity = () => {
         const blurOn = s.get_boolean('blur-effect');

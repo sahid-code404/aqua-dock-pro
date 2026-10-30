@@ -33,6 +33,8 @@ export class Bounce {
         this._launchActive = null; // () => bool, for repeating launch bounce
         this._burstsLeft = 0;
         this._pauseLeft = 0;
+        this._invV0 = 1;
+        this._invPeak = 1;
     }
 
     get active() {
@@ -97,6 +99,8 @@ export class Bounce {
         this._v0 = Math.sqrt(2 * this._gravity * height);
         this._v = -this._v0;     // upward (screen-negative on the lift axis)
         this._y = 0;             // height above the resting line, px
+        this._invV0 = 1 / Math.max(1, this._v0);
+        this._invPeak = 1 / Math.max(1, this._peak);
     }
 
     _frame(dtMs) {
@@ -126,8 +130,8 @@ export class Bounce {
         }
 
         // Velocity-driven squash/stretch, strongest low and fast near the floor.
-        const v = clamp(Math.abs(this._v) / Math.max(1, this._v0), 0, 1);
-        const lowness = 1 - clamp(this._y / Math.max(1, this._peak), 0, 1);
+        const v = clamp(Math.abs(this._v) * this._invV0, 0, 1);
+        const lowness = 1 - clamp(this._y * this._invPeak, 0, 1);
         const grounded = v * lowness;
         const amp = this._squash;
         const s = v * amp;

@@ -108,7 +108,7 @@ export function magnificationParams(cfg) {
  */
 export function gaussianTarget(dist, m) {
     if (dist <= 0) return 1 + m.zoomSpan;
-    if (dist >= m.cutoff) return 1;
+    if (!Number.isFinite(dist) || dist >= m.cutoff) return 1;
     if (!m.lut) {
         const r = dist / m.sigma;
         const rp = m.curveIsTwo ? r * r : Math.pow(r, m.curve);

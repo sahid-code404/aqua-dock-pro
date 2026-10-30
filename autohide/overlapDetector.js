@@ -80,7 +80,7 @@ export class OverlapDetector {
         // Windows can stay alive while moving to another workspace/monitor.
         // Stop retaining their move/resize signals as soon as they leave this
         // detector's scope; they will be tracked again if they return.
-        for (const win of [...this._tracked]) {
+        for (const win of this._tracked) {
             if (!active.has(win)) this._untrack(win);
         }
         return overlapped;

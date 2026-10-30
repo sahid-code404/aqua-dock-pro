@@ -54,8 +54,8 @@ export function buildDockPage(window, s) {
     p.add(geometry);
 
     const pill = group(_('Pill appearance & blur'), _('Pill thickness, frosted glass blur, and colors.'));
-    const blurRow = switchRow(s, 'blur-effect', _('Blur effect'),
-        _('Frosted glass background blur matching dock pill via Blur My Shell pipeline; solid fallback when disabled'));
+    const blurRow = switchRow(s, 'blur-effect', _('Frosted glass blur (Blur My Shell)'),
+        _('Frosted glass background blur matching dock pill via Blur My Shell pipeline; fallback to solid transparency when disabled'));
     pill.add(blurRow);
 
     const autoThick = switchRow(s, 'pill-thickness-auto', _('Auto thickness'),

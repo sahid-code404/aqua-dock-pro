@@ -57,7 +57,6 @@ export class DockController {
 
         this._signals = new SignalGroup();
         this._timers = new TimeoutGroup();
-        this._pickItems = [];
 
         this._cfg = { ...settings.config, monitorIndex };
         this._geom = null;
@@ -753,7 +752,8 @@ export class DockController {
     }
 
     _onMotion(ev) {
-        const [x, y] = ev.get_coords();
+        let x, y;
+        try { [x, y] = ev.get_coords(); } catch { /* intentionally ignored: motion event query failed on destroyed or synthesized event */ return Clutter.EVENT_PROPAGATE; }
         this._pointerInContainer = true;
         // A reorder drag takes over: it owns the chip translations and the flyer.
         if (this._drag.reordering) { this._drag.update(x, y); return Clutter.EVENT_STOP; }
@@ -767,7 +767,8 @@ export class DockController {
     }
 
     _onMagMotion(ev) {
-        const [x, y] = ev.get_coords();
+        let x, y;
+        try { [x, y] = ev.get_coords(); } catch { /* intentionally ignored: mag motion event query failed on destroyed or synthesized event */ return Clutter.EVENT_PROPAGATE; }
         this._pointerInMag = true;
         if (this._drag.reordering) { this._drag.update(x, y); return Clutter.EVENT_STOP; }
         if (this._updatePressedDrag(x, y)) return Clutter.EVENT_STOP;
@@ -793,7 +794,8 @@ export class DockController {
 
     // ── Edge zone pointer forwarding ────────────────────────────────────────
     _onEdgeMotion(ev) {
-        const [x, y] = ev.get_coords();
+        let x, y;
+        try { [x, y] = ev.get_coords(); } catch { /* intentionally ignored: edge motion event query failed on destroyed or synthesized event */ return Clutter.EVENT_PROPAGATE; }
         this._pointerInEdge = true;
         if (this._drag.reordering) { this._drag.update(x, y); return Clutter.EVENT_STOP; }
         if (this._updatePressedDrag(x, y)) return Clutter.EVENT_STOP;
@@ -917,60 +919,91 @@ export class DockController {
         const chips = this._factory.chips;
         const transProp = vert ? 'translation_y' : 'translation_x';
 
-        // Collect interactive items with their live coordinates along main axis without per-frame allocations
-        const pool = this._pickItems ??= [];
-        let count = 0;
+        // Scan directly through chips to pick without per-frame allocations or retaining item references
+        let firstBx = 0, firstCenter = 0, firstItem = null;
+        let lastBx = 0, lastBw = 0, lastCenter = 0, lastItem = null;
+
         for (let i = 0, len = chips.length; i < len; i++) {
             const chip = chips[i];
             if (!chip.item) continue;
             const tt = Number.isFinite(chip.spreadOffset)
                 ? chip.spreadOffset
                 : (chip.actor[transProp] ?? 0);
-            let slot = pool[count];
-            if (!slot) {
-                slot = { bx: 0, bw: 0, center: 0, item: null };
-                pool[count] = slot;
-            }
-            slot.bx = chip.baseX + tt;
-            slot.bw = chip.w;
-            slot.center = chip.center + tt;
-            slot.item = chip.item;
-            count++;
+            firstBx = chip.baseX + tt;
+            firstCenter = chip.center + tt;
+            firstItem = chip.item;
+            break;
         }
-        if (count === 0) return null;
+        if (!firstItem) return null;
 
-        const first = pool[0];
-        const last = pool[count - 1];
+        for (let i = chips.length - 1; i >= 0; i--) {
+            const chip = chips[i];
+            if (!chip.item) continue;
+            const tt = Number.isFinite(chip.spreadOffset)
+                ? chip.spreadOffset
+                : (chip.actor[transProp] ?? 0);
+            lastBx = chip.baseX + tt;
+            lastBw = chip.w;
+            lastCenter = chip.center + tt;
+            lastItem = chip.item;
+            break;
+        }
 
         // Outside dock items bounds with standard grace padding
-        if (main < first.bx - 12 || main > last.bx + last.bw + 12) return null;
+        if (main < firstBx - 12 || main > lastBx + lastBw + 12) return null;
 
         // Pointer is before the first item center or after the last item center
-        if (main < first.center) return first.item;
-        if (main > last.center) return last.item;
+        if (main < firstCenter) return firstItem;
+        if (main > lastCenter) return lastItem;
+        if (firstItem === lastItem) return firstItem;
 
-        // Pointer is between first.center and last.center.
-        // Locate which adjacent pair of items the pointer falls between.
-        for (let i = 0; i < count - 1; i++) {
-            const a = pool[i];
-            const b = pool[i + 1];
-            if (main >= a.center && main <= b.center) {
-                const midpoint = (a.center + b.center) / 2;
+        // Pointer is between firstCenter and lastCenter.
+        // Locate which adjacent pair of items the pointer falls between with early termination.
+        let prevBx = firstBx, prevBw = 0, prevCenter = firstCenter, prevItem = firstItem;
+        let isFirst = true;
+
+        for (let i = 0, len = chips.length; i < len; i++) {
+            const chip = chips[i];
+            if (!chip.item) continue;
+            const tt = Number.isFinite(chip.spreadOffset)
+                ? chip.spreadOffset
+                : (chip.actor[transProp] ?? 0);
+            const curBx = chip.baseX + tt;
+            const curBw = chip.w;
+            const curCenter = chip.center + tt;
+            const curItem = chip.item;
+
+            if (isFirst) {
+                prevBx = curBx;
+                prevBw = curBw;
+                prevCenter = curCenter;
+                prevItem = curItem;
+                isFirst = false;
+                continue;
+            }
+
+            if (main <= curCenter) {
+                const midpoint = (prevCenter + curCenter) / 2;
                 const distFromMid = Math.abs(main - midpoint);
 
                 // Deadzone in the exact middle between the two apps:
                 // When in the exact middle, return null so no app name is shown
                 // in the tooltip and clicking does not activate either app.
                 // Scaled to the inter-item gap with a minimum 3px threshold.
-                const gap = Math.max(0, b.bx - (a.bx + a.bw));
+                const gap = Math.max(0, curBx - (prevBx + prevBw));
                 const deadzone = Math.max(3, Math.round(gap * 0.35));
 
                 if (distFromMid <= deadzone)
                     return null;
 
                 // When in between apps, if closer to near app, return that app
-                return main < midpoint ? a.item : b.item;
+                return main < midpoint ? prevItem : curItem;
             }
+
+            prevBx = curBx;
+            prevBw = curBw;
+            prevCenter = curCenter;
+            prevItem = curItem;
         }
 
         return null;
@@ -1166,7 +1199,6 @@ export class DockController {
             catch (e) { logError(e, 'destroy notification subscription'); }
         }
         this._focusItem = null;
-        this._pickItems = null;
         this._disableFocusPointerExit();
         this._signals.disconnectAll();
         try { setDropDelegate(this._chrome?.container, null); } catch { /* intentionally ignored: drop delegate may already be cleared or container destroyed */ }

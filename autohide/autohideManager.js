@@ -83,9 +83,12 @@ export class AutohideManager {
 
     destroy() {
         this.disable();
-        this._pressure.destroy();
-        this._overlap.destroy();
-        this._vis.destroy();
+        this._pressure?.destroy();
+        this._pressure = null;
+        this._overlap?.destroy();
+        this._overlap = null;
+        this._vis?.destroy();
+        this._vis = null;
         this._host = null;
     }
 

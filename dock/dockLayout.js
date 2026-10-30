@@ -443,7 +443,10 @@ export function computeLayout(base, chips, monitor, monitorFullscreen = false) {
         x = Math.round(monitor.x + mainOrigin(monitor.width, width));
         y = Math.round(monitor.y + monitor.height - height - cfg.edgeMargin);
     }
-    if (vert) y = Math.max(monitor.y + topInset, y);
+    if (vert) {
+        const monMaxY = monitor.y + monitor.height - bottomInset - height;
+        y = Math.max(monitor.y + topInset, Math.min(monMaxY, y));
+    }
     let hiddenX = x, hiddenY = y;
     if (side === 'left') hiddenX = monitor.x - width - 4;
     else if (side === 'right') hiddenX = monitor.x + monitor.width + 4;
