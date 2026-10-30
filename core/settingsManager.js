@@ -167,6 +167,8 @@ function computeConfig(s) {
         downloadsView: s.get_string('downloads-view'),
         downloadsMaxFiles: s.get_int('downloads-max-files'),
         downloadsSort: s.get_string('downloads-sort'),
+        downloadsBlurEffect: s.get_boolean('downloads-blur-effect'),
+        stackBlurEffect: s.get_boolean('downloads-blur-effect'),
         downloadsPillColor: s.get_string('downloads-pill-color'),
         downloadsBorderRadius: s.get_int('downloads-border-radius'),
         downloadsBorderColor: s.get_string('downloads-border-color'),

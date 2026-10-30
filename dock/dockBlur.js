@@ -99,7 +99,7 @@ export function isBmsTooltipBlurActive(cfg = null) {
  * @returns {boolean} True if Grid, List, and Fan pill stack blur should be rendered.
  */
 export function isBmsStackBlurActive(cfg = null) {
-    if (cfg && (!cfg.blurEffect || cfg.highContrast))
+    if (cfg && (!cfg.blurEffect || cfg.downloadsBlurEffect === false || cfg.stackBlurEffect === false || cfg.highContrast))
         return false;
     return isBmsPopupBlurActive() || isBmsDockBlurActive();
 }

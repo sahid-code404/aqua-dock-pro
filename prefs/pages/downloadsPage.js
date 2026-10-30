@@ -41,6 +41,9 @@ export function buildDownloadsPage(window, s) {
         _('Order used by Downloads and the custom folder stack'),
         [_('Newest first'), _('Name'), _('File type')], ['newest', 'name', 'type']);
     stack.add(sortRow);
+    const stackBlur = switchRow(s, 'downloads-blur-effect', _('BMS background blur'),
+        _('Enable Blur My Shell background blur for stack views; fallbacks to normal background when disabled'));
+    stack.add(stackBlur);
 
     const panelStyle = expanderRow(_('Panel colours and border'),
         _('The stack panel styling.'), 'applications-graphics-symbolic');
@@ -98,16 +101,19 @@ export function buildDownloadsPage(window, s) {
         const enabled = s.get_boolean('show-downloads');
         viewRow.set_sensitive(enabled);
         filesRow.set_sensitive(enabled);
+        sortRow.set_sensitive(enabled);
+        stackBlur.set_sensitive(enabled);
         panelStyle.set_sensitive(enabled);
     };
     syncDownloadsSensitivity();
     (window._settingsSignalIds ??= []).push(s.connect('changed::show-downloads', syncDownloadsSensitivity));
 
     const syncBlurSensitivity = () => {
-        const blurOn = s.get_boolean('blur-effect');
+        const blurOn = s.get_boolean('blur-effect') && s.get_boolean('downloads-blur-effect');
         panelColor.set_sensitive(!blurOn);
         cardColor.set_sensitive(!blurOn);
     };
     syncBlurSensitivity();
     (window._settingsSignalIds ??= []).push(s.connect('changed::blur-effect', syncBlurSensitivity));
+    (window._settingsSignalIds ??= []).push(s.connect('changed::downloads-blur-effect', syncBlurSensitivity));
 }

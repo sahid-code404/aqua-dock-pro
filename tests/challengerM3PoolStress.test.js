@@ -1080,6 +1080,10 @@ print('\n--- 6. AGENTS.md Invariants Verification ---');
         'isBmsStackBlurActive must be false when blurEffect is false');
     assert(isBmsStackBlurActive({ blurEffect: true }) === true,
         'isBmsStackBlurActive must return true when blurEffect is true and BMS is active');
+    assert(isBmsStackBlurActive({ blurEffect: true, downloadsBlurEffect: false }) === false,
+        'isBmsStackBlurActive must return false when downloadsBlurEffect is false');
+    assert(isBmsStackBlurActive({ blurEffect: true, stackBlurEffect: false }) === false,
+        'isBmsStackBlurActive must return false when stackBlurEffect is false');
     assert(isBmsStackBlurActive({ blurEffect: true, highContrast: true }) === false,
         'isBmsStackBlurActive must return false when highContrast is true');
 

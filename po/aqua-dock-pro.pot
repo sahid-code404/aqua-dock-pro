@@ -29,7 +29,7 @@ msgid "Downloads"
 msgstr ""
 
 #: dock/dockItem.js:294 downloads/downloadManager.js:200
-#: menus/menuActions.js:55 prefs/pages/downloadsPage.js:83
+#: menus/menuActions.js:55 prefs/pages/downloadsPage.js:86
 #: services/appTracker.js:406
 msgid "Folder"
 msgstr ""
@@ -914,149 +914,160 @@ msgstr ""
 msgid "File type"
 msgstr ""
 
+#: prefs/pages/downloadsPage.js:44 prefs/pages/popupsPage.js:59
+#: prefs/pages/popupsPage.js:105
+msgid "BMS background blur"
+msgstr ""
+
 #: prefs/pages/downloadsPage.js:45
-msgid "Panel colours and border"
-msgstr ""
-
-#: prefs/pages/downloadsPage.js:46
-msgid "The stack panel styling."
-msgstr ""
-
-#: prefs/pages/downloadsPage.js:47
-msgid "Panel corner radius"
+msgid ""
+"Enable Blur My Shell background blur for stack views; fallbacks to normal "
+"background when disabled"
 msgstr ""
 
 #: prefs/pages/downloadsPage.js:48
-msgid "Stack panel corner radius (pixels)"
+msgid "Panel colours and border"
 msgstr ""
 
 #: prefs/pages/downloadsPage.js:49
-msgid "Panel background"
+msgid "The stack panel styling."
 msgstr ""
 
 #: prefs/pages/downloadsPage.js:50
-msgid "Stack panel background when blur is disabled"
+msgid "Panel corner radius"
+msgstr ""
+
+#: prefs/pages/downloadsPage.js:51
+msgid "Stack panel corner radius (pixels)"
 msgstr ""
 
 #: prefs/pages/downloadsPage.js:52
-msgid "Panel border"
+msgid "Panel background"
 msgstr ""
 
 #: prefs/pages/downloadsPage.js:53
+msgid "Stack panel background when blur is disabled"
+msgstr ""
+
+#: prefs/pages/downloadsPage.js:55
+msgid "Panel border"
+msgstr ""
+
+#: prefs/pages/downloadsPage.js:56
 msgid "Stack panel border colour"
 msgstr ""
 
-#: prefs/pages/downloadsPage.js:54
+#: prefs/pages/downloadsPage.js:57
 msgid "Panel border width"
 msgstr ""
 
-#: prefs/pages/downloadsPage.js:55 prefs/pages/downloadsPage.js:75
+#: prefs/pages/downloadsPage.js:58 prefs/pages/downloadsPage.js:78
 #: prefs/pages/popupsPage.js:73 prefs/pages/popupsPage.js:102
 msgid "Pixels; 0 hides it"
 msgstr ""
 
-#: prefs/pages/downloadsPage.js:59
+#: prefs/pages/downloadsPage.js:62
 msgid "File cards"
 msgstr ""
 
-#: prefs/pages/downloadsPage.js:59
+#: prefs/pages/downloadsPage.js:62
 msgid "The individual file tiles."
 msgstr ""
 
-#: prefs/pages/downloadsPage.js:60
+#: prefs/pages/downloadsPage.js:63
 msgid "Card corner radius"
 msgstr ""
 
-#: prefs/pages/downloadsPage.js:61
+#: prefs/pages/downloadsPage.js:64
 msgid "File card corner radius (pixels)"
 msgstr ""
 
-#: prefs/pages/downloadsPage.js:63
+#: prefs/pages/downloadsPage.js:66
 msgid "Card colours and border"
 msgstr ""
 
-#: prefs/pages/downloadsPage.js:64
+#: prefs/pages/downloadsPage.js:67
 msgid "The file-card styling."
 msgstr ""
 
-#: prefs/pages/downloadsPage.js:65
+#: prefs/pages/downloadsPage.js:68
 msgid "Card background"
 msgstr ""
 
-#: prefs/pages/downloadsPage.js:66
+#: prefs/pages/downloadsPage.js:69
 msgid "File card background when blur is disabled"
 msgstr ""
 
-#: prefs/pages/downloadsPage.js:68
+#: prefs/pages/downloadsPage.js:71
 msgid "Card text"
 msgstr ""
 
-#: prefs/pages/downloadsPage.js:69
+#: prefs/pages/downloadsPage.js:72
 msgid "File name colour"
 msgstr ""
 
-#: prefs/pages/downloadsPage.js:70
+#: prefs/pages/downloadsPage.js:73
 msgid "Thumbnail background"
 msgstr ""
 
-#: prefs/pages/downloadsPage.js:71
+#: prefs/pages/downloadsPage.js:74
 msgid "Thumbnail backing colour"
 msgstr ""
 
-#: prefs/pages/downloadsPage.js:72
+#: prefs/pages/downloadsPage.js:75
 msgid "Card border"
 msgstr ""
 
-#: prefs/pages/downloadsPage.js:73
+#: prefs/pages/downloadsPage.js:76
 msgid "File card border colour"
 msgstr ""
 
-#: prefs/pages/downloadsPage.js:74
+#: prefs/pages/downloadsPage.js:77
 msgid "Card border width"
 msgstr ""
 
-#: prefs/pages/downloadsPage.js:79
+#: prefs/pages/downloadsPage.js:82
 msgid "Custom folder stack"
 msgstr ""
 
-#: prefs/pages/downloadsPage.js:80
+#: prefs/pages/downloadsPage.js:83
 msgid "Add one lightweight folder stack beside Downloads."
 msgstr ""
 
-#: prefs/pages/downloadsPage.js:81
+#: prefs/pages/downloadsPage.js:84
 msgid "Show custom folder"
 msgstr ""
 
-#: prefs/pages/downloadsPage.js:82
+#: prefs/pages/downloadsPage.js:85
 msgid "Display the selected folder as another stack"
 msgstr ""
 
-#: prefs/pages/downloadsPage.js:84
+#: prefs/pages/downloadsPage.js:87
 msgid "The folder whose recent files appear in the stack"
 msgstr ""
 
-#: prefs/pages/downloadsPage.js:85
+#: prefs/pages/downloadsPage.js:88
 msgid "Use folder’s own icon"
 msgstr ""
 
-#: prefs/pages/downloadsPage.js:86
+#: prefs/pages/downloadsPage.js:89
 msgid ""
 "Prefer custom and standard folder artwork; disable for theme fallback icons"
 msgstr ""
 
-#: prefs/pages/downloadsPage.js:90
+#: prefs/pages/downloadsPage.js:93
 msgid "Dock locations and shortcuts"
 msgstr ""
 
-#: prefs/pages/downloadsPage.js:91
+#: prefs/pages/downloadsPage.js:94
 msgid "Add and arrange folders, files, links, separators, and spacers."
 msgstr ""
 
-#: prefs/pages/downloadsPage.js:92
+#: prefs/pages/downloadsPage.js:95
 msgid "Show custom dock items"
 msgstr ""
 
-#: prefs/pages/downloadsPage.js:93
+#: prefs/pages/downloadsPage.js:96
 msgid "Display the configured items in the dock’s locations section"
 msgstr ""
 
@@ -1314,10 +1325,6 @@ msgstr ""
 msgid ""
 "Use the same colour theme, border, and frosted glass blur pipeline as the "
 "custom context menu"
-msgstr ""
-
-#: prefs/pages/popupsPage.js:59 prefs/pages/popupsPage.js:105
-msgid "BMS background blur"
 msgstr ""
 
 #: prefs/pages/popupsPage.js:60

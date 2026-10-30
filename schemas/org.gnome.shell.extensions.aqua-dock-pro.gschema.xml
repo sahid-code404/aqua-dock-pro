@@ -576,6 +576,11 @@
       <summary>Downloads panel border width in pixels; 0 disables</summary>
     </key>
 
+    <key name="downloads-blur-effect" type="b">
+      <default>true</default>
+      <summary>Enable Blur My Shell background blur for stack views</summary>
+    </key>
+
     <key name="downloads-item-color" type="s">
       <default>'rgba(46,46,54,0.376667)'</default>
       <summary>Downloads file card background colour (CSS color string)</summary>

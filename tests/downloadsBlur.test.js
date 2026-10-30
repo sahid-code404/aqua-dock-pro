@@ -820,6 +820,8 @@ shellResource._register();
         const {
             isAquaPopupTarget,
             isBmsStackBlurActive,
+            isBmsTooltipBlurActive,
+            isBmsMenuBlurActive,
             resolveAquaDockTarget,
         } = await import('../dock/dockBlur.js');
 
@@ -893,11 +895,35 @@ shellResource._register();
         assert(resolvedFanPillInSec7 !== null, 'resolveAquaDockTarget must resolve fan pill target when _dockBlurEnabled is true');
         assert(resolvedFanPillInSec7.is_popup === true, 'fan pill must resolve as is_popup');
 
+        const savedBms = globalThis.global?.blur_my_shell;
+        globalThis.global ??= {};
+        globalThis.global.blur_my_shell = {
+            _dash_to_dock_blur: { enabled: true },
+            _popup: { enabled: true },
+        };
+
         // Test blur activation logic
         assert(isBmsStackBlurActive({ blurEffect: false }) === false,
             'isBmsStackBlurActive must return false when blurEffect is false');
+        assert(isBmsStackBlurActive({ blurEffect: true }) === true,
+            'isBmsStackBlurActive must return true when blurEffect is true and BMS is active');
+        assert(isBmsStackBlurActive({ blurEffect: true, downloadsBlurEffect: false }) === false,
+            'isBmsStackBlurActive must return false when downloadsBlurEffect is false');
+        assert(isBmsStackBlurActive({ blurEffect: true, stackBlurEffect: false }) === false,
+            'isBmsStackBlurActive must return false when stackBlurEffect is false');
         assert(isBmsStackBlurActive({ blurEffect: true, highContrast: true }) === false,
             'isBmsStackBlurActive must return false when highContrast is true');
+
+        // Disabling stack blur must NOT affect tooltip or context menu blur
+        assert(isBmsTooltipBlurActive({ blurEffect: true, downloadsBlurEffect: false }) === true,
+            'isBmsTooltipBlurActive must remain true when downloadsBlurEffect is false');
+        assert(isBmsMenuBlurActive({ blurEffect: true, downloadsBlurEffect: false }) === true,
+            'isBmsMenuBlurActive must remain true when downloadsBlurEffect is false');
+
+        if (savedBms !== undefined)
+            globalThis.global.blur_my_shell = savedBms;
+        else
+            delete globalThis.global.blur_my_shell;
     }
 
     // ── 8. FileItemMenu Anchor Alignment and Right-Click Triggers ─────────────

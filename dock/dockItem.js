@@ -12,7 +12,7 @@ import { SETTLE_EPS } from '../core/constants.js';
 import { Bounce } from '../animation/bounce.js';
 import { peakTierThresholds, stableArtworkSourceSize, usePeakTier } from './iconResolution.js';
 import { indicatorMetrics, indicatorPosition } from './dockLayout.js';
-import { registerBmsTarget, unregisterBmsTarget, setupBackgroundCorners } from './dockBlur.js';
+import { isBmsStackBlurActive, registerBmsTarget, unregisterBmsTarget, setupBackgroundCorners } from './dockBlur.js';
 
 export const DockItem = GObject.registerClass({
     GTypeName: 'AquaDockProDockItem',
@@ -216,7 +216,7 @@ class DockItem extends St.Widget {
 
         if (isOpen) {
             this._stackAnchor?.show();
-            if (this._cfg?.blurEffect) {
+            if (isBmsStackBlurActive(this._cfg)) {
                 registerBmsTarget(this._stackAnchor, () => this._anchorRadius);
             }
             if (reduce) {
