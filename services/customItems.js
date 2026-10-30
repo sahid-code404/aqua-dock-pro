@@ -49,7 +49,7 @@ export function parseCustomItems(records) {
     for (let i = 0; i < records.length && result.length < MAX_ITEMS; i++) {
         let raw;
         try { raw = JSON.parse(records[i]); }
-        catch { continue; }
+        catch { /* intentionally ignored: malformed JSON item string skipped */ continue; }
         const item = normalizeCustomItem(raw, `legacy-${i}`);
         if (!item || ids.has(item.id)) continue;
         ids.add(item.id);

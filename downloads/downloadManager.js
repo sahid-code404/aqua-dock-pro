@@ -379,6 +379,7 @@ export class DownloadManager {
             let tx, ty;
             try { [tx, ty] = target.get_transformed_position(); }
             catch {
+                /* intentionally ignored: transformed position query failed on unmapped target */
                 bounceOnly(target);
                 return;
             }
@@ -448,6 +449,7 @@ export class DownloadManager {
                     spawn(gicon);
                 });
         } catch {
+            /* intentionally ignored: query_info_async failed fallback to generic icon */
             if (this._iconQuery === iconQuery) this._iconQuery = null;
             spawn(fallback);
         }

@@ -108,6 +108,7 @@ export class PreviewManager {
                 const rect = win.get_frame_rect();
                 return Boolean(actor && rect && rect.width > 0 && rect.height > 0);
             } catch {
+                /* intentionally ignored: window compositor private or frame rect query failed on disappearing window */
                 return false;
             }
         });
@@ -174,7 +175,7 @@ export class PreviewManager {
         for (const win of shown) {
             let windowTitle;
             try { windowTitle = win.get_title() || item.label(); }
-            catch { continue; }
+            catch { /* intentionally ignored: window title query failed on disappearing window */ continue; }
             const btn = new St.Button({
                 style_class: 'aqua-preview-col',
                 reactive: true,

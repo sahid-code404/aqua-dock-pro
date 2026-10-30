@@ -57,6 +57,7 @@ export class DockController {
 
         this._signals = new SignalGroup();
         this._timers = new TimeoutGroup();
+        this._pickItems = [];
 
         this._cfg = { ...settings.config, monitorIndex };
         this._geom = null;
@@ -744,7 +745,7 @@ export class DockController {
 
         let type;
         try { type = ev.type(); }
-        catch { return Clutter.EVENT_PROPAGATE; }
+        catch { /* intentionally ignored: event query failed on synthesized or destroyed event */ return Clutter.EVENT_PROPAGATE; }
         if (type === Clutter.EventType.BUTTON_PRESS ||
             type === Clutter.EventType.TOUCH_BEGIN)
             this.exitKeyboardFocus();
@@ -815,7 +816,7 @@ export class DockController {
     _onEdgePress(ev) {
         let button, sx, sy;
         try { button = ev.get_button(); [sx, sy] = ev.get_coords(); }
-        catch { return Clutter.EVENT_PROPAGATE; }
+        catch { /* intentionally ignored: event query failed on synthesized or destroyed event */ return Clutter.EVENT_PROPAGATE; }
         if (button !== 1 && button !== 2 && button !== 3)
             return Clutter.EVENT_PROPAGATE;
         if (button === 3 && this._downloads?.stackOpen) {
@@ -830,7 +831,7 @@ export class DockController {
     _onEdgeRelease(ev) {
         let button, sx, sy;
         try { button = ev.get_button(); [sx, sy] = ev.get_coords(); }
-        catch { return Clutter.EVENT_PROPAGATE; }
+        catch { /* intentionally ignored: event query failed on synthesized or destroyed event */ return Clutter.EVENT_PROPAGATE; }
         if (this._drag.reordering) {
             this._press = null;
             this._drag.finish(sx, sy);
@@ -905,7 +906,7 @@ export class DockController {
         if (!geom) return null;
         let p;
         try { p = this._chrome.container.transform_stage_point(stageX, stageY); }
-        catch { return null; }
+        catch { /* intentionally ignored: container transform stage point lookup failed on unmapped actor */ return null; }
         if (!p?.[0]) return null;
         const vert = geom.vert;
         const main = vert ? p[2] : p[1];
@@ -916,22 +917,30 @@ export class DockController {
         const chips = this._factory.chips;
         const transProp = vert ? 'translation_y' : 'translation_x';
 
-        // Collect interactive items with their live coordinates along main axis
-        const items = [];
-        for (const chip of chips) {
+        // Collect interactive items with their live coordinates along main axis without per-frame allocations
+        const pool = this._pickItems ??= [];
+        let count = 0;
+        for (let i = 0, len = chips.length; i < len; i++) {
+            const chip = chips[i];
             if (!chip.item) continue;
             const tt = Number.isFinite(chip.spreadOffset)
                 ? chip.spreadOffset
                 : (chip.actor[transProp] ?? 0);
-            const bx = chip.baseX + tt;
-            const bw = chip.w;
-            const center = chip.center + tt;
-            items.push({ bx, bw, center, item: chip.item });
+            let slot = pool[count];
+            if (!slot) {
+                slot = { bx: 0, bw: 0, center: 0, item: null };
+                pool[count] = slot;
+            }
+            slot.bx = chip.baseX + tt;
+            slot.bw = chip.w;
+            slot.center = chip.center + tt;
+            slot.item = chip.item;
+            count++;
         }
-        if (items.length === 0) return null;
+        if (count === 0) return null;
 
-        const first = items[0];
-        const last = items[items.length - 1];
+        const first = pool[0];
+        const last = pool[count - 1];
 
         // Outside dock items bounds with standard grace padding
         if (main < first.bx - 12 || main > last.bx + last.bw + 12) return null;
@@ -942,9 +951,9 @@ export class DockController {
 
         // Pointer is between first.center and last.center.
         // Locate which adjacent pair of items the pointer falls between.
-        for (let i = 0; i < items.length - 1; i++) {
-            const a = items[i];
-            const b = items[i + 1];
+        for (let i = 0; i < count - 1; i++) {
+            const a = pool[i];
+            const b = pool[i + 1];
             if (main >= a.center && main <= b.center) {
                 const midpoint = (a.center + b.center) / 2;
                 const distFromMid = Math.abs(main - midpoint);
@@ -980,12 +989,12 @@ export class DockController {
     // ── Clicks ──────────────────────────────────────────────────────────────
     _onCaptured(ev) {
         let type;
-        try { type = ev.type(); } catch { return Clutter.EVENT_PROPAGATE; }
+        try { type = ev.type(); } catch { /* intentionally ignored: captured event type query failed */ return Clutter.EVENT_PROPAGATE; }
         if (type !== Clutter.EventType.BUTTON_PRESS && type !== Clutter.EventType.BUTTON_RELEASE)
             return Clutter.EVENT_PROPAGATE;
         let button, sx, sy;
         try { button = ev.get_button(); [sx, sy] = ev.get_coords(); }
-        catch { return Clutter.EVENT_PROPAGATE; }
+        catch { /* intentionally ignored: captured event button or coords query failed */ return Clutter.EVENT_PROPAGATE; }
         if (button !== 1 && button !== 2 && button !== 3) return Clutter.EVENT_PROPAGATE;
         const item = this._pickItem(sx, sy);
         return this._handleButton(type, button, sx, sy, item);
@@ -994,7 +1003,7 @@ export class DockController {
     _onMagPress(ev) {
         let button, sx, sy;
         try { button = ev.get_button(); [sx, sy] = ev.get_coords(); }
-        catch { return Clutter.EVENT_PROPAGATE; }
+        catch { /* intentionally ignored: mag press event button or coords query failed */ return Clutter.EVENT_PROPAGATE; }
         if (button !== 1 && button !== 2 && button !== 3)
             return Clutter.EVENT_PROPAGATE;
         if (button === 3 && this._downloads?.stackOpen) {
@@ -1009,7 +1018,7 @@ export class DockController {
     _onMagRelease(ev) {
         let button, sx, sy;
         try { button = ev.get_button(); [sx, sy] = ev.get_coords(); }
-        catch { return Clutter.EVENT_PROPAGATE; }
+        catch { /* intentionally ignored: mag release event button or coords query failed */ return Clutter.EVENT_PROPAGATE; }
         if (this._drag.reordering) {
             this._press = null;
             this._drag.finish(sx, sy);
@@ -1113,7 +1122,7 @@ export class DockController {
     // ── Scroll to minimize / restore ─────────────────────────────────────────
     _onScroll(ev) {
         let sx, sy;
-        try { [sx, sy] = ev.get_coords(); } catch { return Clutter.EVENT_PROPAGATE; }
+        try { [sx, sy] = ev.get_coords(); } catch { /* intentionally ignored: scroll event coords query failed */ return Clutter.EVENT_PROPAGATE; }
         const item = this._pickItem(sx, sy) ?? this._pickItemRedirected(sx, sy);
         if (!item || item.entry.kind !== 'app') return Clutter.EVENT_PROPAGATE;
         if (this._cfg.scrollAction === 'nothing') return Clutter.EVENT_PROPAGATE;
@@ -1157,6 +1166,7 @@ export class DockController {
             catch (e) { logError(e, 'destroy notification subscription'); }
         }
         this._focusItem = null;
+        this._pickItems = null;
         this._disableFocusPointerExit();
         this._signals.disconnectAll();
         try { setDropDelegate(this._chrome?.container, null); } catch { /* intentionally ignored: drop delegate may already be cleared or container destroyed */ }

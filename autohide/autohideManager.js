@@ -328,6 +328,7 @@ export class AutohideManager {
         try {
             if (window.get_monitor?.() !== monitor) return;
         } catch {
+            /* intentionally ignored: window monitor query failed on destroyed window */
             return;
         }
 
@@ -416,6 +417,7 @@ export class AutohideManager {
                 !window.located_on_workspace(workspace))
                 return;
         } catch {
+            /* intentionally ignored: window workspace check failed on destroyed window */
             return;
         }
 
@@ -424,10 +426,10 @@ export class AutohideManager {
         // only a different fullscreen window underneath should pre-hide us.
         let windows = null;
         try { windows = global.display?.list_all_windows?.() ?? null; }
-        catch { windows = null; }
+        catch { /* intentionally ignored: display window list query failed during session transition */ windows = null; }
         if (!windows) {
             try { windows = workspace?.list_windows?.() ?? null; }
-            catch { windows = null; }
+            catch { /* intentionally ignored: workspace window list query failed during session transition */ windows = null; }
         }
         if (!windows) return;
 
@@ -519,7 +521,7 @@ export class AutohideManager {
 
     _pointerButtonDown() {
         try { return Boolean(global.get_pointer()[2] & POINTER_BUTTON_MASK); }
-        catch { return false; }
+        catch { /* intentionally ignored: global pointer query failed during display teardown */ return false; }
     }
 
     // ── Pointer-in-dock truth ─────────────────────────────────────────────────
@@ -527,7 +529,7 @@ export class AutohideManager {
         const geom = this._host.getGeom();
         if (!geom) return false;
         let px, py;
-        try { [px, py] = global.get_pointer(); } catch { return false; }
+        try { [px, py] = global.get_pointer(); } catch { /* intentionally ignored: global pointer query failed during display teardown */ return false; }
 
         const c = this._host.chrome.container;
         if (c && !this._vis.hidden &&

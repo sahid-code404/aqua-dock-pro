@@ -22,76 +22,76 @@ msgstr ""
 msgid "Applications"
 msgstr ""
 
-#: dock/dockItem.js:291 downloads/downloadManager.js:154
-#: downloads/downloadsStack.js:59 downloads/panelView.js:196
-#: prefs/pages/downloadsPage.js:18 services/appTracker.js:377
+#: dock/dockItem.js:291 downloads/downloadManager.js:197
+#: downloads/downloadsStack.js:75 downloads/panelView.js:260
+#: prefs/pages/downloadsPage.js:26 services/appTracker.js:396
 msgid "Downloads"
 msgstr ""
 
-#: dock/dockItem.js:292 downloads/downloadManager.js:157
-#: menus/menuActions.js:40 prefs/pages/downloadsPage.js:49
-#: services/appTracker.js:387
+#: dock/dockItem.js:292 downloads/downloadManager.js:200
+#: menus/menuActions.js:55 prefs/pages/downloadsPage.js:79
+#: services/appTracker.js:406
 msgid "Folder"
 msgstr ""
 
-#: dock/dockItem.js:293 menus/menuActions.js:44 services/appTracker.js:455
-#: services/appTracker.js:456
+#: dock/dockItem.js:293 menus/menuActions.js:59 services/appTracker.js:474
+#: services/appTracker.js:475
 msgid "Location"
 msgstr ""
 
-#: dock/dockItem.js:294 menus/menuActions.js:48 menus/menuActions.js:51
-#: menus/menuActions.js:52 menus/menuActions.js:61 menus/menuActions.js:62
-#: prefs/pages/devicesPage.js:104
+#: dock/dockItem.js:294 menus/menuActions.js:63 menus/menuActions.js:66
+#: menus/menuActions.js:67 menus/menuActions.js:76 menus/menuActions.js:77
+#: prefs/pages/devicesPage.js:112
 msgid "Mounted device"
 msgstr ""
 
-#: dock/dockItem.js:295 prefs/pages/dockPage.js:98
+#: dock/dockItem.js:295 prefs/pages/dockPage.js:107
 msgid "Trash"
 msgstr ""
 
-#: dock/dockItem.js:530
+#: dock/dockItem.js:531
 #, javascript-format
 msgid "%d open window"
 msgid_plural "%d open windows"
 msgstr[0] ""
 msgstr[1] ""
 
-#: dock/dockItem.js:531
+#: dock/dockItem.js:532
 msgid "running"
 msgstr ""
 
-#: dock/dockItem.js:534
+#: dock/dockItem.js:535
 #, javascript-format
 msgid "%d notification"
 msgid_plural "%d notifications"
 msgstr[0] ""
 msgstr[1] ""
 
-#: downloads/fanView.js:89
+#: downloads/fanView.js:92
 msgid "Open in Files"
 msgstr ""
 
-#: downloads/fanView.js:91
+#: downloads/fanView.js:94
 #, javascript-format
 msgid "%s is empty"
 msgstr ""
 
-#: downloads/fileItemMenu.js:61 prefs/pages/aboutPage.js:51
+#: downloads/fileItemMenu.js:73 prefs/pages/aboutPage.js:59
 msgid "Copy"
 msgstr ""
 
-#: downloads/panelView.js:202
+#: downloads/panelView.js:266
 #, javascript-format
 msgid "%d item"
 msgid_plural "%d items"
 msgstr[0] ""
 msgstr[1] ""
 
-#: downloads/panelView.js:208
+#: downloads/panelView.js:272
 msgid "Open Folder"
 msgstr ""
 
-#: downloads/panelView.js:305
+#: downloads/panelView.js:370
 #, javascript-format
 msgid "+%d more item in Files"
 msgid_plural "+%d more items in Files"
@@ -106,576 +106,560 @@ msgstr ""
 msgid "Open"
 msgstr ""
 
-#: menus/menuActions.js:32
+#: menus/menuActions.js:47
 msgid "Open Applications"
 msgstr ""
 
-#: menus/menuActions.js:37
+#: menus/menuActions.js:52
 msgid "Open Downloads"
 msgstr ""
 
-#: menus/menuActions.js:40 menus/menuActions.js:44 menus/menuActions.js:48
+#: menus/menuActions.js:55 menus/menuActions.js:59 menus/menuActions.js:63
 #, javascript-format
 msgid "Open %s"
 msgstr ""
 
-#: menus/menuActions.js:51
+#: menus/menuActions.js:66
 #, javascript-format
 msgid "Eject %s"
 msgstr ""
 
-#: menus/menuActions.js:54
+#: menus/menuActions.js:69
 #, javascript-format
 msgid "Could not eject %s"
 msgstr ""
 
-#: menus/menuActions.js:55
+#: menus/menuActions.js:70
 #, javascript-format
 msgid "%s ejected"
 msgstr ""
 
-#: menus/menuActions.js:57
+#: menus/menuActions.js:72
 #, javascript-format
 msgid "Could not start ejecting %s"
 msgstr ""
 
-#: menus/menuActions.js:58 menus/menuActions.js:68
+#: menus/menuActions.js:73 menus/menuActions.js:83
 msgid "Another device operation may already be running."
 msgstr ""
 
-#: menus/menuActions.js:61
+#: menus/menuActions.js:76
 #, javascript-format
 msgid "Unmount %s"
 msgstr ""
 
-#: menus/menuActions.js:64
+#: menus/menuActions.js:79
 #, javascript-format
 msgid "Could not unmount %s"
 msgstr ""
 
-#: menus/menuActions.js:65
+#: menus/menuActions.js:80
 #, javascript-format
 msgid "%s unmounted"
 msgstr ""
 
-#: menus/menuActions.js:67
+#: menus/menuActions.js:82
 #, javascript-format
 msgid "Could not start unmounting %s"
 msgstr ""
 
-#: menus/menuActions.js:73
+#: menus/menuActions.js:88
 msgid "Open Trash"
 msgstr ""
 
-#: menus/menuActions.js:74 menus/menuManager.js:196
+#: menus/menuActions.js:89 menus/menuManager.js:197
 msgid "Empty Trash"
 msgstr ""
 
-#: menus/menuActions.js:86
+#: menus/menuActions.js:101
 msgid "Unlock Layout"
 msgstr ""
 
-#: menus/menuActions.js:86
+#: menus/menuActions.js:101
 msgid "Lock Layout"
 msgstr ""
 
-#: menus/menuActions.js:98
+#: menus/menuActions.js:113
 msgid "New Window"
 msgstr ""
 
-#: menus/menuActions.js:117
+#: menus/menuActions.js:132
 msgid "Unpin from Dock"
 msgstr ""
 
-#: menus/menuActions.js:117
+#: menus/menuActions.js:132
 msgid "Pin to Dock"
 msgstr ""
 
-#: menus/menuActions.js:135
+#: menus/menuActions.js:150
 msgid "Window"
 msgstr ""
 
-#: menus/menuActions.js:153
+#: menus/menuActions.js:168
 msgid "Quit"
 msgstr ""
 
-#: menus/menuManager.js:186
+#: menus/menuManager.js:187
 msgid "Empty Trash?"
 msgstr ""
 
-#: menus/menuManager.js:187
+#: menus/menuManager.js:188
 msgid "All items in Trash will be permanently deleted."
 msgstr ""
 
-#: menus/menuManager.js:191 prefs/pages/aboutPage.js:71
-#: prefs/widgets/customItems.js:84
+#: menus/menuManager.js:192 prefs/pages/aboutPage.js:79
+#: prefs/widgets/customItems.js:92
 msgid "Cancel"
 msgstr ""
 
-#: menus/menuManager.js:208
+#: menus/menuManager.js:209
 msgid "Trash could not be fully emptied"
 msgstr ""
 
-#: menus/menuManager.js:209
+#: menus/menuManager.js:210
 #, javascript-format
 msgid "%d item could not be removed."
 msgid_plural "%d items could not be removed."
 msgstr[0] ""
 msgstr[1] ""
 
-#: menus/menuManager.js:212
+#: menus/menuManager.js:213
 msgid "Trash emptied"
 msgstr ""
 
-#: prefs/pages/aboutPage.js:12
+#: prefs/pages/aboutPage.js:20
 msgid "About"
 msgstr ""
 
-#: prefs/pages/aboutPage.js:15
+#: prefs/pages/aboutPage.js:23
 msgid "AquaDockPro"
 msgstr ""
 
-#: prefs/pages/aboutPage.js:17
+#: prefs/pages/aboutPage.js:25
 msgid "Version"
 msgstr ""
 
-#: prefs/pages/aboutPage.js:23
+#: prefs/pages/aboutPage.js:31
 msgid "Project page"
 msgstr ""
 
-#: prefs/pages/aboutPage.js:36
+#: prefs/pages/aboutPage.js:44
 msgid "Backup and support"
 msgstr ""
 
-#: prefs/pages/aboutPage.js:37
+#: prefs/pages/aboutPage.js:45
 msgid "Move settings safely or collect a privacy-safe support report."
 msgstr ""
 
-#: prefs/pages/aboutPage.js:38
+#: prefs/pages/aboutPage.js:46
 msgid "Settings backup"
 msgstr ""
 
-#: prefs/pages/aboutPage.js:39
+#: prefs/pages/aboutPage.js:47
 msgid "Export"
 msgstr ""
 
-#: prefs/pages/aboutPage.js:42
+#: prefs/pages/aboutPage.js:50
 msgid "Import"
 msgstr ""
 
-#: prefs/pages/aboutPage.js:48
+#: prefs/pages/aboutPage.js:56
 msgid "Diagnostics"
 msgstr ""
 
-#: prefs/pages/aboutPage.js:49
+#: prefs/pages/aboutPage.js:57
 msgid "Copies versions and changed setting names, without private values"
 msgstr ""
 
-#: prefs/pages/aboutPage.js:58 prefs/pages/aboutPage.js:63
-#: prefs/pages/aboutPage.js:72
+#: prefs/pages/aboutPage.js:66 prefs/pages/aboutPage.js:71
+#: prefs/pages/aboutPage.js:80
 msgid "Reset"
 msgstr ""
 
-#: prefs/pages/aboutPage.js:58
+#: prefs/pages/aboutPage.js:66
 msgid "Restore every setting to its default value."
 msgstr ""
 
-#: prefs/pages/aboutPage.js:60
+#: prefs/pages/aboutPage.js:68
 msgid "Reset all settings"
 msgstr ""
 
-#: prefs/pages/aboutPage.js:61
+#: prefs/pages/aboutPage.js:69
 msgid "This cannot be undone"
 msgstr ""
 
-#: prefs/pages/aboutPage.js:68
+#: prefs/pages/aboutPage.js:76
 msgid "Reset all settings?"
 msgstr ""
 
-#: prefs/pages/aboutPage.js:69
+#: prefs/pages/aboutPage.js:77
 msgid "Every AquaDockPro preference will return to its default."
 msgstr ""
 
-#: prefs/pages/accessibilityPage.js:7
+#: prefs/pages/accessibilityPage.js:15
 msgid "Accessibility"
 msgstr ""
 
-#: prefs/pages/accessibilityPage.js:10 prefs/pages/motionPage.js:7
+#: prefs/pages/accessibilityPage.js:18 prefs/pages/motionPage.js:15
 msgid "Motion"
 msgstr ""
 
-#: prefs/pages/accessibilityPage.js:10
+#: prefs/pages/accessibilityPage.js:18
 msgid "GNOME’s system animation setting is always respected."
 msgstr ""
 
-#: prefs/pages/accessibilityPage.js:11
+#: prefs/pages/accessibilityPage.js:19
 msgid "Reduce dock motion"
 msgstr ""
 
-#: prefs/pages/accessibilityPage.js:12
+#: prefs/pages/accessibilityPage.js:20
 msgid ""
 "Disable magnification transitions, bounce, fades, and movement animations"
 msgstr ""
 
-#: prefs/pages/accessibilityPage.js:15
+#: prefs/pages/accessibilityPage.js:23
 msgid "Visibility"
 msgstr ""
 
-#: prefs/pages/accessibilityPage.js:15
+#: prefs/pages/accessibilityPage.js:23
 msgid "Optional stronger presentation for dock interfaces."
 msgstr ""
 
-#: prefs/pages/accessibilityPage.js:16
+#: prefs/pages/accessibilityPage.js:24
 msgid "High contrast"
 msgstr ""
 
-#: prefs/pages/accessibilityPage.js:17
+#: prefs/pages/accessibilityPage.js:25
 msgid ""
 "Use opaque backgrounds, brighter outlines, and stronger focus indicators"
 msgstr ""
 
-#: prefs/pages/accessibilityPage.js:18
+#: prefs/pages/accessibilityPage.js:26
 msgid "Interface text scale"
 msgstr ""
 
-#: prefs/pages/accessibilityPage.js:19
+#: prefs/pages/accessibilityPage.js:27
 msgid "Scale menu, tooltip, preview, and folder-stack text"
 msgstr ""
 
-#: prefs/pages/accessibilityPage.js:22
+#: prefs/pages/accessibilityPage.js:30
 msgid "Screen reader"
 msgstr ""
 
-#: prefs/pages/accessibilityPage.js:22
+#: prefs/pages/accessibilityPage.js:30
 msgid "Information exposed to assistive technology."
 msgstr ""
 
-#: prefs/pages/accessibilityPage.js:23
+#: prefs/pages/accessibilityPage.js:31
 msgid "Announce application status"
 msgstr ""
 
-#: prefs/pages/accessibilityPage.js:24
+#: prefs/pages/accessibilityPage.js:32
 msgid "Include open-window and notification counts in dock item names"
 msgstr ""
 
-#: prefs/pages/behaviorPage.js:8
+#: prefs/pages/behaviorPage.js:16
 msgid "Behavior"
 msgstr ""
 
-#: prefs/pages/behaviorPage.js:11
+#: prefs/pages/behaviorPage.js:19
 msgid "Auto-hide"
 msgstr ""
 
-#: prefs/pages/behaviorPage.js:11
+#: prefs/pages/behaviorPage.js:19
 msgid "When the dock hides and how it reveals."
 msgstr ""
 
-#: prefs/pages/behaviorPage.js:12
+#: prefs/pages/behaviorPage.js:20
 msgid "Mode"
 msgstr ""
 
-#: prefs/pages/behaviorPage.js:13
+#: prefs/pages/behaviorPage.js:21
 msgid "Never hide, intellihide (only when covered), or always hide"
 msgstr ""
 
-#: prefs/pages/behaviorPage.js:14
+#: prefs/pages/behaviorPage.js:22
 msgid "Never hide"
 msgstr ""
 
-#: prefs/pages/behaviorPage.js:14
+#: prefs/pages/behaviorPage.js:22
 msgid "Intellihide"
 msgstr ""
 
-#: prefs/pages/behaviorPage.js:14
+#: prefs/pages/behaviorPage.js:22
 msgid "Always hide"
 msgstr ""
 
-#: prefs/pages/behaviorPage.js:15
+#: prefs/pages/behaviorPage.js:23
 msgid "Hide delay"
 msgstr ""
 
-#: prefs/pages/behaviorPage.js:16
+#: prefs/pages/behaviorPage.js:24
 msgid "Wait before hiding after the pointer leaves (milliseconds)"
 msgstr ""
 
-#: prefs/pages/behaviorPage.js:17
+#: prefs/pages/behaviorPage.js:25
 msgid "Reveal delay"
 msgstr ""
 
-#: prefs/pages/behaviorPage.js:18
+#: prefs/pages/behaviorPage.js:26
 msgid "Wait at the screen edge before revealing (milliseconds); 0 is instant"
 msgstr ""
 
-#: prefs/pages/behaviorPage.js:20
+#: prefs/pages/behaviorPage.js:28
 msgid "Hidden dock rim"
 msgstr ""
 
-#: prefs/pages/behaviorPage.js:21
+#: prefs/pages/behaviorPage.js:29
 msgid "Leave the dock pill's screen-facing border visible while hidden"
 msgstr ""
 
-#: prefs/pages/behaviorPage.js:24
-msgid "Edge pressure"
+#: prefs/pages/behaviorPage.js:32
+msgid "Edge pressure & gestures"
 msgstr ""
 
-#: prefs/pages/behaviorPage.js:24
-msgid "Require a deliberate push to reveal."
+#: prefs/pages/behaviorPage.js:33
+msgid "Require a deliberate push or edge dwell to reveal."
 msgstr ""
 
-#: prefs/pages/behaviorPage.js:25
+#: prefs/pages/behaviorPage.js:34
 msgid "Pressure-sense reveal"
 msgstr ""
 
-#: prefs/pages/behaviorPage.js:26
+#: prefs/pages/behaviorPage.js:35
 msgid ""
 "The pointer must linger and press against the edge before the dock appears"
 msgstr ""
 
-#: prefs/pages/behaviorPage.js:28
+#: prefs/pages/behaviorPage.js:37
 msgid "Sensitivity"
 msgstr ""
 
-#: prefs/pages/behaviorPage.js:29
+#: prefs/pages/behaviorPage.js:38
 msgid "Higher needs less dwell to reveal"
 msgstr ""
 
-#: prefs/pages/behaviorPage.js:33
-msgid "Clicking"
-msgstr ""
-
-#: prefs/pages/behaviorPage.js:33
-msgid "What clicks do."
-msgstr ""
-
-#: prefs/pages/behaviorPage.js:34
-msgid "Primary click"
-msgstr ""
-
-#: prefs/pages/behaviorPage.js:35
-msgid "Smart behavior, minimize, cycle, preview, or no action"
-msgstr ""
-
-#: prefs/pages/behaviorPage.js:36 prefs/pages/behaviorPage.js:40
-msgid "Smart"
-msgstr ""
-
-#: prefs/pages/behaviorPage.js:36
-msgid "Minimize"
-msgstr ""
-
-#: prefs/pages/behaviorPage.js:36 prefs/pages/behaviorPage.js:43
-msgid "Cycle windows"
-msgstr ""
-
-#: prefs/pages/behaviorPage.js:36 prefs/pages/popupsPage.js:74
-msgid "Show previews"
-msgstr ""
-
-#: prefs/pages/behaviorPage.js:36 prefs/pages/behaviorPage.js:40
-#: prefs/pages/behaviorPage.js:43
-msgid "Do nothing"
-msgstr ""
-
-#: prefs/pages/behaviorPage.js:38
-msgid "Middle click"
-msgstr ""
-
-#: prefs/pages/behaviorPage.js:39
-msgid "Open a new window, use smart behavior, or do nothing"
-msgstr ""
-
-#: prefs/pages/behaviorPage.js:40
-msgid "New window"
-msgstr ""
-
-#: prefs/pages/behaviorPage.js:41
-msgid "Scroll"
+#: prefs/pages/behaviorPage.js:42
+msgid "Window click actions"
 msgstr ""
 
 #: prefs/pages/behaviorPage.js:42
-msgid "Minimize/restore, cycle windows, or leave scrolling unused"
+msgid "Customize what mouse clicks and gestures do."
 msgstr ""
 
 #: prefs/pages/behaviorPage.js:43
-msgid "Minimize and restore"
+msgid "Primary click"
+msgstr ""
+
+#: prefs/pages/behaviorPage.js:44
+msgid "Smart behavior, minimize, cycle, preview, or no action"
+msgstr ""
+
+#: prefs/pages/behaviorPage.js:45 prefs/pages/behaviorPage.js:49
+msgid "Smart"
 msgstr ""
 
 #: prefs/pages/behaviorPage.js:45
-msgid "Click to minimize"
+msgid "Minimize"
 msgstr ""
 
-#: prefs/pages/behaviorPage.js:46
-msgid "Clicking the focused app icon minimizes its window"
+#: prefs/pages/behaviorPage.js:45 prefs/pages/behaviorPage.js:52
+msgid "Cycle windows"
+msgstr ""
+
+#: prefs/pages/behaviorPage.js:45 prefs/pages/popupsPage.js:97
+msgid "Show previews"
+msgstr ""
+
+#: prefs/pages/behaviorPage.js:45 prefs/pages/behaviorPage.js:49
+#: prefs/pages/behaviorPage.js:52
+msgid "Do nothing"
 msgstr ""
 
 #: prefs/pages/behaviorPage.js:47
-msgid "Drag to open"
+msgid "Middle click"
 msgstr ""
 
 #: prefs/pages/behaviorPage.js:48
+msgid "Open a new window, use smart behavior, or do nothing"
+msgstr ""
+
+#: prefs/pages/behaviorPage.js:49
+msgid "New window"
+msgstr ""
+
+#: prefs/pages/behaviorPage.js:50
+msgid "Scroll"
+msgstr ""
+
+#: prefs/pages/behaviorPage.js:51
+msgid "Minimize/restore, cycle windows, or leave scrolling unused"
+msgstr ""
+
+#: prefs/pages/behaviorPage.js:52
+msgid "Minimize and restore"
+msgstr ""
+
+#: prefs/pages/behaviorPage.js:54
+msgid "Click to minimize"
+msgstr ""
+
+#: prefs/pages/behaviorPage.js:55
+msgid "Clicking the focused app icon minimizes its window"
+msgstr ""
+
+#: prefs/pages/behaviorPage.js:56
+msgid "Drag to open"
+msgstr ""
+
+#: prefs/pages/behaviorPage.js:57
 msgid ""
 "Drag a pinned app outside the dock to launch or activate it, even when the "
 "layout is locked"
 msgstr ""
 
-#: prefs/pages/behaviorPage.js:49
+#: prefs/pages/behaviorPage.js:60
+msgid "Workspaces & shortcuts"
+msgstr ""
+
+#: prefs/pages/behaviorPage.js:61
+msgid "Workspace filtering and keyboard navigation."
+msgstr ""
+
+#: prefs/pages/behaviorPage.js:62
 msgid "Only this workspace"
 msgstr ""
 
-#: prefs/pages/behaviorPage.js:50
+#: prefs/pages/behaviorPage.js:63
 msgid "Show running apps from the current workspace only"
 msgstr ""
 
-#: prefs/pages/behaviorPage.js:51
+#: prefs/pages/behaviorPage.js:64
 msgid "Focus dock shortcut"
 msgstr ""
 
-#: prefs/pages/behaviorPage.js:52
+#: prefs/pages/behaviorPage.js:65
 msgid "GNOME accelerator syntax, for example <Super>d; leave empty to disable"
 msgstr ""
 
-#: prefs/pages/devicesPage.js:19
+#: prefs/pages/devicesPage.js:27
 msgid "Devices"
 msgstr ""
 
-#: prefs/pages/devicesPage.js:22
+#: prefs/pages/devicesPage.js:30
 msgid "Mounted devices"
 msgstr ""
 
-#: prefs/pages/devicesPage.js:23
+#: prefs/pages/devicesPage.js:31
 msgid "Choose which mounted storage appears beside Downloads."
 msgstr ""
 
-#: prefs/pages/devicesPage.js:24
+#: prefs/pages/devicesPage.js:32
 msgid "Show mounted devices"
 msgstr ""
 
-#: prefs/pages/devicesPage.js:25
+#: prefs/pages/devicesPage.js:33
 msgid "Add mounted storage and network locations to the dock"
 msgstr ""
 
-#: prefs/pages/devicesPage.js:27
+#: prefs/pages/devicesPage.js:35
 msgid "Device types"
 msgstr ""
 
-#: prefs/pages/devicesPage.js:28
+#: prefs/pages/devicesPage.js:36
 msgid "Control whole categories of mounted storage."
 msgstr ""
 
-#: prefs/pages/devicesPage.js:30
+#: prefs/pages/devicesPage.js:38
 msgid "Removable devices"
 msgstr ""
 
-#: prefs/pages/devicesPage.js:31
+#: prefs/pages/devicesPage.js:39
 msgid "Show USB storage, memory cards and optical media"
 msgstr ""
 
-#: prefs/pages/devicesPage.js:32
+#: prefs/pages/devicesPage.js:40
 msgid "Network locations"
 msgstr ""
 
-#: prefs/pages/devicesPage.js:33
+#: prefs/pages/devicesPage.js:41
 msgid "Show mounted servers and other remote locations"
 msgstr ""
 
-#: prefs/pages/devicesPage.js:34
+#: prefs/pages/devicesPage.js:42
 msgid "Fixed volumes"
 msgstr ""
 
-#: prefs/pages/devicesPage.js:35
+#: prefs/pages/devicesPage.js:43
 msgid "Show mounted internal and permanently attached volumes"
 msgstr ""
 
-#: prefs/pages/devicesPage.js:50
+#: prefs/pages/devicesPage.js:58
 msgid "Currently mounted"
 msgstr ""
 
-#: prefs/pages/devicesPage.js:51
+#: prefs/pages/devicesPage.js:59
 msgid "Turn off an individual device to keep it hidden when it reconnects."
 msgstr ""
 
-#: prefs/pages/devicesPage.js:93
+#: prefs/pages/devicesPage.js:101
 msgid "No devices are mounted"
 msgstr ""
 
-#: prefs/pages/devicesPage.js:94
+#: prefs/pages/devicesPage.js:102
 msgid "Mounted storage will appear here automatically."
 msgstr ""
 
-#: prefs/pages/dockPage.js:17
+#: prefs/pages/dockPage.js:25
 msgid "Dock"
 msgstr ""
 
-#: prefs/pages/dockPage.js:22
-msgid "Layout"
-msgstr ""
-
-#: prefs/pages/dockPage.js:22
-msgid "Where the dock sits and how big it is."
-msgstr ""
-
-#: prefs/pages/dockPage.js:23
-msgid "Position"
-msgstr ""
-
-#: prefs/pages/dockPage.js:24
-msgid "Screen edge the floating dock appears on"
-msgstr ""
-
-#: prefs/pages/dockPage.js:25
-msgid "Bottom"
-msgstr ""
-
-#: prefs/pages/dockPage.js:25
-msgid "Left side"
-msgstr ""
-
-#: prefs/pages/dockPage.js:25
-msgid "Right side"
-msgstr ""
-
-#: prefs/pages/dockPage.js:26
-msgid "Alignment"
-msgstr ""
-
-#: prefs/pages/dockPage.js:27
-msgid "Place the dock at the start, center, or end of its screen edge"
+#: prefs/pages/dockPage.js:28
+msgid "Dock placement"
 msgstr ""
 
 #: prefs/pages/dockPage.js:28
-msgid "Start"
-msgstr ""
-
-#: prefs/pages/dockPage.js:28
-msgid "Center"
-msgstr ""
-
-#: prefs/pages/dockPage.js:28
-msgid "End"
+msgid "Where the dock sits on screen and multi-monitor options."
 msgstr ""
 
 #: prefs/pages/dockPage.js:29
-msgid "Icon size"
+msgid "Position"
 msgstr ""
 
 #: prefs/pages/dockPage.js:30
-msgid "Resting icon size in pixels"
+msgid "Screen edge the floating dock appears on"
 msgstr ""
 
 #: prefs/pages/dockPage.js:31
-msgid "Overall scale"
+msgid "Bottom"
+msgstr ""
+
+#: prefs/pages/dockPage.js:31
+msgid "Left side"
+msgstr ""
+
+#: prefs/pages/dockPage.js:31
+msgid "Right side"
 msgstr ""
 
 #: prefs/pages/dockPage.js:32
-msgid "Scales icons, padding and pill together"
+msgid "Alignment"
 msgstr ""
 
 #: prefs/pages/dockPage.js:33
-msgid "Icon spacing"
+msgid "Place the dock at the start, center, or end of its screen edge"
 msgstr ""
 
 #: prefs/pages/dockPage.js:34
-msgid "Gap between neighbouring dock icons in pixels"
+msgid "Start"
+msgstr ""
+
+#: prefs/pages/dockPage.js:34
+msgid "Center"
+msgstr ""
+
+#: prefs/pages/dockPage.js:34
+msgid "End"
 msgstr ""
 
 #: prefs/pages/dockPage.js:35
@@ -686,755 +670,804 @@ msgstr ""
 msgid "Space between the dock and the screen edge (pixels)"
 msgstr ""
 
-#: prefs/pages/dockPage.js:37
+#: prefs/pages/dockPage.js:38
+msgid "Show on all monitors"
+msgstr ""
+
+#: prefs/pages/dockPage.js:39
+msgid "Display a dock on every connected monitor"
+msgstr ""
+
+#: prefs/pages/dockPage.js:40
+msgid "Isolate windows by monitor"
+msgstr ""
+
+#: prefs/pages/dockPage.js:41
+msgid "Each dock shows and controls running windows on its own monitor"
+msgstr ""
+
+#: prefs/pages/dockPage.js:45
+msgid "Icon geometry"
+msgstr ""
+
+#: prefs/pages/dockPage.js:45
+msgid "Icon size, overall scale, and spacing."
+msgstr ""
+
+#: prefs/pages/dockPage.js:46
+msgid "Icon size"
+msgstr ""
+
+#: prefs/pages/dockPage.js:47
+msgid "Resting icon size in pixels"
+msgstr ""
+
+#: prefs/pages/dockPage.js:48
+msgid "Overall scale"
+msgstr ""
+
+#: prefs/pages/dockPage.js:49
+msgid "Scales icons, padding and pill together"
+msgstr ""
+
+#: prefs/pages/dockPage.js:50
+msgid "Icon spacing"
+msgstr ""
+
+#: prefs/pages/dockPage.js:51
+msgid "Gap between neighbouring dock icons in pixels"
+msgstr ""
+
+#: prefs/pages/dockPage.js:52
 msgid "Shrink dock to fit"
 msgstr ""
 
-#: prefs/pages/dockPage.js:38
+#: prefs/pages/dockPage.js:53
 msgid ""
 "Automatically reduce the dock when its configured size would not fit its "
 "monitor"
 msgstr ""
 
-#: prefs/pages/dockPage.js:40
-msgid "Show on all monitors"
+#: prefs/pages/dockPage.js:56
+msgid "Pill appearance & blur"
 msgstr ""
 
-#: prefs/pages/dockPage.js:41
-msgid "Display a dock on every connected monitor"
-msgstr ""
-
-#: prefs/pages/dockPage.js:42
-msgid "Isolate windows by monitor"
-msgstr ""
-
-#: prefs/pages/dockPage.js:43
-msgid "Each dock shows and controls running windows on its own monitor"
-msgstr ""
-
-#: prefs/pages/dockPage.js:47 prefs/pages/popupsPage.js:21
-msgid "Pill"
-msgstr ""
-
-#: prefs/pages/dockPage.js:47
-msgid "The rounded background panel behind the icons."
-msgstr ""
-
-#: prefs/pages/dockPage.js:48
-msgid "Auto thickness"
-msgstr ""
-
-#: prefs/pages/dockPage.js:49
-msgid "Scale the pill height automatically with icon size"
-msgstr ""
-
-#: prefs/pages/dockPage.js:51
-msgid "Pill thickness"
-msgstr ""
-
-#: prefs/pages/dockPage.js:52
-msgid "Manual pill height in pixels"
+#: prefs/pages/dockPage.js:56
+msgid "Pill thickness, frosted glass blur, and colors."
 msgstr ""
 
 #: prefs/pages/dockPage.js:57
-msgid "Background opacity"
-msgstr ""
-
-#: prefs/pages/dockPage.js:58
-msgid "How see-through the pill is"
-msgstr ""
-
-#: prefs/pages/dockPage.js:61
-msgid "Colours and border"
-msgstr ""
-
-#: prefs/pages/dockPage.js:62
-msgid "Fill and outline of the dock pill."
-msgstr ""
-
-#: prefs/pages/dockPage.js:63 prefs/pages/popupsPage.js:44
-#: prefs/pages/popupsPage.js:61
-msgid "Corner radius"
-msgstr ""
-
-#: prefs/pages/dockPage.js:64
-msgid "Rounded corner radius in pixels"
-msgstr ""
-
-#: prefs/pages/dockPage.js:65
-msgid "Pill colour"
-msgstr ""
-
-#: prefs/pages/dockPage.js:66
-msgid "Background colour of the dock pill"
-msgstr ""
-
-#: prefs/pages/dockPage.js:68
-msgid "Border colour"
-msgstr ""
-
-#: prefs/pages/dockPage.js:69
-msgid "Outline colour of the dock and its pills"
-msgstr ""
-
-#: prefs/pages/dockPage.js:70 prefs/pages/popupsPage.js:52
-#: prefs/pages/popupsPage.js:68
-msgid "Border width"
-msgstr ""
-
-#: prefs/pages/dockPage.js:71
-msgid "Outline thickness in pixels; 0 hides it"
-msgstr ""
-
-#: prefs/pages/dockPage.js:74
 msgid "Blur effect"
 msgstr ""
 
+#: prefs/pages/dockPage.js:58
+msgid ""
+"Frosted glass background blur matching dock pill via Blur My Shell pipeline; "
+"solid fallback when disabled"
+msgstr ""
+
+#: prefs/pages/dockPage.js:61
+msgid "Auto thickness"
+msgstr ""
+
+#: prefs/pages/dockPage.js:62
+msgid "Scale the pill height automatically with icon size"
+msgstr ""
+
+#: prefs/pages/dockPage.js:64
+msgid "Pill thickness"
+msgstr ""
+
+#: prefs/pages/dockPage.js:65
+msgid "Manual pill height in pixels"
+msgstr ""
+
+#: prefs/pages/dockPage.js:70
+msgid "Background opacity"
+msgstr ""
+
+#: prefs/pages/dockPage.js:71
+msgid "How see-through the pill is when blur is disabled"
+msgstr ""
+
+#: prefs/pages/dockPage.js:74
+msgid "Colours and border"
+msgstr ""
+
 #: prefs/pages/dockPage.js:75
-msgid "Blur the background under the dock pill"
+msgid "Fill and outline of the dock pill."
 msgstr ""
 
-#: prefs/pages/dockPage.js:87
-msgid "Items on the dock"
+#: prefs/pages/dockPage.js:76 prefs/pages/popupsPage.js:54
+#: prefs/pages/popupsPage.js:74
+msgid "Corner radius"
 msgstr ""
 
-#: prefs/pages/dockPage.js:87
+#: prefs/pages/dockPage.js:77
+msgid "Rounded corner radius in pixels"
+msgstr ""
+
+#: prefs/pages/dockPage.js:78
+msgid "Pill colour"
+msgstr ""
+
+#: prefs/pages/dockPage.js:79
+msgid "Background colour of the dock pill when blur is disabled"
+msgstr ""
+
+#: prefs/pages/dockPage.js:81
+msgid "Border colour"
+msgstr ""
+
+#: prefs/pages/dockPage.js:82
+msgid "Outline colour of the dock and its pills"
+msgstr ""
+
+#: prefs/pages/dockPage.js:83 prefs/pages/popupsPage.js:62
+#: prefs/pages/popupsPage.js:83
+msgid "Border width"
+msgstr ""
+
+#: prefs/pages/dockPage.js:84
+msgid "Outline thickness in pixels; 0 hides it"
+msgstr ""
+
+#: prefs/pages/dockPage.js:96
+msgid "Dock items"
+msgstr ""
+
+#: prefs/pages/dockPage.js:96
 msgid "Choose which built-in icons appear."
 msgstr ""
 
-#: prefs/pages/dockPage.js:88
+#: prefs/pages/dockPage.js:97
 msgid "Lock current layout"
 msgstr ""
 
-#: prefs/pages/dockPage.js:89
+#: prefs/pages/dockPage.js:98
 msgid ""
 "Prevent pinned apps and the Applications button from being reordered, added, "
 "or removed through the dock"
 msgstr ""
 
-#: prefs/pages/dockPage.js:91
+#: prefs/pages/dockPage.js:100
 msgid "Applications button"
 msgstr ""
 
-#: prefs/pages/dockPage.js:92
+#: prefs/pages/dockPage.js:101
 msgid "Show the app-grid launcher"
 msgstr ""
 
-#: prefs/pages/dockPage.js:93
+#: prefs/pages/dockPage.js:102
 msgid "Applications icon"
 msgstr ""
 
-#: prefs/pages/dockPage.js:96 prefs/pages/downloadsPage.js:21
+#: prefs/pages/dockPage.js:105 prefs/pages/downloadsPage.js:29
 msgid "Downloads stack"
 msgstr ""
 
-#: prefs/pages/dockPage.js:97
+#: prefs/pages/dockPage.js:106
 msgid "Show the Downloads folder with arrival bounce"
 msgstr ""
 
-#: prefs/pages/dockPage.js:99
+#: prefs/pages/dockPage.js:108
 msgid "Show the trash with full/empty state"
 msgstr ""
 
-#: prefs/pages/downloadsPage.js:21
+#: prefs/pages/downloadsPage.js:29
 msgid "How the folder opens from the dock."
 msgstr ""
 
-#: prefs/pages/downloadsPage.js:22
-msgid "View"
-msgstr ""
-
-#: prefs/pages/downloadsPage.js:23
-msgid "Layout used when the stack opens"
-msgstr ""
-
-#: prefs/pages/downloadsPage.js:24
-msgid "Fan"
-msgstr ""
-
-#: prefs/pages/downloadsPage.js:24
-msgid "Grid"
-msgstr ""
-
-#: prefs/pages/downloadsPage.js:24
-msgid "List"
-msgstr ""
-
-#: prefs/pages/downloadsPage.js:25
-msgid "Files shown"
-msgstr ""
-
-#: prefs/pages/downloadsPage.js:26
-msgid "Maximum number of recent files in the stack"
-msgstr ""
-
-#: prefs/pages/downloadsPage.js:27
-msgid "Sort files"
-msgstr ""
-
-#: prefs/pages/downloadsPage.js:28
-msgid "Order used by Downloads and the custom folder stack"
-msgstr ""
-
-#: prefs/pages/downloadsPage.js:29
-msgid "Newest first"
-msgstr ""
-
-#: prefs/pages/downloadsPage.js:29
-msgid "Name"
-msgstr ""
-
-#: prefs/pages/downloadsPage.js:29
-msgid "File type"
+#: prefs/pages/downloadsPage.js:30
+msgid "Downloads folder stack"
 msgstr ""
 
 #: prefs/pages/downloadsPage.js:31
-msgid "Panel colours and border"
+msgid "Show the Downloads folder stack on the dock"
 msgstr ""
 
 #: prefs/pages/downloadsPage.js:32
-msgid "The stack panel styling."
+msgid "View"
 msgstr ""
 
 #: prefs/pages/downloadsPage.js:33
-msgid "Panel corner radius"
+msgid "Layout used when the stack opens"
 msgstr ""
 
 #: prefs/pages/downloadsPage.js:34
-msgid "Stack panel corner radius (pixels)"
+msgid "Fan"
+msgstr ""
+
+#: prefs/pages/downloadsPage.js:34
+msgid "Grid"
+msgstr ""
+
+#: prefs/pages/downloadsPage.js:34
+msgid "List"
 msgstr ""
 
 #: prefs/pages/downloadsPage.js:35
-msgid "Panel background"
+msgid "Files shown"
 msgstr ""
 
 #: prefs/pages/downloadsPage.js:36
-msgid "Stack panel background"
+msgid "Maximum number of recent files in the stack"
+msgstr ""
+
+#: prefs/pages/downloadsPage.js:37
+msgid "Sort files"
 msgstr ""
 
 #: prefs/pages/downloadsPage.js:38
-msgid "Panel border"
+msgid "Order used by Downloads and the custom folder stack"
 msgstr ""
 
 #: prefs/pages/downloadsPage.js:39
-msgid "Stack panel border colour"
+msgid "Newest first"
 msgstr ""
 
-#: prefs/pages/downloadsPage.js:40
-msgid "Panel border width"
+#: prefs/pages/downloadsPage.js:39
+msgid "Name"
 msgstr ""
 
-#: prefs/pages/downloadsPage.js:41 prefs/pages/downloadsPage.js:79
-#: prefs/pages/popupsPage.js:53 prefs/pages/popupsPage.js:69
-msgid "Pixels; 0 hides it"
+#: prefs/pages/downloadsPage.js:39
+msgid "File type"
+msgstr ""
+
+#: prefs/pages/downloadsPage.js:41
+msgid "Panel colours and border"
+msgstr ""
+
+#: prefs/pages/downloadsPage.js:42
+msgid "The stack panel styling."
+msgstr ""
+
+#: prefs/pages/downloadsPage.js:43
+msgid "Panel corner radius"
+msgstr ""
+
+#: prefs/pages/downloadsPage.js:44
+msgid "Stack panel corner radius (pixels)"
 msgstr ""
 
 #: prefs/pages/downloadsPage.js:45
-msgid "Custom folder stack"
+msgid "Panel background"
 msgstr ""
 
 #: prefs/pages/downloadsPage.js:46
-msgid "Add one lightweight folder stack beside Downloads."
-msgstr ""
-
-#: prefs/pages/downloadsPage.js:47
-msgid "Show custom folder"
+msgid "Stack panel background when blur is disabled"
 msgstr ""
 
 #: prefs/pages/downloadsPage.js:48
-msgid "Display the selected folder as another stack"
+msgid "Panel border"
+msgstr ""
+
+#: prefs/pages/downloadsPage.js:49
+msgid "Stack panel border colour"
 msgstr ""
 
 #: prefs/pages/downloadsPage.js:50
+msgid "Panel border width"
+msgstr ""
+
+#: prefs/pages/downloadsPage.js:51 prefs/pages/downloadsPage.js:71
+#: prefs/pages/popupsPage.js:63 prefs/pages/popupsPage.js:84
+msgid "Pixels; 0 hides it"
+msgstr ""
+
+#: prefs/pages/downloadsPage.js:55
+msgid "File cards"
+msgstr ""
+
+#: prefs/pages/downloadsPage.js:55
+msgid "The individual file tiles."
+msgstr ""
+
+#: prefs/pages/downloadsPage.js:56
+msgid "Card corner radius"
+msgstr ""
+
+#: prefs/pages/downloadsPage.js:57
+msgid "File card corner radius (pixels)"
+msgstr ""
+
+#: prefs/pages/downloadsPage.js:59
+msgid "Card colours and border"
+msgstr ""
+
+#: prefs/pages/downloadsPage.js:60
+msgid "The file-card styling."
+msgstr ""
+
+#: prefs/pages/downloadsPage.js:61
+msgid "Card background"
+msgstr ""
+
+#: prefs/pages/downloadsPage.js:62
+msgid "File card background when blur is disabled"
+msgstr ""
+
+#: prefs/pages/downloadsPage.js:64
+msgid "Card text"
+msgstr ""
+
+#: prefs/pages/downloadsPage.js:65
+msgid "File name colour"
+msgstr ""
+
+#: prefs/pages/downloadsPage.js:66
+msgid "Thumbnail background"
+msgstr ""
+
+#: prefs/pages/downloadsPage.js:67
+msgid "Thumbnail backing colour"
+msgstr ""
+
+#: prefs/pages/downloadsPage.js:68
+msgid "Card border"
+msgstr ""
+
+#: prefs/pages/downloadsPage.js:69
+msgid "File card border colour"
+msgstr ""
+
+#: prefs/pages/downloadsPage.js:70
+msgid "Card border width"
+msgstr ""
+
+#: prefs/pages/downloadsPage.js:75
+msgid "Custom folder stack"
+msgstr ""
+
+#: prefs/pages/downloadsPage.js:76
+msgid "Add one lightweight folder stack beside Downloads."
+msgstr ""
+
+#: prefs/pages/downloadsPage.js:77
+msgid "Show custom folder"
+msgstr ""
+
+#: prefs/pages/downloadsPage.js:78
+msgid "Display the selected folder as another stack"
+msgstr ""
+
+#: prefs/pages/downloadsPage.js:80
 msgid "The folder whose recent files appear in the stack"
 msgstr ""
 
-#: prefs/pages/downloadsPage.js:51
+#: prefs/pages/downloadsPage.js:81
 msgid "Use folder’s own icon"
 msgstr ""
 
-#: prefs/pages/downloadsPage.js:52
+#: prefs/pages/downloadsPage.js:82
 msgid ""
 "Prefer custom and standard folder artwork; disable for theme fallback icons"
 msgstr ""
 
-#: prefs/pages/downloadsPage.js:56
+#: prefs/pages/downloadsPage.js:86
 msgid "Dock locations and shortcuts"
 msgstr ""
 
-#: prefs/pages/downloadsPage.js:57
+#: prefs/pages/downloadsPage.js:87
 msgid "Add and arrange folders, files, links, separators, and spacers."
 msgstr ""
 
-#: prefs/pages/downloadsPage.js:58
+#: prefs/pages/downloadsPage.js:88
 msgid "Show custom dock items"
 msgstr ""
 
-#: prefs/pages/downloadsPage.js:59
+#: prefs/pages/downloadsPage.js:89
 msgid "Display the configured items in the dock’s locations section"
 msgstr ""
 
-#: prefs/pages/downloadsPage.js:63
-msgid "File cards"
-msgstr ""
-
-#: prefs/pages/downloadsPage.js:63
-msgid "The individual file tiles."
-msgstr ""
-
-#: prefs/pages/downloadsPage.js:64
-msgid "Card corner radius"
-msgstr ""
-
-#: prefs/pages/downloadsPage.js:65
-msgid "File card corner radius (pixels)"
-msgstr ""
-
-#: prefs/pages/downloadsPage.js:67
-msgid "Card colours and border"
-msgstr ""
-
-#: prefs/pages/downloadsPage.js:68
-msgid "The file-card styling."
-msgstr ""
-
-#: prefs/pages/downloadsPage.js:69
-msgid "Card background"
-msgstr ""
-
-#: prefs/pages/downloadsPage.js:70
-msgid "File card background"
-msgstr ""
-
-#: prefs/pages/downloadsPage.js:72
-msgid "Card text"
-msgstr ""
-
-#: prefs/pages/downloadsPage.js:73
-msgid "File name colour"
-msgstr ""
-
-#: prefs/pages/downloadsPage.js:74
-msgid "Thumbnail background"
-msgstr ""
-
-#: prefs/pages/downloadsPage.js:75
-msgid "Thumbnail backing colour"
-msgstr ""
-
-#: prefs/pages/downloadsPage.js:76
-msgid "Card border"
-msgstr ""
-
-#: prefs/pages/downloadsPage.js:77
-msgid "File card border colour"
-msgstr ""
-
-#: prefs/pages/downloadsPage.js:78
-msgid "Card border width"
-msgstr ""
-
-#: prefs/pages/motionPage.js:10
+#: prefs/pages/motionPage.js:18
 msgid "Magnification"
 msgstr ""
 
-#: prefs/pages/motionPage.js:10
+#: prefs/pages/motionPage.js:18
 msgid "How icons zoom under the cursor."
 msgstr ""
 
-#: prefs/pages/motionPage.js:11
+#: prefs/pages/motionPage.js:19
 msgid "Peak magnification"
 msgstr ""
 
-#: prefs/pages/motionPage.js:12
+#: prefs/pages/motionPage.js:20
 msgid "How large the icon under the cursor grows"
 msgstr ""
 
-#: prefs/pages/motionPage.js:13
+#: prefs/pages/motionPage.js:21
 msgid "Spread radius"
 msgstr ""
 
-#: prefs/pages/motionPage.js:14
+#: prefs/pages/motionPage.js:22
 msgid "How far from the cursor the zoom reaches (pixels)"
 msgstr ""
 
-#: prefs/pages/motionPage.js:15
+#: prefs/pages/motionPage.js:23
 msgid "Hover lift"
 msgstr ""
 
-#: prefs/pages/motionPage.js:16
+#: prefs/pages/motionPage.js:24
 msgid "How far the icon rises on hover (pixels); 0 disables"
 msgstr ""
 
-#: prefs/pages/motionPage.js:17
+#: prefs/pages/motionPage.js:25
 msgid "Falloff sharpness"
 msgstr ""
 
-#: prefs/pages/motionPage.js:18
+#: prefs/pages/motionPage.js:26
 msgid "Higher is a sharper peak; lower spreads the zoom wider"
 msgstr ""
 
-#: prefs/pages/motionPage.js:21
+#: prefs/pages/motionPage.js:29
 msgid "Spring physics"
 msgstr ""
 
-#: prefs/pages/motionPage.js:21
+#: prefs/pages/motionPage.js:29
 msgid "The feel of the magnification motion."
 msgstr ""
 
-#: prefs/pages/motionPage.js:22
+#: prefs/pages/motionPage.js:30
 msgid "Follow time"
 msgstr ""
 
-#: prefs/pages/motionPage.js:23
+#: prefs/pages/motionPage.js:31
 msgid "Lower is snappier, higher is smoother (milliseconds)"
 msgstr ""
 
-#: prefs/pages/motionPage.js:24
+#: prefs/pages/motionPage.js:32
 msgid "Tension"
 msgstr ""
 
-#: prefs/pages/motionPage.js:25
+#: prefs/pages/motionPage.js:33
 msgid "Stiffness of the spring"
 msgstr ""
 
-#: prefs/pages/motionPage.js:26
+#: prefs/pages/motionPage.js:34
 msgid "Damping"
 msgstr ""
 
-#: prefs/pages/motionPage.js:27
+#: prefs/pages/motionPage.js:35
 msgid "1.00 settles with no overshoot; lower bounces a little"
 msgstr ""
 
-#: prefs/pages/motionPage.js:30
+#: prefs/pages/motionPage.js:38
 msgid "Bounce"
 msgstr ""
 
-#: prefs/pages/motionPage.js:30
+#: prefs/pages/motionPage.js:38
 msgid "The hop on launch, attention and minimize."
 msgstr ""
 
-#: prefs/pages/motionPage.js:31
+#: prefs/pages/motionPage.js:39
 msgid "Bounce height"
 msgstr ""
 
-#: prefs/pages/motionPage.js:32
+#: prefs/pages/motionPage.js:40
 msgid "Peak hop in pixels; 0 disables bounce"
 msgstr ""
 
-#: prefs/pages/motionPage.js:33
+#: prefs/pages/motionPage.js:41
 msgid "Bounce decay"
 msgstr ""
 
-#: prefs/pages/motionPage.js:34
+#: prefs/pages/motionPage.js:42
 msgid "How much of the height each hop keeps; higher = more, gentler hops"
 msgstr ""
 
-#: prefs/pages/motionPage.js:38
+#: prefs/pages/motionPage.js:46
 msgid "Genie minimize"
 msgstr ""
 
-#: prefs/pages/motionPage.js:38
+#: prefs/pages/motionPage.js:46
 msgid "Windows fly into their dock icon."
 msgstr ""
 
-#: prefs/pages/motionPage.js:39
+#: prefs/pages/motionPage.js:47
 msgid "Genie effect"
 msgstr ""
 
-#: prefs/pages/motionPage.js:40
+#: prefs/pages/motionPage.js:48
 msgid "Minimize and restore animate into the dock icon"
 msgstr ""
 
-#: prefs/pages/motionPage.js:41
+#: prefs/pages/motionPage.js:49
 msgid "Genie duration"
 msgstr ""
 
-#: prefs/pages/motionPage.js:42
+#: prefs/pages/motionPage.js:50
 msgid "Length of the minimize animation (milliseconds)"
 msgstr ""
 
-#: prefs/pages/popupsPage.js:16
+#: prefs/pages/popupsPage.js:25
 msgid "Widgets"
 msgstr ""
 
-#: prefs/pages/popupsPage.js:19
+#: prefs/pages/popupsPage.js:28
 msgid "Running indicators"
 msgstr ""
 
-#: prefs/pages/popupsPage.js:19
+#: prefs/pages/popupsPage.js:28
 msgid "The mark under running apps."
 msgstr ""
 
-#: prefs/pages/popupsPage.js:20
+#: prefs/pages/popupsPage.js:29
 msgid "Style"
 msgstr ""
 
-#: prefs/pages/popupsPage.js:20
+#: prefs/pages/popupsPage.js:29
 msgid "Shape of the indicator"
 msgstr ""
 
-#: prefs/pages/popupsPage.js:21
+#: prefs/pages/popupsPage.js:30
 msgid "Single dot"
 msgstr ""
 
-#: prefs/pages/popupsPage.js:21
+#: prefs/pages/popupsPage.js:30
 msgid "Multiple dots"
 msgstr ""
 
-#: prefs/pages/popupsPage.js:21
+#: prefs/pages/popupsPage.js:30
 msgid "Line"
 msgstr ""
 
-#: prefs/pages/popupsPage.js:21
-msgid "Glow"
-msgstr ""
-
-#: prefs/pages/popupsPage.js:21
-msgid "Glow dots"
-msgstr ""
-
-#: prefs/pages/popupsPage.js:23
-msgid "Size"
-msgstr ""
-
-#: prefs/pages/popupsPage.js:23
-msgid "Indicator size in pixels"
-msgstr ""
-
-#: prefs/pages/popupsPage.js:24
-msgid "Show window count"
-msgstr ""
-
-#: prefs/pages/popupsPage.js:25
-msgid "Multiple dots for multiple windows (dot styles)"
-msgstr ""
-
-#: prefs/pages/popupsPage.js:26
-msgid "Colour"
-msgstr ""
-
-#: prefs/pages/popupsPage.js:26
-msgid "Indicator colour"
-msgstr ""
-
-#: prefs/pages/popupsPage.js:29
-msgid "Notification badges"
-msgstr ""
-
-#: prefs/pages/popupsPage.js:29
-msgid "Pending-notification counters."
+#: prefs/pages/popupsPage.js:30
+msgid "Pill"
 msgstr ""
 
 #: prefs/pages/popupsPage.js:30
-msgid "Show badges"
+msgid "Glow"
 msgstr ""
 
-#: prefs/pages/popupsPage.js:31
-msgid "A counter badge for apps with notifications"
+#: prefs/pages/popupsPage.js:30
+msgid "Glow dots"
 msgstr ""
 
 #: prefs/pages/popupsPage.js:32
-msgid "Badge colour"
+msgid "Size"
+msgstr ""
+
+#: prefs/pages/popupsPage.js:32
+msgid "Indicator size in pixels"
 msgstr ""
 
 #: prefs/pages/popupsPage.js:33
-msgid "Notification badge background colour"
+msgid "Show window count"
 msgstr ""
 
 #: prefs/pages/popupsPage.js:34
-msgid "Text colour"
+msgid "Multiple dots for multiple windows (dot styles)"
 msgstr ""
 
 #: prefs/pages/popupsPage.js:35
-msgid "Notification badge text colour"
+msgid "Colour"
+msgstr ""
+
+#: prefs/pages/popupsPage.js:35
+msgid "Indicator colour"
+msgstr ""
+
+#: prefs/pages/popupsPage.js:38
+msgid "Notification badges"
+msgstr ""
+
+#: prefs/pages/popupsPage.js:38
+msgid "Pending-notification counters."
 msgstr ""
 
 #: prefs/pages/popupsPage.js:39
-msgid "Tooltip"
-msgstr ""
-
-#: prefs/pages/popupsPage.js:39
-msgid "The app-name label on hover."
+msgid "Show badges"
 msgstr ""
 
 #: prefs/pages/popupsPage.js:40
-msgid "Show tooltip"
+msgid "A counter badge for apps with notifications"
 msgstr ""
 
 #: prefs/pages/popupsPage.js:41
-msgid "Show the app name on hover"
+msgid "Badge colour"
 msgstr ""
 
-#: prefs/pages/popupsPage.js:42 prefs/pages/popupsPage.js:77
-msgid "Show delay"
+#: prefs/pages/popupsPage.js:42
+msgid "Notification badge background colour"
 msgstr ""
 
 #: prefs/pages/popupsPage.js:43
-msgid "Delay before it appears (milliseconds)"
+msgid "Text colour"
 msgstr ""
 
-#: prefs/pages/popupsPage.js:45
-msgid "Tooltip corner radius (pixels)"
+#: prefs/pages/popupsPage.js:44
+msgid "Notification badge text colour"
 msgstr ""
 
-#: prefs/pages/popupsPage.js:47
-msgid "Tooltip colours"
+#: prefs/pages/popupsPage.js:48
+msgid "Tooltip"
 msgstr ""
 
-#: prefs/pages/popupsPage.js:47
-msgid "Tooltip fill, text and outline."
-msgstr ""
-
-#: prefs/pages/popupsPage.js:49 prefs/pages/popupsPage.js:65
-msgid "Background"
+#: prefs/pages/popupsPage.js:48
+msgid "The app-name label on hover."
 msgstr ""
 
 #: prefs/pages/popupsPage.js:49
-msgid "Tooltip background"
-msgstr ""
-
-#: prefs/pages/popupsPage.js:50 prefs/pages/popupsPage.js:66
-msgid "Text"
+msgid "Show tooltip"
 msgstr ""
 
 #: prefs/pages/popupsPage.js:50
-msgid "Tooltip text colour"
+msgid ""
+"Show app and folder name labels on pointer hover; disable to hide all "
+"tooltips"
 msgstr ""
 
-#: prefs/pages/popupsPage.js:51 prefs/pages/popupsPage.js:67
-msgid "Border"
+#: prefs/pages/popupsPage.js:52 prefs/pages/popupsPage.js:100
+msgid "Show delay"
 msgstr ""
 
-#: prefs/pages/popupsPage.js:51
-msgid "Tooltip border colour"
+#: prefs/pages/popupsPage.js:53
+msgid "Delay before it appears (milliseconds)"
 msgstr ""
 
-#: prefs/pages/popupsPage.js:58
-msgid "Context menu"
+#: prefs/pages/popupsPage.js:55
+msgid "Tooltip corner radius (pixels)"
 msgstr ""
 
-#: prefs/pages/popupsPage.js:58
-msgid "The right-click menu."
+#: prefs/pages/popupsPage.js:57
+msgid "Tooltip colours"
+msgstr ""
+
+#: prefs/pages/popupsPage.js:57
+msgid "Tooltip fill, text and outline."
+msgstr ""
+
+#: prefs/pages/popupsPage.js:59 prefs/pages/popupsPage.js:80
+msgid "Background"
 msgstr ""
 
 #: prefs/pages/popupsPage.js:59
-msgid "Use GNOME default app menu"
+msgid "Tooltip background"
+msgstr ""
+
+#: prefs/pages/popupsPage.js:60 prefs/pages/popupsPage.js:81
+msgid "Text"
 msgstr ""
 
 #: prefs/pages/popupsPage.js:60
-msgid "Use GNOME Shell's native right-click menu for application icons"
+msgid "Tooltip text colour"
 msgstr ""
 
-#: prefs/pages/popupsPage.js:62
-msgid "Menu corner radius (pixels)"
+#: prefs/pages/popupsPage.js:61 prefs/pages/popupsPage.js:82
+msgid "Border"
 msgstr ""
 
-#: prefs/pages/popupsPage.js:63
-msgid "Menu colours"
+#: prefs/pages/popupsPage.js:61
+msgid "Tooltip border colour"
 msgstr ""
 
-#: prefs/pages/popupsPage.js:63
-msgid "Menu fill, text and outline."
+#: prefs/pages/popupsPage.js:68
+msgid "Context menu"
 msgstr ""
 
-#: prefs/pages/popupsPage.js:65
-msgid "Menu background"
+#: prefs/pages/popupsPage.js:68
+msgid "The right-click menu."
 msgstr ""
 
-#: prefs/pages/popupsPage.js:66
-msgid "Menu item text colour"
+#: prefs/pages/popupsPage.js:69
+msgid "Custom context menu"
 msgstr ""
 
-#: prefs/pages/popupsPage.js:67
-msgid "Menu border colour"
-msgstr ""
-
-#: prefs/pages/popupsPage.js:73
-msgid "Window previews"
-msgstr ""
-
-#: prefs/pages/popupsPage.js:73
-msgid "Live thumbnails of hidden windows."
+#: prefs/pages/popupsPage.js:70
+msgid ""
+"Use Aqua Dock Pro custom styled menu; disable for GNOME Shell default menu"
 msgstr ""
 
 #: prefs/pages/popupsPage.js:75
-msgid "Live thumbnail on hover for minimized / other-workspace windows"
+msgid "Menu corner radius (pixels)"
 msgstr ""
 
 #: prefs/pages/popupsPage.js:78
-msgid "Delay before previews appear (milliseconds)"
+msgid "Menu colours"
 msgstr ""
 
-#: prefs/pages/popupsPage.js:79
-msgid "Thumbnail size"
+#: prefs/pages/popupsPage.js:78
+msgid "Menu fill, text and outline."
 msgstr ""
 
 #: prefs/pages/popupsPage.js:80
-msgid "Maximum thumbnail width (pixels)"
+msgid "Menu background"
 msgstr ""
 
 #: prefs/pages/popupsPage.js:81
-msgid "Windows shown"
+msgid "Menu item text colour"
 msgstr ""
 
 #: prefs/pages/popupsPage.js:82
+msgid "Menu border colour"
+msgstr ""
+
+#: prefs/pages/popupsPage.js:96
+msgid "Window previews"
+msgstr ""
+
+#: prefs/pages/popupsPage.js:96
+msgid "Live thumbnails of hidden windows."
+msgstr ""
+
+#: prefs/pages/popupsPage.js:98
+msgid "Live thumbnail on hover for minimized / other-workspace windows"
+msgstr ""
+
+#: prefs/pages/popupsPage.js:101
+msgid "Delay before previews appear (milliseconds)"
+msgstr ""
+
+#: prefs/pages/popupsPage.js:102
+msgid "Thumbnail size"
+msgstr ""
+
+#: prefs/pages/popupsPage.js:103
+msgid "Maximum thumbnail width (pixels)"
+msgstr ""
+
+#: prefs/pages/popupsPage.js:104
+msgid "Windows shown"
+msgstr ""
+
+#: prefs/pages/popupsPage.js:105
 msgid "Show hidden windows only or all windows for the app"
 msgstr ""
 
-#: prefs/pages/popupsPage.js:83
+#: prefs/pages/popupsPage.js:106
 msgid "Hidden windows"
 msgstr ""
 
-#: prefs/pages/popupsPage.js:83
+#: prefs/pages/popupsPage.js:106
 msgid "All windows"
 msgstr ""
 
-#: prefs/pages/popupsPage.js:84
+#: prefs/pages/popupsPage.js:107
 msgid "Close buttons"
 msgstr ""
 
-#: prefs/pages/popupsPage.js:85
+#: prefs/pages/popupsPage.js:108
 msgid "Show a close button beside every window title"
 msgstr ""
 
-#: prefs/pages/popupsPage.js:86
+#: prefs/pages/popupsPage.js:109
 msgid "Many windows"
 msgstr ""
 
-#: prefs/pages/popupsPage.js:87
+#: prefs/pages/popupsPage.js:110
 msgid "Keep the compact count or browse every window in pages"
 msgstr ""
 
-#: prefs/pages/popupsPage.js:88
+#: prefs/pages/popupsPage.js:111
 msgid "Compact count"
 msgstr ""
 
-#: prefs/pages/popupsPage.js:88
+#: prefs/pages/popupsPage.js:111
 msgid "Paged previews"
 msgstr ""
 
-#: prefs/pages/popupsPage.js:89
+#: prefs/pages/popupsPage.js:112
 msgid "Windows per page"
 msgstr ""
 
-#: prefs/pages/popupsPage.js:90
+#: prefs/pages/popupsPage.js:113
 msgid "Maximum previews on one page; the monitor width may reduce it"
 msgstr ""
 
-#: prefs/pages/popupsPage.js:91
+#: prefs/pages/popupsPage.js:114
 msgid "Keyboard preview navigation"
 msgstr ""
 
-#: prefs/pages/popupsPage.js:92
+#: prefs/pages/popupsPage.js:115
 msgid "Move focus into previews opened from the keyboard"
 msgstr ""
 
-#: prefs/pages/popupsPage.js:93
+#: prefs/pages/popupsPage.js:116
 msgid "Window action menu"
 msgstr ""
 
-#: prefs/pages/popupsPage.js:94
+#: prefs/pages/popupsPage.js:117
 msgid ""
 "Right-click a preview for activation, workspace, monitor, and close actions"
 msgstr ""
@@ -1443,92 +1476,92 @@ msgstr ""
 msgid "OK"
 msgstr ""
 
-#: prefs/supportTools.js:37
+#: prefs/supportTools.js:45
 msgid "Export AquaDockPro settings"
 msgstr ""
 
-#: prefs/supportTools.js:46 prefs/supportTools.js:65
+#: prefs/supportTools.js:54 prefs/supportTools.js:81
 msgid "Please choose a local file."
 msgstr ""
 
-#: prefs/supportTools.js:49
+#: prefs/supportTools.js:57
 msgid "Settings exported"
 msgstr ""
 
-#: prefs/supportTools.js:52
+#: prefs/supportTools.js:60
 msgid "Export failed"
 msgstr ""
 
-#: prefs/supportTools.js:58
+#: prefs/supportTools.js:74
 msgid "Import AquaDockPro settings"
 msgstr ""
 
-#: prefs/supportTools.js:67
+#: prefs/supportTools.js:83
 msgid "The selected file could not be read."
 msgstr ""
 
-#: prefs/supportTools.js:70
+#: prefs/supportTools.js:86
 msgid "This is not an AquaDockPro settings backup."
 msgstr ""
 
-#: prefs/supportTools.js:78
+#: prefs/supportTools.js:94
 #, javascript-format
 msgid "Setting “%s” has the wrong type."
 msgstr ""
 
-#: prefs/supportTools.js:89
+#: prefs/supportTools.js:105
 #, javascript-format
 msgid "Setting “%s” could not be restored."
 msgstr ""
 
-#: prefs/supportTools.js:98
+#: prefs/supportTools.js:114
 msgid "Settings imported"
 msgstr ""
 
-#: prefs/supportTools.js:99
+#: prefs/supportTools.js:115
 #, javascript-format
 msgid "%d setting was restored."
 msgid_plural "%d settings were restored."
 msgstr[0] ""
 msgstr[1] ""
 
-#: prefs/supportTools.js:103
+#: prefs/supportTools.js:119
 msgid "Import failed"
 msgstr ""
 
-#: prefs/supportTools.js:121
+#: prefs/supportTools.js:146
 msgid "Diagnostics copied"
 msgstr ""
 
-#: prefs/supportTools.js:122
+#: prefs/supportTools.js:147
 msgid "The report is ready to paste into a support request."
 msgstr ""
 
-#: prefs/widgets/rows.js:143
+#: prefs/widgets/rows.js:208
 msgid "Choose an image (PNG, JPEG, SVG…)"
 msgstr ""
 
-#: prefs/widgets/rows.js:147
+#: prefs/widgets/rows.js:212
 msgid "Choose an application icon"
 msgstr ""
 
-#: prefs/widgets/rows.js:148
+#: prefs/widgets/rows.js:213
 msgid "Images"
 msgstr ""
 
-#: prefs/widgets/rows.js:168
+#: prefs/widgets/rows.js:233
 msgid "Use the default icon"
 msgstr ""
 
-#: prefs/widgets/rows.js:180 prefs/widgets/rows.js:185
+#: prefs/widgets/rows.js:255 prefs/widgets/rows.js:260
 msgid "No folder selected"
 msgstr ""
 
-#: prefs/widgets/rows.js:189
+#: prefs/widgets/rows.js:264
 msgid "Choose"
 msgstr ""
 
-#: prefs/widgets/rows.js:191
+#: prefs/widgets/rows.js:266
 msgid "Choose a folder stack"
 msgstr ""
 
@@ -1552,118 +1585,118 @@ msgstr ""
 msgid "Spacer"
 msgstr ""
 
-#: prefs/widgets/customItems.js:49
+#: prefs/widgets/customItems.js:57
 msgid "Add dock locations"
 msgstr ""
 
-#: prefs/widgets/customItems.js:50
+#: prefs/widgets/customItems.js:58
 msgid ""
 "Folders open as stacks; files and links open in their default application"
 msgstr ""
 
-#: prefs/widgets/customItems.js:52
+#: prefs/widgets/customItems.js:60
 msgid "Add folder"
 msgstr ""
 
-#: prefs/widgets/customItems.js:53
+#: prefs/widgets/customItems.js:61
 msgid "Add a folder stack"
 msgstr ""
 
-#: prefs/widgets/customItems.js:63
+#: prefs/widgets/customItems.js:71
 msgid "Add file"
 msgstr ""
 
-#: prefs/widgets/customItems.js:64
+#: prefs/widgets/customItems.js:72
 msgid "Add a file"
 msgstr ""
 
-#: prefs/widgets/customItems.js:74
+#: prefs/widgets/customItems.js:82
 msgid "Add web link"
 msgstr ""
 
-#: prefs/widgets/customItems.js:76
+#: prefs/widgets/customItems.js:84
 msgid "Add a web link"
 msgstr ""
 
-#: prefs/widgets/customItems.js:77
+#: prefs/widgets/customItems.js:85
 #, javascript-format
 msgid "Enter a complete address such as %s"
 msgstr ""
 
-#: prefs/widgets/customItems.js:85
+#: prefs/widgets/customItems.js:93
 msgid "Add"
 msgstr ""
 
-#: prefs/widgets/customItems.js:101
+#: prefs/widgets/customItems.js:109
 msgid "Add layout item"
 msgstr ""
 
-#: prefs/widgets/customItems.js:102
+#: prefs/widgets/customItems.js:110
 msgid "Separators draw a line; spacers add a small empty gap"
 msgstr ""
 
-#: prefs/widgets/customItems.js:104
+#: prefs/widgets/customItems.js:112
 msgid "Add separator"
 msgstr ""
 
-#: prefs/widgets/customItems.js:106
+#: prefs/widgets/customItems.js:114
 msgid "Add spacer"
 msgstr ""
 
-#: prefs/widgets/customItems.js:120
+#: prefs/widgets/customItems.js:128
 msgid "Dock item"
 msgstr ""
 
-#: prefs/widgets/customItems.js:124
+#: prefs/widgets/customItems.js:132
 msgid "Move up"
 msgstr ""
 
-#: prefs/widgets/customItems.js:132
+#: prefs/widgets/customItems.js:140
 msgid "Move down"
 msgstr ""
 
-#: prefs/widgets/customItems.js:140
+#: prefs/widgets/customItems.js:148
 msgid "Remove"
 msgstr ""
 
-#: ui/preview/previewManager.js:214
+#: ui/preview/previewManager.js:216
 #, javascript-format
 msgid "Close %s"
 msgstr ""
 
-#: ui/preview/previewManager.js:258
+#: ui/preview/previewManager.js:260
 #, javascript-format
 msgid "+%d more window"
 msgid_plural "+%d more windows"
 msgstr[0] ""
 msgstr[1] ""
 
-#: ui/preview/previewManager.js:275
+#: ui/preview/previewManager.js:277
 msgid "Previous window page"
 msgstr ""
 
-#: ui/preview/previewManager.js:284
+#: ui/preview/previewManager.js:286
 #, javascript-format
 msgid "Page %d of %d"
 msgstr ""
 
-#: ui/preview/previewManager.js:295
+#: ui/preview/previewManager.js:297
 msgid "Next window page"
 msgstr ""
 
-#: ui/preview/previewManager.js:395
+#: ui/preview/previewManager.js:397
 msgid "Activate"
 msgstr ""
 
-#: ui/preview/previewManager.js:404
+#: ui/preview/previewManager.js:406
 msgid "Move to Current Workspace"
 msgstr ""
 
-#: ui/preview/previewManager.js:419
+#: ui/preview/previewManager.js:421
 #, javascript-format
 msgid "Move to Monitor %d"
 msgstr ""
 
-#: ui/preview/previewManager.js:425
+#: ui/preview/previewManager.js:427
 msgid "Close Window"
 msgstr ""

@@ -27,6 +27,7 @@ export function getBmsSettings(schemaId) {
         }
         return new Gio.Settings({ schema_id: schemaId });
     } catch {
+        /* intentionally ignored: schema lookup or Gio.Settings construction failed */
         return null;
     }
 }
@@ -43,6 +44,7 @@ export function isBmsDockBlurActive() {
             return false;
         return Boolean(bms._dash_to_dock_blur.enabled);
     } catch {
+        /* intentionally ignored: Blur My Shell global object query failed */
         return false;
     }
 }
@@ -59,6 +61,7 @@ export function isBmsPopupBlurActive() {
             return false;
         return Boolean(bms._popup.enabled);
     } catch {
+        /* intentionally ignored: Blur My Shell popup object query failed */
         return false;
     }
 }
@@ -118,13 +121,13 @@ export function getBmsPopupSettings(dashBlur = null) {
             return {
                 settings: gioSettings,
                 get PIPELINE() {
-                    try { return gioSettings.get_string('pipeline'); } catch { return 'pipeline_default'; }
+                    try { return gioSettings.get_string('pipeline'); } catch { /* intentionally ignored: pipeline key query failed */ return 'pipeline_default'; }
                 },
                 get STATIC_BLUR() {
-                    try { return gioSettings.get_boolean('static-blur'); } catch { return false; }
+                    try { return gioSettings.get_boolean('static-blur'); } catch { /* intentionally ignored: static-blur key query failed */ return false; }
                 },
                 get BLUR() {
-                    try { return gioSettings.get_boolean('blur'); } catch { return true; }
+                    try { return gioSettings.get_boolean('blur'); } catch { /* intentionally ignored: blur key query failed */ return true; }
                 },
             };
         }
@@ -143,6 +146,7 @@ export function getBmsGeneralSettings(dashBlur = null) {
         const bms = globalThis.global?.blur_my_shell;
         return dashBlur?.settings?.settings ?? bms?.settings?.settings ?? getBmsSettings('org.gnome.shell.extensions.blur-my-shell');
     } catch {
+        /* intentionally ignored: Blur My Shell general settings query failed */
         return null;
     }
 }

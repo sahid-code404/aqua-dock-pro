@@ -67,6 +67,7 @@ export class DownloadsStack {
         try {
             return Main.uiGroup?.find_child_by_name?.('aquaDockContainer') ?? null;
         } catch {
+            /* intentionally ignored: dock container search failed on unparented uiGroup */
             return null;
         }
     }
@@ -75,7 +76,7 @@ export class DownloadsStack {
         this._destroyNow();             // clear any lingering popup synchronously
         this._onClose = onClose;
         this._anchor = anchor;
-        try { this._currentFolderUri = folder?.get_uri?.() ?? null; } catch { this._currentFolderUri = null; }
+        try { this._currentFolderUri = folder?.get_uri?.() ?? null; } catch { /* intentionally ignored: folder URI query failed on invalid folder */ this._currentFolderUri = null; }
         const gen = ++this._showGen;
         this._opening = true;
         const cancellable = new Gio.Cancellable();
@@ -116,7 +117,7 @@ export class DownloadsStack {
         const mon = this._getMonitor?.();
         if (!mon) {
             this.hide();
-            try { anchor.setStackOpenState?.(false, false); } catch { /* intentionally ignored */ }
+            try { anchor.setStackOpenState?.(false, false); } catch { /* intentionally ignored: anchor state update failed during stack closing */ }
             return;
         }
         const origin = this._origin(anchor, mon, cfg);
@@ -318,6 +319,7 @@ export class DownloadsStack {
 
             return { x: cx, y: cy };
         } catch {
+            /* intentionally ignored: anchor coordinate transformation failed on unmapped actor */
             return {
                 x: (mon?.x ?? 0) + (mon?.width ?? 0) / 2,
                 y: cfg.vertical

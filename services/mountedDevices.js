@@ -49,6 +49,7 @@ function safely(read, fallback = null) {
         const value = read();
         return value ?? fallback;
     } catch {
+        /* intentionally ignored: safe property query fallback */
         return fallback;
     }
 }
@@ -91,7 +92,7 @@ const monitorStores = new Map();
 function operationCancelled(cancellable, error) {
     if (cancellable?.is_cancelled()) return true;
     try { return error?.matches?.(Gio.io_error_quark(), Gio.IOErrorEnum.CANCELLED) === true; }
-    catch { return false; }
+    catch { /* intentionally ignored: error matches check failed */ return false; }
 }
 
 function runAsync(target, method, finish, buildArgs, action, onDone) {

@@ -49,7 +49,7 @@ export function resetSlowDownFactor() {
             slowDownOwner = null;
         }
         try { restoreSlowDown(St.Settings.get()); }
-        catch { resetSlowDownBookkeeping(); }
+        catch { /* intentionally ignored: St.Settings unavailable during shutdown */ resetSlowDownBookkeeping(); }
     }
 }
 
@@ -121,7 +121,7 @@ export class GenieController {
             const monitorIndex = this._host.getMonitorIndex?.() ?? -1;
             const targets = cfg.multiMonitor ? windows.filter(win => {
                 try { return win.get_monitor() === monitorIndex; }
-                catch { return false; }
+                catch { /* intentionally ignored: window monitor query failed on destroyed window */ return false; }
             }) : windows;
             if (!targets.length) return;
             const rect = this.iconRestRect(item, chip);
@@ -164,7 +164,7 @@ export class GenieController {
         if (!this.enabled) { fn(); return; }
         let stSettings;
         try { stSettings = St.Settings.get(); }
-        catch { fn(); return; }
+        catch { /* intentionally ignored: St.Settings unavailable fallback to direct execution */ fn(); return; }
         const dur = clamp(this._host.getConfig().genieDuration ?? 120, 50, 1000);
         const factor = clamp(dur / 250, 0.4, 4.0);
 
@@ -180,7 +180,7 @@ export class GenieController {
             slowDownOwner._cancelSlowDownRestore();
         if (!slowDownOwner) {
             try { slowDownPrevious = stSettings.slow_down_factor; }
-            catch { slowDownPrevious = 1; }
+            catch { /* intentionally ignored: slow_down_factor query failed fallback to baseline */ slowDownPrevious = 1; }
         }
         slowDownOwner = this;
         this._cancelSlowDownRestore();
@@ -188,6 +188,7 @@ export class GenieController {
             stSettings.slow_down_factor = factor;
             slowDownApplied = factor;
         } catch {
+            /* intentionally ignored: setting slow_down_factor failed */
             slowDownApplied = null;
         }
         try { fn(); } catch (e) { logError(e, 'genie fn'); }
@@ -204,7 +205,7 @@ export class GenieController {
         slowDownOwner = null;
         this._cancelSlowDownRestore();
         try { restoreSlowDown(St.Settings.get()); }
-        catch { resetSlowDownBookkeeping(); }
+        catch { /* intentionally ignored: St.Settings unavailable during settle */ resetSlowDownBookkeeping(); }
     }
 
     _cancelSlowDownRestore() {
@@ -219,7 +220,7 @@ export class GenieController {
         if (slowDownOwner === this) {
             slowDownOwner = null;
             try { restoreSlowDown(St.Settings.get()); }
-            catch { resetSlowDownBookkeeping(); }
+            catch { /* intentionally ignored: St.Settings unavailable during teardown */ resetSlowDownBookkeeping(); }
         }
         this.invalidateRectCache();
         this._timers.removeAll();

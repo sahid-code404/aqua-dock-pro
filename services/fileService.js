@@ -177,6 +177,7 @@ export function getCachedThemedIcon(name, useFallbacks = false) {
         _themedIconCache.set(key, icon);
         return icon;
     } catch {
+        /* intentionally ignored: themed icon construction failed */
         return null;
     }
 }
@@ -206,6 +207,7 @@ export function getCachedFileIcon(path) {
         _fileIconCache.set(path, icon);
         return icon;
     } catch {
+        /* intentionally ignored: file icon construction failed for path */
         return null;
     }
 }

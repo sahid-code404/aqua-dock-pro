@@ -49,7 +49,7 @@ class AppStateHub {
         const id = app?.get_id?.();
         if (!id) {
             try { return app?.get_icon?.() ?? null; }
-            catch { return null; }
+            catch { /* intentionally ignored: fallback app icon lookup failed */ return null; }
         }
         if (this._iconCache.has(id)) return this._iconCache.get(id);
         let icon = null;
@@ -158,6 +158,7 @@ class AppStateHub {
                 this._emitOptional();
             }));
         } catch {
+            /* intentionally ignored: window signal connection failed on disappearing window */
             for (const id of ids) {
                 try { window.disconnect(id); } catch { /* intentionally ignored: signal handler may already be disconnected */ }
             }
@@ -471,7 +472,7 @@ export class AppTracker {
 
     _locationBasename(uri) {
         try { return Gio.File.new_for_uri(uri).get_basename() || _('Location'); }
-        catch { return _('Location'); }
+        catch { /* intentionally ignored: file basename query failed for invalid URI */ return _('Location'); }
     }
 
     trashGicon(full) {

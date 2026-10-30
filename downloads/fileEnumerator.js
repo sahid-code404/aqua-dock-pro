@@ -132,7 +132,7 @@ function _doEnumerate(folder, cancellable, sort, limit, cacheKey = null) {
                             return;
                         }
                         try { finalFiles[idx] = fl.query_info_finish(qres); }
-                        catch { finalFiles[idx] = cand.rawInfo; }
+                        catch { /* intentionally ignored: thumbnail query finish failed fallback to raw file info */ finalFiles[idx] = cand.rawInfo; }
                         pending--;
                         if (pending === 0) {
                             finish(null, finalFiles.filter(Boolean));

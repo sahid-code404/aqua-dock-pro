@@ -1,5 +1,6 @@
 // Preferences page for indicators, badges, tooltips, menus, and previews.
 
+import Gio from 'gi://Gio';
 import {
     page,
     group,
@@ -46,7 +47,8 @@ export function buildPopupsPage(window, s) {
 
     const tip = group(_('Tooltip'), _('The app-name label on hover.'));
     const tipToggle = toggleExpander(s, 'show-tooltip', _('Show tooltip'),
-        _('Show the app name on hover'), 'dialog-information-symbolic');
+        _('Show app and folder name labels on pointer hover; disable to hide all tooltips'),
+        'dialog-information-symbolic');
     tipToggle.add_row(spinRow(s, 'tooltip-delay', _('Show delay'),
         _('Delay before it appears (milliseconds)'), 0, 2000, 25, 0));
     tipToggle.add_row(spinRow(s, 'tooltip-radius', _('Corner radius'),
@@ -64,10 +66,15 @@ export function buildPopupsPage(window, s) {
     p.add(tip);
 
     const menu = group(_('Context menu'), _('The right-click menu.'));
-    menu.add(switchRow(s, 'menu-use-gnome-default', _('Use GNOME default app menu'),
-        _("Use GNOME Shell's native right-click menu for application icons")));
-    menu.add(spinRow(s, 'menu-radius', _('Corner radius'),
-        _('Menu corner radius (pixels)'), 0, 30, 1, 0));
+    const customMenu = switchRow(s, 'menu-use-gnome-default', _('Custom context menu'),
+        _('Use Aqua Dock Pro custom styled menu; disable for GNOME Shell default menu'),
+        Gio.SettingsBindFlags.DEFAULT | Gio.SettingsBindFlags.INVERT_BOOLEAN);
+    menu.add(customMenu);
+
+    const menuRadius = spinRow(s, 'menu-radius', _('Corner radius'),
+        _('Menu corner radius (pixels)'), 0, 30, 1, 0);
+    menu.add(menuRadius);
+
     const menuStyle = expanderRow(_('Menu colours'), _('Menu fill, text and outline.'),
         'applications-graphics-symbolic');
     menuStyle.add_row(colorRow(window, s, 'menu-bg-color', _('Background'), _('Menu background')));
@@ -76,6 +83,14 @@ export function buildPopupsPage(window, s) {
     menuStyle.add_row(spinRow(s, 'menu-border-width', _('Border width'),
         _('Pixels; 0 hides it'), 0, 6, 1, 0));
     menu.add(menuStyle);
+
+    const syncMenuSensitivity = () => {
+        const useGnomeDefault = s.get_boolean('menu-use-gnome-default');
+        menuRadius.set_sensitive(!useGnomeDefault);
+        menuStyle.set_sensitive(!useGnomeDefault);
+    };
+    syncMenuSensitivity();
+    (window._settingsSignalIds ??= []).push(s.connect('changed::menu-use-gnome-default', syncMenuSensitivity));
     p.add(menu);
 
     const prev = group(_('Window previews'), _('Live thumbnails of hidden windows.'));

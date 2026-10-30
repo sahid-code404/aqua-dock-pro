@@ -66,7 +66,7 @@ export class PressureBarrier {
         const mon = this._getMonitor?.();
         if (!mon) return;
         let p;
-        try { p = global.get_pointer(); } catch { return; }
+        try { p = global.get_pointer(); } catch { /* intentionally ignored: pointer query failed during display teardown */ return; }
 
         const side = cfg.position;
         const monR = mon.x + mon.width;

@@ -81,7 +81,7 @@ export class LocationResolver {
 
         let file;
         try { file = Gio.File.new_for_uri(uri); }
-        catch { return; }
+        catch { /* intentionally ignored: invalid URI syntax */ return; }
 
         const cancellable = new Gio.Cancellable();
         const generation = this._generation;
@@ -100,6 +100,7 @@ export class LocationResolver {
                     let info;
                     try { info = source.query_info_finish(result); }
                     catch {
+                        /* intentionally ignored: asynchronous file query failed */
                         this._recordFailure(uri);
                         return;
                     }
@@ -117,6 +118,7 @@ export class LocationResolver {
                     if (!sameResolved(previous, next)) this._queueChanged();
                 });
         } catch {
+            /* intentionally ignored: failed to start asynchronous file query */
             this._pending.delete(uri);
             this._recordFailure(uri);
         }

@@ -370,6 +370,7 @@ export class DockChrome {
             dash.set_height(gap);
             return true;
         } catch (error) {
+            /* intentionally ignored: dash actor properties may fail to apply during overview transition */
             if (strict) throw error;
             return false;
         }

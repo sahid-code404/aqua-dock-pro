@@ -259,7 +259,7 @@ export class DragManager {
         this._setBadgeMode(r, 'move');
 
         let p;
-        try { p = this._host.container.transform_stage_point(px, py); } catch { return; }
+        try { p = this._host.container.transform_stage_point(px, py); } catch { /* intentionally ignored: container transform stage point failed on unmapped actor */ return; }
         if (!p?.[0]) return;
         const cfg = this._host.getConfig();
         const vert = cfg.vertical;
@@ -342,7 +342,7 @@ export class DragManager {
                     mode: Clutter.AnimationMode.EASE_OUT_QUAD,
                     onComplete: () => this._destroyFlyer(r.flyer),
                 });
-            } catch { this._destroyFlyer(r.flyer); }
+            } catch { /* intentionally ignored: flyer transition failed on unparented actor */ this._destroyFlyer(r.flyer); }
             this._restoreIcon(r.item, true);
             this._zeroTranslations();
             this._host.engine.setSuspended(false);
@@ -484,7 +484,7 @@ export class DragManager {
         this._dragPollId = this._timers.add(16, () => {
             if (!this._reorder) { this._dragPollId = 0; return GLib.SOURCE_REMOVE; }
             let px, py, mods;
-            try { [px, py, mods] = global.get_pointer(); } catch { return GLib.SOURCE_CONTINUE; }
+            try { [px, py, mods] = global.get_pointer(); } catch { /* intentionally ignored: pointer query failed during drag poll */ return GLib.SOURCE_CONTINUE; }
             this.update(px, py);
             // Button1 released?
             if (!(mods & Clutter.ModifierType.BUTTON1_MASK)) {
@@ -524,7 +524,7 @@ export class DragManager {
 
     _badgeWidth(badge) {
         try { return badge?.get_preferred_width(-1)?.[1] ?? 0; }
-        catch { return 0; }
+        catch { /* intentionally ignored: preferred width query failed on disposed badge */ return 0; }
     }
 
     _destroyFlyer(flyer) {
@@ -550,7 +550,7 @@ export class DragManager {
                 duration: 200,
                 mode: Clutter.AnimationMode.EASE_OUT_QUAD,
             });
-        } catch { try { icon.opacity = 255; } catch { /* intentionally ignored: drag preview state update failed on disposing actor */ } }
+        } catch { /* intentionally ignored: icon fade transition failed */ try { icon.opacity = 255; } catch { /* intentionally ignored: drag preview state update failed on disposing actor */ } }
     }
 
     _zeroTranslations() {

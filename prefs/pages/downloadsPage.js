@@ -27,6 +27,8 @@ export function buildDownloadsPage(window, s) {
     window.add(p);
 
     const stack = group(_('Downloads stack'), _('How the folder opens from the dock.'));
+    stack.add(switchRow(s, 'show-downloads', _('Downloads folder stack'),
+        _('Show the Downloads folder stack on the dock')));
     stack.add(comboRow(window, s, 'downloads-view', _('View'),
         _('Layout used when the stack opens'),
         [_('Fan'), _('Grid'), _('List')], ['fan', 'grid', 'list']));
@@ -41,7 +43,7 @@ export function buildDownloadsPage(window, s) {
     panelStyle.add_row(spinRow(s, 'downloads-border-radius', _('Panel corner radius'),
         _('Stack panel corner radius (pixels)'), 0, 40, 1, 0));
     const panelColor = colorRow(window, s, 'downloads-pill-color', _('Panel background'),
-        _('Stack panel background'));
+        _('Stack panel background when blur is disabled'));
     panelStyle.add_row(panelColor);
     panelStyle.add_row(colorRow(window, s, 'downloads-border-color', _('Panel border'),
         _('Stack panel border colour')));
@@ -49,6 +51,26 @@ export function buildDownloadsPage(window, s) {
         _('Pixels; 0 hides it'), 0, 6, 1, 0));
     stack.add(panelStyle);
     p.add(stack);
+
+    const cards = group(_('File cards'), _('The individual file tiles.'));
+    cards.add(spinRow(s, 'downloads-item-radius', _('Card corner radius'),
+        _('File card corner radius (pixels)'), 0, 28, 1, 0));
+
+    const cardStyle = expanderRow(_('Card colours and border'),
+        _('The file-card styling.'), 'applications-graphics-symbolic');
+    const cardColor = colorRow(window, s, 'downloads-item-color', _('Card background'),
+        _('File card background when blur is disabled'));
+    cardStyle.add_row(cardColor);
+    cardStyle.add_row(colorRow(window, s, 'downloads-item-font-color', _('Card text'),
+        _('File name colour')));
+    cardStyle.add_row(colorRow(window, s, 'downloads-item-thumb-color', _('Thumbnail background'),
+        _('Thumbnail backing colour')));
+    cardStyle.add_row(colorRow(window, s, 'downloads-item-border-color', _('Card border'),
+        _('File card border colour')));
+    cardStyle.add_row(spinRow(s, 'downloads-item-border-width', _('Card border width'),
+        _('Pixels; 0 hides it'), 0, 6, 1, 0));
+    cards.add(cardStyle);
+    p.add(cards);
 
     const custom = group(_('Custom folder stack'),
         _('Add one lightweight folder stack beside Downloads.'));
@@ -67,26 +89,6 @@ export function buildDownloadsPage(window, s) {
         _('Display the configured items in the dock’s locations section')));
     buildCustomItemsEditor(window, s, dockItems);
     p.add(dockItems);
-
-    const cards = group(_('File cards'), _('The individual file tiles.'));
-    cards.add(spinRow(s, 'downloads-item-radius', _('Card corner radius'),
-        _('File card corner radius (pixels)'), 0, 28, 1, 0));
-
-    const cardStyle = expanderRow(_('Card colours and border'),
-        _('The file-card styling.'), 'applications-graphics-symbolic');
-    const cardColor = colorRow(window, s, 'downloads-item-color', _('Card background'),
-        _('File card background'));
-    cardStyle.add_row(cardColor);
-    cardStyle.add_row(colorRow(window, s, 'downloads-item-font-color', _('Card text'),
-        _('File name colour')));
-    cardStyle.add_row(colorRow(window, s, 'downloads-item-thumb-color', _('Thumbnail background'),
-        _('Thumbnail backing colour')));
-    cardStyle.add_row(colorRow(window, s, 'downloads-item-border-color', _('Card border'),
-        _('File card border colour')));
-    cardStyle.add_row(spinRow(s, 'downloads-item-border-width', _('Card border width'),
-        _('Pixels; 0 hides it'), 0, 6, 1, 0));
-    cards.add(cardStyle);
-    p.add(cards);
 
     const syncBlurSensitivity = () => {
         const blurOn = s.get_boolean('blur-effect');

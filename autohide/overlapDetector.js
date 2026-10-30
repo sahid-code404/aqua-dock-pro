@@ -45,7 +45,7 @@ export class OverlapDetector {
 
         let actors;
         try { actors = global.get_window_actors?.() ?? []; }
-        catch { return false; }
+        catch { /* intentionally ignored: window actors query failed during compositor transition */ return false; }
 
         let overlapped = false;
         const active = new Set();
@@ -64,6 +64,7 @@ export class OverlapDetector {
                 if (!HANDLED_TYPES.has(win.get_window_type())) continue;
                 frame = win.get_frame_rect();
             } catch {
+                /* intentionally ignored: window property query failed on disappearing window */
                 continue;
             }
 
@@ -104,6 +105,7 @@ export class OverlapDetector {
                 this);
             this._tracked.add(win);
         } catch {
+            /* intentionally ignored: window signal connection failed on disappearing window */
             try { win.disconnectObject(this); } catch { /* intentionally ignored: window signal handler may already be disconnected */ }
         }
     }

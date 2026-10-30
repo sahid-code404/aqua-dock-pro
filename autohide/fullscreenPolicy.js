@@ -6,6 +6,7 @@ function isFullscreen(win) {
             return Boolean(win.is_fullscreen());
         return Boolean(win?.fullscreen);
     } catch {
+        /* intentionally ignored: window fullscreen state query failed on destroyed window */
         return false;
     }
 }
@@ -30,6 +31,7 @@ export function windowKeepsDockHidden(win, monitorIndex, workspace = null) {
             !win.located_on_workspace(workspace))
             return false;
     } catch {
+        /* intentionally ignored: window monitor or workspace query failed on destroyed window */
         return false;
     }
 

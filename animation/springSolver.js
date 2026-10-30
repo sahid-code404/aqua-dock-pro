@@ -157,11 +157,13 @@ export function subSteps(dtMs, damping, out = {}) {
 export function integrateSpring(state, target, tension, dampPow, st, nSteps) {
     let cur = state.cur;
     let vel = state.vel;
+    const halfSt = 0.5 * st;
+    const halfStSq = halfSt * st;
     for (let k = 0; k < nSteps; k++) {
         const a0 = (target - cur) * tension;
-        const curNext = cur + vel * st + 0.5 * a0 * st * st;
+        const curNext = cur + vel * st + a0 * halfStSq;
         const a1 = (target - curNext) * tension;
-        vel = (vel + 0.5 * (a0 + a1) * st) * dampPow;
+        vel = (vel + (a0 + a1) * halfSt) * dampPow;
         cur = curNext;
     }
     if (Math.abs(cur - target) < SETTLE_EPS && Math.abs(vel) < SETTLE_EPS) {

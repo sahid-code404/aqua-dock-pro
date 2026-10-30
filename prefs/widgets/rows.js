@@ -3,6 +3,7 @@
 import Adw from 'gi://Adw';
 import Gdk from 'gi://Gdk';
 import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
 import Gtk from 'gi://Gtk';
 
 import { _ } from '../../core/i18n.js';
@@ -41,11 +42,12 @@ export function spinRow(s, key, title, subtitle, lower, upper, step, digits = 0)
  * @param {string} key - Schema key name.
  * @param {string} title - Primary row title.
  * @param {string} subtitle - Explanatory subtitle text.
+ * @param {Gio.SettingsBindFlags} [bindFlags=Gio.SettingsBindFlags.DEFAULT] - Binding flags.
  * @returns {Adw.SwitchRow} Configured and bound switch row.
  */
-export function switchRow(s, key, title, subtitle) {
+export function switchRow(s, key, title, subtitle, bindFlags = Gio.SettingsBindFlags.DEFAULT) {
     const row = new Adw.SwitchRow({ title, subtitle });
-    s.bind(key, row, 'active', Gio.SettingsBindFlags.DEFAULT);
+    s.bind(key, row, 'active', bindFlags);
     return row;
 }
 
@@ -195,7 +197,7 @@ export function iconChooserRow(window, s, key, title) {
             if (!v) preview.set_from_icon_name('view-app-grid-symbolic');
             else if (v.includes('/')) preview.set_from_file(v);
             else preview.set_from_icon_name(v);
-        } catch { preview.set_from_icon_name('image-missing-symbolic'); }
+        } catch { /* intentionally ignored: icon file or name invalid fallback to missing icon symbolic */ preview.set_from_icon_name('image-missing-symbolic'); }
     };
     refresh();
     window._settingsSignalIds.push(s.connect(`changed::${key}`, refresh));
@@ -338,7 +340,9 @@ export function toggleExpander(s, key, title, subtitle, iconName = null, expande
  * @returns {Adw.PreferencesGroup} New preferences group instance.
  */
 export function group(title, description) {
-    return new Adw.PreferencesGroup({ title, description });
+    const escapedTitle = title ? GLib.markup_escape_text(title, -1) : title;
+    const escapedDesc = description ? GLib.markup_escape_text(description, -1) : description;
+    return new Adw.PreferencesGroup({ title: escapedTitle, description: escapedDesc });
 }
 
 /**

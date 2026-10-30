@@ -131,6 +131,7 @@ export class FileItemMenu {
             const monitorMiddle = this._mon.x + this._mon.width / 2;
             return x + width / 2 > monitorMiddle ? St.Side.RIGHT : St.Side.LEFT;
         } catch {
+            /* intentionally ignored: transformed position query failed on unmapped actor */
             return St.Side.RIGHT;
         }
     }
@@ -183,6 +184,7 @@ export class FileItemMenu {
                 [pillStageX, pillStageY] = sourceActor.get_transformed_position();
                 [pillW, pillH] = sourceActor.get_transformed_size();
             } catch {
+                /* intentionally ignored: transformed position query failed on unmapped actor fallback to local allocation */
                 const alloc = sourceActor.get_allocation_box();
                 pillStageX = alloc.x1;
                 pillStageY = alloc.y1;
@@ -235,6 +237,7 @@ export class FileItemMenu {
                 try {
                     [success, x, y] = parent.transform_stage_point(resX, resY);
                 } catch {
+                    /* intentionally ignored: stage coordinate transformation failed fallback to stage coordinates */
                     success = true;
                     x = resX;
                     y = resY;
@@ -257,6 +260,7 @@ export class FileItemMenu {
                 [stageX] = sourceActor.get_transformed_position();
                 [pillW] = sourceActor.get_transformed_size();
             } catch {
+                /* intentionally ignored: transformed position query failed on unmapped actor fallback to default side */
                 return arrowSide;
             }
             const [, , natWidth] = this.get_preferred_size();

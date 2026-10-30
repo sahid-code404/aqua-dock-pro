@@ -18,7 +18,7 @@ const LAUNCH_WATCH_MS = 8000;
 
 function windowMinimized(win) {
     try { return Boolean(win?.minimized); }
-    catch { return false; }
+    catch { /* intentionally ignored: minimized state query failed on destroyed window */ return false; }
 }
 
 function windowVisibleOnWorkspace(win, workspace) {
@@ -26,18 +26,19 @@ function windowVisibleOnWorkspace(win, workspace) {
         if (!win || win.minimized) return false;
         return !workspace || Boolean(win.located_on_workspace?.(workspace));
     } catch {
+        /* intentionally ignored: workspace query failed on destroyed window */
         return false;
     }
 }
 
 function windowHasFocus(win) {
     try { return Boolean(win?.has_focus?.()); }
-    catch { return false; }
+    catch { /* intentionally ignored: focus query failed on destroyed window */ return false; }
 }
 
 function windowUserTime(win) {
     try { return win?.get_user_time?.() ?? 0; }
-    catch { return 0; }
+    catch { /* intentionally ignored: user time query failed on destroyed window */ return 0; }
 }
 
 export class AppActions {

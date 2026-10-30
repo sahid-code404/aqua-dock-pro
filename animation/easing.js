@@ -15,7 +15,7 @@
  */
 export function smoothTowards(value, target, dtMs, tauMs) {
     if (tauMs <= 0) return target;
-    const k = 1 - Math.exp(-dtMs / tauMs);
+    const k = -Math.expm1(-dtMs / tauMs);
     return value + (target - value) * k;
 }
 
@@ -31,5 +31,5 @@ export function smoothTowards(value, target, dtMs, tauMs) {
  */
 export function smoothFactor(dtMs, tauMs) {
     if (tauMs <= 0) return 1;
-    return 1 - Math.exp(-dtMs / tauMs);
+    return -Math.expm1(-dtMs / tauMs);
 }

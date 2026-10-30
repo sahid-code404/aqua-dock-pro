@@ -29,7 +29,8 @@ export function buildBehaviorPage(window, s) {
         _("Leave the dock pill's screen-facing border visible while hidden")));
     p.add(hide);
 
-    const pressure = group(_('Edge pressure'), _('Require a deliberate push to reveal.'));
+    const pressure = group(_('Edge pressure & gestures'),
+        _('Require a deliberate push or edge dwell to reveal.'));
     const pressureToggle = toggleExpander(s, 'pressure-sense', _('Pressure-sense reveal'),
         _('The pointer must linger and press against the edge before the dock appears'),
         'input-mouse-symbolic');
@@ -38,7 +39,7 @@ export function buildBehaviorPage(window, s) {
     pressure.add(pressureToggle);
     p.add(pressure);
 
-    const click = group(_('Clicking'), _('What clicks do.'));
+    const click = group(_('Window click actions'), _('Customize what mouse clicks and gestures do.'));
     click.add(comboRow(window, s, 'left-click-action', _('Primary click'),
         _('Smart behavior, minimize, cycle, preview, or no action'),
         [_('Smart'), _('Minimize'), _('Cycle windows'), _('Show previews'), _('Do nothing')],
@@ -54,9 +55,13 @@ export function buildBehaviorPage(window, s) {
         _('Clicking the focused app icon minimizes its window')));
     click.add(switchRow(s, 'drag-to-open', _('Drag to open'),
         _('Drag a pinned app outside the dock to launch or activate it, even when the layout is locked')));
-    click.add(switchRow(s, 'isolate-workspaces', _('Only this workspace'),
-        _('Show running apps from the current workspace only')));
-    click.add(shortcutRow(window, s, 'focus-dock-shortcut', _('Focus dock shortcut'),
-        _('GNOME accelerator syntax, for example <Super>d; leave empty to disable')));
     p.add(click);
+
+    const nav = group(_('Workspaces & shortcuts'),
+        _('Workspace filtering and keyboard navigation.'));
+    nav.add(switchRow(s, 'isolate-workspaces', _('Only this workspace'),
+        _('Show running apps from the current workspace only')));
+    nav.add(shortcutRow(window, s, 'focus-dock-shortcut', _('Focus dock shortcut'),
+        _('GNOME accelerator syntax, for example <Super>d; leave empty to disable')));
+    p.add(nav);
 }

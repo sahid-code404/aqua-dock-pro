@@ -148,7 +148,7 @@ function populateAppMenu(menu, app, isLayoutLocked, onToggleLayoutLock,
         for (const win of wins) {
             let title;
             try { title = win.get_title() || app.get_name() || _('Window'); }
-            catch { continue; }
+            catch { /* intentionally ignored: window title query failed on destroyed window */ continue; }
             const label = title.length > 30 ? title.slice(0, 29).trimEnd() + '…' : title;
             const itm = menu.addAction(label, () => activateWindowSafe(win));
             try { itm.label?.clutter_text?.set_ellipsize?.(3); } catch { /* intentionally ignored: clutter text ellipsize unsupported on disposing menu item */ }

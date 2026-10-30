@@ -18,6 +18,7 @@ function getExtensionSettings() {
                 schema_id: 'org.gnome.shell.extensions.aqua-dock-pro',
             });
         } catch {
+            /* intentionally ignored: schema lookup may fail in early startup or test harness */
             _extensionSettings = null;
         }
     }
@@ -100,7 +101,7 @@ export function clamp(v, min, max) {
 export function sameIcon(a, b) {
     if (a === b) return true;
     if (!a || !b) return false;
-    try { return a.equal(b); } catch { return false; }
+    try { return a.equal(b); } catch { /* intentionally ignored: icon comparison failed on disparate GIcon types */ return false; }
 }
 
 /**
@@ -112,7 +113,7 @@ export function getFocusedAppSafe() {
     const win = global.display?.focus_window ?? null;
     if (!win) return null;
     try { return Shell.WindowTracker.get_default().get_window_app(win) ?? null; }
-    catch { return null; }
+    catch { /* intentionally ignored: app lookup failed on unmanaged or closing window */ return null; }
 }
 
 /**
@@ -123,7 +124,7 @@ export function getFocusedAppSafe() {
  */
 export function appWindows(app) {
     try { return app?.get_windows?.() ?? []; }
-    catch { return []; }
+    catch { /* intentionally ignored: window list query failed on disposed app */ return []; }
 }
 
 // Return the windows that belong to this dock's configured scope. Keeping this
@@ -147,19 +148,19 @@ export function appWindowsForConfig(app, cfg, activeWorkspace = undefined) {
     let workspace = activeWorkspace;
     if (isolateWorkspaces && workspace === undefined) {
         try { workspace = global.workspace_manager?.get_active_workspace?.() ?? null; }
-        catch { workspace = null; }
+        catch { /* intentionally ignored: workspace query failed during workspace switch */ workspace = null; }
     }
 
     return windows.filter(window => {
         if (isolateMonitors) {
             try {
                 if (window.get_monitor?.() !== cfg.monitorIndex) return false;
-            } catch { return false; }
+            } catch { /* intentionally ignored: monitor query failed on destroyed window */ return false; }
         }
         if (isolateWorkspaces && workspace) {
             try {
                 if (!window.located_on_workspace?.(workspace)) return false;
-            } catch { return false; }
+            } catch { /* intentionally ignored: workspace query failed on destroyed window */ return false; }
         }
         return true;
     });
@@ -231,7 +232,7 @@ export function animationsEnabled() {
         const reducedMotion = settings.reducedMotion ?? settings.reduced_motion;
         return reduce === undefined || reducedMotion !== reduce;
     }
-    catch { return true; }
+    catch { /* intentionally ignored: St settings query failed fallback to standard animation */ return true; }
 }
 
 // ── SignalGroup ────────────────────────────────────────────────────────────────
