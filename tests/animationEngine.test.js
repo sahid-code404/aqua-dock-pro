@@ -1,4 +1,5 @@
 import { AnimationEngine } from '../animation/animationEngine.js';
+import { Bounce } from '../animation/bounce.js';
 import { magnificationParams } from '../animation/springSolver.js';
 import { setReduceMotionOverride } from '../core/utils.js';
 
@@ -113,6 +114,60 @@ try {
     assert(itemB.scaleTarget > 1.5, 'itemB should magnify normally once stack closes');
 
     supEngine.destroy();
+}
+
+// ── Bounce In-Flight Relayout & Recompose Verification ──────────────────────
+{
+    let composedHeight = -1;
+    let composedSx = -1;
+    let composedSy = -1;
+    let composeCalls = 0;
+    const fakeActor = {};
+
+    const bounce = new Bounce(
+        fakeActor,
+        (h, sx, sy) => {
+            composedHeight = h;
+            composedSx = sx;
+            composedSy = sy;
+            composeCalls++;
+        },
+        () => {},
+    );
+
+    // Mock scheduler so we control frame ticks directly
+    bounce._scheduler = {
+        start() {},
+        stop() {},
+        destroy() {},
+        isRunning() { return bounce._active; },
+    };
+
+    // 1. Start a launch bounce with height 50
+    bounce.start(50, { state: 'launch' });
+    assert(bounce.active, 'bounce should be active after start');
+
+    // Step a few frames into the parabolic arc
+    bounce._frame(16);
+    bounce._frame(16);
+    bounce._frame(16);
+
+    const heightMidAir = bounce._y;
+    assert(heightMidAir > 0, `bounce._y should be aloft, got ${heightMidAir}`);
+    assert(composedHeight === heightMidAir, 'compose should have been called with in-flight height');
+    const callsBeforeRecompose = composeCalls;
+
+    // 2. Recompose without advancing time: height and deformation must be identical
+    bounce.recompose();
+    assert(composeCalls === callsBeforeRecompose + 1, 'recompose should invoke compose once');
+    assert(composedHeight === heightMidAir, 'recompose must preserve in-flight height exactly');
+    assert(composedSx > 0 && composedSy > 0, 'recompose must compute valid squash/stretch deformation');
+
+    // 3. Recompose when idle/destroyed must be a safe no-op
+    bounce.destroy();
+    assert(!bounce.active, 'bounce should be inactive after destroy');
+    bounce.recompose();
+    assert(composeCalls === callsBeforeRecompose + 1, 'recompose on inactive bounce must not invoke compose');
 }
 
 print('animationEngine: ok');

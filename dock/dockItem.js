@@ -391,14 +391,24 @@ class DockItem extends St.Widget {
         // Pre-cached for _positionBadge (avoids repeated property reads).
         this._baseIconSize = restSize;
 
-        // Preserve current magnification lift through relayout (no 1-frame drop).
-        const fScale = Math.fround(this.scaleCurrent);
-        this._icon.set_scale(fScale, fScale);
-        this._syncTextureTier(this.scaleCurrent, true);
-        const lift = Math.fround(this._baseLift());
-        this._icon.translation_x = vert ? lift : 0;
-        this._icon.translation_y = vert ? 0 : lift;
-        this._iconLift = lift;
+        // Preserve current magnification or in-flight animation state through
+        // relayout so active projectile arcs (launch/attention bounce) or
+        // landing/pulse eases are not slammed to rest for a single frame.
+        if (this._bounce?.active) {
+            this._syncTextureTier(this.scaleCurrent, true);
+            this._icon[vert ? 'translation_y' : 'translation_x'] = 0;
+            this._bounce.recompose();
+        } else if (this._pulsing || this._landing) {
+            this._syncTextureTier(this.scaleCurrent, true);
+        } else {
+            const fScale = Math.fround(this.scaleCurrent);
+            this._icon.set_scale(fScale, fScale);
+            this._syncTextureTier(this.scaleCurrent, true);
+            const lift = Math.fround(this._baseLift());
+            this._icon.translation_x = vert ? lift : 0;
+            this._icon.translation_y = vert ? 0 : lift;
+            this._iconLift = lift;
+        }
 
         const indicatorGeometry = this._indicatorGeometryKey(cfg);
         if (this._rRunning && indicatorGeometry !== previousIndicatorGeometry) {
@@ -740,11 +750,12 @@ class DockItem extends St.Widget {
 
     _composeBounce(heightPx, sx, sy) {
         if (!this._icon) return;
-        const magScale = this.scaleCurrent;
+        const magScale = Math.fround(this.scaleCurrent);
         this._syncTextureTier(this.scaleCurrent);
-        this._icon.set_scale(magScale * sx, magScale * sy);
-        const lift = this._baseLift() + this._liftSign * (heightPx || 0);
+        this._icon.set_scale(Math.fround(magScale * sx), Math.fround(magScale * sy));
+        const lift = Math.fround(this._baseLift() + this._liftSign * (heightPx || 0));
         this._icon[this._liftProp] = lift;
+        this._icon[this._vert ? 'translation_y' : 'translation_x'] = 0;
         this._iconLift = lift;
         if (this._badge?.visible) this._positionBadge();
         this.onComposed?.();

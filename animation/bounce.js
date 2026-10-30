@@ -77,6 +77,18 @@ export class Bounce {
         if (this._state === 'launch') this._state = 'once';
     }
 
+    // Recompose current projectile pose without advancing physics time.
+    // Preserves in-flight bounce position across external relayout passes.
+    recompose() {
+        if (!this._active || !this._compose || !this._actor) return;
+        if (this._pauseLeft > 0) {
+            this._compose(0, 1, 1);
+            return;
+        }
+        const [sx, sy] = this._currentDeformation();
+        this._compose(this._y, sx, sy);
+    }
+
     // Hard cancel — used on item destroy.
     cancel() {
         this._launchActive = null;
@@ -130,6 +142,12 @@ export class Bounce {
         }
 
         // Velocity-driven squash/stretch, strongest low and fast near the floor.
+        const [sx, sy] = this._currentDeformation();
+        this._compose(this._y, sx, sy);
+        return true;
+    }
+
+    _currentDeformation() {
         const v = clamp(Math.abs(this._v) * this._invV0, 0, 1);
         const lowness = 1 - clamp(this._y * this._invPeak, 0, 1);
         const grounded = v * lowness;
@@ -137,8 +155,7 @@ export class Bounce {
         const s = v * amp;
         const sx = 1 - s + grounded * (amp * 2);   // narrow aloft → wide near floor
         const sy = 1 + s - grounded * (amp * 2);
-        this._compose(this._y, sx, sy);
-        return true;
+        return [sx, sy];
     }
 
     // Advance one fixed sub-step. Returns 'stop' (settled), 'pause' (attention

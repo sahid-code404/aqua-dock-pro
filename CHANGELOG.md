@@ -26,6 +26,9 @@
   - Multi-Monitor Workarea Clamping: Enforced dual boundary constraints (`topInset` and `bottomInset`) for vertical docks in `dock/dockLayout.js`, preventing offscreen overflow or panel bar collision on secondary displays.
   - Preserved AGENTS.md Invariant 1 (frosted glass background blur for Grid/List stack panels and Fan View label pills via BMS popup blur pipeline, with outer Fan canvas remaining unblurred) and Invariant 2 (Down-chevron drawer anchor retains full BMS popup blur).
   - Verified multi-monitor isolation and window filtering across all display configurations.
+- Motion & Animation Defect Resolution:
+  - Eliminate Icon Ghosting & Relayout Flicker: Implemented `recompose()` in `animation/bounce.js` and guarded `relayout()` in `dock/dockItem.js` against in-flight projectile motion (`this._bounce?.active`), landing, and pulse eases. Eliminates single-frame drop to resting baseline when Mutter/Shell triggers workarea changes upon opening applications on empty desktops.
+
 
 ## 295
 
