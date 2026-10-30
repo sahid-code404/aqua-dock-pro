@@ -12,7 +12,7 @@ import { _ } from '../core/i18n.js';
 import { enumerateRecent, prewarmFolderListing } from './fileEnumerator.js';
 import { FanView } from './fanView.js';
 import { PanelView } from './panelView.js';
-import { ActorPool } from './actorPool.js';
+import { ActorPool, stopSubtreeTransitions } from './actorPool.js';
 
 export class DownloadsStack {
     constructor(getMonitor, getContainer = null) {
@@ -197,6 +197,7 @@ export class DownloadsStack {
     settleAnimations() {
         try { this._view?.settleAnimations?.(); } catch { /* intentionally ignored: view animation settlement failed during stack closing */ }
         if (this._dying) {
+            try { this._dyingView?.settleAnimations?.(); } catch { /* intentionally ignored: view animation settlement failed during stack closing */ }
             this._dyingView?.releaseRows?.();
             this._destroyActor(this._dying);
             this._dying = null;
@@ -211,11 +212,13 @@ export class DownloadsStack {
         this._cancellable?.cancel();
         this._cancellable = null;
         if (this._view) {
+            try { this._view.settleAnimations?.(); } catch { /* intentionally ignored: view animation settlement failed during synchronous destroy */ }
             this._view.releaseRows?.();
             this._destroyActor(this._view.actor);
             this._view = null;
         }
         if (this._dying) {
+            try { this._dyingView?.settleAnimations?.(); } catch { /* intentionally ignored: view animation settlement failed during synchronous destroy */ }
             this._dyingView?.releaseRows?.();
             this._destroyActor(this._dying);
             this._dying = null;
@@ -225,7 +228,8 @@ export class DownloadsStack {
     }
 
     _destroyActor(actor) {
-        try { actor?.remove_all_transitions(); actor?.destroy(); } catch { /* intentionally ignored: modal blocker or stack view actor may already be destroyed */ }
+        if (!actor || actor.is_destroyed?.()) return;
+        try { stopSubtreeTransitions(actor); actor.destroy(); } catch { /* intentionally ignored: modal blocker or stack view actor may already be destroyed */ }
     }
 
     destroy() {

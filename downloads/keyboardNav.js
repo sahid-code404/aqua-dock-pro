@@ -11,7 +11,15 @@ export class SelectionModel {
         this._i = -1;
     }
 
-    setRows(rows) { this._rows = rows; this._i = -1; }
+    setRows(rows) {
+        if (this._rows) {
+            for (const r of this._rows) {
+                try { r._thumb?.remove_all_transitions?.(); } catch { /* intentionally ignored */ }
+            }
+        }
+        this._rows = rows;
+        this._i = -1;
+    }
     get rows() { return this._rows; }
     get index() { return this._i; }
     get current() { return this._rows[this._i] ?? null; }
@@ -50,5 +58,13 @@ export class SelectionModel {
         }
     }
 
-    clear() { this._rows = []; this._i = -1; }
+    clear() {
+        if (this._rows) {
+            for (const r of this._rows) {
+                try { r._thumb?.remove_all_transitions?.(); } catch { /* intentionally ignored */ }
+            }
+        }
+        this._rows = [];
+        this._i = -1;
+    }
 }

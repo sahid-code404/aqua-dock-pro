@@ -3,6 +3,9 @@
 ## 295
 
 - Super god-level optimization for custom folder and downloads stacks across Fan, Grid, and List views:
+  - Stale-While-Revalidate (SWR) & 60s Sliding Cache: Replaced static 3.5-second TTL cache with a 60-second sliding expiration window that refreshes on active interaction and background revalidation (`GLib.idle_add(GLib.PRIORITY_LOW)`) after 8 seconds. Completely eliminates periodic 4th-open stutters during continuous repeated opening and closing.
+  - Detached Actor Timeline & Transition Protection: Introduced recursive `stopSubtreeTransitions()` across all composite card actors and children (`_thumb`, `_labelPill`, `_box`, `_icon`) before unparenting or recycling, preventing Clutter clock stalls and compositor timeline warnings during rapid toggling.
+  - Synchronous View Settle on Re-Open: Added defensive animation settlement in `DownloadsStack._destroyNow()` to immediately halt in-flight close transitions when rapidly reopened before completion.
   - Intelligent On-Hover Precaching & Texture Warming: Asynchronously pre-warms folder file listings, FileInfo metadata, and St.TextureCache GPU textures upon pointer hover over dock folder/download items, ensuring instant 0ms open latency upon click.
   - Idle Background ActorPool Prewarming: Pre-instantiates panel item cards and fan item cards during idle time (`GLib.idle_add`) upon extension launch, eliminating cold-start actor instantiation lag and memory churn.
   - Locked Widget Allocations: Explicitly constrains thumbnail, icon, and label pill dimensions to prevent asynchronous icon texture decoding from triggering layout reflow ripples across the stack.

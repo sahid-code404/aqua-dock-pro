@@ -16,7 +16,7 @@ import { getRowStyles } from './tileStyle.js';
 import { SelectionModel } from './keyboardNav.js';
 import { buildPlaceIcon } from './placeIcon.js';
 import { applyAlpha } from '../dock/dockLayout.js';
-import { ActorPool } from './actorPool.js';
+import { ActorPool, stopSubtreeTransitions } from './actorPool.js';
 
 const GRID_COLS = 2;
 
@@ -463,7 +463,7 @@ export class PanelView {
         const actor = this._actor;
         if (!actor) return;
         try {
-            actor.remove_all_transitions();
+            stopSubtreeTransitions(actor);
             actor.opacity = 255;
             actor.translation_x = 0;
             actor.translation_y = 0;
@@ -494,7 +494,7 @@ export class PanelView {
         }
         for (const tile of this._model.rows) {
             try {
-                tile.remove_all_transitions();
+                stopSubtreeTransitions(tile);
                 tile.opacity = 255;
                 tile.translation_y = 0;
             } catch { /* intentionally ignored: stack view row or blur actor may already be destroyed */ }
@@ -511,7 +511,7 @@ export class PanelView {
         const rows = this._model?.rows ?? [];
         for (const row of rows) {
             try {
-                row.remove_all_transitions();
+                stopSubtreeTransitions(row);
                 const parent = row.get_parent?.();
                 if (parent) parent.remove_child(row);
             } catch { /* intentionally ignored: stack view row or blur actor may already be destroyed */ }
@@ -523,7 +523,7 @@ export class PanelView {
     animateClose(onDone) {
         const actor = this._actor;
         if (!actor) { onDone(); return; }
-        actor.remove_all_transitions();
+        stopSubtreeTransitions(actor);
         if (this._blurRegion) {
             try { this._blurRegion.remove_all_transitions(); } catch { /* intentionally ignored: stack view row or blur actor may already be destroyed */ }
         }
@@ -537,6 +537,8 @@ export class PanelView {
             return;
         }
         const finish = () => {
+            if (this._isClosed) return;
+            this._isClosed = true;
             this.releaseRows();
             onDone();
         };

@@ -9,6 +9,24 @@ const MAX_POOL_CAPACITY = 16;
 const CONTENT_GAP = 14;
 const DEFAULT_LABEL_WIDTH = 86;
 
+/**
+ * Recursively removes all transitions on an actor and all its descendants.
+ * Prevents Clutter warnings and clock stalls from timelines running on detached actors.
+ * @param {Clutter.Actor} actor
+ */
+export function stopSubtreeTransitions(actor) {
+    if (!actor || actor.is_destroyed?.()) return;
+    try { actor.remove_all_transitions?.(); } catch { /* intentionally ignored: actor may already be destroyed */ }
+    try {
+        if (typeof actor.get_children === 'function') {
+            const kids = actor.get_children();
+            for (let i = 0; i < kids.length; i++) {
+                stopSubtreeTransitions(kids[i]);
+            }
+        }
+    } catch { /* intentionally ignored: children traversal failed */ }
+}
+
 export class ActorPool {
     constructor(maxCapacity = MAX_POOL_CAPACITY, factory = null) {
         this._maxCapacity = maxCapacity;
@@ -41,7 +59,7 @@ export class ActorPool {
     acquireFanItem() {
         if (this._fanPool.length > 0) {
             const card = this._fanPool.pop();
-            card.btn.remove_all_transitions?.();
+            stopSubtreeTransitions(card.btn);
             card.btn.translation_x = 0;
             card.btn.translation_y = 0;
             card.btn.set_scale?.(1.0, 1.0);
@@ -61,7 +79,7 @@ export class ActorPool {
         if (!btn || btn.is_destroyed?.()) return;
 
         try {
-            btn.remove_all_transitions?.();
+            stopSubtreeTransitions(btn);
             btn.translation_x = 0;
             btn.translation_y = 0;
             btn.set_scale?.(1.0, 1.0);
@@ -125,7 +143,7 @@ export class ActorPool {
     acquirePanelItem(view) {
         if (this._panelPool.length > 0) {
             const card = this._panelPool.pop();
-            card.row.remove_all_transitions?.();
+            stopSubtreeTransitions(card.row);
             card.row.translation_y = 0;
             card.row.set_scale?.(1.0, 1.0);
             card.row.opacity = 255;
@@ -146,7 +164,7 @@ export class ActorPool {
         if (!row || row.is_destroyed?.()) return;
 
         try {
-            row.remove_all_transitions?.();
+            stopSubtreeTransitions(row);
             row.translation_y = 0;
             row.set_scale?.(1.0, 1.0);
             row.opacity = 255;

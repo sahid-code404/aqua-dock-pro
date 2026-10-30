@@ -14,7 +14,7 @@ import { aboveDockY, fanOrientation, sideFanX, FAN_CELL_OFFSETS, getFanCellOffse
 import { getRowStyles } from './tileStyle.js';
 import { SelectionModel } from './keyboardNav.js';
 import { buildPlaceIcon } from './placeIcon.js';
-import { ActorPool } from './actorPool.js';
+import { ActorPool, stopSubtreeTransitions } from './actorPool.js';
 
 const LABEL_WIDTH = 86;
 const CONTENT_GAP = 14;
@@ -364,7 +364,7 @@ export class FanView {
         const actor = this._actor;
         if (!actor) return;
         try {
-            actor.remove_all_transitions();
+            stopSubtreeTransitions(actor);
             actor.opacity = 255;
         } catch { /* intentionally ignored: stack view row or blur actor may already be destroyed */ }
         for (const br of this.blurRegions) {
@@ -378,7 +378,7 @@ export class FanView {
         }
         for (const row of this._model.rows) {
             try {
-                row.remove_all_transitions();
+                stopSubtreeTransitions(row);
                 row.translation_x = 0;
                 row.translation_y = 0;
                 row.set_scale(1, 1);
@@ -397,7 +397,7 @@ export class FanView {
         const rows = this._model?.rows ?? [];
         for (const row of rows) {
             try {
-                row.remove_all_transitions();
+                stopSubtreeTransitions(row);
                 const parent = row.get_parent?.();
                 if (parent) parent.remove_child(row);
             } catch { /* intentionally ignored: stack view row or blur actor may already be destroyed */ }
@@ -411,6 +411,7 @@ export class FanView {
     animateClose(onDone) {
         const actor = this._actor;
         if (!actor) { onDone(); return; }
+        stopSubtreeTransitions(actor);
         for (const br of this.blurRegions) {
             try { br.remove_all_transitions(); } catch { /* intentionally ignored: stack view row or blur actor may already be destroyed */ }
         }
@@ -472,6 +473,8 @@ export class FanView {
             duration: FAN_ANIM.close.duration + n * FAN_ANIM.close.stagger,
             mode: FAN_ANIM.close.mode,
             onComplete: () => {
+                if (this._isClosed) return;
+                this._isClosed = true;
                 this.releaseRows();
                 onDone();
             },

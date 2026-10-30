@@ -15,20 +15,23 @@ const ATTRS_SCAN_NAME = 'standard::name,standard::display-name';
 const ATTRS_SCAN_TYPE = 'standard::name,standard::content-type,time::modified';
 
 const LISTING_CACHE_CAPACITY = 16;
-const LISTING_CACHE_TTL_US = 3500 * 1000; // 3.5 seconds TTL for instant consecutive toggles
+const LISTING_CACHE_TTL_US = 60 * 1000 * 1000; // 60s sliding window for active consecutive toggles
+const LISTING_CACHE_STALE_US = 8 * 1000 * 1000; // 8s SWR threshold for background revalidation
 const listingCache = new Map();
+const inFlightRevalidations = new Set();
 
 function getCachedListing(key) {
     const entry = listingCache.get(key);
     if (!entry) return null;
     const now = GLib.get_monotonic_time();
-    if ((now - entry.timestamp) > LISTING_CACHE_TTL_US) {
+    if ((now - entry.lastAccess) > LISTING_CACHE_TTL_US) {
         listingCache.delete(key);
         return null;
     }
+    entry.lastAccess = now;
     listingCache.delete(key);
     listingCache.set(key, entry);
-    return entry.result;
+    return entry;
 }
 
 function putCachedListing(key, result) {
@@ -36,41 +39,49 @@ function putCachedListing(key, result) {
         const oldestKey = listingCache.keys().next().value;
         if (oldestKey !== undefined) listingCache.delete(oldestKey);
     }
-    listingCache.set(key, { timestamp: GLib.get_monotonic_time(), result });
+    const now = GLib.get_monotonic_time();
+    listingCache.set(key, {
+        timestamp: now,
+        lastAccess: now,
+        result,
+    });
 }
 
 export function invalidateListingCache(folderUri = null) {
     if (!folderUri) {
         listingCache.clear();
+        inFlightRevalidations.clear();
         return;
     }
     for (const [key] of listingCache) {
         if (key.startsWith(folderUri)) listingCache.delete(key);
     }
+    for (const key of inFlightRevalidations) {
+        if (key.startsWith(folderUri)) inFlightRevalidations.delete(key);
+    }
 }
 
-/**
- * Asynchronously enumerates recent files within a folder with sorting and item limits.
- *
- * @param {Gio.File} folder - GIO directory to enumerate.
- * @param {Gio.Cancellable|null} [cancellable=null] - Optional cancellable token.
- * @param {'newest'|'name'|'type'} [sort='newest'] - Sorting criterion.
- * @param {number} [limit=11] - Maximum number of files to return.
- * @returns {Promise<{ files: Gio.FileInfo[], total: number, error: Error|null }>} Enumerated file infos and total count.
- */
-export function enumerateRecent(folder, cancellable = null, sort = 'newest', limit = 11) {
-    return new Promise(resolve => {
-        limit = Math.max(1, Math.trunc(limit) || 11);
-        const folderUri = folder?.get_uri?.() ?? '';
-        const cacheKey = `${folderUri}:${sort}:${limit}`;
-        if (!cancellable?.is_cancelled()) {
-            const cached = getCachedListing(cacheKey);
-            if (cached) {
-                resolve(cached);
-                return;
-            }
-        }
+function _scheduleBackgroundRevalidate(folder, sort, limit, cacheKey) {
+    if (inFlightRevalidations.has(cacheKey)) return;
+    inFlightRevalidations.add(cacheKey);
+    GLib.idle_add(GLib.PRIORITY_LOW, () => {
+        if (!inFlightRevalidations.has(cacheKey)) return GLib.SOURCE_REMOVE;
+        _doEnumerate(folder, null, sort, limit, cacheKey)
+            .then(fresh => {
+                inFlightRevalidations.delete(cacheKey);
+                if (!fresh.error && fresh.files?.length > 0) {
+                    warmTextureCache(fresh.files);
+                }
+            })
+            .catch(() => {
+                inFlightRevalidations.delete(cacheKey);
+            });
+        return GLib.SOURCE_REMOVE;
+    });
+}
 
+function _doEnumerate(folder, cancellable, sort, limit, cacheKey = null) {
+    return new Promise(resolve => {
         let scanAttrs = ATTRS_SCAN_NEWEST;
         if (sort === 'name') scanAttrs = ATTRS_SCAN_NAME;
         else if (sort === 'type') scanAttrs = ATTRS_SCAN_TYPE;
@@ -95,7 +106,7 @@ export function enumerateRecent(folder, cancellable = null, sort = 'newest', lim
                 return;
             }
             const res = { files: finalFiles || [], total, error: null };
-            if (res.files.length > 0) putCachedListing(cacheKey, res);
+            if (cacheKey && res.files.length > 0) putCachedListing(cacheKey, res);
             resolve(res);
         };
 
@@ -171,6 +182,34 @@ export function enumerateRecent(folder, cancellable = null, sort = 'newest', lim
 }
 
 /**
+ * Asynchronously enumerates recent files within a folder with sorting and item limits.
+ *
+ * @param {Gio.File} folder - GIO directory to enumerate.
+ * @param {Gio.Cancellable|null} [cancellable=null] - Optional cancellable token.
+ * @param {'newest'|'name'|'type'} [sort='newest'] - Sorting criterion.
+ * @param {number} [limit=11] - Maximum number of files to return.
+ * @returns {Promise<{ files: Gio.FileInfo[], total: number, error: Error|null }>} Enumerated file infos and total count.
+ */
+export function enumerateRecent(folder, cancellable = null, sort = 'newest', limit = 11) {
+    limit = Math.max(1, Math.trunc(limit) || 11);
+    const folderUri = folder?.get_uri?.() ?? '';
+    const cacheKey = `${folderUri}:${sort}:${limit}`;
+
+    if (!cancellable?.is_cancelled()) {
+        const entry = getCachedListing(cacheKey);
+        if (entry) {
+            const now = GLib.get_monotonic_time();
+            if ((now - entry.timestamp) > LISTING_CACHE_STALE_US) {
+                _scheduleBackgroundRevalidate(folder, sort, limit, cacheKey);
+            }
+            return Promise.resolve(entry.result);
+        }
+    }
+
+    return _doEnumerate(folder, cancellable, sort, limit, cacheKey);
+}
+
+/**
  * Resolves an appropriate Gio.Icon for an enumerated file, preferring cached thumbnail paths.
  *
  * @param {Gio.FileInfo} info - GIO file info object.
@@ -211,9 +250,9 @@ export function prewarmFolderListing(folder, sort = 'newest', limit = 11) {
     const folderUri = folder?.get_uri?.() ?? '';
     if (!folderUri) return;
     const cacheKey = `${folderUri}:${sort}:${limit}`;
-    const cached = getCachedListing(cacheKey);
-    if (cached) {
-        if (cached.files?.length) warmTextureCache(cached.files);
+    const entry = getCachedListing(cacheKey);
+    if (entry) {
+        if (entry.result?.files?.length) warmTextureCache(entry.result.files);
         return;
     }
     enumerateRecent(folder, null, sort, limit).then(res => {
