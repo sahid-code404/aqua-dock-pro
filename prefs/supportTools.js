@@ -32,6 +32,14 @@ function settingsDocument(settings, metadata) {
     };
 }
 
+/**
+ * Exports all non-versioned extension GSettings keys to a user-selected JSON file.
+ *
+ * @param {Adw.PreferencesWindow} window - Parent preferences window for file dialog presentation.
+ * @param {Gio.Settings} settings - The extension GSettings instance.
+ * @param {object} metadata - Extension metadata containing version and UUID.
+ * @returns {void}
+ */
 export function exportSettings(window, settings, metadata) {
     const dialog = new Gtk.FileDialog({
         title: _('Export AquaDockPro settings'),
@@ -54,6 +62,14 @@ export function exportSettings(window, settings, metadata) {
     });
 }
 
+/**
+ * Restores extension GSettings from a previously exported JSON backup file.
+ *
+ * @param {Adw.PreferencesWindow} window - Parent preferences window for file dialog presentation.
+ * @param {Gio.Settings} settings - The extension GSettings instance.
+ * @param {object} metadata - Extension metadata containing version and UUID.
+ * @returns {void}
+ */
 export function importSettings(window, settings, metadata) {
     const dialog = new Gtk.FileDialog({ title: _('Import AquaDockPro settings') });
     const cancellable = beginDialog(window);
@@ -105,6 +121,15 @@ export function importSettings(window, settings, metadata) {
     });
 }
 
+/**
+ * Copies diagnostic system information (GNOME Shell version, extension version, monitor configuration)
+ * to the desktop clipboard.
+ *
+ * @param {Adw.PreferencesWindow} window - Parent preferences window.
+ * @param {Gio.Settings} settings - The extension GSettings instance.
+ * @param {object} metadata - Extension metadata.
+ * @returns {void}
+ */
 export function copyDiagnostics(window, settings, metadata) {
     const changed = [];
     for (const key of settings.settings_schema.list_keys()) {

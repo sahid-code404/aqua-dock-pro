@@ -5,6 +5,12 @@ import St from 'gi://St';
 
 import { FILE_LIST_MIME, fileListPayload } from './fileClipboardPayload.js';
 
+/**
+ * Copies a Gio.File reference to the desktop clipboard formatted as a text/uri-list payload.
+ *
+ * @param {Gio.File|null} file - GIO file instance to copy.
+ * @returns {boolean} True if file URI list payload was successfully written to the clipboard.
+ */
 export function copyFileToClipboard(file) {
     const payload = fileListPayload([file?.get_uri?.()]);
     if (!payload) return false;

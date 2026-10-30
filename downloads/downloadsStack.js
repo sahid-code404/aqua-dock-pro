@@ -11,6 +11,7 @@ import { _ } from '../core/i18n.js';
 import { enumerateRecent } from './fileEnumerator.js';
 import { FanView } from './fanView.js';
 import { PanelView } from './panelView.js';
+import { ActorPool } from './actorPool.js';
 
 export class DownloadsStack {
     constructor(getMonitor, getContainer = null) {
@@ -24,12 +25,14 @@ export class DownloadsStack {
         this._blocker = null;
         this._view = null;
         this._dying = null;
+        this._dyingView = null;
         this._opening = false;
         this._showGen = 0;
         this._onClose = null;
         this._cancellable = null;
         this._anchor = null;
         this._currentFolderUri = null;
+        this._pool = new ActorPool(16);
     }
 
     get isOpen() { return this._opening || !!(this._blocker || this._view); }
@@ -42,7 +45,7 @@ export class DownloadsStack {
         try {
             const fromHost = this._getContainer?.();
             if (fromHost) return fromHost;
-        } catch { }
+        } catch { /* intentionally ignored: container lookup failed on disposing host */ }
         let cur = anchor;
         while (cur && cur !== Main.uiGroup) {
             const parent = cur.get_parent?.();
@@ -116,6 +119,7 @@ export class DownloadsStack {
             title,
             gicon,
             dockContainer,
+            pool: this._pool,
             close: () => this.hide(),
         };
         let view;
@@ -156,24 +160,35 @@ export class DownloadsStack {
         this._blocker = null;
         this._onClose = null;
 
-        if (blocker) { try { blocker.destroy(); } catch { } }
+        if (blocker) { try { blocker.destroy(); } catch { /* intentionally ignored: modal blocker or stack view actor may already be destroyed */ } }
         if (onClose) { try { onClose(); } catch (e) { logError(e, 'downloads onClose'); } }
         if (!view) return;
 
         // Kill a previous still-dying actor so we never stack two fades.
-        if (this._dying) { this._destroyActor(this._dying); this._dying = null; }
+        if (this._dying) {
+            this._dyingView?.releaseRows?.();
+            this._destroyActor(this._dying);
+            this._dying = null;
+            this._dyingView = null;
+        }
         this._dying = view.actor;
+        this._dyingView = view;
         view.animateClose(() => {
-            if (this._dying === view.actor) this._dying = null;
+            if (this._dying === view.actor) {
+                this._dying = null;
+                this._dyingView = null;
+            }
             this._destroyActor(view.actor);
         });
     }
 
     settleAnimations() {
-        try { this._view?.settleAnimations?.(); } catch { }
+        try { this._view?.settleAnimations?.(); } catch { /* intentionally ignored: view animation settlement failed during stack closing */ }
         if (this._dying) {
+            this._dyingView?.releaseRows?.();
             this._destroyActor(this._dying);
             this._dying = null;
+            this._dyingView = null;
         }
     }
 
@@ -183,18 +198,29 @@ export class DownloadsStack {
         this._currentFolderUri = null;
         this._cancellable?.cancel();
         this._cancellable = null;
-        if (this._view) { this._destroyActor(this._view.actor); this._view = null; }
-        if (this._dying) { this._destroyActor(this._dying); this._dying = null; }
-        if (this._blocker) { try { this._blocker.destroy(); } catch { } this._blocker = null; }
+        if (this._view) {
+            this._view.releaseRows?.();
+            this._destroyActor(this._view.actor);
+            this._view = null;
+        }
+        if (this._dying) {
+            this._dyingView?.releaseRows?.();
+            this._destroyActor(this._dying);
+            this._dying = null;
+            this._dyingView = null;
+        }
+        if (this._blocker) { try { this._blocker.destroy(); } catch { /* intentionally ignored: modal blocker or stack view actor may already be destroyed */ } this._blocker = null; }
     }
 
     _destroyActor(actor) {
-        try { actor?.remove_all_transitions(); actor?.destroy(); } catch { }
+        try { actor?.remove_all_transitions(); actor?.destroy(); } catch { /* intentionally ignored: modal blocker or stack view actor may already be destroyed */ }
     }
 
     destroy() {
         this._showGen++;
         this._destroyNow();
+        this._pool?.clear();
+        this._pool = null;
         this._onClose = null;
         this._getMonitor = null;
         this._getContainer = null;

@@ -1,5 +1,25 @@
 // Immutable process-wide constants for Aqua Dock Pro.
 
+/**
+ * Recursively freeze an object and its nested properties.
+ * Enables SpiderMonkey JIT to optimize property accesses into monomorphic loads.
+ *
+ * @template T
+ * @param {T} obj
+ * @returns {T}
+ */
+export function deepFreeze(obj) {
+    if (obj === null || typeof obj !== 'object') return obj;
+    if (obj instanceof Set || obj instanceof Map) return Object.freeze(obj);
+    const propNames = Object.getOwnPropertyNames(obj);
+    for (const name of propNames) {
+        const val = obj[name];
+        if (val && typeof val === 'object' && !Object.isFrozen(val))
+            deepFreeze(val);
+    }
+    return Object.freeze(obj);
+}
+
 // ── Identity ────────────────────────────────────────────────────────────────
 export const LOG_PREFIX = 'AquaDockPro';
 
@@ -155,7 +175,7 @@ export const PASSIVE_CONFIG_KEYS = Object.freeze(new Set([
 
 // Setting name -> properties in SettingsManager.config that can be copied into
 // the current monitor-adjusted config without disturbing auto-shrink geometry.
-export const SETTING_CONFIG_PROPERTIES = Object.freeze({
+export const SETTING_CONFIG_PROPERTIES = deepFreeze({
     'background-opacity': ['bgOpacity'],
     'pill-color': ['pillColor'],
     'border-color': ['borderColor'],
@@ -227,6 +247,13 @@ export const SETTING_CONFIG_PROPERTIES = Object.freeze({
     'genie-duration': ['genieDuration'],
 });
 
+/**
+ * Checks whether a GSettings key directly affects visual styling, autohide, tooltips, or indicators.
+ * Used by SettingsManager to distinguish lightweight state syncs from full geometry relayout passes.
+ *
+ * @param {string} key - The GSettings key name to check.
+ * @returns {boolean} True if the key has a known direct visual or behavioral impact.
+ */
 export function hasKnownDirectSettingImpact(key) {
     return STYLE_KEYS.has(key) || AUTOHIDE_KEYS.has(key) ||
         TOOLTIP_KEYS.has(key) || ITEM_REFRESH_KEYS.has(key) ||

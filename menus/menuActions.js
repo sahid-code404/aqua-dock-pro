@@ -16,9 +16,24 @@ function activateWindowSafe(win) {
     try {
         if (!win) return;
         win.activate(global.get_current_time());
-    } catch { }
+    } catch { /* intentionally ignored: window activation or delete failed for unmanaged window */ }
 }
 
+/**
+ * Populates a popup context menu with contextual actions tailored to the clicked dock item kind.
+ * Supports application actions, folder stacks, mounted drive unmounting/ejection, and trash management.
+ *
+ * @param {PopupMenu.PopupMenu} menu - Target popup menu to populate.
+ * @param {object} entry - Dock item data model entry.
+ * @param {object} [callbacks={}] - Callback handlers and state accessors.
+ * @param {Function|null} [callbacks.onTrashEmptied=null] - Hook invoked after trash is emptied.
+ * @param {Function|null} [callbacks.onEmptyTrash=null] - Hook invoked to empty trash.
+ * @param {Function} [callbacks.isLayoutLocked=()=>false] - Predicate returning layout lock status.
+ * @param {Function|null} [callbacks.onToggleLayoutLock=null] - Hook to toggle layout lock.
+ * @param {Function} [callbacks.appWindowsFor=appWindows] - Window resolver function.
+ * @param {Function} [callbacks.isWindowIsolationActive=()=>false] - Predicate for window isolation.
+ * @returns {void}
+ */
 export function populateMenu(menu, entry, {
     onTrashEmptied = null,
     onEmptyTrash = null,
@@ -136,15 +151,15 @@ function populateAppMenu(menu, app, isLayoutLocked, onToggleLayoutLock,
             catch { continue; }
             const label = title.length > 30 ? title.slice(0, 29).trimEnd() + '…' : title;
             const itm = menu.addAction(label, () => activateWindowSafe(win));
-            try { itm.label?.clutter_text?.set_ellipsize?.(3); } catch { }
+            try { itm.label?.clutter_text?.set_ellipsize?.(3); } catch { /* intentionally ignored: clutter text ellipsize unsupported on disposing menu item */ }
             // If a listed window disappears while the menu is open, close the
             // popup instead of leaving a stale action target behind. Ownership
             // follows the menu actor, so teardown disconnects automatically.
             try {
                 win.connectObject('unmanaging', () => {
-                    try { menu.close(); } catch { }
+                    try { menu.close(); } catch { /* intentionally ignored: context menu may already be closed or destroyed */ }
                 }, menu.actor);
-            } catch { }
+            } catch { /* intentionally ignored: context menu may already be closed or destroyed */ }
         }
     }
 
@@ -157,7 +172,7 @@ function populateAppMenu(menu, app, isLayoutLocked, onToggleLayoutLock,
             }
             const time = global.get_current_time();
             for (const win of appWindowsFor(app)) {
-                try { win.delete(time); } catch { }
+                try { win.delete(time); } catch { /* intentionally ignored: window activation or delete failed for unmanaged window */ }
             }
         });
     }

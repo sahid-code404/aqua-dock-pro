@@ -1,6 +1,7 @@
 import {
     filterMountedDeviceEntries,
     reconcileMountedDeviceEntries,
+    clearMountedDeviceCache,
 } from '../services/mountedDevices.js';
 
 function assert(condition, message) {
@@ -72,5 +73,8 @@ const hidden = filterMountedDeviceEntries(raw, {
 });
 assert(hidden.length === 1 && hidden[0].deviceId === 'fixed',
     'hidden mounted-device filtering changed');
+
+// Test lifecycle reset
+clearMountedDeviceCache();
 
 print('mountedDevices: ok');

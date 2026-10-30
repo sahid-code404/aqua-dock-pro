@@ -1,7 +1,7 @@
 // Window hover preview popup manager and lifecycle.
 
 import Clutter from 'gi://Clutter';
-
+import GLib from 'gi://GLib';
 import St from 'gi://St';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
@@ -17,7 +17,7 @@ import {
 import { _, format, ngettext } from '../../core/i18n.js';
 import { buildWindowFrame } from './livePreview.js';
 import { previewPagePlan } from './previewPaging.js';
-import { applyAlpha } from '../../dock/dockLayout.js';
+import { applyAlpha, getAnalyticalIconGeometry } from '../../dock/dockLayout.js';
 import {
     isBmsPopupBlurActive,
     isBmsDockBlurActive,
@@ -50,6 +50,7 @@ export class PreviewManager {
         this._windowMenuManager = null;
         this._windowMenuStateId = 0;
         this._windowMenuBlurRegistered = false;
+        this._geoScratch = { ix: 0, iy: 0, iw: 0, ih: 0, cx: 0, cy: 0 };
     }
 
     get active() { return Boolean(this._box); }
@@ -93,7 +94,7 @@ export class PreviewManager {
         const cfg = this._getConfig();
         const showAll = forceAll || cfg.previewWindowMode === 'all';
         let ws = null;
-        try { ws = global.workspace_manager.get_active_workspace(); } catch { }
+        try { ws = global.workspace_manager.get_active_workspace(); } catch { /* intentionally ignored: active workspace query failed during session transition */ }
         return appWindowsForConfig(item.entry.app, cfg, ws).filter(win => {
             try {
                 // Meta.Window may begin unmanaging after appWindowsForConfig()
@@ -121,7 +122,7 @@ export class PreviewManager {
             this._windowRefreshId = 0;
             if (this._box === box)
                 this._build(item, true, forceAll, page, focusPreview);
-            return false;
+            return GLib.SOURCE_REMOVE;
         });
     }
 
@@ -167,7 +168,7 @@ export class PreviewManager {
         }
         const focusables = [];
         let fallbackIcon = null;
-        try { fallbackIcon = item.entry.app.get_icon(); } catch { }
+        try { fallbackIcon = item.entry.app.get_icon(); } catch { /* intentionally ignored: app icon lookup failed on unmanaged app */ }
         const titleStyle =
             `font-size: ${(9 * (cfg.interfaceTextScale ?? 1)).toFixed(2)}pt;`;
         for (const win of shown) {
@@ -201,7 +202,7 @@ export class PreviewManager {
             try {
                 win.connectObject('unmanaging', () =>
                     this._queueWindowRefresh(item, box, forceAll, page, focusPreview), box);
-            } catch { }
+            } catch { /* intentionally ignored: window unmanaging signal connection failed on closed window */ }
 
             if (cfg.previewCloseButtons) {
                 const titleRow = new St.BoxLayout({ x_expand: true });
@@ -249,7 +250,7 @@ export class PreviewManager {
             focusables.push(btn);
         }
         if (!focusables.length) {
-            try { box.destroy(); } catch { }
+            try { box.destroy(); } catch { /* intentionally ignored: preview box or menu actor may already be destroyed */ }
             this.hide(true);
             return;
         }
@@ -353,7 +354,7 @@ export class PreviewManager {
         this._position(box, item);
 
         if (focusPreview && focusables.length) {
-            try { focusables[0].grab_key_focus(); } catch { }
+            try { focusables[0].grab_key_focus(); } catch { /* intentionally ignored: focus grab failed on unmapped preview actor */ }
         }
 
         if (!animationsEnabled()) {
@@ -393,37 +394,37 @@ export class PreviewManager {
             menu.actor.name = 'aquaMenu';
             menu.actor.add_style_class_name('aqua-menu');
             menu.addAction(_('Activate'), () => {
-                try { win.activate(global.get_current_time()); } catch { }
+                try { win.activate(global.get_current_time()); } catch { /* intentionally ignored: window manipulation failed for unmanaged window */ }
                 this.hide(true);
             });
 
             const workspace = global.workspace_manager.get_active_workspace();
             let onWorkspace = true;
-            try { onWorkspace = win.located_on_workspace(workspace); } catch { }
+            try { onWorkspace = win.located_on_workspace(workspace); } catch { /* intentionally ignored: window manipulation failed for unmanaged window */ }
             if (!onWorkspace) {
                 menu.addAction(_('Move to Current Workspace'), () => {
                     try {
                         win.change_workspace(workspace);
                         win.activate(global.get_current_time());
-                    } catch { }
+                    } catch { /* intentionally ignored: window manipulation failed for unmanaged window */ }
                     this.hide(true);
                 });
             }
 
             const monitors = Main.layoutManager.monitors ?? [];
             let currentMonitor = -1;
-            try { currentMonitor = win.get_monitor(); } catch { }
+            try { currentMonitor = win.get_monitor(); } catch { /* intentionally ignored: window manipulation failed for unmanaged window */ }
             if (monitors.length > 1) {
                 for (let index = 0; index < monitors.length; index++) {
                     if (index === currentMonitor) continue;
                     menu.addAction(format(_('Move to Monitor %d'), index + 1), () => {
-                        try { win.move_to_monitor(index); } catch { }
+                        try { win.move_to_monitor(index); } catch { /* intentionally ignored: window manipulation failed for unmanaged window */ }
                         this.hide(true);
                     });
                 }
             }
             menu.addAction(_('Close Window'), () => {
-                try { win.delete(global.get_current_time()); } catch { }
+                try { win.delete(global.get_current_time()); } catch { /* intentionally ignored: window manipulation failed for unmanaged window */ }
                 this.hide(true);
             });
 
@@ -451,7 +452,7 @@ export class PreviewManager {
                 win.connectObject('unmanaging', () => {
                     if (this._windowMenu === menu) this._destroyWindowMenu();
                 }, menu.actor);
-            } catch { }
+            } catch { /* intentionally ignored: window unmanaging signal connection failed on closed window */ }
 
             this._windowMenuManager = new PopupMenu.PopupMenuManager(owner);
             this._windowMenuManager.addMenu(menu);
@@ -495,24 +496,32 @@ export class PreviewManager {
                 this._windowMenuBlurRegistered = false;
             }
             if (this._windowMenuStateId) {
-                try { this._windowMenu.disconnect(this._windowMenuStateId); } catch { }
+                try { this._windowMenu.disconnect(this._windowMenuStateId); } catch { /* intentionally ignored: window menu signal handler may already be disconnected */ }
                 this._windowMenuStateId = 0;
             }
-            try { this._windowMenuManager?.removeMenu(this._windowMenu); } catch { }
-            try { this._windowMenu.destroy(); } catch { }
+            try { this._windowMenuManager?.removeMenu(this._windowMenu); } catch { /* intentionally ignored: window menu signal handler may already be disconnected */ }
+            try { this._windowMenu.destroy(); } catch { /* intentionally ignored: preview box or menu actor may already be destroyed */ }
         }
         this._windowMenu = null;
         this._windowMenuStateId = 0;
-        try { this._windowMenuManager?.destroy?.(); } catch { }
+        try { this._windowMenuManager?.destroy?.(); } catch { /* intentionally ignored: preview box or menu actor may already be destroyed */ }
         this._windowMenuManager = null;
     }
 
     _position(box, item) {
         try {
             const geom = this._getGeom();
-            const icon = item._icon;
-            const [ix, iy] = icon ? icon.get_transformed_position() : item.get_transformed_position();
-            const [iw, ih] = icon ? icon.get_transformed_size() : [item.width, item.height];
+            let ix, iy, iw, ih;
+            const geo = getAnalyticalIconGeometry(item, geom, this._geoScratch);
+            if (geo) {
+                ix = geo.ix; iy = geo.iy; iw = geo.iw; ih = geo.ih;
+            } else {
+                const icon = item._icon;
+                const pos = icon ? icon.get_transformed_position() : item.get_transformed_position();
+                const size = icon ? icon.get_transformed_size() : [item.width, item.height];
+                ix = pos[0]; iy = pos[1];
+                iw = size[0]; ih = size[1];
+            }
             const [, w] = box.get_preferred_width(-1);
             const [, h] = box.get_preferred_height(-1);
             const gap = 48;   // clears the tooltip below it
@@ -581,7 +590,7 @@ export class PreviewManager {
             this._box.remove_all_transitions();
             this._box.opacity = 255;
             this._box.translation_y = 0;
-        } catch { }
+        } catch { /* intentionally ignored: preview actor may already be destroyed */ }
     }
 
     _deactivateBox(box) {
@@ -596,7 +605,7 @@ export class PreviewManager {
     }
 
     _destroyBox(box) {
-        try { box.remove_all_transitions(); box.destroy(); } catch { }
+        try { box.remove_all_transitions(); box.destroy(); } catch { /* intentionally ignored: preview box or menu actor may already be destroyed */ }
     }
 
     _cancelOpen() {

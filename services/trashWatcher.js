@@ -173,6 +173,18 @@ function subscribeTrashState(callback) {
     };
 }
 
+/**
+ * Destroy shared TrashStateStore singleton and clear directory monitor.
+ * Invoked during extension disable or lifecycle reset.
+ */
+export function clearTrashWatcherCache() {
+    if (sharedTrashState) {
+        try { sharedTrashState.destroy(); }
+        catch { /* intentionally ignored: shared trash monitor store may already be disposed */ }
+        sharedTrashState = null;
+    }
+}
+
 export class TrashWatcher {
     constructor(host) {
         this._host = host;
@@ -200,7 +212,7 @@ export class TrashWatcher {
             try {
                 item.bounce(cfg.bounceHeight,
                     { state: 'attention', decay: cfg.bounceDecay });
-            } catch { }
+            } catch { /* intentionally ignored: trash item actor or animation engine may be unparented or disposed */ }
             this._host.kickEngine?.();
         }
 

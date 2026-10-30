@@ -2,6 +2,7 @@
 // Listens for window/focus changes and controls when the dock slides in/out.
 
 import Clutter from 'gi://Clutter';
+import GLib from 'gi://GLib';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
@@ -179,7 +180,7 @@ export class AutohideManager {
         this._idleId = this._timers.addIdle(() => {
             this._idleId = 0;
             this.updateIntellihide();
-            return false;
+            return GLib.SOURCE_REMOVE;
         });
     }
 
@@ -340,15 +341,15 @@ export class AutohideManager {
         try {
             const id = actor.connect('effects-completed', finish);
             if (id) ids.push(id);
-        } catch { }
+        } catch { /* intentionally ignored: window actor may already be destroyed or unmanaged */ }
         try {
             const id = actor.connect('hide', finish);
             if (id) ids.push(id);
-        } catch { }
+        } catch { /* intentionally ignored: window actor may already be destroyed or unmanaged */ }
         try {
             const id = actor.connect('destroy', finish);
             if (id) ids.push(id);
-        } catch { }
+        } catch { /* intentionally ignored: window actor may already be destroyed or unmanaged */ }
         if (!ids.length) return;
 
         this._windowTransitions.set(actor, ids);
@@ -360,7 +361,7 @@ export class AutohideManager {
         if (!ids) return;
         this._windowTransitions.delete(actor);
         for (const id of ids) {
-            try { actor.disconnect(id); } catch { }
+            try { actor.disconnect(id); } catch { /* intentionally ignored: window actor signal handler may already be disconnected */ }
         }
 
         if (!this._windowTransitions.size && this._enabled && !this._transitionReleaseId) {
@@ -370,7 +371,7 @@ export class AutohideManager {
             this._transitionReleaseId = this._timers.addIdle(() => {
                 this._transitionReleaseId = 0;
                 this.updateIntellihide();
-                return false;
+                return GLib.SOURCE_REMOVE;
             });
         }
     }
@@ -382,7 +383,7 @@ export class AutohideManager {
         }
         for (const [actor, ids] of this._windowTransitions) {
             for (const id of ids) {
-                try { actor.disconnect(id); } catch { }
+                try { actor.disconnect(id); } catch { /* intentionally ignored: window actor signal handler may already be disconnected */ }
             }
         }
         this._windowTransitions.clear();
@@ -447,14 +448,14 @@ export class AutohideManager {
 
         let workspace = null;
         try { workspace = global.workspace_manager.get_active_workspace(); }
-        catch { }
+        catch { /* intentionally ignored: workspace manager unavailable during session transition */ }
 
         // list_all_windows() is the stable Meta.Window inventory. Unlike actor
         // lists, it is not tied to whether a window is currently mapped/painted.
         try {
             const windows = global.display?.list_all_windows?.();
             if (windows) return hasFullscreenWindow(windows, monitor, workspace);
-        } catch { }
+        } catch { /* intentionally ignored: display window list query failed during session transition */ }
 
         // Compatibility fallback for Shell versions where the display inventory
         // is unavailable. Keep the old workspace/actor sources as a last resort.
@@ -462,14 +463,14 @@ export class AutohideManager {
             const windows = workspace?.list_windows?.();
             if (windows && hasFullscreenWindow(windows, monitor, workspace))
                 return true;
-        } catch { }
+        } catch { /* intentionally ignored: workspace window list query failed during workspace switch */ }
         try {
             const actors = global.get_window_actors?.() ?? [];
             for (const actor of actors) {
                 if (windowKeepsDockHidden(actor?.meta_window, monitor, workspace))
                     return true;
             }
-        } catch { }
+        } catch { /* intentionally ignored: window actors query failed during overview transition */ }
 
         return false;
     }

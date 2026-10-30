@@ -26,7 +26,7 @@ export class VisibilityController {
         try {
             this._container.remove_transition('x');
             this._container.remove_transition('y');
-        } catch { }
+        } catch { /* intentionally ignored: dock container actor may already be destroyed or unparented */ }
 
         if (animate && animationsEnabled()) {
             this._container.ease({
@@ -50,14 +50,14 @@ export class VisibilityController {
             this._container.remove_transition('y');
             if (x !== undefined && y !== undefined)
                 this._container.set_position(x, y);
-        } catch { }
+        } catch { /* intentionally ignored: dock container actor may already be destroyed or unparented */ }
     }
 
     destroy() {
         try {
             this._container?.remove_transition('x');
             this._container?.remove_transition('y');
-        } catch { }
+        } catch { /* intentionally ignored: dock container actor may already be destroyed or unparented */ }
         this._container = null;
     }
 }

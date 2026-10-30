@@ -3,6 +3,14 @@
 import { page, group, spinRow, switchRow } from '../widgets/rows.js';
 import { _ } from '../../core/i18n.js';
 
+/**
+ * Constructs and adds the Accessibility preferences page to the preferences window.
+ * Configures reduced motion, high contrast styling, and screen reader announcements.
+ *
+ * @param {Adw.PreferencesWindow} window - Target preferences window.
+ * @param {Gio.Settings} settings - Extension GSettings instance.
+ * @returns {void}
+ */
 export function buildAccessibilityPage(window, settings) {
     const p = page(_('Accessibility'), 'preferences-desktop-accessibility-symbolic');
     window.add(p);

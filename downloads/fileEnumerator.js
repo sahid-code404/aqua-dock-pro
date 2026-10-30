@@ -3,10 +3,21 @@
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 
+import { getCachedFileIcon } from '../services/fileService.js';
+
 const ATTRS =
     'standard::name,standard::display-name,standard::icon,' +
     'standard::content-type,thumbnail::path,time::modified';
 
+/**
+ * Asynchronously enumerates recent files within a folder with sorting and item limits.
+ *
+ * @param {Gio.File} folder - GIO directory to enumerate.
+ * @param {Gio.Cancellable|null} [cancellable=null] - Optional cancellable token.
+ * @param {'newest'|'name'|'type'} [sort='newest'] - Sorting criterion.
+ * @param {number} [limit=11] - Maximum number of files to return.
+ * @returns {Promise<{ files: Gio.FileInfo[], total: number, error: Error|null }>} Enumerated file infos and total count.
+ */
 export function enumerateRecent(folder, cancellable = null, sort = 'newest', limit = 11) {
     return new Promise(resolve => {
         const out = [];
@@ -27,7 +38,7 @@ export function enumerateRecent(folder, cancellable = null, sort = 'newest', lim
             resolve({ files: out.map(entry => entry.info), total, error });
         };
         const closeAndFinish = error => {
-            try { en?.close_async(GLib.PRIORITY_DEFAULT, null, null); } catch { }
+            try { en?.close_async(GLib.PRIORITY_DEFAULT, null, null); } catch { /* intentionally ignored: file enumerator stream may already be closed */ }
             finish(error);
         };
         const readBatch = () => {
@@ -67,10 +78,16 @@ export function enumerateRecent(folder, cancellable = null, sort = 'newest', lim
     });
 }
 
+/**
+ * Resolves an appropriate Gio.Icon for an enumerated file, preferring cached thumbnail paths.
+ *
+ * @param {Gio.FileInfo} info - GIO file info object.
+ * @returns {Gio.Icon} Cached thumbnail file icon or standard themed file icon.
+ */
 export function iconForInfo(info) {
     try {
         const thumbPath = info.get_attribute_byte_string('thumbnail::path');
-        if (thumbPath) return Gio.FileIcon.new(Gio.File.new_for_path(thumbPath));
-    } catch { }
+        if (thumbPath) return getCachedFileIcon(thumbPath);
+    } catch { /* intentionally ignored: thumbnail attribute lookup fallback to standard file icon */ }
     return info.get_icon();
 }

@@ -12,7 +12,6 @@
 
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
-import { applyAlpha } from '../dock/dockLayout.js';
 
 function assert(condition, message) {
     if (!condition) throw new Error(message);

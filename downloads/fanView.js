@@ -1,26 +1,26 @@
 // Downloads fan view.
 
 import Clutter from 'gi://Clutter';
-import Gio from 'gi://Gio';
 import St from 'gi://St';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
-import { animationsEnabled, clamp, launchUri } from '../core/utils.js';
-import { _, format, ngettext } from '../core/i18n.js';
+import { animationsEnabled, clamp, launchUri, deepFreeze } from '../core/utils.js';
+import { _, format } from '../core/i18n.js';
+import { getCachedThemedIcon } from '../services/fileService.js';
 import { iconForInfo } from './fileEnumerator.js';
 import { FileItemMenu } from './fileItemMenu.js';
-import { aboveDockY, fanOrientation, sideFanX } from './fanGeometry.js';
-import { applyTileStyle } from './tileStyle.js';
+import { aboveDockY, fanOrientation, sideFanX, FAN_CELL_OFFSETS, getFanCellOffsets } from './fanGeometry.js';
+import { getRowStyles } from './tileStyle.js';
 import { SelectionModel } from './keyboardNav.js';
 import { buildPlaceIcon } from './placeIcon.js';
-import { setupBackgroundCorners } from '../dock/dockBlur.js';
+import { ActorPool } from './actorPool.js';
 
 const LABEL_WIDTH = 86;
 const CONTENT_GAP = 14;
 
 // Reversible macOS-style swift fan animation profile
-export const FAN_ANIM = {
+export const FAN_ANIM = deepFreeze({
     open: {
         duration: 180,
         stagger: 8,
@@ -33,12 +33,14 @@ export const FAN_ANIM = {
         mode: Clutter.AnimationMode.EASE_IN_QUAD,
         fadeDuration: 120,
     },
-};
+});
 
 export class FanView {
-    // opts: { folder, files, overflow, cfg, mon, origin:{x,y}, close }
+    // opts: { folder, files, overflow, cfg, mon, origin:{x,y}, close, pool }
     constructor(opts) {
         Object.assign(this, opts);
+        this.pool = opts.pool ?? null;
+        this._fallbackPool = null;
         this._model = new SelectionModel('aqua-dl-fan-row-sel');
         this._actor = null;
         this._collapse = null;
@@ -54,7 +56,7 @@ export class FanView {
     get blurRegions() { return this._blurRegions ?? []; }
 
     build() {
-        const { cfg, mon, files, overflow } = this;
+        const { cfg, mon, files } = this;
         const reduce = !animationsEnabled();
         this._reduce = reduce;
 
@@ -98,13 +100,15 @@ export class FanView {
             const fitStep = (availH - rowH - 40) / (n - 1);
             if (fitStep < stepY) stepY = Math.max(34, fitStep);
         }
-        const cells = [];
+        const offsets = FAN_CELL_OFFSETS[n] ?? getFanCellOffsets(n);
+        const cells = new Array(n);
+        const curveMul = orientation.curveSign * 45;
         for (let i = 0; i < n; i++) {
-            const t = n > 1 ? i / (n - 1) : 0;
-            cells.push({
-                cx: orientation.curveSign * 45 * Math.pow(t, 1.35),
-                cy: -(i * stepY),
-            });
+            const off = offsets[i];
+            cells[i] = {
+                cx: curveMul * off.x,
+                cy: off.y * stepY,
+            };
         }
         const P = 16;
         let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
@@ -147,13 +151,6 @@ export class FanView {
         const anchorLX = originX - px, anchorLY = ay - py;
         this._collapse = { x: anchorLX, y: anchorLY };
         this._fileMenu.bind(fan);
-
-        const radius = cfg.dlItemRadius ?? clamp(cfg.dockRadius ?? 16, 6, 28);
-        const pillH = Math.max(thumbH, 28);
-        const pillLocalX = this._thumbnailFirst
-            ? leftPad + thumbSize + labelGap
-            : leftPad;
-        const pillLocalY = Math.round((rowH - pillH) / 2);
 
         const rows = [];
         this._blurRegions = [];
@@ -213,6 +210,10 @@ export class FanView {
         return fan;
     }
 
+    _getPool() {
+        return this.pool ?? (this._fallbackPool ??= new ActorPool(16));
+    }
+
     _card(thumbSize, w, h, extraClass = '') {
         const thumbW = thumbSize, thumbH = Math.round(thumbSize * 0.72);
         const thumbRadius = Math.round(Math.min(thumbW, thumbH) * 0.22);
@@ -220,85 +221,80 @@ export class FanView {
         const pillH = Math.max(thumbH, 28);
         const labelPillW = this._labelPillWidth ?? (LABEL_WIDTH + 28);
 
-        const btn = new St.Button({
-            style_class: `aqua-dl-fan-row ${extraClass}`.trim(),
-            reactive: true, track_hover: true, can_focus: true, width: w, height: h,
-        });
-        btn.name = 'aquaDownloadsFanItem';
-        btn.set_style('background-color: transparent; border: none; box-shadow: none;');
+        const card = this._getPool().acquireFanItem();
+        const { btn, box, labelPill, label, gap, thumb, icon } = card;
 
-        const box = new St.BoxLayout({ style_class: 'aqua-dl-fan-row-inner' });
-        const labelPill = new St.Bin({
-            style_class: 'aqua-dl-fan-label-pill', x_expand: true,
-            x_align: Clutter.ActorAlign.START, y_align: Clutter.ActorAlign.CENTER,
-        });
+        btn.set_size(w, h);
+        if (extraClass) btn.add_style_class_name(extraClass);
         labelPill.set_size(labelPillW, pillH);
         labelPill._dockRadius = radius;
         labelPill.get_dock_radius = () => radius;
-        setupBackgroundCorners(labelPill, () => radius);
 
-        const label = new St.Label({
-            style_class: 'aqua-dl-fan-label', width: this._labelWidth ?? LABEL_WIDTH,
-            x_align: Clutter.ActorAlign.START, y_align: Clutter.ActorAlign.CENTER,
-        });
-        label.clutter_text.set_line_wrap(false);
-        label.clutter_text.set_ellipsize(2);
-        labelPill.set_child(label);
-
-        const gap = new St.Widget({
-            width: CONTENT_GAP,
-            x_expand: false,
-            reactive: false,
-        });
-        const thumb = new St.Bin({
-            style_class: 'aqua-dl-fan-thumb', x_expand: false, y_expand: false,
-            x_align: Clutter.ActorAlign.CENTER, y_align: Clutter.ActorAlign.CENTER,
-        });
+        label.width = this._labelWidth ?? LABEL_WIDTH;
         thumb.set_size(thumbW, thumbH);
-        thumb.set_pivot_point(0.5, 0.5);
 
-        if (this._thumbnailFirst) {
-            box.add_child(thumb);
-            box.add_child(gap);
-            box.add_child(labelPill);
-        } else {
-            box.add_child(labelPill);
-            box.add_child(gap);
-            box.add_child(thumb);
+        if (btn._thumbnailFirst !== this._thumbnailFirst) {
+            box.remove_all_children();
+            if (this._thumbnailFirst) {
+                box.add_child(thumb);
+                box.add_child(gap);
+                box.add_child(labelPill);
+            } else {
+                box.add_child(labelPill);
+                box.add_child(gap);
+                box.add_child(thumb);
+            }
+            btn._thumbnailFirst = this._thumbnailFirst;
         }
-        btn.set_child(box);
-        btn._thumb = thumb;
-        btn._labelPill = labelPill;
 
         btn._isAquaDock = true;
-        btn._dockBlurEnabled = this._blurActive;
+        btn._dockBlurEnabled = false; // Strictly false per Invariant 1
         btn._dockRadius = radius;
         btn.get_dock_radius = () => radius;
 
-        btn._updatePillStyle = hover =>
-            applyTileStyle(this.cfg, labelPill, label, thumb, thumbRadius, hover, '6px 14px', this._blurActive);
+        const rowStyles = getRowStyles(this.cfg, thumbRadius, '6px 14px', this._blurActive, 0, labelPill);
+        label.set_style(rowStyles.normal.label);
+
+        btn._updatePillStyle = hover => {
+            const s = hover ? rowStyles.hover : rowStyles.normal;
+            labelPill.set_style(s.pill);
+            thumb.set_style(s.thumb);
+        };
         btn._updatePillStyle(false);
 
-        btn.connect('notify::hover', () => {
-            if (!btn.hover) return;
+        btn._onHover = () => {
             const idx = this._model.rows.indexOf(btn);
             if (idx >= 0) this._model.select(idx);
-        });
-        return { btn, labelPill, label, thumb, thumbW, thumbH };
+        };
+
+        return { btn, labelPill, label, thumb, thumbW, thumbH, icon };
     }
 
     _rowCard(info, thumbSize, w, h) {
-        const { btn, labelPill, label, thumb, thumbW, thumbH } = this._card(thumbSize, w, h, '');
+        const { btn, labelPill, label, thumb, thumbW, thumbH, icon } = this._card(thumbSize, w, h, '');
         const file = this.folder.get_child(info.get_name());
-        label.text = info.get_display_name();
-        btn.accessible_name = label.text;
-        thumb.set_child(new St.Icon({
-            gicon: iconForInfo(info),
-            icon_size: Math.round(Math.min(thumbW, thumbH) * 0.78),
-            style_class: 'aqua-dl-fan-icon',
-        }));
+        const displayName = info.get_display_name();
+        label.text = displayName;
+        btn.accessible_name = displayName;
+
+        const iconSize = Math.round(Math.min(thumbW, thumbH) * 0.78);
+        const gicon = iconForInfo(info);
+        if (icon && !icon.is_destroyed?.()) {
+            icon.gicon = gicon;
+            icon.icon_size = iconSize;
+            if (thumb.get_child() !== icon) thumb.set_child(icon);
+        } else {
+            const newIcon = new St.Icon({
+                gicon,
+                icon_size: iconSize,
+                style_class: 'aqua-dl-fan-icon',
+            });
+            btn._icon = newIcon;
+            thumb.set_child(newIcon);
+        }
+
         btn._activate = () => { launchUri(file.get_uri()); this.close(); };
-        this._fileMenu.attach(btn, file, btn._activate, labelPill);
+        btn._openFileMenu = () => { this._fileMenu.openFor(labelPill, file); };
         return btn;
     }
 
@@ -307,7 +303,7 @@ export class FanView {
         label.text = text;
         btn.accessible_name = text;
         label.clutter_text.set_ellipsize(0);
-        const folderGicon = this.gicon ?? Gio.ThemedIcon.new_with_default_fallbacks('folder');
+        const folderGicon = this.gicon ?? getCachedThemedIcon('folder', true);
         const iconSize = Math.round(Math.min(thumbW, thumbH) * 0.78);
         thumb.set_child(buildPlaceIcon(
             folderGicon,
@@ -315,7 +311,7 @@ export class FanView {
             this.cfg.placeIconSourceSize,
             'aqua-dl-fan-icon'));
         btn._activate = () => { launchUri(this.folder.get_uri()); this.close(); };
-        btn.connect('clicked', btn._activate);
+        btn._openFileMenu = null;
         return btn;
     }
 
@@ -325,12 +321,12 @@ export class FanView {
         btn.accessible_name = text;
         const iconSize = Math.round(Math.min(thumbW, thumbH) * 0.72);
         thumb.set_child(buildPlaceIcon(
-            this.gicon ?? Gio.ThemedIcon.new('folder-download'),
+            this.gicon ?? getCachedThemedIcon('folder-download'),
             iconSize,
             this.cfg.placeIconSourceSize,
             'aqua-dl-fan-icon'));
         btn._activate = () => { launchUri(this.folder.get_uri()); this.close(); };
-        btn.connect('clicked', btn._activate);
+        btn._openFileMenu = null;
         return btn;
     }
 
@@ -362,7 +358,7 @@ export class FanView {
         try {
             actor.remove_all_transitions();
             actor.opacity = 255;
-        } catch { }
+        } catch { /* intentionally ignored: stack view row or blur actor may already be destroyed */ }
         for (const br of this.blurRegions) {
             try {
                 br.remove_all_transitions();
@@ -370,7 +366,7 @@ export class FanView {
                 br.translation_y = 0;
                 br.set_scale(1, 1);
                 if (this._blurActive) br.opacity = 255;
-            } catch { }
+            } catch { /* intentionally ignored: stack view row or blur actor may already be destroyed */ }
         }
         for (const row of this._model.rows) {
             try {
@@ -379,8 +375,27 @@ export class FanView {
                 row.translation_y = 0;
                 row.set_scale(1, 1);
                 row.opacity = 255;
-            } catch { }
+            } catch { /* intentionally ignored: stack view row or blur actor may already be destroyed */ }
         }
+    }
+
+    /**
+     * Detach all rows from the view container and release them to the pool.
+     * Prevents Clutter from recursively destroying pooled actors when view.actor.destroy() runs.
+     */
+    releaseRows() {
+        const pool = this.pool ?? this._fallbackPool;
+        if (!pool) return;
+        const rows = this._model?.rows ?? [];
+        for (const row of rows) {
+            try {
+                row.remove_all_transitions();
+                const parent = row.get_parent?.();
+                if (parent) parent.remove_child(row);
+            } catch { /* intentionally ignored: stack view row or blur actor may already be destroyed */ }
+            pool.releaseFanItem(row);
+        }
+        this._model?.setRows([]);
     }
 
     // onDone() is called when the close animation finishes (or immediately if
@@ -389,9 +404,10 @@ export class FanView {
         const actor = this._actor;
         if (!actor) { onDone(); return; }
         for (const br of this.blurRegions) {
-            try { br.remove_all_transitions(); } catch { }
+            try { br.remove_all_transitions(); } catch { /* intentionally ignored: stack view row or blur actor may already be destroyed */ }
         }
         if (this._reduce || !this._collapse || !animationsEnabled()) {
+            this.releaseRows();
             onDone();
             return;
         }
@@ -447,7 +463,10 @@ export class FanView {
             opacity: 0,
             duration: FAN_ANIM.close.duration + n * FAN_ANIM.close.stagger,
             mode: FAN_ANIM.close.mode,
-            onComplete: onDone,
+            onComplete: () => {
+                this.releaseRows();
+                onDone();
+            },
         });
     }
 }

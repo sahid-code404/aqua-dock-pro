@@ -38,16 +38,16 @@ export default class AquaDockProPreferences extends ExtensionPreferences {
 
         window.connect('close-request', () => {
             for (const cancellable of (window._dialogCancellables ?? [])) {
-                try { cancellable.cancel(); } catch { }
+                try { cancellable.cancel(); } catch { /* intentionally ignored: preferences dialog closed before async load completed */ }
             }
             window._dialogCancellables?.clear();
 
             for (const cleanup of (window._cleanupCallbacks ?? [])) {
-                try { cleanup(); } catch { }
+                try { cleanup(); } catch { /* intentionally ignored: preferences dialog closed before async load completed */ }
             }
             window._cleanupCallbacks = [];
             for (const id of (window._settingsSignalIds ?? [])) {
-                try { s.disconnect(id); } catch { }
+                try { s.disconnect(id); } catch { /* intentionally ignored: preferences dialog closed before async load completed */ }
             }
             window._settingsSignalIds = [];
         });

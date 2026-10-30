@@ -2,29 +2,30 @@
 // Stack background blur disabled per user directive.
 
 import Clutter from 'gi://Clutter';
-import Gio from 'gi://Gio';
 import St from 'gi://St';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import { animationsEnabled, clamp, launchUri } from '../core/utils.js';
 import { _, format, ngettext } from '../core/i18n.js';
+import { getCachedThemedIcon } from '../services/fileService.js';
 import { iconForInfo } from './fileEnumerator.js';
 import { FileItemMenu } from './fileItemMenu.js';
 import { STACK_CLEARANCE, sideFanX } from './fanGeometry.js';
-import { applyTileStyle } from './tileStyle.js';
+import { getRowStyles } from './tileStyle.js';
 import { SelectionModel } from './keyboardNav.js';
 import { buildPlaceIcon } from './placeIcon.js';
-import { setupBackgroundCorners } from '../dock/dockBlur.js';
 import { applyAlpha } from '../dock/dockLayout.js';
+import { ActorPool } from './actorPool.js';
 
 const GRID_COLS = 2;
-const CONTENT_GAP = 12;
 
 export class PanelView {
-    // opts: { folder, files, cfg, mon, origin:{x,y}, close }
+    // opts: { folder, files, cfg, mon, origin:{x,y}, close, pool }
     constructor(opts) {
         Object.assign(this, opts);
+        this.pool = opts.pool ?? null;
+        this._fallbackPool = null;
         this._view = opts.cfg.downloadsView;   // 'grid' | 'list'
         this._model = new SelectionModel('aqua-dl-row-sel');
         this._actor = null;
@@ -138,7 +139,6 @@ export class PanelView {
         panel._dockBg = panel;
         panel._dockContent = panel;
         panel._dockContentParent = Main.uiGroup;
-        setupBackgroundCorners(panel, () => radius);
 
         const dockContainer = this.dockContainer;
         if (dockContainer && typeof Main.uiGroup?.insert_child_below === 'function') {
@@ -161,11 +161,15 @@ export class PanelView {
         return panel;
     }
 
+    _getPool() {
+        return this.pool ?? (this._fallbackPool ??= new ActorPool(16));
+    }
+
     _header(folder, count) {
         const header = new St.BoxLayout({ style_class: 'aqua-dl-header' });
         header.get_layout_manager().set_spacing(10);
         header.add_child(buildPlaceIcon(
-            this.gicon ?? Gio.ThemedIcon.new('folder-download'),
+            this.gicon ?? getCachedThemedIcon('folder-download'),
             22,
             this.cfg.placeIconSourceSize,
             'aqua-dl-hdr-icon'));
@@ -195,110 +199,104 @@ export class PanelView {
         return header;
     }
 
-    _tile(view, extraClass = '') {
-        const row = new St.Button({
-            style_class: `aqua-dl-row aqua-dl-row-${view} ${extraClass}`.trim(),
-            reactive: true, track_hover: true, can_focus: true, x_expand: view !== 'grid',
-        });
-        row.set_style('background-color: transparent; border: none; box-shadow: none;');
-        const box = new St.BoxLayout({
-            style_class: 'aqua-dl-row-inner',
-            orientation: Clutter.Orientation.HORIZONTAL,
-            x_expand: true,
-        });
-        return { row, box };
-    }
-
-    _contentGap() {
-        return new St.Widget({
-            width: CONTENT_GAP,
-            x_expand: false,
-            reactive: false,
-        });
-    }
-
-    _thumbBin(thumbSz) {
+    _row(info, view, thumbSz) {
+        const card = this._getPool().acquirePanelItem(view);
+        const { row, box, labelPill, label, gap, thumb, icon } = card;
+        const file = this.folder.get_child(info.get_name());
+        const displayName = info.get_display_name();
         const thumbW = thumbSz, thumbH = Math.round(thumbSz * 0.72);
-        const thumb = new St.Bin({
-            style_class: 'aqua-dl-fan-thumb', x_expand: false, y_expand: false,
-            x_align: Clutter.ActorAlign.CENTER, y_align: Clutter.ActorAlign.CENTER,
-        });
+        const thumbRadius = Math.round(Math.min(thumbW, thumbH) * 0.22);
+
         thumb.set_size(thumbW, thumbH);
-        thumb.set_pivot_point(0.5, 0.5);
-        return { thumb, thumbW, thumbH, thumbRadius: Math.round(Math.min(thumbW, thumbH) * 0.22) };
-    }
-
-    _labelPill(text, extra = '', pillH = 0) {
-        const labelPill = new St.Bin({
-            style_class: 'aqua-dl-fan-label-pill', x_expand: true,
-            x_align: Clutter.ActorAlign.FILL, y_align: Clutter.ActorAlign.CENTER,
-        });
-        if (pillH > 0) {
-            labelPill.set_height(pillH);
-            labelPill.height = pillH;
+        const iconSize = Math.round(Math.min(thumbW, thumbH) * 0.78);
+        const gicon = iconForInfo(info);
+        if (icon && !icon.is_destroyed?.()) {
+            icon.gicon = gicon;
+            icon.icon_size = iconSize;
+            if (thumb.get_child() !== icon) thumb.set_child(icon);
+        } else {
+            const newIcon = new St.Icon({
+                gicon,
+                icon_size: iconSize,
+                style_class: 'aqua-dl-fan-icon',
+            });
+            row._icon = newIcon;
+            thumb.set_child(newIcon);
         }
-        const label = new St.Label({
-            text, style_class: `aqua-dl-fan-label ${extra}`.trim(), x_expand: true,
-            x_align: Clutter.ActorAlign.START, y_align: Clutter.ActorAlign.CENTER,
-        });
-        label.clutter_text.set_line_wrap(false);
-        label.clutter_text.set_ellipsize(3);
-        labelPill.set_child(label);
-        return { labelPill, label };
-    }
 
-    _wireHover(row) {
-        row.connect('notify::hover', () => {
-            if (!row.hover) return;
+        label.text = displayName;
+        row.accessible_name = displayName;
+        labelPill.set_height(thumbH);
+        labelPill.height = thumbH;
+
+        const rowStyles = getRowStyles(this.cfg, thumbRadius, '0 12px', this._blurActive, thumbH, labelPill);
+        label.set_style(rowStyles.normal.label);
+
+        row._updatePillStyle = hover => {
+            const s = hover ? rowStyles.hover : rowStyles.normal;
+            labelPill.set_style(s.pill);
+            thumb.set_style(s.thumb);
+        };
+        row._updatePillStyle(false);
+
+        row._activate = () => { launchUri(file.get_uri()); this.close(); };
+        row._openFileMenu = () => { this._fileMenu.openFor(labelPill, file); };
+        row._onHover = () => {
             const idx = this._model.rows.indexOf(row);
             if (idx >= 0) this._model.select(idx);
-        });
-    }
+        };
 
-    _row(info, view, thumbSz) {
-        const { row, box } = this._tile(view);
-        const file = this.folder.get_child(info.get_name());
-        const { thumb, thumbW, thumbH, thumbRadius } = this._thumbBin(thumbSz);
-        thumb.set_child(new St.Icon({
-            gicon: iconForInfo(info), icon_size: Math.round(Math.min(thumbW, thumbH) * 0.78),
-            style_class: 'aqua-dl-fan-icon',
-        }));
-        box.add_child(thumb);
-        box.add_child(this._contentGap());
-        const { labelPill, label } = this._labelPill(info.get_display_name(), '', thumbH);
-        row.accessible_name = info.get_display_name();
-        box.add_child(labelPill);
-        row.set_child(box);
-        row._thumb = thumb;
-        row._updatePillStyle = hover => applyTileStyle(this.cfg, labelPill, label, thumb, thumbRadius, hover, '0 12px', this._blurActive, null, thumbH);
-        row._updatePillStyle(false);
-        row._activate = () => { launchUri(file.get_uri()); this.close(); };
-        row._labelPill = labelPill;
-        this._fileMenu.attach(row, file, row._activate, labelPill);
-        this._wireHover(row);
         return row;
     }
 
     _moreRow(more, view, thumbSz, firstHidden) {
-        const { row, box } = this._tile(view, 'aqua-dl-row-more');
-        const { thumb, thumbW, thumbH, thumbRadius } = this._thumbBin(thumbSz);
-        thumb.set_child(new St.Icon({
-            gicon: firstHidden ? iconForInfo(firstHidden) : Gio.ThemedIcon.new('folder-download'),
-            icon_size: Math.round(Math.min(thumbW, thumbH) * 0.72), style_class: 'aqua-dl-fan-icon',
-        }));
-        box.add_child(thumb);
-        box.add_child(this._contentGap());
-        const { labelPill, label } = this._labelPill(format(
-            ngettext('+%d more item in Files', '+%d more items in Files', more), more),
-            'aqua-dl-fan-more', thumbH);
-        box.add_child(labelPill);
-        row.set_child(box);
-        row._thumb = thumb;
-        row._updatePillStyle = hover => applyTileStyle(this.cfg, labelPill, label, thumb, thumbRadius, hover, '0 12px', this._blurActive, null, thumbH);
+        const card = this._getPool().acquirePanelItem(view);
+        const { row, box, labelPill, label, gap, thumb, icon } = card;
+        row.add_style_class_name('aqua-dl-row-more');
+        const thumbW = thumbSz, thumbH = Math.round(thumbSz * 0.72);
+        const thumbRadius = Math.round(Math.min(thumbW, thumbH) * 0.22);
+
+        thumb.set_size(thumbW, thumbH);
+        const iconSize = Math.round(Math.min(thumbW, thumbH) * 0.72);
+        const gicon = firstHidden ? iconForInfo(firstHidden) : getCachedThemedIcon('folder-download');
+        if (icon && !icon.is_destroyed?.()) {
+            icon.gicon = gicon;
+            icon.icon_size = iconSize;
+            if (thumb.get_child() !== icon) thumb.set_child(icon);
+        } else {
+            const newIcon = new St.Icon({
+                gicon,
+                icon_size: iconSize,
+                style_class: 'aqua-dl-fan-icon',
+            });
+            row._icon = newIcon;
+            thumb.set_child(newIcon);
+        }
+
+        const moreText = format(ngettext('+%d more item in Files', '+%d more items in Files', more), more);
+        label.text = moreText;
+        row.accessible_name = moreText;
+        label.add_style_class_name('aqua-dl-fan-more');
+        labelPill.set_height(thumbH);
+        labelPill.height = thumbH;
+
+        const rowStyles = getRowStyles(this.cfg, thumbRadius, '0 12px', this._blurActive, thumbH, labelPill);
+        label.set_style(rowStyles.normal.label);
+
+        row._updatePillStyle = hover => {
+            const s = hover ? rowStyles.hover : rowStyles.normal;
+            labelPill.set_style(s.pill);
+            thumb.set_style(s.thumb);
+        };
         row._updatePillStyle(false);
+
         row._activate = () => { launchUri(this.folder.get_uri()); this.close(); };
-        row.connect('clicked', row._activate);
-        this._wireHover(row);
+        row._openFileMenu = null;
+        row._onHover = () => {
+            const idx = this._model.rows.indexOf(row);
+            if (idx >= 0) this._model.select(idx);
+        };
+
         return row;
     }
 
@@ -351,7 +349,7 @@ export class PanelView {
                         duration: 240,
                         mode: Clutter.AnimationMode.EASE_OUT_CUBIC,
                     });
-                } catch { }
+                } catch { /* intentionally ignored: stack view actor property update failed on disposed actor */ }
             }
         } else {
             panel.translation_y = 12; panel.scale_y = 0.9;
@@ -385,7 +383,7 @@ export class PanelView {
                         duration: 240,
                         mode: Clutter.AnimationMode.EASE_OUT_CUBIC,
                     });
-                } catch { }
+                } catch { /* intentionally ignored: stack view actor property update failed on disposed actor */ }
             }
         }
         tiles.forEach((tile, i) => {
@@ -427,7 +425,7 @@ export class PanelView {
             actor.opacity = 255;
             actor.translation_y = 0;
             actor.set_scale(1, 1);
-        } catch { }
+        } catch { /* intentionally ignored: stack view row or blur actor may already be destroyed */ }
         if (this._blurRegion) {
             try {
                 this._blurRegion.remove_all_transitions();
@@ -436,7 +434,7 @@ export class PanelView {
                     this._blurRegion.translation_y = 0;
                     this._blurRegion.set_scale(1, 1);
                 }
-            } catch { }
+            } catch { /* intentionally ignored: stack view row or blur actor may already be destroyed */ }
         }
         const bmsGroup = actor?._aquaDockSurface?.background_group;
         if (bmsGroup) {
@@ -447,15 +445,34 @@ export class PanelView {
                     bmsGroup.translation_y = 0;
                     bmsGroup.set_scale(1, 1);
                 }
-            } catch { }
+            } catch { /* intentionally ignored: stack view row or blur actor may already be destroyed */ }
         }
         for (const tile of this._model.rows) {
             try {
                 tile.remove_all_transitions();
                 tile.opacity = 255;
                 tile.translation_y = 0;
-            } catch { }
+            } catch { /* intentionally ignored: stack view row or blur actor may already be destroyed */ }
         }
+    }
+
+    /**
+     * Detach all rows from the view container and release them to the pool.
+     * Prevents Clutter from recursively destroying pooled actors when view.actor.destroy() runs.
+     */
+    releaseRows() {
+        const pool = this.pool ?? this._fallbackPool;
+        if (!pool) return;
+        const rows = this._model?.rows ?? [];
+        for (const row of rows) {
+            try {
+                row.remove_all_transitions();
+                const parent = row.get_parent?.();
+                if (parent) parent.remove_child(row);
+            } catch { /* intentionally ignored: stack view row or blur actor may already be destroyed */ }
+            pool.releasePanelItem(row);
+        }
+        this._model?.setRows([]);
     }
 
     animateClose(onDone) {
@@ -463,13 +480,21 @@ export class PanelView {
         if (!actor) { onDone(); return; }
         actor.remove_all_transitions();
         if (this._blurRegion) {
-            try { this._blurRegion.remove_all_transitions(); } catch { }
+            try { this._blurRegion.remove_all_transitions(); } catch { /* intentionally ignored: stack view row or blur actor may already be destroyed */ }
         }
         const bmsGroup = actor?._aquaDockSurface?.background_group;
         if (bmsGroup) {
-            try { bmsGroup.remove_all_transitions(); } catch { }
+            try { bmsGroup.remove_all_transitions(); } catch { /* intentionally ignored: stack view row or blur actor may already be destroyed */ }
         }
-        if (this._reduce || !animationsEnabled()) { onDone(); return; }
+        if (this._reduce || !animationsEnabled()) {
+            this.releaseRows();
+            onDone();
+            return;
+        }
+        const finish = () => {
+            this.releaseRows();
+            onDone();
+        };
         if (this._blurRegion && this._blurActive) {
             if (this._view === 'grid') {
                 this._blurRegion.ease({ opacity: 0, scale_x: 0.88, scale_y: 0.88, duration: 200, mode: Clutter.AnimationMode.EASE_IN_CUBIC });
@@ -484,12 +509,12 @@ export class PanelView {
                 } else {
                     bmsGroup.ease?.({ opacity: 0, scale_y: 0.9, translation_y: 12, duration: 200, mode: Clutter.AnimationMode.EASE_IN_CUBIC });
                 }
-            } catch { }
+            } catch { /* intentionally ignored: stack view actor property update failed on disposed actor */ }
         }
         if (this._view === 'grid') {
-            actor.ease({ opacity: 0, scale_x: 0.88, scale_y: 0.88, duration: 200, mode: Clutter.AnimationMode.EASE_IN_CUBIC, onComplete: onDone });
+            actor.ease({ opacity: 0, scale_x: 0.88, scale_y: 0.88, duration: 200, mode: Clutter.AnimationMode.EASE_IN_CUBIC, onComplete: finish });
         } else {
-            actor.ease({ opacity: 0, scale_y: 0.9, translation_y: 12, duration: 200, mode: Clutter.AnimationMode.EASE_IN_CUBIC, onComplete: onDone });
+            actor.ease({ opacity: 0, scale_y: 0.9, translation_y: 12, duration: 200, mode: Clutter.AnimationMode.EASE_IN_CUBIC, onComplete: finish });
         }
     }
 }

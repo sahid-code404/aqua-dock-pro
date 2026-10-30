@@ -8,6 +8,7 @@
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import { applyTileStyle, applyStackMenuPillStyle } from '../downloads/tileStyle.js';
+import { ActorPool } from '../downloads/actorPool.js';
 
 function assert(condition, message) {
     if (!condition) throw new Error(message);
@@ -869,6 +870,109 @@ shellResource._register();
         assert(allocatedOrigin[0] === 948, `_reposition X to the right must be 948 (got ${allocatedOrigin[0]})`);
         assert(allocatedOrigin[1] === 402, `_reposition Y must remain 402 (got ${allocatedOrigin[1]})`);
     }
+}
+
+// ── 9. ActorPool Recycling & Leak-Free Teardown ───────────────────────────────
+{
+    function createMockCard(name) {
+        const classes = new Set();
+        return {
+            btn: {
+                name,
+                _isAquaDock: true,
+                _dockBlurEnabled: false,
+                _activate: null,
+                _openFileMenu: null,
+                _onHover: null,
+                classes,
+                add_style_class_name(c) { classes.add(c); },
+                remove_style_class_name(c) { classes.delete(c); },
+                has_style_class_name(c) { return classes.has(c); },
+                remove_all_transitions() {},
+                destroy() { this.destroyed = true; },
+            },
+            row: {
+                name,
+                _isAquaDock: true,
+                _dockBlurEnabled: false,
+                _activate: null,
+                _openFileMenu: null,
+                _onHover: null,
+                classes,
+                add_style_class_name(c) { classes.add(c); },
+                remove_style_class_name(c) { classes.delete(c); },
+                has_style_class_name(c) { return classes.has(c); },
+                remove_all_transitions() {},
+                destroy() { this.destroyed = true; },
+            },
+        };
+    }
+
+    const mockFactory = {
+        createFanCard() {
+            const card = createMockCard('aquaDownloadsFanItem');
+            return {
+                btn: card.btn,
+                box: {},
+                labelPill: {},
+                label: { text: '' },
+                gap: {},
+                thumb: { get_child: () => ({}) },
+                icon: {},
+            };
+        },
+        createPanelCard(view) {
+            const card = createMockCard(`aquaDownloadsPanelItem_${view}`);
+            return {
+                row: card.row,
+                box: {},
+                labelPill: {},
+                label: { text: '' },
+                gap: {},
+                thumb: { get_child: () => ({}) },
+                icon: {},
+            };
+        },
+    };
+
+    const pool = new ActorPool(16, mockFactory);
+    const fanCard1 = pool.acquireFanItem();
+    assert(fanCard1 && fanCard1.btn, 'acquireFanItem should return card with btn');
+    assert(fanCard1.btn._isAquaDock === true, 'fan card must be tagged _isAquaDock');
+    assert(fanCard1.btn._dockBlurEnabled === false,
+        'fan card must have _dockBlurEnabled === false strictly per Invariant 1');
+
+    fanCard1.btn._activate = () => 'test_activate';
+    fanCard1.btn._openFileMenu = () => 'test_menu';
+    fanCard1.btn._onHover = () => 'test_hover';
+    fanCard1.btn.add_style_class_name('aqua-dl-fan-row-sel');
+
+    pool.releaseFanItem(fanCard1.btn);
+    assert(fanCard1.btn._activate === null, 'releaseFanItem must nullify _activate');
+    assert(fanCard1.btn._openFileMenu === null, 'releaseFanItem must nullify _openFileMenu');
+    assert(fanCard1.btn._onHover === null, 'releaseFanItem must nullify _onHover');
+    assert(!fanCard1.btn.has_style_class_name('aqua-dl-fan-row-sel'), 'releaseFanItem must remove selection class');
+
+    const fanCard2 = pool.acquireFanItem();
+    assert(fanCard2.btn === fanCard1.btn, 're-acquired fan card must return pooled instance');
+
+    const panelCard1 = pool.acquirePanelItem('grid');
+    assert(panelCard1 && panelCard1.row, 'acquirePanelItem should return card with row');
+    assert(panelCard1.row._dockBlurEnabled === false,
+        'panel card must have _dockBlurEnabled === false strictly per Invariant 1');
+
+    panelCard1.row._activate = () => 'test_activate';
+    panelCard1.row._openFileMenu = () => 'test_menu';
+    pool.releasePanelItem(panelCard1.row);
+    assert(panelCard1.row._activate === null, 'releasePanelItem must nullify _activate');
+    assert(panelCard1.row._openFileMenu === null, 'releasePanelItem must nullify _openFileMenu');
+
+    const panelCard2 = pool.acquirePanelItem('list');
+    assert(panelCard2.row === panelCard1.row, 're-acquired panel card must return pooled instance');
+
+    pool.clear();
+    assert(pool._fanPool.length === 0, 'pool.clear must empty _fanPool');
+    assert(pool._panelPool.length === 0, 'pool.clear must empty _panelPool');
 }
 
 GLib.spawn_sync(null, ['rm', '-rf', tmpShellDir], null, GLib.SpawnFlags.SEARCH_PATH, null);

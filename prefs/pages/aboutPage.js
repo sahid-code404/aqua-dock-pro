@@ -8,6 +8,14 @@ import { page, group } from '../widgets/rows.js';
 import { copyDiagnostics, exportSettings, importSettings } from '../supportTools.js';
 import { _ } from '../../core/i18n.js';
 
+/**
+ * Constructs and adds the About and Diagnostics preferences page to the preferences window.
+ *
+ * @param {Adw.PreferencesWindow} window - Target preferences window.
+ * @param {Gio.Settings} s - Extension GSettings instance.
+ * @param {object} metadata - Extension metadata object.
+ * @returns {void}
+ */
 export function buildAboutPage(window, s, metadata) {
     const p = page(_('About'), 'help-about-symbolic');
     window.add(p);
@@ -25,7 +33,7 @@ export function buildAboutPage(window, s, metadata) {
         open.add_css_class('flat');
         open.connect('clicked', () => {
             try { Gtk.show_uri(window, metadata.url, Gtk.get_current_event_time?.() ?? 0); }
-            catch { try { Gio.AppInfo.launch_default_for_uri(metadata.url, null); } catch { } }
+            catch { try { Gio.AppInfo.launch_default_for_uri(metadata.url, null); } catch { /* intentionally ignored: default URI handler launch failed */ } }
         });
         linkRow.add_suffix(open);
         linkRow.activatable_widget = open;
@@ -75,7 +83,7 @@ export function buildAboutPage(window, s, metadata) {
             if (resp === 'reset') {
                 for (const key of s.settings_schema.list_keys()) {
                     if (key === 'settings-version') continue;
-                    try { s.reset(key); } catch { }
+                    try { s.reset(key); } catch { /* intentionally ignored: settings key reset failed */ }
                 }
             }
             dialog.destroy();

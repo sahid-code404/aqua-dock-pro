@@ -14,6 +14,14 @@ import {
 import { _ } from '../../core/i18n.js';
 import { buildCustomItemsEditor } from '../widgets/customItems.js';
 
+/**
+ * Constructs and adds the Downloads stack preferences page to the preferences window.
+ * Configures stack views (fan, grid, list), sorting criteria, and custom folder stacks.
+ *
+ * @param {Adw.PreferencesWindow} window - Target preferences window.
+ * @param {Gio.Settings} s - Extension GSettings instance.
+ * @returns {void}
+ */
 export function buildDownloadsPage(window, s) {
     const p = page(_('Downloads'), 'folder-download-symbolic');
     window.add(p);

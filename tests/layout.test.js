@@ -1,5 +1,6 @@
 import {
     computeLayout,
+    getAnalyticalIconGeometry,
     indicatorMetrics,
     indicatorPosition,
     magnifiedOverflow,
@@ -338,5 +339,34 @@ for (const position of ['bottom', 'left', 'right']) {
         `${position}/${style} indicator ended outside its item`);
     }
 }
+
+// ── Analytical Icon Geometry Tests ───────────────────────────────────────────
+assert(getAnalyticalIconGeometry(null, {}) === null, 'null item returns null');
+assert(getAnalyticalIconGeometry({}, null) === null, 'null geom returns null');
+assert(getAnalyticalIconGeometry({}, {}) === null, 'item without _restRect returns null');
+
+const bottomGeom = { x: 100, y: 500, vert: false, side: 'bottom' };
+const chipB = { baseX: 20, spreadOffset: 4 };
+const itemB = { _restRect: { x: 6, y: 12, w: 60, h: 60 }, _chip: chipB, _iconLift: -10, scaleCurrent: 1.5 };
+const scratch = { ix: 0, iy: 0, iw: 0, ih: 0, cx: 0, cy: 0 };
+const resB = getAnalyticalIconGeometry(itemB, bottomGeom, scratch);
+assert(resB === scratch, 'scratch object must be returned');
+assert(resB.iw === 90 && resB.ih === 90, 'bottom transformed dimensions');
+assert(resB.cx === 160 && resB.ix === 115, 'bottom X coordinates');
+assert(resB.iy === 472 && resB.cy === 517, 'bottom Y coordinates');
+
+const leftGeom = { x: 50, y: 200, vert: true, side: 'left' };
+const itemL = { _restRect: { x: 8, y: 10, w: 50, h: 50 }, _chip: { baseX: 30, spreadOffset: 2 }, _iconLift: 5, scaleCurrent: 1.2 };
+const resL = getAnalyticalIconGeometry(itemL, leftGeom);
+assert(resL.iw === 60 && resL.ih === 60, 'left transformed dimensions');
+assert(resL.ix === 63 && resL.cx === 93, 'left X coordinates');
+assert(resL.iy === 237 && resL.cy === 267, 'left Y coordinates');
+
+const rightGeom = { x: 800, y: 200, vert: true, side: 'right' };
+const itemR = { _restRect: { x: 8, y: 10, w: 50, h: 50 }, _chip: { baseX: 30, spreadOffset: 2 }, _iconLift: -5, scaleCurrent: 1.2 };
+const resR = getAnalyticalIconGeometry(itemR, rightGeom);
+assert(resR.iw === 60 && resR.ih === 60, 'right transformed dimensions');
+assert(resR.ix === 793 && resR.cx === 823, 'right X coordinates');
+assert(resR.iy === 237 && resR.cy === 267, 'right Y coordinates');
 
 print('layout: ok');

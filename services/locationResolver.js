@@ -24,7 +24,7 @@ function customIcon(info) {
                 ? Gio.File.new_for_uri(value)
                 : Gio.File.new_for_path(value);
             return Gio.FileIcon.new(file);
-        } catch { }
+        } catch { /* intentionally ignored: invalid or unparseable custom-icon URI fallback to custom-icon-name */ }
     }
     const iconName = info.get_attribute_string('metadata::custom-icon-name')?.trim();
     return iconName ? Gio.ThemedIcon.new(iconName) : null;

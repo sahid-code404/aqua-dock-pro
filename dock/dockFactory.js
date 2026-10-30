@@ -23,6 +23,7 @@ export class DockFactory {
     // Reconcile to `entries`. Returns true if the chip structure changed (caller
     // must relayout); false if it was a pure in-place refresh.
     sync(entries, cfg) {
+        if (!this._container) return false;
         if (this._isSameLayout(entries)) {
             const touched = [];
             try {
@@ -31,6 +32,7 @@ export class DockFactory {
                     if (e.kind === 'separator' || e.kind === 'spacer') continue;
                     const item = this._chips[i]?.item;
                     if (!item) continue;
+                    item._chip = this._chips[i];
                     touched.push({
                         item,
                         previousEntry: item.entry,
@@ -50,7 +52,7 @@ export class DockFactory {
                         item.entry = previousEntry;
                         if (!sameIcon(item.gicon, previousGicon)) item.setGicon(previousGicon);
                         item.refresh();
-                    } catch { }
+                    } catch { /* intentionally ignored: rollback restoration on disposed item */ }
                 }
                 throw error;
             }
@@ -107,7 +109,9 @@ export class DockFactory {
                     this._onItemCreated?.(item);
                 }
                 nextItems.push(item);
-                nextChips.push({ entry, actor: item, item, w: cfg.cellW });
+                const chip = { entry, actor: item, item, w: cfg.cellW };
+                item._chip = chip;
+                nextChips.push(chip);
             }
 
             // Commit metadata/icon refreshes only after construction succeeded.
@@ -127,24 +131,24 @@ export class DockFactory {
                         item.entry = previousEntry;
                         if (!sameIcon(item.gicon, previousGicon)) item.setGicon(previousGicon);
                         item.refresh();
-                    } catch { }
+                    } catch { /* intentionally ignored: rollback restoration on disposed item */ }
                 }
                 throw error;
             }
         } catch (error) {
             for (let i = createdActors.length - 1; i >= 0; i--) {
-                try { createdActors[i].destroy(); } catch { }
+                try { createdActors[i].destroy(); } catch { /* intentionally ignored: item or chip actor may already be destroyed */ }
             }
             throw error;
         }
 
         // Destroy items that vanished and any old separators.
         for (const item of oldByKey.values()) {
-            try { item.destroy(); } catch { }
+            try { item.destroy(); } catch { /* intentionally ignored: item or chip actor may already be destroyed */ }
         }
         for (const chip of this._chips) {
             if (!chip.item) {
-                try { chip.actor.destroy(); } catch { }
+                try { chip.actor.destroy(); } catch { /* intentionally ignored: item or chip actor may already be destroyed */ }
             }
         }
 
@@ -154,9 +158,11 @@ export class DockFactory {
 
     destroyAll() {
         for (const chip of this._chips) {
-            try { chip.actor.destroy(); } catch { }
+            try { chip.actor.destroy(); } catch { /* intentionally ignored: item or chip actor may already be destroyed */ }
         }
         this._items = [];
         this._chips = [];
+        this._container = null;
+        this._onItemCreated = null;
     }
 }

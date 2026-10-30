@@ -79,7 +79,7 @@ export class FileItemMenu {
                 try {
                     copyItem._ornamentIcon.destroy();
                     copyItem._ornamentIcon = null;
-                } catch { }
+                } catch { /* intentionally ignored: context menu actor may already be destroyed */ }
             }
 
             copyItem.x_expand = true;
@@ -310,26 +310,26 @@ export class FileItemMenu {
     _destroyMenu() {
         if (!this._menu) return;
         for (const { actor, id } of this._itemSignals) {
-            try { actor?.disconnect(id); } catch { }
+            try { actor?.disconnect(id); } catch { /* intentionally ignored: menu signal handler may already be disconnected */ }
         }
         this._itemSignals = [];
         if (this._blurRegistered) {
             unregisterBmsTarget(this._menu.actor);
             this._blurRegistered = false;
         }
-        try { this._manager?.removeMenu(this._menu); } catch { }
-        try { this._menu.destroy(); } catch { }
+        try { this._manager?.removeMenu(this._menu); } catch { /* intentionally ignored: menu may already be removed from manager */ }
+        try { this._menu.destroy(); } catch { /* intentionally ignored: context menu actor may already be destroyed */ }
         this._menu = null;
     }
 
     destroy() {
         this._destroyMenu();
         if (this._owner && this._ownerDestroyId) {
-            try { this._owner.disconnect(this._ownerDestroyId); } catch { }
+            try { this._owner.disconnect(this._ownerDestroyId); } catch { /* intentionally ignored: menu signal handler may already be disconnected */ }
         }
         this._ownerDestroyId = 0;
         this._owner = null;
-        try { this._manager?.destroy?.(); } catch { }
+        try { this._manager?.destroy?.(); } catch { /* intentionally ignored: context menu actor may already be destroyed */ }
         this._manager = null;
         this._mon = null;
         this._cfg = null;

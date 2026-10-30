@@ -88,12 +88,12 @@ export class DragManager {
         }
 
         const { duration: _duration, mode: _mode, onComplete, ...target } = params;
-        try { actor.remove_all_transitions(); } catch { }
+        try { actor.remove_all_transitions(); } catch { /* intentionally ignored: dragged item actor may already be destroyed */ }
         try {
             for (const [property, value] of Object.entries(target))
                 actor[property] = value;
-        } catch { }
-        try { onComplete?.(); } catch { }
+        } catch { /* intentionally ignored: drag defensive guard on transition */ }
+        try { onComplete?.(); } catch { /* intentionally ignored: drag completion callback failed */ }
     }
 
     // Cancel/snap drag-owned transitions immediately when Reduce Motion is
@@ -107,7 +107,7 @@ export class DragManager {
                     r.flyer.opacity = 240;
                     r.flyer.set_scale(1.1, 1.1);
                 }
-            } catch { }
+            } catch { /* intentionally ignored: dragged item actor may already be destroyed */ }
             try {
                 r.badge?.remove_all_transitions();
                 if (r.badge) {
@@ -115,14 +115,14 @@ export class DragManager {
                     const scale = r.mode === 'open' ? 1.08 : 1;
                     r.badge.set_scale(scale, scale);
                 }
-            } catch { }
+            } catch { /* intentionally ignored: dragged item actor may already be destroyed */ }
             if (r.canReorder) {
-                try { this._showReorderPreview(r, r.toIndex); } catch { }
+                try { this._showReorderPreview(r, r.toIndex); } catch { /* intentionally ignored: drag reorder preview failed during rapid pointer motion */ }
             }
         }
 
         if (this._externalDnD && this._dropGapPos >= 0) {
-            try { this._showDropGap(this._dropGapPos); } catch { }
+            try { this._showDropGap(this._dropGapPos); } catch { /* intentionally ignored: drag reorder preview failed during rapid pointer motion */ }
         }
 
         // Exit flyers exist only to animate away after finish(); once motion is
@@ -133,14 +133,14 @@ export class DragManager {
         }
 
         for (const chip of this._host?.getChips?.() ?? []) {
-            try { chip.actor?.remove_all_transitions(); } catch { }
+            try { chip.actor?.remove_all_transitions(); } catch { /* intentionally ignored: dragged item actor may already be destroyed */ }
             const icon = chip.item?._icon;
             if (!icon) continue;
             try {
                 icon.remove_all_transitions();
                 // The dragged item's source actor stays hidden under its flyer.
                 if (chip.item !== r?.item) icon.opacity = 255;
-            } catch { }
+            } catch { /* intentionally ignored: dragged item actor may already be destroyed */ }
         }
     }
 
@@ -186,7 +186,7 @@ export class DragManager {
         this._flyers.add(flyer);
         flyer.set_pivot_point(0.5, 0.5);
         Main.uiGroup.add_child(flyer);
-        try { Main.uiGroup.set_child_above_sibling(flyer, this._host.container); } catch { }
+        try { Main.uiGroup.set_child_above_sibling(flyer, this._host.container); } catch { /* intentionally ignored: flyer or badge actor may already be unparented */ }
         flyer.set_position(Math.round(iconX + (visual - size) / 2), Math.round(iconY + (visual - size) / 2));
         flyer.set_scale(liftScale, liftScale);
         flyer.opacity = 255;
@@ -207,7 +207,7 @@ export class DragManager {
         badge.set_pivot_point(0.5, 0.5);
         badge.opacity = 0;
         Main.uiGroup.add_child(badge);
-        try { Main.uiGroup.set_child_above_sibling(badge, flyer); } catch { }
+        try { Main.uiGroup.set_child_above_sibling(badge, flyer); } catch { /* intentionally ignored: flyer or badge actor may already be unparented */ }
         this._ease(badge, {
             opacity: 255,
             duration: 200,
@@ -294,7 +294,7 @@ export class DragManager {
                     duration: 180,
                     mode: Clutter.AnimationMode.EASE_OUT_QUAD,
                 });
-            } catch { }
+            } catch { /* intentionally ignored: dragged item actor may already be destroyed */ }
         }
     }
 
@@ -450,7 +450,7 @@ export class DragManager {
 
     _destroyBadge(r) {
         if (r.badge) {
-            try { r.badge.remove_all_transitions(); r.badge.destroy(); } catch { }
+            try { r.badge.remove_all_transitions(); r.badge.destroy(); } catch { /* intentionally ignored: drag flyer or badge actor may already be destroyed */ }
             r.badge = null;
         }
     }
@@ -530,17 +530,17 @@ export class DragManager {
     _destroyFlyer(flyer) {
         if (!flyer) return;
         this._flyers.delete(flyer);
-        try { flyer.remove_all_transitions(); flyer.destroy(); } catch { }
+        try { flyer.remove_all_transitions(); flyer.destroy(); } catch { /* intentionally ignored: drag flyer or badge actor may already be destroyed */ }
     }
 
     _restoreIcon(item, animate) {
         const icon = item?._icon;
         if (!icon) return;
         item._dragging = false;
-        try { icon.remove_all_transitions(); } catch { }
-        try { item.relayout(this._host.getConfig(), 0); } catch { }
+        try { icon.remove_all_transitions(); } catch { /* intentionally ignored: dragged item actor may already be destroyed */ }
+        try { item.relayout(this._host.getConfig(), 0); } catch { /* intentionally ignored: drag preview state update failed on disposing actor */ }
         if (!animate || !animationsEnabled()) {
-            try { icon.opacity = 255; } catch { }
+            try { icon.opacity = 255; } catch { /* intentionally ignored: drag preview state update failed on disposing actor */ }
             return;
         }
         try {
@@ -550,7 +550,7 @@ export class DragManager {
                 duration: 200,
                 mode: Clutter.AnimationMode.EASE_OUT_QUAD,
             });
-        } catch { try { icon.opacity = 255; } catch { } }
+        } catch { try { icon.opacity = 255; } catch { /* intentionally ignored: drag preview state update failed on disposing actor */ } }
     }
 
     _zeroTranslations() {
@@ -560,7 +560,7 @@ export class DragManager {
                 c.actor.remove_transition(prop);
                 c.actor[prop] = 0;
                 c.spreadOffset = 0;
-            } catch { }
+            } catch { /* intentionally ignored: dragged item actor may already be destroyed */ }
         }
     }
 
@@ -621,7 +621,7 @@ export class DragManager {
                     duration: 180,
                     mode: Clutter.AnimationMode.EASE_OUT_QUAD,
                 });
-            } catch { }
+            } catch { /* intentionally ignored: dragged item actor may already be destroyed */ }
         }
     }
 

@@ -18,6 +18,7 @@ import {
     animationsEnabled,
     setReduceMotionOverride,
     subscribeReduceMotionChanges,
+    TimeoutGroup,
 } from '../core/utils.js';
 
 function assert(condition, message) {
@@ -165,5 +166,26 @@ unsubscribeReduceMotion();
 assert(reduceMotionEvents.length === 2 &&
     reduceMotionEvents[0] === true && reduceMotionEvents[1] === false,
     'reduce-motion subscribers did not receive exactly one event per state change');
+
+{
+    const timers = new TimeoutGroup();
+    let idleCount = 0;
+    const loop = new GLib.MainLoop(null, false);
+    timers.addIdle(() => {
+        idleCount++;
+        // Void callback returning undefined -> normalized to GLib.SOURCE_REMOVE
+    });
+    let continueCount = 0;
+    timers.addIdle(() => {
+        continueCount++;
+        if (continueCount < 3) return GLib.SOURCE_CONTINUE;
+        loop.quit();
+        return GLib.SOURCE_REMOVE;
+    });
+    loop.run();
+    assert(idleCount === 1, `idle callback returning undefined should fire once, got ${idleCount}`);
+    assert(continueCount === 3, `idle callback returning CONTINUE should fire 3 times, got ${continueCount}`);
+    timers.removeAll();
+}
 
 print(`settings: ok (${schema.list_keys().length} keys)`);

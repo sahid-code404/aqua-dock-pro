@@ -49,6 +49,13 @@ function resetSnapshot() {
 // Build a Map<appId, count> from all tray sources in a single pass. Source
 // identity/count/app-ID caching makes repeated probes cheap when Shell state is
 // stable while still noticing a source whose policy/app identity changes.
+/**
+ * Constructs a consolidated Map<appId, count> from all message tray notification sources.
+ * Employs source identity and count caching to avoid reallocating unchanged maps on repeated probes.
+ *
+ * @param {Array<object>|null} [sourceSnapshot=null] - Optional source snapshot array.
+ * @returns {Map<string, number>} Map of application ID to pending notification count.
+ */
 export function buildNotificationMap(sourceSnapshot = null) {
     let sources = sourceSnapshot;
     if (sources === null) {
@@ -133,13 +140,13 @@ class NotificationHub {
                 this._watchSource(source);
                 changed();
             });
-        } catch { }
+        } catch { /* intentionally ignored: message tray or notification source signal connection failed */ }
         try {
             removedId = this._tray.connect('source-removed', (_tray, source) => {
                 this._unwatchSource(source);
                 changed();
             });
-        } catch { }
+        } catch { /* intentionally ignored: message tray or notification source signal connection failed */ }
         if (addedId) this._trayIds.push(addedId);
         if (removedId) this._trayIds.push(removedId);
         if (!addedId || !removedId) this._baseReliable = false;
@@ -160,9 +167,9 @@ class NotificationHub {
         let countId = 0;
         let addedId = 0;
         let removedId = 0;
-        try { countId = source.connect('notify::count', changed); } catch { }
-        try { addedId = source.connect('notification-added', changed); } catch { }
-        try { removedId = source.connect('notification-removed', changed); } catch { }
+        try { countId = source.connect('notify::count', changed); } catch { /* intentionally ignored: message tray or notification source signal connection failed */ }
+        try { addedId = source.connect('notification-added', changed); } catch { /* intentionally ignored: message tray or notification source signal connection failed */ }
+        try { removedId = source.connect('notification-removed', changed); } catch { /* intentionally ignored: message tray or notification source signal connection failed */ }
         if (countId) ids.push(countId);
         if (addedId) ids.push(addedId);
         if (removedId) ids.push(removedId);
@@ -176,7 +183,7 @@ class NotificationHub {
         if (!record) return;
         this._sourceSignals.delete(source);
         for (const id of record.ids) {
-            try { source.disconnect(id); } catch { }
+            try { source.disconnect(id); } catch { /* intentionally ignored: message tray or notification source signal connection failed */ }
         }
         this._updateReliability();
     }
@@ -255,7 +262,7 @@ class NotificationHub {
 
         if (this._tray) {
             for (const id of this._trayIds) {
-                try { this._tray.disconnect(id); } catch { }
+                try { this._tray.disconnect(id); } catch { /* intentionally ignored: message tray or notification source signal connection failed */ }
             }
         }
         this._trayIds = [];
@@ -278,6 +285,12 @@ function releaseHub(hub) {
     resetSnapshot();
 }
 
+/**
+ * Subscribes a listener to notification badge count changes from the shared notification hub.
+ *
+ * @param {Function} callback - Callback invoked when badge counts change.
+ * @returns {Function} Unsubscribe closure.
+ */
 export function subscribeNotificationChanges(callback) {
     const hub = acquireHub();
     const unsubscribe = hub.subscribe(callback);
@@ -290,15 +303,31 @@ export function subscribeNotificationChanges(callback) {
     };
 }
 
+/**
+ * Retrieves the current cached notification badge map, optionally forcing an active probe.
+ *
+ * @param {boolean} [probe=false] - If true, forces a fresh poll of message tray sources.
+ * @returns {Map<string, number>} Current map of application ID to notification count.
+ */
 export function currentNotificationMap(probe = false) {
     if (!sharedHub) return buildNotificationMap();
     return probe ? sharedHub.probe() : sharedHub.map;
 }
 
+/**
+ * Reports whether the active Shell message tray sources support reactive signal notifications.
+ *
+ * @returns {boolean} True if reactive signals are available; false if polling is necessary.
+ */
 export function notificationSignalsReliable() {
     return sharedHub?.reliable ?? false;
 }
 
+/**
+ * Destroys the shared notification hub and clears all cached source counts during teardown.
+ *
+ * @returns {void}
+ */
 export function clearNotificationCache() {
     if (sharedHub) {
         sharedHub.destroy();

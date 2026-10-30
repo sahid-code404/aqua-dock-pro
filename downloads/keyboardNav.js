@@ -30,7 +30,7 @@ export class SelectionModel {
     activateCurrent() {
         const row = this.current;
         if (row?._activate) row._activate();
-        else if (row) { try { row.emit('clicked', 0); } catch { } }
+        else if (row) { try { row.emit('clicked', 0); } catch { /* intentionally ignored: row clicked signal emit failed on disposed row */ } }
     }
 
     _paint(row, on, animate) {

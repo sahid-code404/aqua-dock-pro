@@ -3,6 +3,8 @@ import {
     aboveDockY,
     fanOrientation,
     sideFanX,
+    FAN_CELL_OFFSETS,
+    getFanCellOffsets,
 } from '../downloads/fanGeometry.js';
 
 function assert(condition, message) {
@@ -40,5 +42,24 @@ const bottomRight = fanOrientation('bottom', 1500, monitor);
 assert(bottomLeft.curveSign === -1 && bottomRight.curveSign === 1 &&
     !bottomLeft.thumbnailFirst && !bottomRight.thumbnailFirst,
     'bottom fan orientation changed');
+
+// ── FAN_CELL_OFFSETS LUT verification ─────────────────────────────────────────
+assert(Object.isFrozen(FAN_CELL_OFFSETS), 'FAN_CELL_OFFSETS must be frozen');
+for (let n = 1; n <= 12; n++) {
+    const list = FAN_CELL_OFFSETS[n];
+    assert(Array.isArray(list) && list.length === n, `Length must match ${n}`);
+    assert(Object.isFrozen(list), `LUT for ${n} must be frozen`);
+    assert(list[0].x === 0 && list[0].y === 0 && list[0].angle === 0, `Base cell for ${n}`);
+    if (n > 1) {
+        assert(list[n - 1].x === 1, `Last cell x must be 1 for ${n}`);
+        assert(list[n - 1].y === -(n - 1), `Last cell y must be -(n-1) for ${n}`);
+        assert(list[n - 1].angle > 0, `Last cell angle must be positive for ${n}`);
+    }
+}
+
+// Fallback verification for n > 12
+const fallback = getFanCellOffsets(15);
+assert(fallback.length === 15 && fallback[14].x === 1 && fallback[14].y === -14,
+    'getFanCellOffsets fallback for n > 12');
 
 print('fanGeometry: ok');

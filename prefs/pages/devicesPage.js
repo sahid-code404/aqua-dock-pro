@@ -15,6 +15,14 @@ const DEVICE_TYPES = Object.freeze({
     fixed: 'Fixed volume',
 });
 
+/**
+ * Constructs and adds the Devices preferences page to the preferences window.
+ * Configures visibility and exclusion filters for mounted removable, fixed, and network storage.
+ *
+ * @param {Adw.PreferencesWindow} window - Target preferences window.
+ * @param {Gio.Settings} s - Extension GSettings instance.
+ * @returns {void}
+ */
 export function buildDevicesPage(window, s) {
     const p = page(_('Devices'), 'drive-removable-media-symbolic');
     window.add(p);
@@ -163,7 +171,7 @@ export function buildDevicesPage(window, s) {
         'drive-connected', 'drive-disconnected', 'drive-changed',
     ]) {
         try { monitorSignalIds.push(monitor.connect(signal, queueRebuild)); }
-        catch { /* unavailable on an unusual volume-monitor backend */ }
+        catch { /* intentionally ignored: volume monitor signal unavailable on unusual volume-monitor backend */ }
     }
 
     window._settingsSignalIds.push(
@@ -176,7 +184,7 @@ export function buildDevicesPage(window, s) {
             refreshId = 0;
         }
         for (const id of monitorSignalIds) {
-            try { monitor.disconnect(id); } catch { }
+            try { monitor.disconnect(id); } catch { /* intentionally ignored: preferences dialog closed before async load completed */ }
         }
         monitorSignalIds.length = 0;
         clearRows();

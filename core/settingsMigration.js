@@ -2,6 +2,14 @@
 
 export const SETTINGS_DATA_VERSION = 1;
 
+/**
+ * Executes stepwise schema migrations for stored GSettings, advancing the data version atomically.
+ * Ensures interrupted migrations remain retryable without leaving delayed-apply flags active.
+ *
+ * @param {Gio.Settings} settings - The extension GSettings instance.
+ * @returns {void}
+ * @throws {Error} If writing the incremented settings-version key fails.
+ */
 export function migrateSettings(settings) {
     if (!settings?.settings_schema?.has_key('settings-version')) return;
     let version = settings.get_int('settings-version');

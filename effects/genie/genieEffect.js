@@ -24,7 +24,7 @@ function captureExternalSlowDownChange(stSettings) {
     try {
         const current = stSettings.slow_down_factor;
         if (current !== slowDownApplied) slowDownPrevious = current;
-    } catch { }
+    } catch { /* intentionally ignored: St.Settings slow_down_factor unavailable in current environment */ }
 }
 
 function restoreSlowDown(stSettings) {
@@ -33,8 +33,24 @@ function restoreSlowDown(stSettings) {
         // genie override was active.
         if (slowDownApplied === null || stSettings.slow_down_factor === slowDownApplied)
             stSettings.slow_down_factor = slowDownPrevious;
-    } catch { }
+    } catch { /* intentionally ignored: St.Settings slow_down_factor unavailable in current environment */ }
     resetSlowDownBookkeeping();
+}
+
+/**
+ * Unconditionally restore St.Settings slow_down_factor if modified by genie animations.
+ * Invoked during extension disable or lifecycle reset.
+ */
+export function resetSlowDownFactor() {
+    if (slowDownOwner || slowDownApplied !== null) {
+        if (slowDownOwner) {
+            try { slowDownOwner._cancelSlowDownRestore(); }
+            catch { /* intentionally ignored: St.Settings slow_down_factor unavailable in current environment */ }
+            slowDownOwner = null;
+        }
+        try { restoreSlowDown(St.Settings.get()); }
+        catch { resetSlowDownBookkeeping(); }
+    }
 }
 
 export class GenieController {
@@ -54,6 +70,7 @@ export class GenieController {
     }
 
     // The icon's resting on-screen rect (independent of live magnification).
+    // Cached per chip and updated in-place on layout changes to eliminate GObject churn.
     iconRestRect(item, chip = null) {
         const geom = this._host.getGeom();
         if (!item || !geom) return null;
@@ -64,18 +81,37 @@ export class GenieController {
         const vert = geom.vert;
         const ox = geom.x + (vert ? 0 : chip.baseX);
         const oy = geom.y + (vert ? chip.baseX : 0);
-        if (r) {
-            return new Mtk.Rectangle({
-                x: Math.round(ox + r.x), y: Math.round(oy + r.y),
-                width: Math.max(1, r.w), height: Math.max(1, r.h),
-            });
-        }
         const size = Math.max(1, cfg.iconSize);
-        return new Mtk.Rectangle({
-            x: Math.round(ox + (item.width - size) / 2),
-            y: Math.round(oy + (item.height - size) / 2),
-            width: size, height: size,
+
+        const targetX = Math.round(ox + (r ? r.x : (item.width - size) / 2));
+        const targetY = Math.round(oy + (r ? r.y : (item.height - size) / 2));
+        const targetW = r ? Math.max(1, r.w) : size;
+        const targetH = r ? Math.max(1, r.h) : size;
+
+        let rect = chip._genieRect;
+        if (rect) {
+            if (rect.x === targetX && rect.y === targetY &&
+                rect.width === targetW && rect.height === targetH)
+                return rect;
+            // Geometry changed (e.g. relayout): update in place without allocating new GObject
+            rect.x = targetX;
+            rect.y = targetY;
+            rect.width = targetW;
+            rect.height = targetH;
+            return rect;
+        }
+
+        rect = new Mtk.Rectangle({
+            x: targetX, y: targetY,
+            width: targetW, height: targetH,
         });
+        chip._genieRect = rect;
+        return rect;
+    }
+
+    invalidateRectCache() {
+        for (const chip of this._host?.getChips?.() ?? [])
+            chip._genieRect = null;
     }
 
     setIconGeometry(item, windows, chip = null) {
@@ -112,7 +148,7 @@ export class GenieController {
         if (!this.enabled || !win) return;
         this._timers.addIdle(() => {
             let app = null;
-            try { app = Shell.WindowTracker.get_default().get_window_app(win); } catch { }
+            try { app = Shell.WindowTracker.get_default().get_window_app(win); } catch { /* intentionally ignored: window tracker lookup failed for closing window */ }
             const appId = app?.get_id?.();
             if (appId) {
                 const item = this._host.getItems().find(it => it.entry?.app?.get_id?.() === appId);
@@ -185,6 +221,7 @@ export class GenieController {
             try { restoreSlowDown(St.Settings.get()); }
             catch { resetSlowDownBookkeeping(); }
         }
+        this.invalidateRectCache();
         this._timers.removeAll();
         this._restoreId = 0;
         this._host = null;

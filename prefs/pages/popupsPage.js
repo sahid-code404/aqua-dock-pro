@@ -12,6 +12,14 @@ import {
 } from '../widgets/rows.js';
 import { _ } from '../../core/i18n.js';
 
+/**
+ * Constructs and adds the Popups and Indicators preferences page to the preferences window.
+ * Configures running dot/pill indicator styles, notification badges, tooltips, and window previews.
+ *
+ * @param {Adw.PreferencesWindow} window - Target preferences window.
+ * @param {Gio.Settings} s - Extension GSettings instance.
+ * @returns {void}
+ */
 export function buildPopupsPage(window, s) {
     const p = page(_('Widgets'), 'starred-symbolic');
     window.add(p);

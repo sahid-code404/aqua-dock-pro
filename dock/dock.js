@@ -220,8 +220,8 @@ export class DockChrome {
             if (this._handleBlurRegion && (this._handleBlurRegion.width !== 0 || this._handleBlurRegion.height !== 0))
                 this._handleBlurRegion.set_size(0, 0);
             if (this._handleClipCache !== null) {
-                try { this._autohideHandle.remove_clip(); } catch { }
-                try { this._handleBlurRegion?.remove_clip(); } catch { }
+                try { this._autohideHandle.remove_clip(); } catch { /* intentionally ignored: autohide handle or blur region may already be unclipped or destroyed */ }
+                try { this._handleBlurRegion?.remove_clip(); } catch { /* intentionally ignored: autohide handle or blur region may already be unclipped or destroyed */ }
                 this._handleClipCache = null;
             }
             return;
@@ -251,8 +251,8 @@ export class DockChrome {
         if (!visible && !this._handleVisible && !handle.visible)
             return;
         this._handleVisible = visible;
-        try { handle.remove_all_transitions(); } catch { }
-        try { blurHandle?.remove_all_transitions(); } catch { }
+        try { handle.remove_all_transitions(); } catch { /* intentionally ignored: autohide handle actor may already be destroyed */ }
+        try { blurHandle?.remove_all_transitions(); } catch { /* intentionally ignored: autohide handle actor may already be destroyed */ }
 
         if (visible) {
             handle.show();
@@ -325,11 +325,20 @@ export class DockChrome {
         const dash = overviewDash();
         if (!dash) throw new Error('GNOME overview dash is unavailable');
 
-        this._dash = dash;
-        this._dashWasVisible = dash.visible;
-        this._dashHeight = dash.height;
-        this._dashOpacity = dash.opacity;
-        this._dashReactive = dash.reactive;
+        if (this._dashNotifyIds) {
+            for (const id of this._dashNotifyIds) {
+                try { (this._dash ?? dash).disconnect(id); } catch { /* intentionally ignored: dash signal handler may already be disconnected */ }
+            }
+            this._dashNotifyIds = null;
+        }
+
+        if (this._dash !== dash) {
+            this._dash = dash;
+            this._dashWasVisible = dash.visible;
+            this._dashHeight = dash.height;
+            this._dashOpacity = dash.opacity;
+            this._dashReactive = dash.reactive;
+        }
         this._dashCfg = cfg;
         this._dashNotifyIds = [];
 
@@ -378,7 +387,7 @@ export class DockChrome {
         // Disconnect monitors.
         if (this._dashNotifyIds) {
             for (const id of this._dashNotifyIds) {
-                try { this._dash.disconnect(id); } catch { }
+                try { this._dash?.disconnect(id); } catch { /* intentionally ignored: dash signal handler may already be disconnected */ }
             }
             this._dashNotifyIds = null;
         }
@@ -389,7 +398,7 @@ export class DockChrome {
             this._dash.reactive = this._dashReactive ?? true;
             if (this._dashWasVisible) this._dash.show();
             else this._dash.hide();
-        } catch { }
+        } catch { /* intentionally ignored: stock dash actor may be disposed during Shell shutdown */ }
         this._dash = null;
         this._dashCfg = null;
         this._dashHeight = null;
@@ -400,8 +409,8 @@ export class DockChrome {
         for (const key of ['_magZone', '_strip', '_handleBlurRegion', '_autohideHandle', '_edgeZone', '_strut', '_container']) {
             const actor = this[key];
             if (!actor) continue;
-            try { Main.layoutManager.removeChrome(actor); } catch { }
-            try { actor.destroy(); } catch { }
+            try { Main.layoutManager.removeChrome(actor); } catch { /* intentionally ignored: chrome actor may already be removed or destroyed */ }
+            try { actor.destroy(); } catch { /* intentionally ignored: chrome actor may already be removed or destroyed */ }
             this[key] = null;
         }
         this._blurRegion = null;

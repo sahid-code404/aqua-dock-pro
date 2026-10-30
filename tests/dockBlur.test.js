@@ -659,6 +659,7 @@ shellResource._register();
         addBlurForTarget,
         registerBmsTarget,
         unregisterBmsTarget,
+        cleanupBms,
     } = await import('../dock/dockBlur.js');
 
     // 1. Detection when BMS is absent
@@ -776,6 +777,12 @@ shellResource._register();
     unregisterBmsTarget(anchorActor);
     assert(!mockDashBlur.dashes.some(d => d.dash_container === anchorActor), 'anchorActor must be removed from BMS dashes');
     assert(!anchorActor._aquaDockSurface, 'anchorActor _aquaDockSurface must be cleared');
+
+    registerBmsTarget(anchorActor, () => 14);
+    assert(mockDashBlur.dashes.some(d => d.dash_container === anchorActor), 'anchorActor must be registered into BMS dashes');
+    cleanupBms();
+    assert(!mockDashBlur.dashes.some(d => d.dash_container === anchorActor), 'cleanupBms must remove registered containers from BMS dashes');
+    assert(mockDashBlur._aquaDockHooked === undefined, 'cleanupBms must unhook BMS');
 
     delete globalThis.global.blur_my_shell;
 }

@@ -9,7 +9,7 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import { TimeoutGroup, animationsEnabled, logError } from '../core/utils.js';
 import { _ } from '../core/i18n.js';
-import { downloadsDir } from '../services/fileService.js';
+import { clearIconCaches, downloadsDir, getCachedThemedIcon } from '../services/fileService.js';
 import { DownloadsStack } from './downloadsStack.js';
 
 const COOLDOWN_US = 1200 * 1000;
@@ -121,6 +121,19 @@ function subscribeDownloads(callback) {
     };
 }
 
+/**
+ * Destroy shared DownloadsWatcher singleton and clear directory monitor.
+ * Invoked during extension disable or lifecycle reset.
+ */
+export function clearDownloadWatcherCache() {
+    if (sharedWatcher) {
+        try { sharedWatcher.destroy(); }
+        catch { /* intentionally ignored: download flyer or watcher may already be destroyed */ }
+        sharedWatcher = null;
+    }
+    clearIconCaches();
+}
+
 export class DownloadManager {
     constructor(host) {
         this._host = host;
@@ -133,7 +146,7 @@ export class DownloadManager {
         this._pendingArrivalUris = new Set();
         this._lastArrivalAt = 0;
         this._lastArrivalUri = null;
-        this._flyer = null;
+        this._flyers = new Set();
         this._iconQuery = null;
         this._gen = 0;
         this._activeItem = null;
@@ -179,7 +192,7 @@ export class DownloadManager {
 
         this._stack.show(item, folder, cfg, () => {
             if (this._activeItem === item) {
-                try { item.setStackOpenState?.(false); } catch { }
+                try { item.setStackOpenState?.(false); } catch { /* intentionally ignored: stack item actor may already be destroyed or unparented */ }
                 this._activeItem = null;
             }
             this._host?.setMagnificationSuppressed?.(false);
@@ -191,13 +204,32 @@ export class DownloadManager {
 
     closeStack() {
         if (this._activeItem) {
-            try { this._activeItem.setStackOpenState?.(false); } catch { }
+            try { this._activeItem.setStackOpenState?.(false); } catch { /* intentionally ignored: stack item actor may already be destroyed or unparented */ }
             this._activeItem = null;
         }
         this._host?.setMagnificationSuppressed?.(false);
         this._host?.setSuppressedItem?.(null);
         this._host?.kickEngine?.();
         this._stack?.hide();
+    }
+
+    _destroyFlyer(flyer) {
+        if (!flyer) return;
+        this._flyers.delete(flyer);
+        try {
+            flyer.remove_all_transitions();
+            flyer.destroy();
+        } catch { /* intentionally ignored: download flyer or watcher may already be destroyed */ }
+    }
+
+    _destroyAllFlyers() {
+        for (const flyer of this._flyers) {
+            try {
+                flyer.remove_all_transitions();
+                flyer.destroy();
+            } catch { /* intentionally ignored: download flyer or watcher may already be destroyed */ }
+        }
+        this._flyers.clear();
     }
 
     settleAnimations() {
@@ -210,13 +242,7 @@ export class DownloadManager {
             this._timers.remove(this._arrivalDrainId);
             this._arrivalDrainId = 0;
         }
-        if (this._flyer) {
-            try {
-                this._flyer.remove_all_transitions();
-                this._flyer.destroy();
-            } catch { }
-            this._flyer = null;
-        }
+        this._destroyAllFlyers();
         this._stack?.settleAnimations();
     }
 
@@ -224,7 +250,7 @@ export class DownloadManager {
         if (!file) return;
 
         let uri = null;
-        try { uri = file.get_uri(); } catch { }
+        try { uri = file.get_uri(); } catch { /* intentionally ignored: file info or URI query failed on deleted file */ }
         if (!uri) return;
 
         if (this._pendingArrivalUris.has(uri)) return;
@@ -286,7 +312,7 @@ export class DownloadManager {
             try {
                 target.bounce(cfg.bounceHeight,
                     { state: 'attention', decay: cfg.bounceDecay });
-            } catch { }
+            } catch { /* intentionally ignored: stack item bounce or pulse animation failed on disposing item */ }
             this._host.kickEngine?.();
         };
 
@@ -296,14 +322,14 @@ export class DownloadManager {
         }
 
         let pos = null;
-        try { pos = item.get_transformed_position(); } catch { }
+        try { pos = item.get_transformed_position(); } catch { /* intentionally ignored: transformed position lookup failed on unparented item */ }
         if (!pos) {
             bounceOnly(item);
             return;
         }
 
         const size = Math.max(28, Math.round(cfg.iconSize * 0.7));
-        const fallback = Gio.ThemedIcon.new('text-x-generic');
+        const fallback = getCachedThemedIcon('text-x-generic');
 
         const spawn = gicon => {
             const target = live();
@@ -324,7 +350,7 @@ export class DownloadManager {
                 style_class: 'aqua-dl-flyer',
             });
             Main.uiGroup.add_child(flyer);
-            this._flyer = flyer;
+            this._flyers.add(flyer);
             flyer.set_position(ix, iy - FLY_DISTANCE);
             flyer.set_scale(1.6, 1.6);
             flyer.opacity = 0;
@@ -346,8 +372,7 @@ export class DownloadManager {
                         duration: 90,
                         mode: Clutter.AnimationMode.EASE_OUT_QUAD,
                         onComplete: () => {
-                            if (this._flyer === flyer) this._flyer = null;
-                            try { flyer.destroy(); } catch { }
+                            this._destroyFlyer(flyer);
                         },
                     });
 
@@ -358,7 +383,7 @@ export class DownloadManager {
                             const current = live();
                             if (current && animationsEnabled()) bounceOnly(current);
                         });
-                    } catch { }
+                    } catch { /* intentionally ignored: stack item bounce or pulse animation failed on disposing item */ }
                 },
             });
         };
@@ -378,7 +403,7 @@ export class DownloadManager {
 
                     let gicon = null;
                     try { gicon = source.query_info_finish(result)?.get_icon?.(); }
-                    catch { }
+                    catch { /* intentionally ignored: file info or URI query failed on deleted file */ }
                     spawn(gicon);
                 });
         } catch {
@@ -408,15 +433,10 @@ export class DownloadManager {
         this._arrivalQueue.length = 0;
         this._pendingArrivalUris.clear();
         this._timers.removeAll();
-        if (this._flyer) {
-            try {
-                this._flyer.remove_all_transitions();
-                this._flyer.destroy();
-            } catch { }
-            this._flyer = null;
-        }
+        this._destroyAllFlyers();
         this._stack?.destroy();
         this._stack = null;
+        clearIconCaches();
     }
 
     destroy() {

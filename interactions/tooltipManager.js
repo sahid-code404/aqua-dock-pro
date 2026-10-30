@@ -12,7 +12,16 @@ import {
     setupBackgroundCorners,
     getBmsSettings,
 } from '../dock/dockBlur.js';
+import { getAnalyticalIconGeometry } from '../dock/dockLayout.js';
 
+/**
+ * Parses a CSS color string (hex #rgb/#rgba/#rrggbb/#rrggbbaa, rgb(), rgba(), or standard names)
+ * into a normalized 4-element RGBA tuple with float values in [0, 1].
+ *
+ * @param {string|null} str - CSS color string to parse.
+ * @param {number[]} [defaultRgba=[0.125, 0.125, 0.141, 0.92]] - Fallback RGBA tuple.
+ * @returns {number[]} 4-element float tuple [r, g, b, a] where each component is in [0, 1].
+ */
 export function parseCssColor(str, defaultRgba = [0.125, 0.125, 0.141, 0.92]) {
     if (!str || typeof str !== 'string') return defaultRgba;
     const s = str.trim().toLowerCase();
@@ -98,7 +107,7 @@ export class TooltipManager {
                 ct.set_line_wrap?.(false);
                 ct.set_ellipsize?.(0);
                 ct.set_x_align?.(2);
-            } catch { }
+            } catch { /* intentionally ignored: clutter text or styling properties unsupported on disposing actor */ }
         }
         if (typeof this._bubble.set_child === 'function') {
             this._bubble.set_child(this._label);
@@ -179,6 +188,7 @@ export class TooltipManager {
         this._mon = null;
         this._x = NaN;
         this._y = NaN;
+        this._geoScratch = { ix: 0, iy: 0, iw: 0, ih: 0, cx: 0, cy: 0 };
     }
 
     get shown() { return this._shown; }
@@ -196,12 +206,12 @@ export class TooltipManager {
     }
 
     _removeTransitions() {
-        try { this._container?.remove_all_transitions?.(); } catch { }
-        try { this._bubble?.remove_all_transitions?.(); } catch { }
-        try { this._label?.remove_all_transitions?.(); } catch { }
-        try { this._blurRegion?.remove_all_transitions?.(); } catch { }
-        try { this._container?._aquaDockSurface?.background?.remove_all_transitions?.(); } catch { }
-        try { this._container?._aquaDockSurface?.background_group?.remove_all_transitions?.(); } catch { }
+        try { this._container?.remove_all_transitions?.(); } catch { /* intentionally ignored: tooltip actor may already be destroyed or unparented */ }
+        try { this._bubble?.remove_all_transitions?.(); } catch { /* intentionally ignored: tooltip actor may already be destroyed or unparented */ }
+        try { this._label?.remove_all_transitions?.(); } catch { /* intentionally ignored: tooltip actor may already be destroyed or unparented */ }
+        try { this._blurRegion?.remove_all_transitions?.(); } catch { /* intentionally ignored: tooltip actor may already be destroyed or unparented */ }
+        try { this._container?._aquaDockSurface?.background?.remove_all_transitions?.(); } catch { /* intentionally ignored: tooltip actor may already be destroyed or unparented */ }
+        try { this._container?._aquaDockSurface?.background_group?.remove_all_transitions?.(); } catch { /* intentionally ignored: tooltip actor may already be destroyed or unparented */ }
     }
 
     _notifyGeometry(actor) {
@@ -209,16 +219,16 @@ export class TooltipManager {
         const props = ['position', 'size', 'x', 'y', 'width', 'height'];
         for (const prop of props) {
             if (typeof actor.notify === 'function') {
-                try { actor.notify(prop); } catch { }
+                try { actor.notify(prop); } catch { /* intentionally ignored: property notification on disposing actor */ }
             } else if (typeof actor.emit === 'function') {
-                try { actor.emit(`notify::${prop}`); } catch { }
+                try { actor.emit(`notify::${prop}`); } catch { /* intentionally ignored: property notification on disposing actor */ }
             }
         }
     }
 
     _syncGeometry(actor, x, y, w, h) {
         if (!actor) return;
-        try { actor.remove_all_transitions?.(); } catch { }
+        try { actor.remove_all_transitions?.(); } catch { /* intentionally ignored: tooltip actor may already be destroyed or unparented */ }
         if (typeof actor.set_position === 'function') {
             actor.set_position(x, y);
         } else {
@@ -241,8 +251,8 @@ export class TooltipManager {
     }
 
     _calculateDimensions(mon) {
-        try { this._label.set_size?.(-1, -1); } catch { }
-        try { this._bubble.set_size?.(-1, -1); } catch { }
+        try { this._label.set_size?.(-1, -1); } catch { /* intentionally ignored: clutter text or styling properties unsupported on disposing actor */ }
+        try { this._bubble.set_size?.(-1, -1); } catch { /* intentionally ignored: clutter text or styling properties unsupported on disposing actor */ }
 
         let lw = 0, lh = 0;
         if (typeof this._label.get_preferred_width === 'function') {
@@ -279,9 +289,9 @@ export class TooltipManager {
             (typeof this._label?.get_clutter_text === 'function' ? this._label.get_clutter_text() : null);
         if (targetW > maxW) {
             targetW = maxW;
-            try { ct?.set_ellipsize?.(3); } catch { } // PANGO_ELLIPSIZE_END
+            try { ct?.set_ellipsize?.(3); } catch { /* intentionally ignored: clutter text or styling properties unsupported on disposing actor */ } // PANGO_ELLIPSIZE_END
         } else {
-            try { ct?.set_ellipsize?.(0); } catch { } // PANGO_ELLIPSIZE_NONE
+            try { ct?.set_ellipsize?.(0); } catch { /* intentionally ignored: clutter text or styling properties unsupported on disposing actor */ } // PANGO_ELLIPSIZE_NONE
         }
 
         return [Math.round(targetW), Math.round(targetH)];
@@ -344,7 +354,7 @@ export class TooltipManager {
                         this._container?.remove_style_class_name?.(cls);
                         this._blurRegion?.remove_style_class_name?.(cls);
                     }
-                } catch { }
+                } catch { /* intentionally ignored: clutter text or styling properties unsupported on disposing actor */ }
             }
         }
 
@@ -405,7 +415,7 @@ export class TooltipManager {
                 ct.set_line_wrap?.(false);
                 ct.set_ellipsize?.(0);
                 ct.set_x_align?.(2);
-            } catch { }
+            } catch { /* intentionally ignored: clutter text or styling properties unsupported on disposing actor */ }
         }
 
         this._w = null;
@@ -452,12 +462,24 @@ export class TooltipManager {
     position(item, geom) {
         if (!this._shown || !geom) return;
         try {
-            const icon = item?._icon;
-            if (!icon) return;
-            const [ix, iy] = typeof icon.get_transformed_position === 'function'
-                ? icon.get_transformed_position() : [icon.x ?? 0, icon.y ?? 0];
-            const [iw, ih] = typeof icon.get_transformed_size === 'function'
-                ? icon.get_transformed_size() : [icon.width ?? 48, icon.height ?? 48];
+            let ix, iy, iw, ih, cx, cy;
+            const geo = getAnalyticalIconGeometry(item, geom, this._geoScratch);
+            if (geo) {
+                ix = geo.ix; iy = geo.iy; iw = geo.iw; ih = geo.ih;
+                cx = geo.cx; cy = geo.cy;
+            } else {
+                const icon = item?._icon ?? item;
+                if (!icon) return;
+                const pos = typeof icon.get_transformed_position === 'function'
+                    ? icon.get_transformed_position() : [icon.x ?? 0, icon.y ?? 0];
+                const size = typeof icon.get_transformed_size === 'function'
+                    ? icon.get_transformed_size() : [icon.width ?? 48, icon.height ?? 48];
+                ix = pos[0]; iy = pos[1];
+                iw = size[0]; ih = size[1];
+                cx = ix + iw * 0.5;
+                cy = iy + ih * 0.5;
+            }
+
             if (!isFinite(ix) || !isFinite(iy) || iw <= 0 || ih <= 0) {
                 this.hide();
                 return;
@@ -481,8 +503,6 @@ export class TooltipManager {
             if (!bw || !bh) return;
 
             const gap = 8;
-            const cx = ix + iw * 0.5;
-            const cy = iy + ih * 0.5;
 
             let tx, ty;
             if (side === 'bottom') {
@@ -520,8 +540,8 @@ export class TooltipManager {
 
             const surface = this._container._aquaDockSurface;
             if (surface?.background && !surface.is_static) {
-                try { surface.background.remove_all_transitions?.(); } catch { }
-                try { surface.background_group?.remove_all_transitions?.(); } catch { }
+                try { surface.background.remove_all_transitions?.(); } catch { /* intentionally ignored: tooltip actor may already be destroyed or unparented */ }
+                try { surface.background_group?.remove_all_transitions?.(); } catch { /* intentionally ignored: tooltip actor may already be destroyed or unparented */ }
                 if (typeof surface.background.set_position === 'function') {
                     surface.background.set_position(nx, ny);
                 } else {
@@ -557,10 +577,10 @@ export class TooltipManager {
         this._h = null;
         this._x = NaN;
         this._y = NaN;
-        try { this._container.hide(); } catch { }
-        try { this._blurRegion?.hide(); } catch { }
+        try { this._container.hide(); } catch { /* intentionally ignored: tooltip actor may already be hidden or destroyed */ }
+        try { this._blurRegion?.hide(); } catch { /* intentionally ignored: tooltip actor may already be hidden or destroyed */ }
         if (this._container?._aquaDockSurface?.background_group) {
-            try { this._container._aquaDockSurface.background_group.hide(); } catch { }
+            try { this._container._aquaDockSurface.background_group.hide(); } catch { /* intentionally ignored: tooltip actor may already be hidden or destroyed */ }
         }
         this._notifyGeometry(this._container);
         if (this._blurRegion) {
@@ -577,17 +597,17 @@ export class TooltipManager {
         this._removeTransitions();
         this._shown = false;
         this._signals.disconnectAll();
-        if (this._blurActive && this._container) {
+        if (this._container) {
             unregisterBmsTarget(this._container);
-            this._blurActive = false;
         }
+        this._blurActive = false;
         try {
             for (const cls of ['transparent-dash', 'light-dash', 'dark-dash']) {
                 this._bubble?.remove_style_class_name?.(cls);
                 this._container?.remove_style_class_name?.(cls);
                 this._blurRegion?.remove_style_class_name?.(cls);
             }
-        } catch { }
+        } catch { /* intentionally ignored: clutter text or styling properties unsupported on disposing actor */ }
         this._timers.removeAll();
         this._showId = 0;
         this._pendingItem = null;
@@ -597,11 +617,11 @@ export class TooltipManager {
         this._y = NaN;
         this._normalBg = null;
         if (this._blurRegion) {
-            try { this._blurRegion.destroy(); } catch { }
+            try { this._blurRegion.destroy(); } catch { /* intentionally ignored: tooltip container or blur region actor may already be destroyed */ }
             this._blurRegion = null;
         }
         if (this._container) {
-            try { this._container.destroy(); } catch { }
+            try { this._container.destroy(); } catch { /* intentionally ignored: tooltip container or blur region actor may already be destroyed */ }
             this._container = null;
         }
         this._bubble = null;

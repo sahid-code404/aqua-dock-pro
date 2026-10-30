@@ -38,7 +38,7 @@ class IdleSourceGroup {
 
     removeAll() {
         for (const id of this._ids) {
-            try { GLib.source_remove(id); } catch { }
+            try { GLib.source_remove(id); } catch { /* intentionally ignored: timer source may already be removed */ }
         }
         this._ids.clear();
     }
@@ -134,14 +134,39 @@ function mountAction(mount, candidates, action, onDone) {
     return null;
 }
 
+/**
+ * Cancels all active in-flight eject and unmount operations and runs registered cleanup handlers.
+ *
+ * @returns {void}
+ */
 export function cancelMountedDeviceOperations() {
     for (const [cancellable, cleanup] of activeOperations) {
-        try { cancellable.cancel(); } catch { }
-        try { cleanup?.(); } catch { }
+        try { cancellable.cancel(); } catch { /* intentionally ignored: async operation cancellable may already be cancelled */ }
+        try { cleanup?.(); } catch { /* intentionally ignored: unmount cleanup callback failed */ }
     }
     activeOperations.clear();
 }
 
+/**
+ * Cancel pending operations and destroy all cached MountedDeviceStore instances.
+ * Invoked during extension disable or lifecycle reset.
+ */
+export function clearMountedDeviceCache() {
+    cancelMountedDeviceOperations();
+    for (const store of monitorStores.values()) {
+        try { store.destroy(); }
+        catch { /* intentionally ignored: device store may already be disposed */ }
+    }
+    monitorStores.clear();
+}
+
+/**
+ * Initiates an asynchronous safe ejection operation on a mount, trying mount, volume, and drive targets.
+ *
+ * @param {Gio.Mount} mount - The GIO mount to eject.
+ * @param {Function|null} [onDone=null] - Completion callback receiving (error: Error|null).
+ * @returns {Gio.Cancellable|null} Active cancellable token, or null if an operation is already busy.
+ */
 export function ejectMountedDevice(mount, onDone = null) {
     const volume = safely(() => mount?.get_volume());
     const drive = driveForMount(mount);
@@ -159,6 +184,13 @@ export function ejectMountedDevice(mount, onDone = null) {
     return mountAction(mount, candidates, 'eject mounted device', onDone);
 }
 
+/**
+ * Initiates an asynchronous unmount operation on a mount.
+ *
+ * @param {Gio.Mount} mount - The GIO mount to unmount.
+ * @param {Function|null} [onDone=null] - Completion callback receiving (error: Error|null).
+ * @returns {Gio.Cancellable|null} Active cancellable token, or null if mount cannot be unmounted.
+ */
 export function unmountMountedDevice(mount, onDone = null) {
     if (!safely(() => mount?.can_unmount(), false)) return null;
     return mountAction(mount, [
@@ -169,6 +201,12 @@ export function unmountMountedDevice(mount, onDone = null) {
     ], 'unmount mounted device', onDone);
 }
 
+/**
+ * Derives a stable, persistent identifier string for a mount from UUIDs, device paths, or mount URIs.
+ *
+ * @param {Gio.Mount} mount - The GIO mount instance.
+ * @returns {string|null} Stable device identifier string, or null if unresolvable.
+ */
 export function mountedDeviceId(mount) {
     const mountUuid = nonEmpty(safely(() => mount.get_uuid()));
     if (mountUuid) return `mount:${mountUuid}`;
@@ -193,6 +231,12 @@ export function mountedDeviceId(mount) {
     return uri ? `uri:${uri}` : null;
 }
 
+/**
+ * Classifies a mounted device into a device category: 'removable', 'network', or 'fixed'.
+ *
+ * @param {Gio.Mount} mount - The GIO mount instance.
+ * @returns {'removable'|'network'|'fixed'} Device category group name.
+ */
 export function mountedDeviceGroup(mount) {
     const drive = driveForMount(mount);
     const root = safely(() => mount.get_root()) ?? mountLocation(mount);
@@ -208,6 +252,13 @@ export function mountedDeviceGroup(mount) {
     return 'fixed';
 }
 
+/**
+ * Normalizes a raw GIO mount instance into a structured dock item model entry.
+ * Filters out shadowed mounts and internal virtual filesystems.
+ *
+ * @param {Gio.Mount} mount - The GIO mount instance.
+ * @returns {object|null} Normalized entry descriptor object, or null if ignored.
+ */
 export function mountedDeviceEntry(mount) {
     if (!mount || safely(() => mount.is_shadowed(), true)) return null;
 
@@ -266,6 +317,14 @@ function normalizeMountedDeviceEntries(mounts) {
     return entries;
 }
 
+/**
+ * Filters normalized device entries by user category preferences and hidden device sets,
+ * disambiguating multiple partitions on the same physical storage device.
+ *
+ * @param {object[]} normalized - Array of normalized device entry descriptors.
+ * @param {object|null} [config=null] - Configuration object containing category toggles and hidden IDs.
+ * @returns {object[]} Filtered array of ready-to-render device descriptors.
+ */
 export function filterMountedDeviceEntries(normalized, config = null) {
     const hidden = config?.hiddenMountedDevices;
     const hiddenIds = hidden instanceof Set
@@ -292,13 +351,15 @@ export function filterMountedDeviceEntries(normalized, config = null) {
     return entries;
 }
 
+/**
+ * Converts a raw array of GIO mounts into a sorted, filtered, and disambiguated array of dock entries.
+ *
+ * @param {Gio.Mount[]} mounts - Raw GIO mount instances.
+ * @param {object|null} [config=null] - Configuration object.
+ * @returns {object[]} Array of processed device entries.
+ */
 export function buildMountedDeviceEntries(mounts, config = null) {
     return filterMountedDeviceEntries(normalizeMountedDeviceEntries(mounts), config);
-}
-
-export function listMountedDevices(monitor, config = null) {
-    const mounts = safely(() => monitor?.get_mounts(), []);
-    return buildMountedDeviceEntries(mounts, config);
 }
 
 function iconFingerprint(gicon) {
@@ -327,6 +388,13 @@ function sameStoreEntries(previous, next, previousFingerprint, nextFingerprint) 
     return true;
 }
 
+/**
+ * Reconciles newly generated device entries against previously retained entries to preserve object identities.
+ *
+ * @param {object[]} previous - Previously active device entries.
+ * @param {object[]} next - Newly generated device entries.
+ * @returns {object[]} Reconciled entry list with preserved object references.
+ */
 export function reconcileMountedDeviceEntries(previous, next) {
     const previousByKey = new Map(previous.map(entry => [entry.key, entry]));
     return next.map(entry => {
@@ -386,6 +454,7 @@ class MountedDeviceStore {
         this._refreshId = this._timers.addIdle(() => {
             this._refreshId = 0;
             this._refresh();
+            return GLib.SOURCE_REMOVE;
         });
     }
 

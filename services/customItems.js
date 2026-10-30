@@ -10,6 +10,13 @@ function cleanText(value, limit) {
         : '';
 }
 
+/**
+ * Validates and normalizes a custom dock item descriptor object into a standardized schema representation.
+ *
+ * @param {object|null} value - Raw item descriptor object.
+ * @param {string} [fallbackId=''] - Fallback ID if missing from input.
+ * @returns {object|null} Sanitized item descriptor, or null if essential fields are invalid.
+ */
 export function normalizeCustomItem(value, fallbackId = '') {
     if (!value || typeof value !== 'object') return null;
     const type = cleanText(value.type, 16);
@@ -29,6 +36,12 @@ export function normalizeCustomItem(value, fallbackId = '') {
     };
 }
 
+/**
+ * Parses and validates an array of stored custom item records from GSettings.
+ *
+ * @param {Array<string|object>} records - Raw stored string or object records.
+ * @returns {object[]} Array of validated, normalized custom item descriptor objects.
+ */
 export function parseCustomItems(records) {
     if (!Array.isArray(records)) return [];
     const result = [];
@@ -45,6 +58,12 @@ export function parseCustomItems(records) {
     return result;
 }
 
+/**
+ * Serializes an array of custom item descriptor objects into JSON strings for GSettings storage.
+ *
+ * @param {object[]} items - Array of normalized custom item descriptors.
+ * @returns {string[]} Serialized array of JSON strings.
+ */
 export function serializeCustomItems(items) {
     const result = [];
     const ids = new Set();

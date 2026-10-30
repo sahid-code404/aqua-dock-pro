@@ -4,57 +4,130 @@ import { clamp } from '../core/utils.js';
 import { ICON_BOT, BG_PAD_X, DOT_SIZE, SEP_W, SEP_PAD } from '../core/constants.js';
 import { magnificationParams } from '../animation/springSolver.js';
 
-// Parse rgb/rgba/hex and multiply alpha by `factor`; pass through anything else.
+// Caches for memoizing applyAlpha and pillStyle
+const ALPHA_CACHE = new Map();
+const MAX_ALPHA_CACHE = 128;
+
+const PILL_STYLE_CACHE = new Map();
+const MAX_PILL_STYLE_CACHE = 64;
+
+/**
+ * Clear layout style and color memoization caches.
+ * Called on extension disable or configuration reset.
+ */
+export function clearDockLayoutCache() {
+    ALPHA_CACHE.clear();
+    PILL_STYLE_CACHE.clear();
+}
+
+/**
+ * Parses an rgb/rgba or hex color string and multiplies its alpha channel by factor.
+ * Memoized with an LRU cache (up to 128 entries) to eliminate regex evaluation on hover.
+ *
+ * @param {string} colorStr - Color string in hex (#RGB, #RRGGBB, #RRGGBBAA) or rgb()/rgba() syntax.
+ * @param {number} factor - Alpha multiplier factor in [0, 1].
+ * @returns {string} Formatted rgba(r, g, b, a) CSS string, or original string if parsing fails.
+ */
 export function applyAlpha(colorStr, factor) {
     if (!colorStr) return colorStr;
+    const factorNum = Number(factor);
+    const key = `${colorStr}:${Number.isFinite(factorNum) ? factorNum.toFixed(4) : factor}`;
+    const cached = ALPHA_CACHE.get(key);
+    if (cached !== undefined) {
+        ALPHA_CACHE.delete(key);
+        ALPHA_CACHE.set(key, cached);
+        return cached;
+    }
+
+    let result = colorStr;
     const m = colorStr.match(/rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*(?:,\s*([\d.]+))?\s*\)/);
     if (m) {
         const a = (m[4] !== undefined ? parseFloat(m[4]) : 1) * factor;
-        return `rgba(${m[1]}, ${m[2]}, ${m[3]}, ${a.toFixed(3)})`;
-    }
-    const hex = colorStr.match(/^#?([0-9a-f]{3,8})$/i);
-    if (hex) {
-        const h = hex[1];
-        let r, g, b, a = 1;
-        if (h.length === 3) {
-            r = parseInt(h[0] + h[0], 16);
-            g = parseInt(h[1] + h[1], 16);
-            b = parseInt(h[2] + h[2], 16);
-        } else if (h.length === 4) {
-            r = parseInt(h[0] + h[0], 16);
-            g = parseInt(h[1] + h[1], 16);
-            b = parseInt(h[2] + h[2], 16);
-            a = parseInt(h[3] + h[3], 16) / 255;
-        } else if (h.length === 6) {
-            r = parseInt(h.slice(0, 2), 16);
-            g = parseInt(h.slice(2, 4), 16);
-            b = parseInt(h.slice(4, 6), 16);
-        } else if (h.length === 8) {
-            r = parseInt(h.slice(0, 2), 16);
-            g = parseInt(h.slice(2, 4), 16);
-            b = parseInt(h.slice(4, 6), 16);
-            a = parseInt(h.slice(6, 8), 16) / 255;
+        result = `rgba(${m[1]}, ${m[2]}, ${m[3]}, ${a.toFixed(3)})`;
+    } else {
+        const hex = colorStr.match(/^#?([0-9a-f]{3,8})$/i);
+        if (hex) {
+            const h = hex[1];
+            let r, g, b, a = 1;
+            if (h.length === 3) {
+                r = parseInt(h[0] + h[0], 16);
+                g = parseInt(h[1] + h[1], 16);
+                b = parseInt(h[2] + h[2], 16);
+            } else if (h.length === 4) {
+                r = parseInt(h[0] + h[0], 16);
+                g = parseInt(h[1] + h[1], 16);
+                b = parseInt(h[2] + h[2], 16);
+                a = parseInt(h[3] + h[3], 16) / 255;
+            } else if (h.length === 6) {
+                r = parseInt(h.slice(0, 2), 16);
+                g = parseInt(h.slice(2, 4), 16);
+                b = parseInt(h.slice(4, 6), 16);
+            } else if (h.length === 8) {
+                r = parseInt(h.slice(0, 2), 16);
+                g = parseInt(h.slice(2, 4), 16);
+                b = parseInt(h.slice(4, 6), 16);
+                a = parseInt(h.slice(6, 8), 16) / 255;
+            }
+            if (r !== undefined) {
+                result = `rgba(${r}, ${g}, ${b}, ${(a * factor).toFixed(3)})`;
+            }
         }
-        if (r !== undefined) {
-            return `rgba(${r}, ${g}, ${b}, ${(a * factor).toFixed(3)})`;
-        }
     }
-    return colorStr;
+
+    if (ALPHA_CACHE.size >= MAX_ALPHA_CACHE) {
+        const oldest = ALPHA_CACHE.keys().next().value;
+        ALPHA_CACHE.delete(oldest);
+    }
+    ALPHA_CACHE.set(key, result);
+    return result;
 }
 
-// The cached CSS for the background pill.
+/**
+ * Constructs an inline CSS style string for the dock pill background and border.
+ * Memoized with an LRU cache (up to 64 entries) to avoid template string concatenation during motion.
+ *
+ * @param {object} cfg - Layout configuration snapshot.
+ * @param {boolean} [isTransparent=false] - If true, forces transparent background for Blur My Shell.
+ * @returns {string} Inline CSS style string for the dock pill.
+ */
 export function pillStyle(cfg, isTransparent = false) {
+    const radius = cfg.dockRadius ?? 16;
     const bw = cfg.highContrast ? Math.max(2, cfg.borderWidth ?? 1) : (cfg.borderWidth ?? 1);
     const bc = cfg.highContrast ? '#ffffff' : (cfg.borderColor ?? 'rgba(255,255,255,0.16)');
+    const hc = Boolean(cfg.highContrast);
+    const pillColor = cfg.pillColor ?? 'rgba(28,28,32,0.78)';
+    const bgOpacity = clamp(cfg.bgOpacity ?? 0.78, 0.1, 1.0);
+    const trans = Boolean(isTransparent);
+
+    const key = `${radius}:${bw}:${bc}:${hc}:${pillColor}:${bgOpacity.toFixed(3)}:${trans}`;
+    const cached = PILL_STYLE_CACHE.get(key);
+    if (cached !== undefined) {
+        PILL_STYLE_CACHE.delete(key);
+        PILL_STYLE_CACHE.set(key, cached);
+        return cached;
+    }
+
     const border = bw > 0 ? `${bw}px solid ${bc}` : 'none';
-    const fill = cfg.highContrast ? 'rgba(0,0,0,0.96)'
-        : (isTransparent ? 'transparent' : applyAlpha(cfg.pillColor ?? 'rgba(28,28,32,0.78)', clamp(cfg.bgOpacity ?? 0.78, 0.1, 1.0)));
-    return `border-radius: ${cfg.dockRadius}px; border: ${border}; background-color: ${fill};`;
+    const fill = hc ? 'rgba(0,0,0,0.96)'
+        : (trans ? 'transparent' : applyAlpha(pillColor, bgOpacity));
+    const result = `border-radius: ${radius}px; border: ${border}; background-color: ${fill};`;
+
+    if (PILL_STYLE_CACHE.size >= MAX_PILL_STYLE_CACHE) {
+        const oldest = PILL_STYLE_CACHE.keys().next().value;
+        PILL_STYLE_CACHE.delete(oldest);
+    }
+    PILL_STYLE_CACHE.set(key, result);
+    return result;
 }
 
-// Pixels by which a transformed icon extends beyond the dock pill. The icon is
-// anchored at the screen-facing edge, so only its scale growth and hover lift
-// move outward; `restInset` is the breathing room already inside the pill.
+/**
+ * Calculates the required pixel overflow headroom outside the resting dock bounds
+ * to prevent magnified icons from being clipped by stage boundaries.
+ *
+ * @param {number} magZone - Base magnification zone thickness in pixels.
+ * @param {number} scale - Peak magnification scale factor.
+ * @returns {number} Required overflow headroom in pixels.
+ */
 export function magnifiedOverflow(magZone, scale) {
     const growth = Math.max(0, scale - 1) * magZone.growthPerScale;
     const overflow = Math.ceil(growth - magZone.restInset);
@@ -62,10 +135,14 @@ export function magnifiedOverflow(magZone, scale) {
     return overflow + (magZone.hoverReach ?? 0);
 }
 
-// Running-indicator geometry is shared with DockItem but kept pure so the
-// auto-shrink path can be regression-tested without starting GNOME Shell. A
-// dock that is not screen-fit shrunk deliberately returns the historical
-// sizes, gaps and glow layers byte-for-byte.
+/**
+ * Computes pixel geometry, spacing, and glow padding for running window indicator marks.
+ * Scales dynamically when dock auto-shrink-to-fit compression is active.
+ *
+ * @param {object} cfg - Layout configuration snapshot.
+ * @param {number} [count=1] - Number of open windows for the application.
+ * @returns {{ responsive: boolean, scale: number, width: number, height: number, spacing: number, gap: number, glowPads: number[], outerPad: number, indicW: number, indicH: number, paintW: number, paintH: number }} Computed indicator metrics.
+ */
 export function indicatorMetrics(cfg, count = 1) {
     const style = cfg.indicatorStyle ?? 'dot';
     const vertical = !!cfg.vertical;
@@ -164,9 +241,16 @@ export function indicatorMetrics(cfg, count = 1) {
     return smallest;
 }
 
-// Position an indicator core. Halo bounds are represented by outerPad. The
-// legacy branch intentionally mirrors DockItem's old coordinates; containment
-// clamps apply only while screen-fit shrinking is active.
+/**
+ * Computes stage coordinates for an application running indicator relative to its resting icon rect.
+ * Ensures indicators stay centered along the dock edge and within pill padding.
+ *
+ * @param {object} cfg - Layout configuration snapshot.
+ * @param {object} metrics - Indicator geometry metrics from {@link indicatorMetrics}.
+ * @param {{ x: number, y: number, w: number, h: number }|null} restRect - Resting icon bounds.
+ * @param {number} [containerHeadroom=0] - Additional container headroom offset.
+ * @returns {{ x: number, y: number }} Clamped stage coordinates for the indicator.
+ */
 export function indicatorPosition(cfg, metrics, restRect, containerHeadroom = 0) {
     const iw = metrics.indicW;
     const ih = metrics.indicH;
@@ -290,8 +374,16 @@ function applyAutoShrink(base, chips, monitor) {
     return c;
 }
 
-// Main entry. Returns { cfg, geom }. The geom holds every rect the controller
-// applies to actors; chip records are annotated with baseX/w/box/itemPos.
+/**
+ * Master dock layout engine. Calculates actor geometry, chip positions, floating coordinates,
+ * and auto-shrink compression factors for the dock on a given physical monitor.
+ *
+ * @param {object} base - Base configuration object from SettingsManager.
+ * @param {Array<object>} chips - Array of dock item chips representing applications and widgets.
+ * @param {object} monitor - Monitor geometry rect { x, y, width, height }.
+ * @param {boolean} [monitorFullscreen=false] - Whether a fullscreen window is active on the monitor.
+ * @returns {{ cfg: object, geom: object }} Layout configuration and actor geometry specifications.
+ */
 export function computeLayout(base, chips, monitor, monitorFullscreen = false) {
     const cfg = applyAutoShrink(base, chips, monitor);
     cfg.mag = magnificationParams(cfg);
@@ -477,4 +569,66 @@ export function computeLayout(base, chips, monitor, monitorFullscreen = false) {
         },
     };
     return { cfg, geom };
+}
+
+/**
+ * Compute the on-stage transformed bounding box and center of a DockItem icon
+ * analytically without traversing the Clutter scene graph transform matrix hierarchy.
+ *
+ * @param {object} item - DockItem actor instance
+ * @param {object} geom - Dock geometry from computeLayout
+ * @param {object|null} [scratch=null] - Optional reusable object { ix, iy, iw, ih, cx, cy }
+ * @returns {object|null} Transformed geometry { ix, iy, iw, ih, cx, cy } or null if unavailable
+ */
+export function getAnalyticalIconGeometry(item, geom, scratch = null) {
+    if (!item || !geom) return null;
+    const rest = item._restRect;
+    if (!rest) return null;
+
+    const chip = item._chip;
+    const transProp = geom.vert ? 'translation_y' : 'translation_x';
+    const spread = (chip && Number.isFinite(chip.spreadOffset))
+        ? chip.spreadOffset
+        : (item[transProp] ?? 0);
+    const baseX = chip?.baseX ?? (geom.vert ? (item.y ?? 0) : (item.x ?? 0));
+    const lift = item._iconLift ?? 0;
+    const scale = item.scaleCurrent ?? 1;
+
+    const iw = rest.w * scale;
+    const ih = rest.h * scale;
+
+    const vert = Boolean(geom.vert);
+    const side = geom.side || (vert ? 'left' : 'bottom');
+
+    let ix, iy, cx, cy;
+    if (!vert) {
+        // Bottom dock: pivot is (0.5, 1.0)
+        cx = geom.x + baseX + spread + rest.x + rest.w * 0.5;
+        ix = cx - iw * 0.5;
+        iy = geom.y + rest.y + rest.h + lift - ih;
+        cy = iy + ih * 0.5;
+    } else if (side === 'left') {
+        // Left dock: pivot is (0.0, 0.5)
+        ix = geom.x + rest.x + lift;
+        cx = ix + iw * 0.5;
+        cy = geom.y + baseX + spread + rest.y + rest.h * 0.5;
+        iy = cy - ih * 0.5;
+    } else {
+        // Right dock: pivot is (1.0, 0.5)
+        ix = geom.x + rest.x + rest.w + lift - iw;
+        cx = ix + iw * 0.5;
+        cy = geom.y + baseX + spread + rest.y + rest.h * 0.5;
+        iy = cy - ih * 0.5;
+    }
+
+    if (scratch) {
+        scratch.ix = ix;
+        scratch.iy = iy;
+        scratch.iw = iw;
+        scratch.ih = ih;
+        scratch.cx = cx;
+        scratch.cy = cy;
+        return scratch;
+    }
+    return { ix, iy, iw, ih, cx, cy };
 }

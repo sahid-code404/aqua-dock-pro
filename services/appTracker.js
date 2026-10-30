@@ -53,7 +53,7 @@ class AppStateHub {
         }
         if (this._iconCache.has(id)) return this._iconCache.get(id);
         let icon = null;
-        try { icon = app.get_icon(); } catch { }
+        try { icon = app.get_icon(); } catch { /* intentionally ignored: app icon query failed on unmanaged app */ }
         // A transient Shell lookup failure should not poison the shared cache
         // for the rest of the session. Successful icons remain stable until the
         // desktop-file set changes.
@@ -159,7 +159,7 @@ class AppStateHub {
             }));
         } catch {
             for (const id of ids) {
-                try { window.disconnect(id); } catch { }
+                try { window.disconnect(id); } catch { /* intentionally ignored: signal handler may already be disconnected */ }
             }
             return;
         }
@@ -171,7 +171,7 @@ class AppStateHub {
         if (!ids) return;
         this._windowSignals.delete(window);
         for (const id of ids) {
-            try { window.disconnect(id); } catch { }
+            try { window.disconnect(id); } catch { /* intentionally ignored: signal handler may already be disconnected */ }
         }
     }
 
@@ -211,15 +211,15 @@ class AppStateHub {
     destroy() {
         this._optionalSignals.disconnectAll();
         if (this._favoriteChangedId) {
-            try { this._favorites?.disconnect(this._favoriteChangedId); } catch { }
+            try { this._favorites?.disconnect(this._favoriteChangedId); } catch { /* intentionally ignored: signal handler may already be disconnected */ }
             this._favoriteChangedId = 0;
         }
         if (this._installedChangedId) {
-            try { this._appSystem?.disconnect(this._installedChangedId); } catch { }
+            try { this._appSystem?.disconnect(this._installedChangedId); } catch { /* intentionally ignored: signal handler may already be disconnected */ }
             this._installedChangedId = 0;
         }
         if (this._appStateChangedId) {
-            try { this._appSystem?.disconnect(this._appStateChangedId); } catch { }
+            try { this._appSystem?.disconnect(this._appStateChangedId); } catch { /* intentionally ignored: signal handler may already be disconnected */ }
             this._appStateChangedId = 0;
         }
         this._clearWindowSignals();
@@ -259,6 +259,24 @@ function releaseLocations(resolver, unsubscribe) {
     if (sharedLocationUsers !== 0) return;
     resolver.destroy();
     sharedLocations = null;
+}
+
+/**
+ * Destroy shared AppStateHub and LocationResolver singletons and reset user counts.
+ * Invoked during extension disable or lifecycle reset.
+ */
+export function clearAppTrackerCache() {
+    if (sharedAppState) {
+        try { sharedAppState.destroy(); }
+        catch { /* intentionally ignored: shared app state or location store may already be destroyed */ }
+        sharedAppState = null;
+    }
+    if (sharedLocations) {
+        try { sharedLocations.destroy(); }
+        catch { /* intentionally ignored: shared app state or location store may already be destroyed */ }
+        sharedLocations = null;
+    }
+    sharedLocationUsers = 0;
 }
 
 export class AppTracker {
@@ -342,7 +360,7 @@ export class AppTracker {
         let activeWorkspace;
         if (cfg.isolateWS) {
             try { activeWorkspace = global.workspace_manager.get_active_workspace(); }
-            catch { }
+            catch { /* intentionally ignored: active workspace query failed during session transition */ }
         }
 
         const runningExtra = [];
@@ -396,7 +414,7 @@ export class AppTracker {
                     uri: cfg.customFolderUri,
                     gicon: resolved.gicon,
                 });
-            } catch { }
+            } catch { /* intentionally ignored: custom folder URI query failed for invalid URI */ }
         }
 
         if (cfg.showCustomDockItems) {

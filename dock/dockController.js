@@ -1,7 +1,12 @@
 // Main dock controller wiring layout, signals, input handling, and services.
 
+/* ============================================================================
+ * SECTION 1: IMPORTS & STATE
+ * Subsystem imports, constructor wiring, and monitor geometry accessors.
+ * ============================================================================ */
 import Clutter from 'gi://Clutter';
 import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import { SignalGroup, TimeoutGroup, appWindowsForConfig, logError, log } from '../core/utils.js';
@@ -201,12 +206,13 @@ export class DockController {
         this._lastTooltipTrans = NaN;
         this._engine.setFrameHook(() => {
             if (this._tooltip.shown && this._hoverItem) {
-                // Reposition when the icon's scale or horizontal spread changed — avoids
-                // expensive get_transformed_position/Size on non-moving frames.
+                // Reposition when the icon's scale or spread changed — reads chip.spreadOffset
+                // directly to avoid C GObject property introspection.
                 const sc = this._hoverItem.scaleCurrent;
-                const trans = this._geom?.vert
-                    ? (this._hoverItem.translation_y ?? 0)
-                    : (this._hoverItem.translation_x ?? 0);
+                const chip = this._hoverItem._chip;
+                const trans = (chip && Number.isFinite(chip.spreadOffset))
+                    ? chip.spreadOffset
+                    : (this._geom?.vert ? (this._hoverItem.translation_y ?? 0) : (this._hoverItem.translation_x ?? 0));
                 if (sc !== this._lastTooltipScale || trans !== this._lastTooltipTrans) {
                     this._lastTooltipScale = sc;
                     this._lastTooltipTrans = trans;
@@ -240,6 +246,12 @@ export class DockController {
 
     get monitorIndex() { return this._monitorIndex; }
     get keyboardFocusActive() { return Boolean(this._focusItem); }
+
+/* ============================================================================
+ * SECTION 2: DOCK ITEM MANAGEMENT
+ * Dash management, item creation, busy state checks, and keyboard focus traversal.
+ * ============================================================================ */
+
 
     enableDashManagement() {
         if (this._manageDash || !this._chrome) return;
@@ -311,7 +323,7 @@ export class DockController {
             if (focused === focusItem ||
                 (focused && this._factory?.items.includes(focused)))
                 global.stage.set_key_focus(null);
-        } catch { }
+        } catch { /* intentionally ignored: stage key focus query failed during focus transition */ }
 
         if (!this._menu?.active) this._engine?.setHeldItem(null);
         if (!this._pointerInContainer && !this._pointerInMag && !this._pointerInEdge) {
@@ -340,13 +352,13 @@ export class DockController {
         this._focusLeaveId = this._timers.addIdle(() => {
             this._focusLeaveId = 0;
             const focused = global.stage.get_key_focus?.();
-            if (focused && this._factory?.items.includes(focused)) return false;
+            if (focused && this._factory?.items.includes(focused)) return GLib.SOURCE_REMOVE;
             this._focusItem = null;
             this._disableFocusPointerExit();
             if (!this._menu?.active) this._engine?.setHeldItem(null);
             this._endHover();
             this._autohide?.onDockLeft();
-            return false;
+            return GLib.SOURCE_REMOVE;
         });
     }
 
@@ -394,6 +406,12 @@ export class DockController {
         items[next]?.grab_key_focus();
         return Clutter.EVENT_STOP;
     }
+
+/* ============================================================================
+ * SECTION 3: SIGNAL WIRING & SHELL STATE
+ * Signal connections, notification subscriptions, and throttled item refreshes.
+ * ============================================================================ */
+
 
     _connectSignals() {
         const s = this._signals;
@@ -496,7 +514,7 @@ export class DockController {
         let activeWorkspace;
         if (this._cfg.isolateWS) {
             try { activeWorkspace = global.workspace_manager.get_active_workspace(); }
-            catch { }
+            catch { /* intentionally ignored: active workspace unavailable during session transition */ }
         }
         for (const item of this._factory.items) {
             if (item.entry.kind !== 'app') continue;
@@ -518,6 +536,12 @@ export class DockController {
         });
     }
 
+/* ============================================================================
+ * SECTION 4: VISIBILITY & AUTOHIDE COORDINATION
+ * Relayout passes, auto-shrink calculations, and dynamic GSettings synchronization.
+ * ============================================================================ */
+
+
     relayout() {
         const mon = this._getMonitor();
         if (!mon) return;
@@ -538,6 +562,7 @@ export class DockController {
 
         for (const chip of this._factory.chips) {
             if (chip.item) {
+                chip.item._chip = chip;
                 chip.actor.set_position(chip.itemPos.x, chip.itemPos.y);
                 chip.item.relayout(cfg, 0);
             } else if (chip.box) {
@@ -655,19 +680,22 @@ export class DockController {
         }
     }
 
-    // ── Pointer ─────────────────────────────────────────────────────────────
+/* ============================================================================
+ * SECTION 5: HOVER & POINTER TRACKING
+ * Motion event handling, magnification physics, item picking, drag, and scrolling.
+ * ============================================================================ */
     _enableFocusPointerExit() {
         if (this._stageCaptureId) return;
         try {
             this._stageCaptureId = global.stage.connect(
                 'captured-event', (_stage, ev) => this._onStageCaptured(ev));
-        } catch { }
+        } catch { /* intentionally ignored: stage event capture listener may already be disconnected */ }
     }
 
     _disableFocusPointerExit() {
         if (!this._stageCaptureId) return;
         try { global.stage.disconnect(this._stageCaptureId); }
-        catch { }
+        catch { /* intentionally ignored: stage event capture listener may already be disconnected */ }
         this._stageCaptureId = 0;
     }
 
@@ -751,7 +779,7 @@ export class DockController {
         if (button !== 1 && button !== 2 && button !== 3)
             return Clutter.EVENT_PROPAGATE;
         if (button === 3 && this._downloads?.stackOpen) {
-            try { this._downloads.closeStack(); } catch { }
+            try { this._downloads.closeStack(); } catch { /* intentionally ignored: downloads stack may already be closed or destroyed */ }
         }
         const item = this._pickItemRedirected(sx, sy);
         if (!item) return Clutter.EVENT_PROPAGATE;
@@ -819,13 +847,23 @@ export class DockController {
     _pickItem(stageX, stageY) {
         const geom = this._geom;
         if (!geom) return null;
-        let p;
-        try { p = this._chrome.container.transform_stage_point(stageX, stageY); }
-        catch { return null; }
-        if (!p?.[0]) return null;
-        const vert = geom.vert;
-        const main = vert ? p[2] : p[1];
-        const cross = vert ? p[1] : p[2];
+        const cx = this._chrome.container?.x ?? geom.x;
+        const cy = this._chrome.container?.y ?? geom.y;
+        let main, cross;
+        if (typeof cx === 'number' && typeof cy === 'number' &&
+            Number.isFinite(cx) && Number.isFinite(cy)) {
+            const lx = stageX - cx;
+            const ly = stageY - cy;
+            main = geom.vert ? ly : lx;
+            cross = geom.vert ? lx : ly;
+        } else {
+            let p;
+            try { p = this._chrome.container.transform_stage_point(stageX, stageY); }
+            catch { return null; }
+            if (!p?.[0]) return null;
+            main = geom.vert ? p[2] : p[1];
+            cross = geom.vert ? p[1] : p[2];
+        }
         const pickLow = geom.pick.low, pickHigh = geom.pick.high;
         if (cross < pickLow || cross > pickHigh) return null;
         const chips = this._factory.chips;
@@ -876,7 +914,7 @@ export class DockController {
         if (button !== 1 && button !== 2 && button !== 3)
             return Clutter.EVENT_PROPAGATE;
         if (button === 3 && this._downloads?.stackOpen) {
-            try { this._downloads.closeStack(); } catch { }
+            try { this._downloads.closeStack(); } catch { /* intentionally ignored: downloads stack may already be closed or destroyed */ }
         }
         const item = this._pickItemRedirected(sx, sy);
         if (!item) return Clutter.EVENT_PROPAGATE;
@@ -902,7 +940,7 @@ export class DockController {
     _handleButton(type, button, sx, sy, item) {
         if (type === Clutter.EventType.BUTTON_PRESS) {
             if (this._downloads?.stackOpen && (!item || button === 3)) {
-                try { this._downloads.closeStack(); } catch { }
+                try { this._downloads.closeStack(); } catch { /* intentionally ignored: downloads stack may already be closed or destroyed */ }
             }
             this._press = item ? { item, sx, sy, button } : null;
             return item ? Clutter.EVENT_STOP : Clutter.EVENT_PROPAGATE;
@@ -944,7 +982,7 @@ export class DockController {
     _dispatch(item, button) {
         if (button === 3) {
             if (this._downloads?.stackOpen) {
-                try { this._downloads.closeStack(); } catch { }
+                try { this._downloads.closeStack(); } catch { /* intentionally ignored: downloads stack may already be closed or destroyed */ }
             }
             this._tooltip?.hide();
             this._preview?.hide(true);
@@ -972,7 +1010,7 @@ export class DockController {
             return;
         }
         if (this._downloads?.stackOpen) {
-            try { this._downloads.closeStack(); } catch { }
+            try { this._downloads.closeStack(); } catch { /* intentionally ignored: downloads stack may already be closed or destroyed */ }
         }
         if (button === 3) {
             try { this._menu.openFor(item); }
@@ -1006,16 +1044,19 @@ export class DockController {
         }
         if (dir === Clutter.ScrollDirection.DOWN) {
             const t = global.get_current_time();
-            for (const w of wins) { try { w.unminimize(); w.activate(t); } catch { } }
+            for (const w of wins) { try { w.unminimize(); w.activate(t); } catch { /* intentionally ignored: window activation or minimization failed for unmanaged window */ } }
         } else if (dir === Clutter.ScrollDirection.UP) {
-            for (const w of wins) { try { w.minimize(); } catch { } }
+            for (const w of wins) { try { w.minimize(); } catch { /* intentionally ignored: window activation or minimization failed for unmanaged window */ } }
         } else {
             return Clutter.EVENT_PROPAGATE;
         }
         return Clutter.EVENT_STOP;
     }
 
-    // ── Teardown ────────────────────────────────────────────────────────────
+/* ============================================================================
+ * SECTION 6: TEARDOWN & DESTROY
+ * Complete resource teardown, timer cancellation, and subsystem destruction.
+ * ============================================================================ */
     destroy() {
         // Cancel coalesced timers first so no new work can be queued while
         // subsystems are being released.
@@ -1034,7 +1075,7 @@ export class DockController {
         this._focusItem = null;
         this._disableFocusPointerExit();
         this._signals.disconnectAll();
-        try { setDropDelegate(this._chrome?.container, null); } catch { }
+        try { setDropDelegate(this._chrome?.container, null); } catch { /* intentionally ignored: drop delegate may already be cleared or container destroyed */ }
 
         // A destructor should normally never throw, but teardown must remain
         // complete even if one subsystem encounters a stale Shell actor/object.

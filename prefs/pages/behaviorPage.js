@@ -4,6 +4,14 @@ import { page, group, spinRow, switchRow, comboRow, shortcutRow, toggleExpander 
     from '../widgets/rows.js';
 import { _ } from '../../core/i18n.js';
 
+/**
+ * Constructs and adds the Behavior preferences page to the preferences window.
+ * Configures auto-hide modes, edge dwell/reveal pressure, and window click actions.
+ *
+ * @param {Adw.PreferencesWindow} window - Target preferences window.
+ * @param {Gio.Settings} s - Extension GSettings instance.
+ * @returns {void}
+ */
 export function buildBehaviorPage(window, s) {
     const p = page(_('Behavior'), 'preferences-system-symbolic');
     window.add(p);

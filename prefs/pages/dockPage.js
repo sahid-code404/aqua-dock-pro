@@ -13,6 +13,14 @@ import {
 } from '../widgets/rows.js';
 import { _ } from '../../core/i18n.js';
 
+/**
+ * Constructs and adds the Dock layout and appearance preferences page to the preferences window.
+ * Configures position, alignment, icon size, pill thickness, and corner radius.
+ *
+ * @param {Adw.PreferencesWindow} window - Target preferences window.
+ * @param {Gio.Settings} s - Extension GSettings instance.
+ * @returns {void}
+ */
 export function buildDockPage(window, s) {
     const p = page(_('Dock'), 'view-grid-symbolic');
     window.add(p);

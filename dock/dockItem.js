@@ -145,7 +145,7 @@ class DockItem extends St.Widget {
             this._bounce?.destroy();
             this._bounce = null;
             if (this._stackAnchor) {
-                try { unregisterBmsTarget(this._stackAnchor); } catch { }
+                try { unregisterBmsTarget(this._stackAnchor); } catch { /* intentionally ignored: stack anchor may already be unregistered from BMS */ }
             }
             this._stackAnchor?.remove_all_transitions();
             this._stackAnchor?.destroy();
@@ -243,7 +243,7 @@ class DockItem extends St.Widget {
                 if (this._stackAnchor) {
                     this._stackAnchor.opacity = 0;
                     this._stackAnchor.hide();
-                    try { unregisterBmsTarget(this._stackAnchor); } catch { }
+                    try { unregisterBmsTarget(this._stackAnchor); } catch { /* intentionally ignored: stack anchor may already be unregistered from BMS */ }
                 }
                 const targetPeakOpacity = this._usingPeakTier ? 255 : 0;
                 const targetRestOpacity = this._usingPeakTier ? 0 : 255;
@@ -257,7 +257,7 @@ class DockItem extends St.Widget {
                 mode: Clutter.AnimationMode.EASE_OUT_QUAD,
                 onComplete: () => {
                     this._stackAnchor?.hide();
-                    try { unregisterBmsTarget(this._stackAnchor); } catch { }
+                    try { unregisterBmsTarget(this._stackAnchor); } catch { /* intentionally ignored: stack anchor may already be unregistered from BMS */ }
                 },
             });
             const targetPeakOpacity = this._usingPeakTier ? 255 : 0;
@@ -390,9 +390,10 @@ class DockItem extends St.Widget {
         this._baseIconSize = restSize;
 
         // Preserve current magnification lift through relayout (no 1-frame drop).
-        this._icon.set_scale(this.scaleCurrent, this.scaleCurrent);
+        const fScale = Math.fround(this.scaleCurrent);
+        this._icon.set_scale(fScale, fScale);
         this._syncTextureTier(this.scaleCurrent, true);
-        const lift = this._baseLift();
+        const lift = Math.fround(this._baseLift());
         this._icon.translation_x = vert ? lift : 0;
         this._icon.translation_y = vert ? 0 : lift;
         this._iconLift = lift;
@@ -620,8 +621,9 @@ class DockItem extends St.Widget {
         this.scaleCurrent = scale;
         if (this._bounce?.active || this._pulsing) return;
         this._syncTextureTier(scale);
-        this._icon.set_scale(scale, scale);
-        const lift = this._baseLift();
+        const fScale = Math.fround(scale);
+        this._icon.set_scale(fScale, fScale);
+        const lift = Math.fround(this._baseLift());
         this._icon[this._liftProp] = lift;
         this._iconLift = lift;
         if (this._badge?.visible) this._positionBadge();
@@ -689,7 +691,7 @@ class DockItem extends St.Widget {
 
     settleMotion() {
         if (!this._icon || this._dragging) return;
-        try { this._icon.remove_all_transitions(); } catch { }
+        try { this._icon.remove_all_transitions(); } catch { /* intentionally ignored: icon actor may already be destroyed or unparented */ }
         this._bounce?.cancel();
         this._landing = false;
         this._landingScale = null;
@@ -711,8 +713,9 @@ class DockItem extends St.Widget {
             this._syncTextureTier(this.scaleCurrent, true);
         }
         this._icon.opacity = 255;
-        this._icon.set_scale(this.scaleCurrent, this.scaleCurrent);
-        const lift = this._baseLift();
+        const fScale = Math.fround(this.scaleCurrent);
+        this._icon.set_scale(fScale, fScale);
+        const lift = Math.fround(this._baseLift());
         this._icon.translation_x = this._vert ? lift : 0;
         this._icon.translation_y = this._vert ? 0 : lift;
         this._iconLift = lift;

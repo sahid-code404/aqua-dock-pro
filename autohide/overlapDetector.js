@@ -104,13 +104,13 @@ export class OverlapDetector {
                 this);
             this._tracked.add(win);
         } catch {
-            try { win.disconnectObject(this); } catch { }
+            try { win.disconnectObject(this); } catch { /* intentionally ignored: window signal handler may already be disconnected */ }
         }
     }
 
     _untrack(win) {
         if (!win || !this._tracked.delete(win)) return;
-        try { win.disconnectObject(this); } catch { }
+        try { win.disconnectObject(this); } catch { /* intentionally ignored: window signal handler may already be disconnected */ }
     }
 
     clear() {

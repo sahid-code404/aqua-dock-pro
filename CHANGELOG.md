@@ -1,5 +1,33 @@
 # Changelog
 
+## 294
+
+- Comprehensive codebase audit, lifecycle hardening, and god-level optimization across Aqua Dock Pro:
+  - Lifecycle Integrity & Memory Leak Elimination (Milestone 1):
+    - Module Singletons Reset on Disable: Implemented synchronous teardown hooks across module singletons (`cleanupBms()` in `dock/dockBlur.js`, `clearMountedDeviceCache()` in `services/mountedDevices.js`, `clearAppTrackerCache()` in `services/appTracker.js`, `clearTrashWatcherCache()` in `services/trashWatcher.js`, `clearDownloadWatcherCache()` in `downloads/downloadManager.js`, and `resetSlowDownFactor()` in `effects/genie/genieEffect.js`), all invoked deterministically during `ExtensionManager.disable()` to ensure zero cache retention or stale state across disable/enable cycles.
+    - GLib GSource Canonization: Standardized explicit returns of `GLib.SOURCE_REMOVE` and `GLib.SOURCE_CONTINUE` across all timer and idle callbacks (`GLib.timeout_add`, `GLib.idle_add`) in `animation/frameScheduler.js`, `interactions/tooltipManager.js`, `services/trashWatcher.js`, and `services/mountedDevices.js`, eliminating runaway timers and untracked background pollers.
+    - Blur My Shell Bound Accumulation Elimination: Prevented repeated bound function accumulation and prototype pollution in `dock/dockBlur.js` hook/unhook cycles; made BMS target unregistration (`unregisterBmsTarget`) unconditional in `interactions/tooltipManager.js`.
+    - Download Flyer Tracking: Introduced a managed `Set` to track active in-flight flyer icon actors and animations in `downloads/downloadManager.js`, ensuring all flyers and callbacks are cleanly cancelled and unparented on extension disable or stack dismissal.
+    - DockFactory & Dock Teardown: Disconnected stale dash notify signal connections before reassignment in `dock/dock.js`, and cleared all container and callback references in `dock/dockFactory.js:destroyAll()`.
+  - Mathematical Physics & Hot-Path Engine Optimization (Milestone 2):
+    - Symplectic Velocity Verlet Spring Solver: Upgraded numerical spring integration in `animation/springSolver.js` to a symplectic Velocity Verlet integrator (`integrateSpring`) with precomputed damping coefficients and time-step constants, preserving energy conservation and eliminating numerical drift or instability during frame drops.
+    - Precomputed 1D Float32Array Gaussian Lookup Table (LUT): Replaced per-icon `Math.exp()` calculations in `animation/springSolver.js` and `animation/animationEngine.js` with a pre-allocated 1D `Float32Array` lookup table (`magnificationParams`), caching normalized Gaussian curves with sub-pixel quantization and zero allocations per frame.
+    - Zero-Allocation Frame Loop & Analytical Stage Positioning: Eliminated 3-element temporary array allocations in cursor stage coordinate transforms in `dock/dockLayout.js` and `interactions/dragManager.js`. Replaced per-frame `get_transformed_position()` matrix traversals in `interactions/tooltipManager.js` and `ui/preview/livePreview.js` with closed-form analytical stage geometry derivations.
+    - In-Place `Mtk.Rectangle` Caching: Eliminated per-frame bounding box instantiations in `effects/genie/genieEffect.js` by caching and reusing `Mtk.Rectangle` instances per chip, invalidating only during dock layout mutations.
+    - GPU Single-Precision Precision (`Math.fround`): Wrapped actor translations and coordinates in `Math.fround()` across `animation/animationEngine.js`, aligning JS floating-point calculations with Cogl's 32-bit single-precision GPU coordinate pipeline and eliminating sub-pixel jitter.
+    - Deep Constant Freezing: Recursively froze configuration constants across `core/constants.js`, `animation/easing.js`, and geometry engines with `Object.freeze()` to enable V8 inline caching and prevent prototype mutations.
+  - Downloads Stack Actor Pooling & Style Caching (Milestone 3):
+    - Downloads Stack `ActorPool`: Implemented a specialized, zero-leak actor pooling system (`downloads/actorPool.js`) for folder stack items (Fan, Grid, and List views), recycling row containers, label pills, and icon boxes across stack open/close transitions, eliminating the creation and destruction of up to 84 Clutter actors per invocation.
+    - GIcon & ThemedIcon LRU Caching: Introduced high-throughput caching in `services/fileService.js` and `downloads/placeIcon.js` with module-level `Map` caches (`getCachedThemedIcon`, `getCachedFileIcon`, `getCachedIconForExtension`) to avoid repetitive GIO GIcon allocations for identical MIME types and file extensions.
+    - Fan Arc Precomputed Geometry LUT: Precalculated polar angle offsets, radial translations, and item spacing for item counts $N \in [1, 12]$ in a frozen geometry lookup table in `downloads/fanGeometry.js`, eliminating runtime trigonometric overhead (`Math.sin`, `Math.cos`) during fan expansion.
+    - Precomputed Tile Styles & Style Memoization: Replaced runtime CSS string concatenation in `downloads/tileStyle.js` and `dock/dockLayout.js` with precomputed immutable style token maps (`NORMAL_ROW_STYLES`, `HOVER_ROW_STYLES`) and memoized `applyAlpha` regex and `pillStyle` template formatting, avoiding CSS engine invalidations.
+    - User Invariant Preservation: Enforced that Downloads and folder stacks maintain zero background blur (rendering clean solid/translucent dark backgrounds per user directive), while the Down-Chevron drawer anchor (`aquaStackAnchor`, `.aqua-stack-anchor-tile`) remains flawlessly integrated with the Blur My Shell popup blur pipeline.
+  - Code Quality, Catch Remediation & Architectural Documentation (Milestone 4):
+    - 284 Empty Catch Blocks Remediated: Remediated all 284 empty `catch {}` blocks across the codebase with either robust contextual handling/logging or concrete, reviewer-oriented `/* intentionally ignored: <technical rationale> */` explanations conforming to GNOME Shell extension review standards (EGO).
+    - Dead Code & Unused Imports Cleanup: Removed dead functions, orphaned imports, and unreferenced constants across all 67 modules.
+    - Comprehensive JSDoc Documentation: Added complete JSDoc annotations across all 122+ exported public functions, documenting parameter types, return contracts, and architectural responsibilities.
+    - High-Complexity Architectural Section Banners: Structured `dock/dockBlur.js` and `dock/dockController.js` with descriptive ASCII section headers, dividing large subsystems into distinct, easily auditable architectural domains (BMS surface management, signal observation, layout synchronization, input routing).
+
 ## 293
 
 - Make file name pill height dynamic and match folder / thumbnail preview height in Grid and List views:

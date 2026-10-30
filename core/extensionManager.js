@@ -10,8 +10,16 @@ import { EventBus } from './eventBus.js';
 import { SettingsManager } from './settingsManager.js';
 import { TimeoutGroup, clearRuntimeWarnings, log, logError, setReduceMotionOverride } from './utils.js';
 import { DockController } from '../dock/dockController.js';
-import { cancelMountedDeviceOperations } from '../services/mountedDevices.js';
+import { cleanupBms } from '../dock/dockBlur.js';
+import { clearDockLayoutCache } from '../dock/dockLayout.js';
+import { clearDownloadWatcherCache } from '../downloads/downloadManager.js';
+import { clearTileStyleCache } from '../downloads/tileStyle.js';
+import { resetSlowDownFactor } from '../effects/genie/genieEffect.js';
+import { clearAppTrackerCache } from '../services/appTracker.js';
+import { clearIconCaches } from '../services/fileService.js';
+import { clearMountedDeviceCache } from '../services/mountedDevices.js';
 import { clearNotificationCache } from '../services/notificationService.js';
+import { clearTrashWatcherCache } from '../services/trashWatcher.js';
 
 const REBUILD_RETRY_DELAYS_MS = [250, 750, 1500];
 const DASH_RETRY_DELAYS_MS = [250, 750, 1500];
@@ -82,7 +90,7 @@ export class ExtensionManager {
             }
         } catch (e) {
             for (let i = built.length - 1; i >= 0; i--) {
-                try { built[i].destroy(); } catch { }
+                try { built[i].destroy(); } catch { /* intentionally ignored: rollback cleanup of partially built dock controllers */ }
             }
             throw e;
         }
@@ -130,14 +138,14 @@ export class ExtensionManager {
 
         let monitorIndex = -1;
         try { monitorIndex = global.display.focus_window?.get_monitor?.() ?? -1; }
-        catch { }
+        catch { /* intentionally ignored: focus window query failed during window transition */ }
         if (monitorIndex < 0) {
             try {
                 const [x, y] = global.get_pointer();
                 monitorIndex = (Main.layoutManager.monitors ?? []).findIndex(mon =>
                     x >= mon.x && x < mon.x + mon.width &&
                     y >= mon.y && y < mon.y + mon.height);
-            } catch { }
+            } catch { /* intentionally ignored: pointer coordinates query failed during monitor lookup */ }
         }
         const dock = this._docks.find(item => item.monitorIndex === monitorIndex) ??
             this._docks[0];
@@ -269,18 +277,28 @@ export class ExtensionManager {
         this._timers.removeAll();
 
         if (this._keybindingAdded) {
-            try { Main.wm.removeKeybinding('focus-dock-shortcut'); } catch { }
+            try { Main.wm.removeKeybinding('focus-dock-shortcut'); } catch { /* intentionally ignored: keybinding may already have been removed */ }
             this._keybindingAdded = false;
         }
         if (this._unsubSettings) { this._unsubSettings(); this._unsubSettings = null; }
 
         if (this._monitorsChangedId) {
-            try { Main.layoutManager.disconnect(this._monitorsChangedId); } catch { }
+            try { Main.layoutManager.disconnect(this._monitorsChangedId); } catch { /* intentionally ignored: monitors-changed signal handler may already be disconnected */ }
             this._monitorsChangedId = 0;
         }
 
         this._destroyDocks();
-        cancelMountedDeviceOperations();
+
+        // Teardown module singletons and external integration hooks
+        clearMountedDeviceCache();
+        clearAppTrackerCache();
+        clearTrashWatcherCache();
+        clearDownloadWatcherCache();
+        clearTileStyleCache();
+        clearDockLayoutCache();
+        clearIconCaches();
+        cleanupBms();
+        resetSlowDownFactor();
         clearNotificationCache();
 
         this._settings?.destroy();

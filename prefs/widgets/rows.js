@@ -10,6 +10,19 @@ import { beginDialog, endDialog } from '../dialogLifecycle.js';
 
 // Integer or fractional spinner. `digits` 0 → whole numbers (px/ms); ≥1 →
 // fractional control for continuous values (factors, opacity, damping…).
+/**
+ * Creates an Adw.SpinRow bound to a numeric GSettings key.
+ *
+ * @param {Gio.Settings} s - Extension GSettings instance.
+ * @param {string} key - Schema key name.
+ * @param {string} title - Primary row title.
+ * @param {string} subtitle - Explanatory subtitle text.
+ * @param {number} lower - Minimum allowable value.
+ * @param {number} upper - Maximum allowable value.
+ * @param {number} step - Step increment for adjustments.
+ * @param {number} [digits=0] - Decimal places precision (0 for integer values).
+ * @returns {Adw.SpinRow} Configured and bound spin row.
+ */
 export function spinRow(s, key, title, subtitle, lower, upper, step, digits = 0) {
     const row = new Adw.SpinRow({
         title, subtitle, digits,
@@ -21,12 +34,31 @@ export function spinRow(s, key, title, subtitle, lower, upper, step, digits = 0)
     return row;
 }
 
+/**
+ * Creates an Adw.SwitchRow bound to a boolean GSettings key.
+ *
+ * @param {Gio.Settings} s - Extension GSettings instance.
+ * @param {string} key - Schema key name.
+ * @param {string} title - Primary row title.
+ * @param {string} subtitle - Explanatory subtitle text.
+ * @returns {Adw.SwitchRow} Configured and bound switch row.
+ */
 export function switchRow(s, key, title, subtitle) {
     const row = new Adw.SwitchRow({ title, subtitle });
     s.bind(key, row, 'active', Gio.SettingsBindFlags.DEFAULT);
     return row;
 }
 
+/**
+ * Creates an Adw.EntryRow for capturing and parsing keyboard accelerators bound to a string array GSettings key.
+ *
+ * @param {Adw.PreferencesWindow} window - Parent preferences window tracking signal connections.
+ * @param {Gio.Settings} s - Extension GSettings instance.
+ * @param {string} key - Schema key name storing accelerator strings.
+ * @param {string} title - Primary row title.
+ * @param {string} subtitle - Explanatory tooltip text.
+ * @returns {Adw.EntryRow} Configured shortcut entry row.
+ */
 export function shortcutRow(window, s, key, title, subtitle) {
     const row = new Adw.EntryRow({ title, show_apply_button: true });
     row.set_tooltip_text(subtitle);
@@ -55,6 +87,18 @@ export function shortcutRow(window, s, key, title, subtitle) {
     return row;
 }
 
+/**
+ * Creates an Adw.ComboRow dropdown bound to a string GSettings key.
+ *
+ * @param {Adw.PreferencesWindow} window - Parent preferences window tracking signal connections.
+ * @param {Gio.Settings} s - Extension GSettings instance.
+ * @param {string} key - Schema key name.
+ * @param {string} title - Primary row title.
+ * @param {string} subtitle - Explanatory subtitle text.
+ * @param {string[]} labels - User-visible display labels.
+ * @param {string[]} values - Stored schema string values.
+ * @returns {Adw.ComboRow} Configured combo dropdown row.
+ */
 export function comboRow(window, s, key, title, subtitle, labels, values) {
     const row = new Adw.ComboRow({
         title,
@@ -86,6 +130,16 @@ export function comboRow(window, s, key, title, subtitle, labels, values) {
 }
 
 // Colour picker whose alpha doubles as intensity; stored as a CSS colour string.
+/**
+ * Creates an Adw.ActionRow hosting a Gtk.ColorDialogButton with alpha support, bound to a CSS color string key.
+ *
+ * @param {Adw.PreferencesWindow} window - Parent preferences window tracking signal connections.
+ * @param {Gio.Settings} s - Extension GSettings instance.
+ * @param {string} key - Schema key name storing CSS color string.
+ * @param {string} title - Primary row title.
+ * @param {string} subtitle - Explanatory subtitle text.
+ * @returns {Adw.ActionRow} Configured color picker row.
+ */
 export function colorRow(window, s, key, title, subtitle) {
     const row = new Adw.ActionRow({ title, subtitle });
     const button = new Gtk.ColorDialogButton({
@@ -121,6 +175,15 @@ export function colorRow(window, s, key, title, subtitle) {
 // An icon picker: a live preview, an editable field (type a theme icon name),
 // a "browse" button that opens a native image file chooser, and a clear button
 // to fall back to the default. Stores a theme name or an absolute file path.
+/**
+ * Creates an Adw.EntryRow with icon preview, theme lookup, and file browsing for custom icon selection.
+ *
+ * @param {Adw.PreferencesWindow} window - Parent preferences window.
+ * @param {Gio.Settings} s - Extension GSettings instance.
+ * @param {string} key - Schema key name storing icon name or image file path.
+ * @param {string} title - Primary row title.
+ * @returns {Adw.EntryRow} Configured icon chooser row.
+ */
 export function iconChooserRow(window, s, key, title) {
     const row = new Adw.EntryRow({ title });
     s.bind(key, row, 'text', Gio.SettingsBindFlags.DEFAULT);
@@ -158,7 +221,7 @@ export function iconChooserRow(window, s, key, title) {
             try {
                 const file = d.open_finish(res);
                 if (file) s.set_string(key, file.get_path());
-            } catch { /* dismissed or cancelled */ }
+            } catch { /* intentionally ignored: file or folder dialog dismissed or cancelled */ }
         });
     });
     row.add_suffix(browse);
@@ -174,6 +237,16 @@ export function iconChooserRow(window, s, key, title) {
     return row;
 }
 
+/**
+ * Creates an Adw.ActionRow with a native folder chooser dialog for custom folder stack selection.
+ *
+ * @param {Adw.PreferencesWindow} window - Parent preferences window.
+ * @param {Gio.Settings} s - Extension GSettings instance.
+ * @param {string} key - Schema key name storing folder URI string.
+ * @param {string} title - Primary row title.
+ * @param {string} subtitle - Explanatory subtitle text.
+ * @returns {Adw.ActionRow} Configured folder chooser row.
+ */
 export function folderChooserRow(window, s, key, title, subtitle) {
     const row = new Adw.ActionRow({ title, subtitle });
     const label = new Gtk.Label({
@@ -195,7 +268,7 @@ export function folderChooserRow(window, s, key, title, subtitle) {
             try {
                 const folder = source.select_folder_finish(result);
                 if (folder) s.set_string(key, folder.get_uri());
-            } catch { /* dismissed or cancelled */ }
+            } catch { /* intentionally ignored: file or folder dialog dismissed or cancelled */ }
         });
     });
     row.add_suffix(choose);
@@ -215,6 +288,15 @@ function addExpanderIcon(row, iconName) {
 
 // Adw.ExpanderRow keeps secondary/advanced settings one click away without
 // turning a PreferencesPage into a long wall of controls.
+/**
+ * Creates an expandable Adw.ExpanderRow for nesting secondary preference controls.
+ *
+ * @param {string} title - Primary row title.
+ * @param {string} subtitle - Explanatory subtitle text.
+ * @param {string|null} [iconName=null] - Optional symbolic icon name.
+ * @param {boolean} [expanded=false] - Initial expansion state.
+ * @returns {Adw.ExpanderRow} Configured expander row.
+ */
 export function expanderRow(title, subtitle, iconName = null, expanded = false) {
     const row = new Adw.ExpanderRow({ title, subtitle, expanded });
     addExpanderIcon(row, iconName);
@@ -223,6 +305,17 @@ export function expanderRow(title, subtitle, iconName = null, expanded = false) 
 
 // A compact feature card: its built-in switch is bound directly to the feature
 // setting, while child controls stay tucked away until the user opens the row.
+/**
+ * Creates an Adw.ExpanderRow featuring an integrated enable switch directly bound to a boolean setting.
+ *
+ * @param {Gio.Settings} s - Extension GSettings instance.
+ * @param {string} key - Boolean schema key controlling feature enablement.
+ * @param {string} title - Primary row title.
+ * @param {string} subtitle - Explanatory subtitle text.
+ * @param {string|null} [iconName=null] - Optional symbolic icon name.
+ * @param {boolean} [expanded=false] - Initial expansion state.
+ * @returns {Adw.ExpanderRow} Configured toggle expander row.
+ */
 export function toggleExpander(s, key, title, subtitle, iconName = null, expanded = false) {
     const enabled = s.get_boolean(key);
     const row = new Adw.ExpanderRow({
@@ -237,10 +330,24 @@ export function toggleExpander(s, key, title, subtitle, iconName = null, expande
     return row;
 }
 
+/**
+ * Creates a standard Adw.PreferencesGroup container with title and optional description.
+ *
+ * @param {string} title - Group heading title.
+ * @param {string} description - Group subtitle description.
+ * @returns {Adw.PreferencesGroup} New preferences group instance.
+ */
 export function group(title, description) {
     return new Adw.PreferencesGroup({ title, description });
 }
 
+/**
+ * Creates a standard Adw.PreferencesPage with title and symbolic icon.
+ *
+ * @param {string} title - Page title for sidebar navigation.
+ * @param {string} iconName - Symbolic icon name for sidebar navigation.
+ * @returns {Adw.PreferencesPage} New preferences page instance.
+ */
 export function page(title, iconName) {
     return new Adw.PreferencesPage({ title, icon_name: iconName });
 }

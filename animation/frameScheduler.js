@@ -43,7 +43,7 @@ export class FrameScheduler {
 
     stop() {
         if (this._timeline) {
-            try { this._timeline.stop(); } catch { /* already gone */ }
+            try { this._timeline.stop(); } catch { /* intentionally ignored: timeline or object already disposed */ }
         }
     }
 
@@ -53,12 +53,12 @@ export class FrameScheduler {
 
     destroy() {
         if (this._timeline) {
-            try { this._timeline.stop(); } catch { }
+            try { this._timeline.stop(); } catch { /* intentionally ignored: timeline may already be stopped or disposed */ }
             if (this._frameId) {
-                try { this._timeline.disconnect(this._frameId); } catch { }
+                try { this._timeline.disconnect(this._frameId); } catch { /* intentionally ignored: timeline frame signal handler may already be disconnected */ }
                 this._frameId = 0;
             }
-            try { this._timeline.set_actor(null); } catch { }
+            try { this._timeline.set_actor(null); } catch { /* intentionally ignored: timeline actor reference may already be cleared */ }
             this._timeline = null;
         }
         this._actor = null;

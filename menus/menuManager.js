@@ -2,6 +2,7 @@
 
 
 import Clutter from 'gi://Clutter';
+import GLib from 'gi://GLib';
 import St from 'gi://St';
 
 import { AppMenu } from 'resource:///org/gnome/shell/ui/appMenu.js';
@@ -138,12 +139,12 @@ export class MenuManager {
             this._closeIdle = 0;
             if (this._menu === m) this._destroyMenu();
             this._host.onClose?.();
-            return false;
+            return GLib.SOURCE_REMOVE;
         });
     }
 
     close() {
-        try { this._menu?.close(); } catch { }
+        try { this._menu?.close(); } catch { /* intentionally ignored: context menu or trash confirmation dialog may already be closed */ }
     }
 
     closeNow() {
@@ -160,9 +161,9 @@ export class MenuManager {
             unregisterBmsTarget(this._menu.actor);
             this._blurRegistered = false;
         }
-        if (this._stateId) { try { this._menu.disconnect(this._stateId); } catch { } this._stateId = 0; }
-        try { this._manager?.removeMenu(this._menu); } catch { }
-        try { this._menu.destroy(); } catch { }
+        if (this._stateId) { try { this._menu.disconnect(this._stateId); } catch { /* intentionally ignored: menu state signal handler may already be disconnected */ } this._stateId = 0; }
+        try { this._manager?.removeMenu(this._menu); } catch { /* intentionally ignored: menu or menu manager may already be destroyed */ }
+        try { this._menu.destroy(); } catch { /* intentionally ignored: menu or menu manager may already be destroyed */ }
         this._menu = null;
         this._active = false;
     }
@@ -221,7 +222,7 @@ export class MenuManager {
 
     _destroyTrashDialog() {
         if (!this._trashDialog) return;
-        try { this._trashDialog.close(); } catch { }
+        try { this._trashDialog.close(); } catch { /* intentionally ignored: context menu or trash confirmation dialog may already be closed */ }
         this._trashDialog = null;
     }
 
@@ -278,7 +279,7 @@ export class MenuManager {
         const color = this._menuTextColor;
         if (!color) return;
         for (const item of this._menu?.box?.get_children?.() ?? []) {
-            try { item.label?.set_style(`color: ${color}; font-size: ${this._menuTextSize}pt;`); } catch { }
+            try { item.label?.set_style(`color: ${color}; font-size: ${this._menuTextSize}pt;`); } catch { /* intentionally ignored: menu item label style update failed on disposed actor */ }
         }
     }
 
@@ -289,7 +290,7 @@ export class MenuManager {
         this._timers.removeAll();
         this._closeIdle = 0;
         this._destroyMenu();
-        if (this._manager) { try { this._manager.destroy?.(); } catch { } this._manager = null; }
+        if (this._manager) { try { this._manager.destroy?.(); } catch { /* intentionally ignored: menu or menu manager may already be destroyed */ } this._manager = null; }
         this._host = null;
         this._menuTextColor = null;
         this._menuTextSize = null;

@@ -201,14 +201,14 @@ export class AnimationEngine {
                 chip.actor.remove_transition(prop);
                 chip.actor[prop] = 0;
                 chip.spreadOffset = 0;
-            } catch { }
+            } catch { /* intentionally ignored: chip actor transition removal on disposed actor */ }
         }
         this._bgCurrentX = this._bgTargetX = this._bgBaseX;
         this._bgCurrentW = this._bgTargetW = this._bgBaseW;
         this._bgLastA = this._bgLastB = NaN;
         const magZone = this._cachedMagZone;
         if (magZone) {
-            try { magZone.set_size(0, 0); } catch { }
+            try { magZone.set_size(0, 0); } catch { /* intentionally ignored: magnification zone actor may already be destroyed */ }
             this._magZoneActive = false;
         }
         this._applySpread(true);
@@ -234,7 +234,7 @@ export class AnimationEngine {
                 chip.spreadOffset = NaN;
                 chip.actor.remove_transition(prop);
                 chip.actor.ease({ [prop]: 0, duration, mode: Clutter.AnimationMode.EASE_OUT_QUAD });
-            } catch { }
+            } catch { /* intentionally ignored: chip actor transition removal on disposed actor */ }
         }
         this._bgCurrentX = this._bgTargetX = this._bgBaseX;
         this._bgCurrentW = this._bgTargetW = this._bgBaseW;
@@ -243,9 +243,9 @@ export class AnimationEngine {
         const params = vert
             ? { y: Math.round(this._bgBaseX), height: Math.round(this._bgBaseW) }
             : { x: Math.round(this._bgBaseX), width: Math.round(this._bgBaseW) };
-        try { bg.ease({ ...params, duration, mode: Clutter.AnimationMode.EASE_OUT_QUAD }); } catch { }
+        try { bg.ease({ ...params, duration, mode: Clutter.AnimationMode.EASE_OUT_QUAD }); } catch { /* intentionally ignored: dock background or blur region ease transition on disposed actor */ }
         if (blurRegion) {
-            try { blurRegion.ease({ ...params, duration, mode: Clutter.AnimationMode.EASE_OUT_QUAD }); } catch { }
+            try { blurRegion.ease({ ...params, duration, mode: Clutter.AnimationMode.EASE_OUT_QUAD }); } catch { /* intentionally ignored: dock background or blur region ease transition on disposed actor */ }
         }
         this._bgLastA = this._bgLastB = NaN;
         const magZone = this._cachedMagZone;
@@ -265,17 +265,26 @@ export class AnimationEngine {
         const geom = this._cachedGeom;
 
         // Cached stage→local pointer mapping.
+        // Analytical delta (pointer - container position) eliminates the 3-element JS Array
+        // [success, x, y] allocation that GJS creates on every transform_stage_point() call.
         let haveLocal = false, lx = 0, ly = 0;
-        if (this._pointerInside) {
-            const cx = this._container.x, cy = this._container.y;
+        if (this._pointerInside && this._container) {
+            const cx = this._container.x ?? 0, cy = this._container.y ?? 0;
             if (this._ptPX === this._pointerX && this._ptPY === this._pointerY &&
                 this._ptCX === cx && this._ptCY === cy) {
                 haveLocal = this._ptHave; lx = this._ptLX; ly = this._ptLY;
             } else {
-                try {
-                    const p = this._container.transform_stage_point(this._pointerX, this._pointerY);
-                    if (p?.[0]) { haveLocal = true; lx = p[1]; ly = p[2]; }
-                } catch (e) { logError(e, 'transform_stage_point'); }
+                if (typeof cx === 'number' && typeof cy === 'number' &&
+                    Number.isFinite(cx) && Number.isFinite(cy)) {
+                    lx = this._pointerX - cx;
+                    ly = this._pointerY - cy;
+                    haveLocal = Number.isFinite(lx) && Number.isFinite(ly);
+                } else {
+                    try {
+                        const p = this._container.transform_stage_point(this._pointerX, this._pointerY);
+                        if (p?.[0]) { haveLocal = true; lx = p[1]; ly = p[2]; }
+                    } catch (e) { logError(e, 'transform_stage_point'); }
+                }
                 this._ptPX = this._pointerX; this._ptPY = this._pointerY;
                 this._ptCX = cx; this._ptCY = cy;
                 this._ptHave = haveLocal; this._ptLX = lx; this._ptLY = ly;
@@ -364,7 +373,7 @@ export class AnimationEngine {
         let prefix = 0;
         const prop = this._transProp;
         for (const chip of chips) {
-            const off = chip.item ? shift + prefix + chip.extra / 2 : shift + prefix;
+            const off = Math.fround(chip.item ? shift + prefix + chip.extra / 2 : shift + prefix);
             if (chip.spreadOffset !== off) {
                 chip.actor[prop] = off;
                 chip.spreadOffset = off;
@@ -418,10 +427,10 @@ export class AnimationEngine {
                 sizeChanged = true;
             }
             if (posChanged) {
-                try { bg.notify?.('y'); bg.notify?.('position'); } catch { }
+                try { bg.notify?.('y'); bg.notify?.('position'); } catch { /* intentionally ignored: property notification on disposing background actor */ }
             }
             if (sizeChanged) {
-                try { bg.notify?.('height'); bg.notify?.('size'); } catch { }
+                try { bg.notify?.('height'); bg.notify?.('size'); } catch { /* intentionally ignored: property notification on disposing background actor */ }
             }
         } else {
             const left = Math.round(this._bgCurrentX);
@@ -441,10 +450,10 @@ export class AnimationEngine {
                 sizeChanged = true;
             }
             if (posChanged) {
-                try { bg.notify?.('x'); bg.notify?.('position'); } catch { }
+                try { bg.notify?.('x'); bg.notify?.('position'); } catch { /* intentionally ignored: property notification on disposing background actor */ }
             }
             if (sizeChanged) {
-                try { bg.notify?.('width'); bg.notify?.('size'); } catch { }
+                try { bg.notify?.('width'); bg.notify?.('size'); } catch { /* intentionally ignored: property notification on disposing background actor */ }
             }
         }
 

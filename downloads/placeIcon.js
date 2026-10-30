@@ -5,6 +5,15 @@ import St from 'gi://St';
 
 import { stableArtworkSourceSize } from '../dock/iconResolution.js';
 
+/**
+ * Constructs an St.Widget actor displaying a themed place or folder icon scaled to visual dimensions.
+ *
+ * @param {Gio.Icon} gicon - GIcon source instance.
+ * @param {number} visualSize - Target visual display size in pixels.
+ * @param {number} [preferredSourceSize=0] - Preferred source texture size.
+ * @param {string} [styleClass=''] - Optional CSS style class name to assign.
+ * @returns {St.Widget} Composite widget containing the scaled St.Icon child.
+ */
 export function buildPlaceIcon(gicon, visualSize, preferredSourceSize = 0, styleClass = '') {
     const sourceSize = stableArtworkSourceSize(visualSize, preferredSourceSize);
     const actor = new St.Widget({

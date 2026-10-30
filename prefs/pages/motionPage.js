@@ -3,6 +3,14 @@
 import { page, group, spinRow, toggleExpander } from '../widgets/rows.js';
 import { _ } from '../../core/i18n.js';
 
+/**
+ * Constructs and adds the Motion preferences page to the preferences window.
+ * Configures magnification zoom levels, spring tension/damping physics, and bounce effects.
+ *
+ * @param {Adw.PreferencesWindow} window - Target preferences window.
+ * @param {Gio.Settings} s - Extension GSettings instance.
+ * @returns {void}
+ */
 export function buildMotionPage(window, s) {
     const p = page(_('Motion'), 'preferences-desktop-screensaver-symbolic');
     window.add(p);
