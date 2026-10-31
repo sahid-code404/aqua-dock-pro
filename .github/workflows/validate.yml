@@ -27,7 +27,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install validation dependencies
-        run: dnf install -y gjs glib2 gettext jq gnome-shell libadwaita python3 unzip xorg-x11-server-Xvfb
+        run: dnf install -y gjs glib2 glib2-devel gettext jq gnome-shell libadwaita python3 unzip xorg-x11-server-Xvfb
 
       - name: Verify GNOME Shell version
         run: |
