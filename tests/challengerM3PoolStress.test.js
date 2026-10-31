@@ -1024,19 +1024,43 @@ print('\n--- 6. AGENTS.md Invariants Verification ---');
     assert(resolveAquaDockTarget(fanActor) === null,
         'INVARIANT VIOLATION: resolveAquaDockTarget must return null for FanView');
 
-    for (const card of fanView._model.rows) {
+    // Exactly ONE label pill (the currently selected or hovered row) has blur enabled to eliminate Mutter multi-pass render stutter
+    const rows = fanView._model.rows;
+    assert(rows.length >= 2, 'FanView must have at least 2 rows for single-pill blur validation');
+
+    // On initial build: row 0 is selected, row 0 has blur enabled, other rows have blur disabled
+    assert(rows[0]._labelPill._dockBlurEnabled === true,
+        'INVARIANT: Active/selected Fan label pill must have _dockBlurEnabled === true');
+    assert(resolveAquaDockTarget(rows[0]._labelPill) !== null,
+        'INVARIANT: Active/selected Fan label pill must resolve as BMS popup target');
+
+    for (let i = 1; i < rows.length; i++) {
+        assert(rows[i]._labelPill._dockBlurEnabled === false,
+            'INVARIANT: Unselected Fan label pill must have _dockBlurEnabled === false (single-pill blur)');
+        assert(resolveAquaDockTarget(rows[i]._labelPill) === null,
+            'INVARIANT: Unselected Fan label pill must NOT resolve to BMS target');
+    }
+
+    // When selection moves to row 1: row 0 blur is disabled, row 1 blur is enabled
+    fanView._model.select(1);
+    assert(rows[0]._labelPill._dockBlurEnabled === false,
+        'INVARIANT: Previously selected Fan label pill must have blur disabled on unselect');
+    assert(rows[1]._labelPill._dockBlurEnabled === true,
+        'INVARIANT: Newly selected Fan label pill must have blur enabled on select');
+    assert(resolveAquaDockTarget(rows[0]._labelPill) === null,
+        'INVARIANT: Previously selected Fan label pill must NOT resolve to BMS target');
+    assert(resolveAquaDockTarget(rows[1]._labelPill) !== null,
+        'INVARIANT: Newly selected Fan label pill must resolve as BMS popup target');
+
+    for (const card of rows) {
         assert(card._dockBlurEnabled === false,
             'INVARIANT VIOLATION: Fan item card must have _dockBlurEnabled === false');
         assert(isAquaPopupTarget(card) === false,
             'INVARIANT VIOLATION: Fan item card must NOT be an Aqua popup target');
         assert(resolveAquaDockTarget(card) === null,
             'INVARIANT VIOLATION: resolveAquaDockTarget must return null for Fan card');
-        assert(card._labelPill._dockBlurEnabled === true,
-            'INVARIANT VIOLATION: Fan item label pill must have _dockBlurEnabled === true');
         assert(isAquaPopupTarget(card._labelPill) === true,
             'INVARIANT VIOLATION: Fan item label pill must be an Aqua popup target');
-        assert(resolveAquaDockTarget(card._labelPill) !== null,
-            'INVARIANT VIOLATION: resolveAquaDockTarget must resolve Fan label pill target');
     }
     fanView.releaseRows();
     fanActor.destroy();

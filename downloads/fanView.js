@@ -49,12 +49,43 @@ export class FanView {
         this._fileMenu = new FileItemMenu(opts.mon, opts.cfg);
         this._blurRegions = [];
         this._blurActive = false;
+        this._activeBlurPill = null;
         this._labelPillWidth = null;
     }
 
     get actor() { return this._actor; }
     get blurRegion() { return this._blurRegions?.[0] ?? null; }
     get blurRegions() { return this._blurRegions ?? []; }
+
+    /**
+     * Synchronize Blur My Shell popup blur pipeline so only the single active
+     * (hovered or selected) label pill has background blur enabled at any given moment.
+     * Prevents Mutter multi-pass render stutter and frame drops in Fan View.
+     *
+     * @param {St.Button|null} activeRow - Currently selected or hovered row, or null to unregister all.
+     * @returns {void}
+     */
+    _syncActiveBlurPill(activeRow) {
+        if (!this._blurActive) return;
+        const targetPill = activeRow?._labelPill ?? null;
+        if (this._activeBlurPill === targetPill) return;
+
+        if (this._activeBlurPill) {
+            const prev = this._activeBlurPill;
+            this._activeBlurPill = null;
+            try { unregisterBmsTarget(prev); } catch { /* intentionally ignored: BMS target cleanup fallback */ }
+            prev._dockBlurEnabled = false;
+        }
+
+        if (targetPill) {
+            this._activeBlurPill = targetPill;
+            targetPill._dockBlurEnabled = true;
+            try {
+                const radius = this.cfg.dlItemRadius ?? clamp(this.cfg.dockRadius ?? 16, 6, 28);
+                registerBmsTarget(targetPill, () => radius);
+            } catch { /* intentionally ignored: BMS target registration */ }
+        }
+    }
 
     build() {
         const { cfg, mon, files } = this;
@@ -173,10 +204,6 @@ export class FanView {
             row._isAquaDock = true;
             row._dockBlurEnabled = false;
 
-            if (blurActive && row._labelPill) {
-                registerBmsTarget(row._labelPill, () => radius);
-            }
-
             if (reduce) return;
             const initTx = anchorLX - (fx + iconCx);
             const initTy = anchorLY - (fy + rowH / 2);
@@ -208,6 +235,7 @@ export class FanView {
         fan._blurRegions = [];
 
         fan.connect('destroy', () => {
+            this._syncActiveBlurPill(null);
             for (const r of this._model?.rows ?? []) {
                 if (r._labelPill) {
                     try { unregisterBmsTarget(r._labelPill); } catch { /* intentionally ignored: BMS target cleanup fallback */ }
@@ -252,7 +280,7 @@ export class FanView {
         labelPill.name = 'aquaDownloadsFanPill';
         labelPill._isAquaDock = true;
         labelPill._blurType = 'popup';
-        labelPill._dockBlurEnabled = this._blurActive;
+        labelPill._dockBlurEnabled = false;
         labelPill._dockBg = labelPill;
         labelPill._dockContent = label;
         labelPill._dockContentParent = labelPill;
@@ -283,21 +311,35 @@ export class FanView {
         btn._dockRadius = radius;
         btn.get_dock_radius = () => radius;
 
-        const rowStyles = getRowStyles(this.cfg, thumbRadius, '6px 14px', this._blurActive, 0, labelPill);
-        if (btn._appliedStyleKey !== rowStyles.key) {
-            btn._appliedStyleKey = rowStyles.key;
-            label.set_style(rowStyles.normal.label);
-            labelPill.set_style(rowStyles.normal.pill);
-            thumb.set_style(rowStyles.normal.thumb);
-            btn._appliedHover = false;
-        }
+        const stylesNonBlur = getRowStyles(this.cfg, thumbRadius, '6px 14px', false, 0, labelPill);
+        const stylesBlur = this._blurActive
+            ? getRowStyles(this.cfg, thumbRadius, '6px 14px', true, 0, labelPill)
+            : stylesNonBlur;
+
+        btn._appliedHover = null;
+        btn._appliedStyleKey = stylesNonBlur.key;
+        label.set_style(stylesNonBlur.normal.label);
 
         btn._updatePillStyle = hover => {
             if (btn._appliedHover === hover) return;
             btn._appliedHover = hover;
-            const s = hover ? rowStyles.hover : rowStyles.normal;
-            labelPill.set_style(s.pill);
-            thumb.set_style(s.thumb);
+            if (this._blurActive && labelPill) {
+                if (hover) {
+                    this._syncActiveBlurPill(btn);
+                    labelPill.set_style(stylesBlur.hover.pill);
+                    thumb.set_style(stylesBlur.hover.thumb);
+                } else {
+                    if (this._activeBlurPill === labelPill) {
+                        this._syncActiveBlurPill(null);
+                    }
+                    labelPill.set_style(stylesNonBlur.normal.pill);
+                    thumb.set_style(stylesNonBlur.normal.thumb);
+                }
+            } else {
+                const s = hover ? stylesNonBlur.hover : stylesNonBlur.normal;
+                labelPill.set_style(s.pill);
+                thumb.set_style(s.thumb);
+            }
         };
         btn._updatePillStyle(false);
 
@@ -429,6 +471,7 @@ export class FanView {
      * Prevents Clutter from recursively destroying pooled actors when view.actor.destroy() runs.
      */
     releaseRows() {
+        this._syncActiveBlurPill(null);
         const pool = this.pool ?? this._fallbackPool;
         const rows = this._model?.rows ?? [];
         for (const row of rows) {
@@ -452,6 +495,7 @@ export class FanView {
     // onDone() is called when the close animation finishes (or immediately if
     // animations are off). The DownloadsStack then destroys the actor.
     animateClose(onDone) {
+        this._syncActiveBlurPill(null);
         const actor = this._actor;
         if (!actor) { onDone(); return; }
         stopSubtreeTransitions(actor);

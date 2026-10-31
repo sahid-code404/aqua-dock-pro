@@ -33,6 +33,7 @@
 - Downloads Fan View Arc & Boundary Alignment:
   - Gentle Fan Curvature & Top Folder Icon Anchoring: Refined fan horizontal curvature (`curveMax`) from wide 110–160px down to an elegant 36–56px, aligning the top folder item ("Open in Files") directly over the dock anchor tile without excessive sideways drift.
   - Screen Clearance & Top Bar Inset Protection: Subtracted `topInset` and added top breathing room in `availH` calculations in `downloads/fanView.js`, with compact `stepY` scaling (42–56px) ensuring fan stacks never cross the top panel bar or screen edges.
+  - Single-Pill Blur Rendering (Zero Stutter): Synchronized Blur My Shell popup background blur so only the active (hovered or selected) row's label pill renders background blur at any given time, with inactive pills cleanly rendering with crisp translucent styling. Eliminates Mutter multi-pass render stutter and frame drops when blur is active in Downloads and custom folder fan views.
 
 
 ## 295
