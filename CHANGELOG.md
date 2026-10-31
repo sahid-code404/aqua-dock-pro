@@ -28,6 +28,8 @@
   - Verified multi-monitor isolation and window filtering across all display configurations.
 - Motion & Animation Defect Resolution:
   - Eliminate Icon Ghosting & Relayout Flicker: Implemented `recompose()` in `animation/bounce.js` and guarded `relayout()` in `dock/dockItem.js` against in-flight projectile motion (`this._bounce?.active`), landing, and pulse eases. Eliminates single-frame drop to resting baseline when Mutter/Shell triggers workarea changes upon opening applications on empty desktops.
+- Production Configuration Defaults:
+  - Synchronized GSettings schema defaults with user-configured production settings: icon spacing (10px), magnification (2.5x), zoom range (150px), multi-monitor (true), monitor isolation (true), pill color (`rgb(192,191,188)`), dock radius (30px), hide delay (300ms), reveal pressure (300ms), apps button position (1 / end), folder metadata icons (false), bounce height (50px), tooltip radius (15px) and background (`rgba(46,46,54,0.376667)`), menu radius (20px), menu background (`rgba(46,46,54,0.376667)`), menu border (`rgba(255,255,255,0.16)`), downloads border radius (25px), stack blur effect (false), downloads item radius (20px), thumbnail background (`rgba(0,0,0,0)`), and border width (1px).
 
 
 ## 295

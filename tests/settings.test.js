@@ -38,7 +38,7 @@ const bus = { emit() {} };
 const manager = new SettingsManager(settings, bus);
 const cfg = manager.config;
 
-assert(cfg.iconSize === 60 && cfg.zoomMax === 2.6 && cfg.iconSpacing === 12,
+assert(cfg.iconSize === 60 && cfg.zoomMax === 2.5 && cfg.iconSpacing === 10,
     'existing visual defaults changed');
 assert(cfg.autoShrink, 'screen-fit shrinking must remain enabled by default');
 assert(cfg.showAutohideHandle, 'the hidden dock handle must be enabled by default');
@@ -49,12 +49,12 @@ assert(cfg.previewWindowMode === 'hidden' && !cfg.previewCloseButtons,
 assert(cfg.previewOverflowMode === 'summary' && cfg.previewPageSize === 4 &&
     cfg.previewKeyboardNavigation && !cfg.previewWindowActions,
     'accessible preview defaults changed');
-assert(!cfg.showCustomFolder && !cfg.isolateMonitors,
-    'new optional features must be off by default');
+assert(!cfg.showCustomFolder && cfg.isolateMonitors,
+    'isolate-monitors is enabled by default while custom-folder remains off');
 assert(!cfg.showCustomDockItems && cfg.customDockItems.length === 0,
     'custom dock locations must be off by default');
-assert(cfg.useFolderMetadataIcons,
-    'folder metadata icons should be used by default');
+assert(!cfg.useFolderMetadataIcons,
+    'folder metadata icons should be off by default');
 assert(!cfg.reduceMotion && !cfg.highContrast && cfg.interfaceTextScale === 1 &&
     cfg.announceItemStatus, 'accessibility defaults changed');
 assert(!cfg.menuUseGnomeDefault,
@@ -118,8 +118,8 @@ settings.reset('show-autohide-handle');
 
 settings.set_double('dock-scale', 0.75);
 const scaledManager = new SettingsManager(settings, bus);
-assert(scaledManager.config.iconSpacing === 10 && scaledManager.config.cellPad === 5,
-    'the default spacing no longer preserves legacy fractional-scale geometry');
+assert(scaledManager.config.iconSpacing === 8 && scaledManager.config.cellPad === 4,
+    'the default spacing scaled to fractional-scale geometry');
 scaledManager.destroy();
 settings.reset('dock-scale');
 

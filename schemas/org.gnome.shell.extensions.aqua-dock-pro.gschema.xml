@@ -17,19 +17,19 @@
     </key>
 
     <key name="icon-spacing" type="i">
-      <default>12</default>
+      <default>10</default>
       <range min="0" max="48"/>
       <summary>Resting gap between neighbouring dock icons in pixels</summary>
     </key>
 
     <key name="magnification" type="d">
-      <default>2.6</default>
+      <default>2.5</default>
       <range min="1.0" max="3.5"/>
       <summary>Peak magnification factor under the cursor</summary>
     </key>
 
     <key name="zoom-range" type="i">
-      <default>100</default>
+      <default>150</default>
       <range min="40" max="500"/>
       <summary>Gaussian magnification spread radius in pixels</summary>
     </key>
@@ -57,12 +57,12 @@
     </key>
 
     <key name="multi-monitor" type="b">
-      <default>false</default>
+      <default>true</default>
       <summary>Display a dock on every connected monitor</summary>
     </key>
 
     <key name="isolate-monitors" type="b">
-      <default>false</default>
+      <default>true</default>
       <summary>Show and control running windows only on each dock's monitor</summary>
     </key>
 
@@ -84,12 +84,12 @@
     </key>
 
     <key name="pill-color" type="s">
-      <default>'rgb(255,255,255)'</default>
+      <default>'rgb(192,191,188)'</default>
       <summary>Dock pill background colour (CSS color string)</summary>
     </key>
 
     <key name="dock-radius" type="i">
-      <default>25</default>
+      <default>30</default>
       <range min="0" max="40"/>
       <summary>Dock corner radius in pixels</summary>
     </key>
@@ -133,13 +133,13 @@
     </key>
 
     <key name="hide-delay" type="i">
-      <default>200</default>
+      <default>300</default>
       <range min="0" max="2000"/>
       <summary>Milliseconds before auto-hide triggers</summary>
     </key>
 
     <key name="reveal-pressure" type="i">
-      <default>200</default>
+      <default>300</default>
       <range min="0" max="1000"/>
       <summary>Reveal pressure threshold in milliseconds; 0 = immediate</summary>
     </key>
@@ -224,7 +224,7 @@
     </key>
 
     <key name="apps-button-position" type="i">
-      <default>0</default>
+      <default>1</default>
       <range min="0" max="1000"/>
       <summary>Position of the Applications button within the dock application section</summary>
     </key>
@@ -255,7 +255,7 @@
     </key>
 
     <key name="use-folder-metadata-icons" type="b">
-      <default>true</default>
+      <default>false</default>
       <summary>Use each folder's standard or custom metadata icon when available</summary>
     </key>
 
@@ -344,7 +344,7 @@
     </key>
 
     <key name="bounce-height" type="i">
-      <default>70</default>
+      <default>50</default>
       <range min="0" max="80"/>
       <summary>Launch bounce height in pixels; 0 disables bounce</summary>
     </key>
@@ -380,13 +380,13 @@
     </key>
 
     <key name="tooltip-radius" type="i">
-      <default>6</default>
+      <default>15</default>
       <range min="0" max="30"/>
       <summary>Tooltip pill corner radius in pixels</summary>
     </key>
 
     <key name="tooltip-bg-color" type="s">
-      <default>'rgba(32,32,36,0.92)'</default>
+      <default>'rgba(46,46,54,0.376667)'</default>
       <summary>Tooltip pill background colour and opacity (CSS color string)</summary>
     </key>
 
@@ -423,13 +423,13 @@
     </key>
 
     <key name="menu-radius" type="i">
-      <default>10</default>
+      <default>20</default>
       <range min="0" max="30"/>
       <summary>Context menu corner radius in pixels</summary>
     </key>
 
     <key name="menu-bg-color" type="s">
-      <default>'rgba(0,0,0,0.51)'</default>
+      <default>'rgba(46,46,54,0.376667)'</default>
       <summary>Context menu background colour and opacity (CSS color string)</summary>
     </key>
 
@@ -439,7 +439,7 @@
     </key>
 
     <key name="menu-border-color" type="s">
-      <default>'rgb(154,153,150)'</default>
+      <default>'rgba(255,255,255,0.16)'</default>
       <summary>Context menu border colour (CSS color string)</summary>
     </key>
 
@@ -560,7 +560,7 @@
     </key>
 
     <key name="downloads-border-radius" type="i">
-      <default>20</default>
+      <default>25</default>
       <range min="0" max="40"/>
       <summary>Downloads panel corner radius in pixels</summary>
     </key>
@@ -577,7 +577,7 @@
     </key>
 
     <key name="downloads-blur-effect" type="b">
-      <default>true</default>
+      <default>false</default>
       <summary>Enable Blur My Shell background blur for stack views</summary>
     </key>
 
@@ -587,7 +587,7 @@
     </key>
 
     <key name="downloads-item-radius" type="i">
-      <default>10</default>
+      <default>20</default>
       <range min="0" max="28"/>
       <summary>Downloads file card corner radius in pixels</summary>
     </key>
@@ -604,7 +604,7 @@
     </key>
 
     <key name="downloads-item-thumb-color" type="s">
-      <default>'rgba(46,46,54,0.376667)'</default>
+      <default>'rgba(0,0,0,0)'</default>
       <summary>Downloads file card thumbnail background colour</summary>
     </key>
 
@@ -619,7 +619,7 @@
     </key>
 
     <key name="border-width" type="i">
-      <default>2</default>
+      <default>1</default>
       <range min="0" max="6"/>
       <summary>Dock and all pills border width in pixels; 0 disables border</summary>
     </key>
