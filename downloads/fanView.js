@@ -54,8 +54,8 @@ export class FanView {
     }
 
     get actor() { return this._actor; }
-    get blurRegion() { return this._blurRegions?.[0] ?? null; }
-    get blurRegions() { return this._blurRegions ?? []; }
+    get blurRegion() { return this._activeBlurPill?._blurRegion ?? this._activeBlurPill ?? (this._blurRegions?.[0] ?? null); }
+    get blurRegions() { return this.blurRegion ? [this.blurRegion] : []; }
 
     /**
      * Synchronize Blur My Shell popup blur pipeline so only the single active
@@ -83,6 +83,11 @@ export class FanView {
             try {
                 const radius = this.cfg.dlItemRadius ?? clamp(this.cfg.dockRadius ?? 16, 6, 28);
                 registerBmsTarget(targetPill, () => radius);
+                const surface = targetPill._aquaDockSurface;
+                if (surface) {
+                    surface.clear_pending_update();
+                    surface.update_size();
+                }
             } catch { /* intentionally ignored: BMS target registration */ }
         }
     }
@@ -267,7 +272,7 @@ export class FanView {
         const labelPillW = this._labelPillWidth ?? (LABEL_WIDTH + 28);
 
         const card = this._getPool().acquireFanItem();
-        const { btn, box, labelPill, label, gap, thumb, icon } = card;
+        const { btn, box, labelPill, blurRegion, label, gap, thumb, icon } = card;
 
         btn.set_size(w, h);
         if (extraClass) btn.add_style_class_name(extraClass);
@@ -277,14 +282,25 @@ export class FanView {
         labelPill._dockRadius = radius;
         labelPill.get_dock_radius = () => radius;
 
+        if (blurRegion) {
+            blurRegion.set_size(labelPillW, pillH);
+            blurRegion.width = labelPillW;
+            blurRegion.height = pillH;
+            blurRegion._dockRadius = radius;
+            blurRegion.get_dock_radius = () => radius;
+            blurRegion.set_style(`border-radius: ${radius}px;`);
+            setupBackgroundCorners(blurRegion, () => radius);
+        }
+
         labelPill.name = 'aquaDownloadsFanPill';
         labelPill._isAquaDock = true;
         labelPill._blurType = 'popup';
         labelPill._dockBlurEnabled = false;
-        labelPill._dockBg = labelPill;
+        labelPill._blurRegion = blurRegion;
+        labelPill._dockBlurRegion = blurRegion ?? labelPill;
+        labelPill._dockBg = blurRegion ?? labelPill;
         labelPill._dockContent = label;
         labelPill._dockContentParent = labelPill;
-        labelPill._dockBlurRegion = label;
         setupBackgroundCorners(labelPill, () => radius);
 
         label.width = this._labelWidth ?? LABEL_WIDTH;

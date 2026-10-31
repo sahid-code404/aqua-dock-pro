@@ -109,7 +109,7 @@ export class ActorPool {
                 btn._labelPill._dockBlurEnabled = false;
                 const kids = btn._labelPill.get_children?.() ?? [];
                 for (const k of kids) {
-                    if (k !== btn._label) {
+                    if (k !== btn._label && k !== btn._blurRegion) {
                         try { k.destroy?.(); } catch { /* intentionally ignored: pooled row or button actor may already be destroyed */ }
                     }
                 }
@@ -135,6 +135,7 @@ export class ActorPool {
                     btn,
                     box: btn._box,
                     labelPill: btn._labelPill,
+                    blurRegion: btn._blurRegion,
                     label: btn._label,
                     gap: btn._gap,
                     thumb: btn._thumb,
@@ -245,6 +246,19 @@ export class ActorPool {
             y_align: Clutter.ActorAlign.CENTER,
         });
 
+        const blurRegion = new St.Widget({
+            name: 'aquaDownloadsFanPillBlurRegion',
+            style_class: 'aqua-blur-region',
+            reactive: false,
+            x_expand: true,
+            y_expand: true,
+            x_align: Clutter.ActorAlign.FILL,
+            y_align: Clutter.ActorAlign.FILL,
+        });
+        blurRegion._isAquaDock = true;
+        blurRegion._blurType = 'popup';
+        labelPill.add_child(blurRegion);
+
         const label = new St.Label({
             style_class: 'aqua-dl-fan-label',
             width: DEFAULT_LABEL_WIDTH,
@@ -258,6 +272,7 @@ export class ActorPool {
         if (typeof labelPill.set_child !== 'function') {
             labelPill.set_child = (c) => {
                 labelPill.remove_all_children();
+                if (blurRegion) labelPill.add_child(blurRegion);
                 if (c) labelPill.add_child(c);
             };
         }
@@ -269,10 +284,11 @@ export class ActorPool {
         labelPill._isAquaDock = true;
         labelPill._blurType = 'popup';
         labelPill._dockBlurEnabled = false;
-        labelPill._dockBg = labelPill;
+        labelPill._blurRegion = blurRegion;
+        labelPill._dockBlurRegion = blurRegion;
+        labelPill._dockBg = blurRegion;
         labelPill._dockContent = label;
         labelPill._dockContentParent = labelPill;
-        labelPill._dockBlurRegion = label;
 
         const gap = new St.Widget({
             width: CONTENT_GAP,
@@ -301,6 +317,7 @@ export class ActorPool {
         btn._thumb = thumb;
         btn._gap = gap;
         btn._labelPill = labelPill;
+        btn._blurRegion = blurRegion;
         btn._label = label;
         btn._icon = icon;
         btn._thumbnailFirst = true;
@@ -338,7 +355,7 @@ export class ActorPool {
             }
         });
 
-        return { btn, box, labelPill, label, gap, thumb, icon };
+        return { btn, box, labelPill, blurRegion, label, gap, thumb, icon };
     }
 
     /**

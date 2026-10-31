@@ -1031,6 +1031,10 @@ print('\n--- 6. AGENTS.md Invariants Verification ---');
     // On initial build: row 0 is selected, row 0 has blur enabled, other rows have blur disabled
     assert(rows[0]._labelPill._dockBlurEnabled === true,
         'INVARIANT: Active/selected Fan label pill must have _dockBlurEnabled === true');
+    assert(rows[0]._labelPill._blurRegion !== null,
+        'INVARIANT: Fan label pill must contain dedicated _blurRegion actor');
+    assert(rows[0]._labelPill._dockBlurRegion === rows[0]._labelPill._blurRegion,
+        'INVARIANT: Fan label pill _dockBlurRegion must point to its _blurRegion actor');
     assert(resolveAquaDockTarget(rows[0]._labelPill) !== null,
         'INVARIANT: Active/selected Fan label pill must resolve as BMS popup target');
 

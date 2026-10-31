@@ -5,6 +5,7 @@
  * SECTION 1: IMPORTS & STATE
  * GIO/St imports, runtime settings detection, and blur capability queries.
  * ============================================================================ */
+import Clutter from 'gi://Clutter';
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import Graphene from 'gi://Graphene';
@@ -167,12 +168,13 @@ export function isAquaPopupTarget(container) {
     if (container._blurType === 'popup') return true;
     if (container._blurType === 'dock') return false;
     const name = container.name || container.get_name?.();
-    if (name === 'aquaTooltip' || name === 'aquaMenu' || name === 'aquaStackAnchor' || name === 'aquaDownloadsPanel' || name === 'aquaDownloadsFanPill') return true;
+    if (name === 'aquaTooltip' || name === 'aquaMenu' || name === 'aquaStackAnchor' || name === 'aquaDownloadsPanel' || name === 'aquaDownloadsFanPill' || name === 'aquaDownloadsFanPillBlurRegion') return true;
     if (typeof container.has_style_class_name === 'function' &&
         (container.has_style_class_name('aqua-menu') ||
          container.has_style_class_name('aqua-stack-anchor-tile') ||
          container.has_style_class_name('aqua-dl-panel') ||
-         container.has_style_class_name('aqua-dl-fan-label-pill'))) return true;
+         container.has_style_class_name('aqua-dl-fan-label-pill') ||
+         (container._blurType === 'popup' && container.has_style_class_name('aqua-blur-region')))) return true;
     return false;
 }
 
@@ -284,6 +286,7 @@ export function resolveAquaDockTarget(container) {
         container.name === 'aquaDownloadsFan' ||
         container.name === 'aquaDownloadsFanItem' ||
         container.name === 'aquaDownloadsFanPill' ||
+        container.name === 'aquaDownloadsFanPillBlurRegion' ||
         container.name === 'aquaStackAnchor' ||
         container.name === 'aquaTooltip' ||
         container.name === 'aquaMenu' ||
@@ -292,6 +295,7 @@ export function resolveAquaDockTarget(container) {
         container.get_name?.() === 'aquaDownloadsFan' ||
         container.get_name?.() === 'aquaDownloadsFanItem' ||
         container.get_name?.() === 'aquaDownloadsFanPill' ||
+        container.get_name?.() === 'aquaDownloadsFanPillBlurRegion' ||
         container.get_name?.() === 'aquaStackAnchor' ||
         container.get_name?.() === 'aquaTooltip' ||
         container.get_name?.() === 'aquaMenu' ||
@@ -299,7 +303,8 @@ export function resolveAquaDockTarget(container) {
             (container.has_style_class_name('aqua-menu') ||
              container.has_style_class_name('aqua-stack-anchor-tile') ||
              container.has_style_class_name('aqua-dl-panel') ||
-             container.has_style_class_name('aqua-dl-fan-label-pill')))
+             container.has_style_class_name('aqua-dl-fan-label-pill') ||
+             (container._blurType === 'popup' && container.has_style_class_name('aqua-blur-region'))))
     );
     if (!isAqua) return null;
     if (container._dockBlurEnabled === false) return null;
@@ -565,8 +570,9 @@ export class AquaDockSurface {
         let w = this.dash_background.width ?? 0;
         let h = this.dash_background.height ?? 0;
 
-        if (this.dash_background === parent) {
+        if (this.dash_background === parent || this.dash_background.get_parent?.() === parent) {
             // background_group is nested directly inside the background actor (e.g. blurRegion)
+            // or shares the parent pill container with blurRegion.
             // Hardware-accelerated: x=0, y=0, w=parent.width, h=parent.height
             // No Graphene transforms or allocation flushes needed!
             w = parent.width ?? w;
@@ -577,6 +583,16 @@ export class AquaDockSurface {
                 this.background_group.x = 0;
                 this.background_group.y = 0;
             }
+            if (typeof this.background_group.set_size === 'function') {
+                this.background_group.set_size(w, h);
+            } else {
+                this.background_group.width = w;
+                this.background_group.height = h;
+            }
+            this.background_group.x_expand = true;
+            this.background_group.y_expand = true;
+            this.background_group.x_align = Clutter.ActorAlign.FILL;
+            this.background_group.y_align = Clutter.ActorAlign.FILL;
         } else {
             let isDirectSibling = false;
             try {
@@ -949,6 +965,22 @@ function tryBlurAquaDock(dashBlur, container) {
         let sibling = target.sibling ?? dash;
         if (sibling === dash_box || (sibling && typeof sibling.get_parent === 'function' && sibling.get_parent() !== dash_box)) {
             sibling = null;
+        }
+        if (blur.background_group) {
+            blur.background_group.x_expand = true;
+            blur.background_group.y_expand = true;
+            blur.background_group.x_align = Clutter.ActorAlign.FILL;
+            blur.background_group.y_align = Clutter.ActorAlign.FILL;
+            const bgW = dash_background?.width || container?.width || 0;
+            const bgH = dash_background?.height || container?.height || 0;
+            if (bgW > 0 && bgH > 0) {
+                if (typeof blur.background_group.set_size === 'function') {
+                    blur.background_group.set_size(bgW, bgH);
+                } else {
+                    blur.background_group.width = bgW;
+                    blur.background_group.height = bgH;
+                }
+            }
         }
         dash_box.insert_child_below(blur.background_group, sibling);
     }
