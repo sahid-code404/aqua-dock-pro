@@ -95,15 +95,16 @@ export class FanView {
                 thumbSize, rowW, rowH));
         const n = builders.length;
 
-        let stepY = clamp(thumbH + 24, 50, 72);
-        const availH = Math.max(140, ay - mon.y - 24);
+        const topInset = mon.topInset ?? 0;
+        let stepY = clamp(thumbH + 14, 42, 56);
+        const availH = Math.max(140, ay - (mon.y + topInset) - 32);
         if (n > 1) {
-            const fitStep = (availH - rowH - 40) / (n - 1);
-            if (fitStep < stepY) stepY = Math.max(34, fitStep);
+            const fitStep = (availH - rowH - 32) / (n - 1);
+            if (fitStep < stepY) stepY = Math.max(30, fitStep);
         }
         const offsets = FAN_CELL_OFFSETS[n] ?? getFanCellOffsets(n);
         const cells = new Array(n);
-        const curveMax = clamp(Math.round(mon.width * 0.055), 110, 160);
+        const curveMax = clamp(Math.round(mon.width * 0.018), 36, 56);
         const curveMul = orientation.curveSign * curveMax;
         for (let i = 0; i < n; i++) {
             const off = offsets[i];
@@ -131,7 +132,6 @@ export class FanView {
         const targetY = cfg.vertical
             ? ay - bottomCy
             : aboveDockY(ay, bottomCy + rowH / 2);
-        const topInset = mon.topInset ?? 0;
         const px = clamp(Math.round(targetX), mon.x + 8, mon.x + mon.width - panelW - 8);
         const py = clamp(Math.round(targetY), mon.y + topInset + 8, mon.y + mon.height - panelH - 8);
         fan.set_position(px, py);
