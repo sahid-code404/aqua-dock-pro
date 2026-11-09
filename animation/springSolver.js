@@ -36,12 +36,15 @@ function getDampPow(damping, dtMs, st) {
         return _dampLut[dtRound];
     }
 
-    let val = _fractionalDampCache.get(st);
+    const stKey = Math.round(st * 1024);
+    let val = _fractionalDampCache.get(stKey);
     if (val === undefined) {
         val = Math.pow(damping, st);
-        if (_fractionalDampCache.size < 16) {
-            _fractionalDampCache.set(st, val);
+        if (_fractionalDampCache.size >= 32) {
+            const firstKey = _fractionalDampCache.keys().next().value;
+            if (firstKey !== undefined) _fractionalDampCache.delete(firstKey);
         }
+        _fractionalDampCache.set(stKey, val);
     }
     return val;
 }

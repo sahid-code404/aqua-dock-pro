@@ -16,6 +16,12 @@ export class FrameScheduler {
         this._onFrame = onFrame;
         this._timeline = null;
         this._frameId = 0;
+        this._destroyId = 0;
+        if (this._actor && typeof this._actor.connect === 'function') {
+            try {
+                this._destroyId = this._actor.connect('destroy', () => this.destroy());
+            } catch { /* intentionally ignored: actor destroy signal connection unsupported on mock actor */ }
+        }
     }
 
     start() {
@@ -61,6 +67,10 @@ export class FrameScheduler {
             try { this._timeline.set_actor(null); } catch { /* intentionally ignored: timeline actor reference may already be cleared */ }
             this._timeline = null;
         }
+        if (this._destroyId && this._actor && typeof this._actor.disconnect === 'function') {
+            try { this._actor.disconnect(this._destroyId); } catch { /* intentionally ignored: actor may already be disposed */ }
+        }
+        this._destroyId = 0;
         this._actor = null;
         this._onFrame = null;
     }

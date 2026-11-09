@@ -72,12 +72,25 @@ class AppStateHub {
         this._syncOptionalSignals();
 
         let live = true;
-        return () => {
+        const unsubscribe = () => {
             if (!live) return;
             live = false;
             this._subscribers.delete(record);
             this._syncOptionalSignals();
         };
+        unsubscribe.updateConfig = (nextCfg) => {
+            if (!live || !nextCfg) return;
+            const nextWS = nextCfg.isolateWS === true;
+            const nextMon = nextCfg.isolateMonitors === true;
+            const nextIdx = nextCfg.monitorIndex ?? -1;
+            if (record.isolateWS !== nextWS || record.isolateMonitors !== nextMon || record.monitorIndex !== nextIdx) {
+                record.isolateWS = nextWS;
+                record.isolateMonitors = nextMon;
+                record.monitorIndex = nextIdx;
+                this._syncOptionalSignals();
+            }
+        };
+        return unsubscribe;
     }
 
     _needsWorkspaceSignals() {
@@ -347,6 +360,7 @@ export class AppTracker {
 
     getEntries() {
         const cfg = this._getConfig();
+        this._stateUnsubscribe?.updateConfig?.(cfg);
         if (this._needsLocationMetadata(cfg)) this._ensureLocations();
         else this._releaseLocations();
 

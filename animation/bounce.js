@@ -85,8 +85,7 @@ export class Bounce {
             this._compose(0, 1, 1);
             return;
         }
-        const [sx, sy] = this._currentDeformation();
-        this._compose(this._y, sx, sy);
+        this._composeDeformation();
     }
 
     // Hard cancel — used on item destroy.
@@ -142,20 +141,20 @@ export class Bounce {
         }
 
         // Velocity-driven squash/stretch, strongest low and fast near the floor.
-        const [sx, sy] = this._currentDeformation();
-        this._compose(this._y, sx, sy);
+        this._composeDeformation();
         return true;
     }
 
-    _currentDeformation() {
+    _composeDeformation() {
         const v = clamp(Math.abs(this._v) * this._invV0, 0, 1);
         const lowness = 1 - clamp(this._y * this._invPeak, 0, 1);
         const grounded = v * lowness;
         const amp = this._squash;
         const s = v * amp;
-        const sx = 1 - s + grounded * (amp * 2);   // narrow aloft → wide near floor
-        const sy = 1 + s - grounded * (amp * 2);
-        return [sx, sy];
+        const gAmp2 = grounded * (amp * 2);
+        const sx = 1 - s + gAmp2;   // narrow aloft → wide near floor
+        const sy = 1 + s - gAmp2;
+        this._compose(this._y, sx, sy);
     }
 
     // Advance one fixed sub-step. Returns 'stop' (settled), 'pause' (attention

@@ -115,6 +115,9 @@ export class AnimationEngine {
         this._cachedMagZone = model.magZone;
         this._cachedMagConst = geom.magZone;
         this._mzX = this._mzY = this._mzW = this._mzH = NaN;
+        if (this._heldItem && !model.items.includes(this._heldItem)) {
+            this._heldItem = null;
+        }
 
         const fresh = !model.items.length;
         if (fresh) {
@@ -169,6 +172,18 @@ export class AnimationEngine {
             return;
         }
 
+        if (this._demagnifying) {
+            this._demagnifying = false;
+            const prop = this._transProp;
+            if (this._cachedChips) {
+                for (const chip of this._cachedChips) {
+                    try { chip.actor.remove_transition(prop); } catch { /* intentionally ignored: chip actor transition removal on disposed actor */ }
+                }
+            }
+            try { this._cachedBg?.remove_all_transitions?.(); } catch { /* intentionally ignored: dock background transition removal on disposed actor */ }
+            try { this._cachedBlurRegion?.remove_all_transitions?.(); } catch { /* intentionally ignored: blur region transition removal on disposed actor */ }
+        }
+
         this._scheduler.start();
     }
 
@@ -220,6 +235,7 @@ export class AnimationEngine {
         this.stop();
         if (!this._model) return;
         if (!animationsEnabled()) { this.snapToRest(); return; }
+        this._demagnifying = true;
         const items = this._cachedItems;
         const chips = this._cachedChips;
         const vert = this._vert;
@@ -264,18 +280,25 @@ export class AnimationEngine {
         const cfg = this._cachedCfg;
         const geom = this._cachedGeom;
 
-        // Cached stage→local pointer mapping.
+        // Cached stage→local pointer mapping with analytical fast-path.
         let haveLocal = false, lx = 0, ly = 0;
         if (this._pointerInside && this._container) {
-            const cx = this._container.x, cy = this._container.y;
+            const cx = (this._container.x ?? 0) + (this._container.translation_x ?? 0);
+            const cy = (this._container.y ?? 0) + (this._container.translation_y ?? 0);
             if (this._ptPX === this._pointerX && this._ptPY === this._pointerY &&
                 this._ptCX === cx && this._ptCY === cy) {
                 haveLocal = this._ptHave; lx = this._ptLX; ly = this._ptLY;
             } else {
-                try {
-                    const p = this._container.transform_stage_point(this._pointerX, this._pointerY);
-                    if (p?.[0]) { haveLocal = true; lx = p[1]; ly = p[2]; }
-                } catch (e) { logError(e, 'transform_stage_point'); }
+                if (Number.isFinite(cx) && Number.isFinite(cy)) {
+                    haveLocal = true;
+                    lx = this._pointerX - cx;
+                    ly = this._pointerY - cy;
+                } else {
+                    try {
+                        const p = this._container.transform_stage_point(this._pointerX, this._pointerY);
+                        if (p?.[0]) { haveLocal = true; lx = p[1]; ly = p[2]; }
+                    } catch (e) { logError(e, 'transform_stage_point'); }
+                }
                 this._ptPX = this._pointerX; this._ptPY = this._pointerY;
                 this._ptCX = cx; this._ptCY = cy;
                 this._ptHave = haveLocal; this._ptLX = lx; this._ptLY = ly;
@@ -391,8 +414,8 @@ export class AnimationEngine {
             this._bgCurrentW += dw * k;
             // Snap to target once within sub-pixel distance so the tail
             // doesn't leave the frame loop running for invisible motion.
-            if (Math.abs(this._bgTargetX - this._bgCurrentX) < 0.3 &&
-                Math.abs(this._bgTargetW - this._bgCurrentW) < 0.3) {
+            if (Math.abs(this._bgTargetX - this._bgCurrentX) <= 0.5 &&
+                Math.abs(this._bgTargetW - this._bgCurrentW) <= 0.5) {
                 this._bgCurrentX = this._bgTargetX;
                 this._bgCurrentW = this._bgTargetW;
             }
@@ -462,7 +485,9 @@ export class AnimationEngine {
             if (this._magZoneActive) { magZone.set_size(0, 0); this._magZoneActive = false; }
             return;
         }
-        const oh = magnifiedOverflow(mc, maxScale);
+        // Size to peak overflow once active so magZone bounds remain steady while
+        // icons animate, preventing synthetic enter/leave thrashing at the boundary.
+        const oh = magnifiedOverflow(mc, Math.max(maxScale, this._zoomMax));
         if (oh <= 2) {
             if (this._magZoneActive) { magZone.set_size(0, 0); this._magZoneActive = false; }
             return;

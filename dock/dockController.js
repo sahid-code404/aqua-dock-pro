@@ -529,6 +529,8 @@ export class DockController {
             this._endHover();
         if (this._focusItem && !this._factory.items.includes(this._focusItem))
             this.exitKeyboardFocus();
+        if (this._press?.item && !this._factory.items.includes(this._press.item))
+            this._press = null;
         if (changed) this.relayout();
         else this._engine.kick();
     }
@@ -775,9 +777,12 @@ export class DockController {
         if (this._updatePressedDrag(x, y)) return Clutter.EVENT_STOP;
         this._autohide?.onDockActivity();
         this._cancelEndHover();
-        this._engine.setPointer(x, y, true);
+        const geom = this._geom;
+        const rx = geom?.vert ? geom.x + geom.thick / 2 : x;
+        const ry = geom && !geom.vert ? geom.y + geom.thick / 2 : y;
+        this._engine.setPointer(rx, ry, true);
         this._engine.kick();
-        this._setHover(this._pickItemRedirected(x, y));
+        this._setHover(this._pickItem(rx, ry));
         return Clutter.EVENT_PROPAGATE;
     }
 
@@ -802,9 +807,12 @@ export class DockController {
         if (this._updatePressedDrag(x, y)) return Clutter.EVENT_STOP;
         this._autohide?.onDockActivity();
         this._cancelEndHover();
-        this._engine.setPointer(x, y, true);
+        const geom = this._geom;
+        const rx = geom?.vert ? geom.x + geom.thick / 2 : x;
+        const ry = geom && !geom.vert ? geom.y + geom.thick / 2 : y;
+        this._engine.setPointer(rx, ry, true);
         this._engine.kick();
-        this._setHover(this._pickItemRedirected(x, y));
+        this._setHover(this._pickItem(rx, ry));
         return Clutter.EVENT_PROPAGATE;
     }
 
@@ -907,61 +915,34 @@ export class DockController {
     _pickItem(stageX, stageY) {
         const geom = this._geom;
         if (!geom) return null;
-        let p;
-        try { p = this._chrome.container.transform_stage_point(stageX, stageY); }
-        catch { /* intentionally ignored: container transform stage point lookup failed on unmapped actor */ return null; }
-        if (!p?.[0]) return null;
+        const container = this._chrome?.container;
+        if (!container) return null;
+        let lx, ly;
+        const cx = (container.x ?? 0) + (container.translation_x ?? 0);
+        const cy = (container.y ?? 0) + (container.translation_y ?? 0);
+        if (Number.isFinite(cx) && Number.isFinite(cy)) {
+            lx = stageX - cx;
+            ly = stageY - cy;
+        } else {
+            let p;
+            try { p = container.transform_stage_point(stageX, stageY); }
+            catch { /* intentionally ignored: container transform stage point lookup failed on unmapped actor */ return null; }
+            if (!p?.[0]) return null;
+            lx = p[1];
+            ly = p[2];
+        }
         const vert = geom.vert;
-        const main = vert ? p[2] : p[1];
-        const cross = vert ? p[1] : p[2];
+        const main = vert ? ly : lx;
+        const cross = vert ? lx : ly;
         const pickLow = geom.pick.low, pickHigh = geom.pick.high;
         if (cross < pickLow || cross > pickHigh) return null;
 
         const chips = this._factory.chips;
         const transProp = vert ? 'translation_y' : 'translation_x';
 
-        // Scan directly through chips to pick without per-frame allocations or retaining item references
+        // Single-pass scan through chips to pick without per-event allocations or Cogl matrix inversion
         let firstBx = 0, firstCenter = 0, firstItem = null;
-        let lastBx = 0, lastBw = 0, lastCenter = 0, lastItem = null;
-
-        for (let i = 0, len = chips.length; i < len; i++) {
-            const chip = chips[i];
-            if (!chip.item) continue;
-            const tt = Number.isFinite(chip.spreadOffset)
-                ? chip.spreadOffset
-                : (chip.actor[transProp] ?? 0);
-            firstBx = chip.baseX + tt;
-            firstCenter = chip.center + tt;
-            firstItem = chip.item;
-            break;
-        }
-        if (!firstItem) return null;
-
-        for (let i = chips.length - 1; i >= 0; i--) {
-            const chip = chips[i];
-            if (!chip.item) continue;
-            const tt = Number.isFinite(chip.spreadOffset)
-                ? chip.spreadOffset
-                : (chip.actor[transProp] ?? 0);
-            lastBx = chip.baseX + tt;
-            lastBw = chip.w;
-            lastCenter = chip.center + tt;
-            lastItem = chip.item;
-            break;
-        }
-
-        // Outside dock items bounds with standard grace padding
-        if (main < firstBx - 12 || main > lastBx + lastBw + 12) return null;
-
-        // Pointer is before the first item center or after the last item center
-        if (main < firstCenter) return firstItem;
-        if (main > lastCenter) return lastItem;
-        if (firstItem === lastItem) return firstItem;
-
-        // Pointer is between firstCenter and lastCenter.
-        // Locate which adjacent pair of items the pointer falls between with early termination.
-        let prevBx = firstBx, prevBw = 0, prevCenter = firstCenter, prevItem = firstItem;
-        let isFirst = true;
+        let prevBx = 0, prevBw = 0, prevCenter = 0, prevItem = null;
 
         for (let i = 0, len = chips.length; i < len; i++) {
             const chip = chips[i];
@@ -974,12 +955,16 @@ export class DockController {
             const curCenter = chip.center + tt;
             const curItem = chip.item;
 
-            if (isFirst) {
+            if (!firstItem) {
+                firstBx = curBx;
+                firstCenter = curCenter;
+                firstItem = curItem;
+                if (main < firstBx - 12) return null;
+                if (main < firstCenter) return firstItem;
                 prevBx = curBx;
                 prevBw = curBw;
                 prevCenter = curCenter;
                 prevItem = curItem;
-                isFirst = false;
                 continue;
             }
 
@@ -997,7 +982,6 @@ export class DockController {
                 if (distFromMid <= deadzone)
                     return null;
 
-                // When in between apps, if closer to near app, return that app
                 return main < midpoint ? prevItem : curItem;
             }
 
@@ -1007,7 +991,9 @@ export class DockController {
             prevItem = curItem;
         }
 
-        return null;
+        if (!prevItem) return null;
+        if (main > prevBx + prevBw + 12) return null;
+        return prevItem;
     }
 
     // Redirect the cross-axis coordinate into the pill centre (for the mag zone,
@@ -1138,11 +1124,6 @@ export class DockController {
         }
         if (this._downloads?.stackOpen) {
             try { this._downloads.closeStack(); } catch { /* intentionally ignored: downloads stack may already be closed or destroyed */ }
-        }
-        if (button === 3) {
-            try { this._menu.openFor(item); }
-            catch (e) { logError(e, 'openMenu'); }
-            return;
         }
         if (button === 1 && item.entry.kind === 'app' &&
             this._cfg.leftClickAction === 'preview') {

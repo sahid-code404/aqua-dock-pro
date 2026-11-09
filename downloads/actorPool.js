@@ -116,15 +116,23 @@ export class ActorPool {
             }
 
             // Reset thumbnail child back to base icon if replaced
-            if (btn._thumb && btn._icon) {
+            if (btn._thumb) {
                 btn._thumb.remove_all_transitions?.();
                 btn._thumb.set_scale?.(1.0, 1.0);
                 btn._thumb.opacity = 255;
+                const currentChild = btn._thumb.get_child?.();
+                if (currentChild && currentChild !== btn._icon) {
+                    try { btn._thumb.remove_child?.(currentChild); } catch { /* intentionally ignored: child detach failed */ }
+                    try { currentChild.destroy?.(); } catch { /* intentionally ignored: pooled row or button actor may already be destroyed */ }
+                }
+                if (!btn._icon || btn._icon.is_destroyed?.()) {
+                    btn._icon = new St.Icon({
+                        style_class: 'aqua-dl-fan-icon',
+                        x_align: Clutter.ActorAlign.CENTER,
+                        y_align: Clutter.ActorAlign.CENTER,
+                    });
+                }
                 if (btn._thumb.get_child?.() !== btn._icon) {
-                    const temp = btn._thumb.get_child?.();
-                    if (temp) {
-                        try { temp.destroy?.(); } catch { /* intentionally ignored: pooled row or button actor may already be destroyed */ }
-                    }
                     btn._thumb.set_child?.(btn._icon);
                 }
             }
@@ -192,16 +200,25 @@ export class ActorPool {
 
             if (row._label) {
                 row._label.text = '';
+                row._label.remove_style_class_name?.('aqua-dl-fan-more');
                 row._label.clutter_text?.set_ellipsize?.(3);
             }
 
-            if (row._thumb && row._icon) {
+            if (row._thumb) {
                 row._thumb.remove_all_transitions?.();
+                const currentChild = row._thumb.get_child?.();
+                if (currentChild && currentChild !== row._icon) {
+                    try { row._thumb.remove_child?.(currentChild); } catch { /* intentionally ignored: child detach failed */ }
+                    try { currentChild.destroy?.(); } catch { /* intentionally ignored: pooled row or button actor may already be destroyed */ }
+                }
+                if (!row._icon || row._icon.is_destroyed?.()) {
+                    row._icon = new St.Icon({
+                        style_class: 'aqua-dl-fan-icon',
+                        x_align: Clutter.ActorAlign.CENTER,
+                        y_align: Clutter.ActorAlign.CENTER,
+                    });
+                }
                 if (row._thumb.get_child?.() !== row._icon) {
-                    const temp = row._thumb.get_child?.();
-                    if (temp) {
-                        try { temp.destroy?.(); } catch { /* intentionally ignored: pooled row or button actor may already be destroyed */ }
-                    }
                     row._thumb.set_child?.(row._icon);
                 }
             }

@@ -356,6 +356,7 @@ export class AutohideManager {
         } catch { /* intentionally ignored: window actor may already be destroyed or unmanaged */ }
         if (!ids.length) return;
 
+        ids.timeoutId = this._timers.addOnce(800, finish);
         this._windowTransitions.set(actor, ids);
         if (this._vis.hidden) this._cancelReveal();
     }
@@ -364,7 +365,9 @@ export class AutohideManager {
         const ids = this._windowTransitions.get(actor);
         if (!ids) return;
         this._windowTransitions.delete(actor);
-        for (const id of ids) {
+        if (ids.timeoutId) this._timers.remove(ids.timeoutId);
+        const list = Array.isArray(ids) ? ids : (ids.ids ?? []);
+        for (const id of list) {
             try { actor.disconnect(id); } catch { /* intentionally ignored: window actor signal handler may already be disconnected */ }
         }
 
@@ -386,7 +389,9 @@ export class AutohideManager {
             this._transitionReleaseId = 0;
         }
         for (const [actor, ids] of this._windowTransitions) {
-            for (const id of ids) {
+            if (ids?.timeoutId) this._timers.remove(ids.timeoutId);
+            const list = Array.isArray(ids) ? ids : (ids?.ids ?? []);
+            for (const id of list) {
                 try { actor.disconnect(id); } catch { /* intentionally ignored: window actor signal handler may already be disconnected */ }
             }
         }

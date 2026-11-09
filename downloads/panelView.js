@@ -63,7 +63,13 @@ export class PanelView {
 
         const originX = this.origin.x, ay = this.origin.y;
         const headerH = 60;
-        const availH = ay - mon.y - 8 - panelGap - headerH;
+        const topInset = mon.topInset ?? 0;
+        const pos = (cfg.position || 'bottom').toLowerCase();
+        const availH = (cfg.vertical || pos === 'left' || pos === 'right')
+            ? mon.height - topInset - 16 - headerH
+            : pos === 'top'
+                ? (mon.y + mon.height) - ay - 8 - panelGap - headerH
+                : ay - (mon.y + topInset) - 8 - panelGap - headerH;
         const maxRowsFit = Math.max(1, Math.floor(availH / (tileH + rowSpacing)));
         const maxTilesFit = view === 'grid' ? maxRowsFit * GRID_COLS : maxRowsFit;
         const userMax = Math.min(11, Math.max(3, cfg.downloadsMaxFiles ?? 9));
@@ -192,7 +198,6 @@ export class PanelView {
         const sideX = sideFanX(cfg.position, originX, cfg.dockH, panelW);
         const targetX = sideX ?? originX - panelW / 2;
         const targetY = cfg.vertical ? ay - natH / 2 : ay - natH - panelGap;
-        const topInset = mon.topInset ?? 0;
         const px = clamp(Math.round(targetX), mon.x + 8, mon.x + mon.width - panelW - 8);
         const py = clamp(Math.round(targetY), mon.y + topInset + 8, mon.y + mon.height - natH - 8);
         panel.set_position(px, py);
@@ -204,17 +209,17 @@ export class PanelView {
         let transX = 0;
         let transY = 18;
 
-        if (cfg.position === 'LEFT') {
+        if (pos === 'left') {
             pivotX = 0.0;
             pivotY = clamp((ay - py) / Math.max(1, natH), 0.05, 0.95);
             transX = -18;
             transY = 0;
-        } else if (cfg.position === 'RIGHT') {
+        } else if (pos === 'right') {
             pivotX = 1.0;
             pivotY = clamp((ay - py) / Math.max(1, natH), 0.05, 0.95);
             transX = 18;
             transY = 0;
-        } else if (cfg.position === 'TOP') {
+        } else if (pos === 'top') {
             pivotX = clamp((originX - px) / Math.max(1, panelW), 0.05, 0.95);
             pivotY = 0.0;
             transX = 0;
@@ -514,6 +519,8 @@ export class PanelView {
     }
 
     animateClose(onDone) {
+        this._fileMenu?.destroy();
+        this._fileMenu = null;
         const actor = this._actor;
         if (!actor) { onDone(); return; }
         stopSubtreeTransitions(actor);

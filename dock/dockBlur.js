@@ -238,6 +238,9 @@ export function setupBackgroundCorners(background, getRadius = null) {
     background._aquaThemeNodeHooked = true;
 
     const origGetThemeNode = background.get_theme_node;
+    let cachedNode = null;
+    let cachedScaled = -1;
+    let cachedProxy = null;
     background.get_theme_node = function() {
         const node = origGetThemeNode ? origGetThemeNode.call(background) : null;
         const radius = (typeof background._aquaGetRadius === 'function'
@@ -253,19 +256,23 @@ export function setupBackgroundCorners(background, getRadius = null) {
             }
         } catch { /* intentionally ignored: stage theme context scale factor lookup failed */ }
         const scaled = Math.round(radius * scale);
-        const customRadius = {
-            get_border_radius: (corner) => {
-                const nodeRadius = node?.get_border_radius?.(corner) ?? 0;
-                return nodeRadius > 0 ? nodeRadius : scaled;
-            },
+        if (cachedProxy && cachedNode === node && cachedScaled === scaled) {
+            return cachedProxy;
+        }
+        cachedNode = node;
+        cachedScaled = scaled;
+        const getBorderRadius = (corner) => {
+            const nodeRadius = cachedNode?.get_border_radius?.(corner) ?? 0;
+            return nodeRadius > 0 ? nodeRadius : cachedScaled;
         };
-        return node ? new Proxy(node, {
+        cachedProxy = node ? new Proxy(node, {
             get(target, prop, receiver) {
                 if (prop === 'get_border_radius')
-                    return customRadius.get_border_radius;
+                    return getBorderRadius;
                 return Reflect.get(target, prop, receiver);
             },
-        }) : customRadius;
+        }) : { get_border_radius: getBorderRadius };
+        return cachedProxy;
     };
 }
 
@@ -517,15 +524,25 @@ export class AquaDockSurface {
         let opacity = 255;
         let visible = true;
 
-        if (parent && (parent === this.dash_container || parent === this.dash)) {
-            // Background group is nested directly inside the dock or popup container.
+        if (parent && (parent === this.dash_container || parent === this.dash || parent === this.dash_background)) {
+            // Background group is nested directly inside the dock or popup container/background.
             // Clutter already modulates parent opacity down to children in the scene graph.
             visible = (this.dash_container?.visible ?? true) && (this.dash_background?.visible ?? true);
         } else {
-            const uniqueActors = new Set([this.dash_container, this.dash, this.dash_background].filter(Boolean));
-            for (const actor of uniqueActors) {
-                opacity = Math.round(opacity * ((actor.opacity ?? 255) / 255));
-                visible = visible && (actor.visible ?? true);
+            const a1 = this.dash_container;
+            const a2 = this.dash !== a1 ? this.dash : null;
+            const a3 = (this.dash_background !== a1 && this.dash_background !== a2) ? this.dash_background : null;
+            if (a1) {
+                opacity = Math.round(opacity * ((a1.opacity ?? 255) / 255));
+                visible = visible && (a1.visible ?? true);
+            }
+            if (a2) {
+                opacity = Math.round(opacity * ((a2.opacity ?? 255) / 255));
+                visible = visible && (a2.visible ?? true);
+            }
+            if (a3) {
+                opacity = Math.round(opacity * ((a3.opacity ?? 255) / 255));
+                visible = visible && (a3.visible ?? true);
             }
             let ancestor = (this.dash ?? this.dash_container)?.get_parent?.();
             while (ancestor && ancestor !== parent) {
@@ -631,14 +648,14 @@ export class AquaDockSurface {
 
         if (Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(w) && Number.isFinite(h) && w > 0 && h > 0) {
             const last = this._lastDynamicGeom;
-            if (last &&
-                last.x === x &&
-                last.y === y &&
-                last.w === w &&
-                last.h === h) {
-                return;
+            if (last) {
+                if (last.x === x && last.y === y && last.w === w && last.h === h) {
+                    return;
+                }
+                last.x = x; last.y = y; last.w = w; last.h = h;
+            } else {
+                this._lastDynamicGeom = { x, y, w, h };
             }
-            this._lastDynamicGeom = { x, y, w, h };
 
             try { this.background?.remove_all_transitions?.(); } catch { /* intentionally ignored: blur actor may already be destroyed or unparented */ }
             try { this.background_group?.remove_all_transitions?.(); } catch { /* intentionally ignored: blur actor may already be destroyed or unparented */ }
@@ -728,28 +745,37 @@ export class AquaDockSurface {
             }
 
             const last = this._lastStaticGeom;
-            if (last &&
-                last.background_x === background_x &&
-                last.background_y === background_y &&
-                last.targetScaleX === targetScaleX &&
-                last.targetScaleY === targetScaleY &&
-                last.clip_x === clip_x &&
-                last.clip_y === clip_y &&
-                last.clip_w === clip_w &&
-                last.clip_h === clip_h) {
-                return;
+            if (last) {
+                if (last.background_x === background_x &&
+                    last.background_y === background_y &&
+                    last.targetScaleX === targetScaleX &&
+                    last.targetScaleY === targetScaleY &&
+                    last.clip_x === clip_x &&
+                    last.clip_y === clip_y &&
+                    last.clip_w === clip_w &&
+                    last.clip_h === clip_h) {
+                    return;
+                }
+                last.background_x = background_x;
+                last.background_y = background_y;
+                last.targetScaleX = targetScaleX;
+                last.targetScaleY = targetScaleY;
+                last.clip_x = clip_x;
+                last.clip_y = clip_y;
+                last.clip_w = clip_w;
+                last.clip_h = clip_h;
+            } else {
+                this._lastStaticGeom = {
+                    background_x,
+                    background_y,
+                    targetScaleX,
+                    targetScaleY,
+                    clip_x,
+                    clip_y,
+                    clip_w,
+                    clip_h,
+                };
             }
-
-            this._lastStaticGeom = {
-                background_x,
-                background_y,
-                targetScaleX,
-                targetScaleY,
-                clip_x,
-                clip_y,
-                clip_w,
-                clip_h,
-            };
 
             this.background.set_pivot_point?.(0, 0);
             try { this.background?.remove_all_transitions?.(); } catch { /* intentionally ignored: blur actor may already be destroyed or unparented */ }

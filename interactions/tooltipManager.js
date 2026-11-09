@@ -373,6 +373,8 @@ export class TooltipManager {
 
         this._w = null;   // border/padding shift the metrics
         this._h = null;
+        this._lastSyncW = null;
+        this._lastSyncH = null;
         if (this._shown && this._getHoverItem) {
             const item = this._getHoverItem();
             if (item && this._lastGeom) {
@@ -431,6 +433,10 @@ export class TooltipManager {
 
         this._w = null;
         this._h = null;
+        this._x = NaN;
+        this._y = NaN;
+        this._lastSyncW = null;
+        this._lastSyncH = null;
 
         if (!this._shown) {
             const parent = this._container.get_parent?.();
@@ -536,6 +542,9 @@ export class TooltipManager {
             ty = Math.max(mon.y + topInset + 4, Math.min(ty, monB - bh - 4));
 
             const nx = Math.round(tx), ny = Math.round(ty);
+            if (nx === this._x && ny === this._y && bw === this._lastSyncW && bh === this._lastSyncH) {
+                return;
+            }
 
             this._removeTransitions();
 
@@ -549,6 +558,8 @@ export class TooltipManager {
 
             this._x = nx;
             this._y = ny;
+            this._lastSyncW = bw;
+            this._lastSyncH = bh;
 
             const surface = this._container._aquaDockSurface;
             if (surface?.background && !surface.is_static) {

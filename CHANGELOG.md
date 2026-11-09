@@ -1,5 +1,19 @@
 # Changelog
 
+## 298
+
+- Critical Bug Fixes & Lifecycle Hardening:
+  - Case-Insensitive Stack Pivot & Vertical Dock Height (`downloads/panelView.js`): Normalized `cfg.position` comparisons to lowercase (`'left'`, `'right'`, `'top'`, `'bottom'`) so Grid and List stack panels spring horizontally outward from vertical docks instead of falling into the bottom-dock branch, and computed `availH` accurately for vertical docks and top panel insets.
+  - Pooled `St.Icon` Preservation on Fan Action/More Cards (`downloads/fanView.js`, `downloads/actorPool.js`): Detached `btn._icon` from `btn._thumb` before replacing the child in `_actionCard()` and `_infoCard()`, and safely detached temporary child actors in `ActorPool.releaseFanItem()` / `releasePanelItem()` while clearing `.aqua-dl-fan-more` from recycled labels.
+  - Orphaned Pressure Polling Timer Fix (`autohide/pressureBarrier.js`): Guarded the 30ms polling loop against `this.cancel()` (`!this._pollId`) when `_onReveal()` is blocked so the timer never returns `GLib.SOURCE_CONTINUE` as an untracked zombie source.
+  - Bounded Window-Transition Intellihide Guard (`autohide/autohideManager.js`): Added an 800ms safety timeout for tracked window transitions in `_beginWindowTransition()` so dropped `effects-completed` signals can never lock the dock in a hidden state indefinitely.
+  - Runtime Workspace/Monitor Isolation Sync (`services/appTracker.js`): Added `updateConfig` on `AppStateHub` subscriptions so runtime toggles of `isolateWS` and `isolateMonitors` dynamically connect or disconnect workspace/monitor signals.
+  - Dangling Pointer/Menu/Clone Teardown (`dock/dockController.js`, `animation/animationEngine.js`, `downloads/fanView.js`, `downloads/panelView.js`, `downloads/fileEnumerator.js`, `ui/preview/previewManager.js`): Cleared stale `_press` and `_heldItem` references on model rebuilds, closed open file context menus on stack dismissal, wrapped `childFile.query_info_async` in `try/catch` so enumeration promises never hang, and cleared `Clutter.Clone.source` when deactivating/destroying window previews.
+- Silky-Smooth Fluid Animation & Low-Resource Hot-Path Optimizations:
+  - Smooth Icon Lift Easing & Transition Hand-Off (`dock/dockItem.js`, `animation/animationEngine.js`): Preserved the active lift axis in `easeToRest()` so icons ease smoothly back to rest without a 1-frame vertical snap, and cancelled in-flight `demagnify()` / `easeToRest()` transitions cleanly when spring magnification resumes.
+  - Steady Magnification Zone & Edge Motion Continuity (`animation/animationEngine.js`, `dock/dockController.js`): Sized `magZone` to peak overflow while active to prevent synthetic enter/leave thrashing at the boundary, unified pill spread snap/settle thresholds (`0.5px`), and redirected edge-zone motion coordinates into the pill center so magnification stays fluid near the screen edge.
+  - Zero-Relayout Compositor Badge Tracking & Zero-Allocation Frame Loop (`dock/dockItem.js`, `animation/bounce.js`, `animation/springSolver.js`, `dock/dockController.js`, `dock/dockBlur.js`, `interactions/tooltipManager.js`): Switched notification badge positioning to compositor-only `translation_x`/`translation_y`, eliminated per-frame Cogl matrix inversions (`transform_stage_point`) in `_frame()` and `_pickItem()`, collapsed `_pickItem()` to a single pass, removed per-frame array/Set/object/Proxy allocations in `BounceController` and `AquaDockSurface`, quantized VRR step keys in `getDampPow()`, and skipped redundant tooltip geometry notifications when coordinates are unchanged.
+
 ## 297
 
 - Downloads & Folder Stack Visual Anchor Polish:

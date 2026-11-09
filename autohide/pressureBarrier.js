@@ -36,7 +36,7 @@ export class PressureBarrier {
                 return GLib.SOURCE_REMOVE;
             }
             this._sample();
-            if (!this._isHidden() || !this._getConfig().pressureSense) {
+            if (!this._pollId || !this._isHidden() || !this._getConfig().pressureSense) {
                 this._pollId = 0;
                 return GLib.SOURCE_REMOVE;
             }

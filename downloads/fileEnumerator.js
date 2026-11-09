@@ -123,22 +123,30 @@ function _doEnumerate(folder, cancellable, sort, limit, cacheKey = null) {
             let pending = candidates.length;
             const finalFiles = new Array(candidates.length);
             candidates.forEach((cand, idx) => {
-                const childFile = folder.get_child(cand.name);
-                childFile.query_info_async(
-                    ATTRS_HEAVY, Gio.FileQueryInfoFlags.NONE, GLib.PRIORITY_DEFAULT, cancellable,
-                    (fl, qres) => {
-                        if (cancellable?.is_cancelled()) {
-                            finish(new Error('Operation cancelled'));
-                            return;
+                try {
+                    const childFile = folder.get_child(cand.name);
+                    childFile.query_info_async(
+                        ATTRS_HEAVY, Gio.FileQueryInfoFlags.NONE, GLib.PRIORITY_DEFAULT, cancellable,
+                        (fl, qres) => {
+                            if (cancellable?.is_cancelled()) {
+                                finish(new Error('Operation cancelled'));
+                                return;
+                            }
+                            try { finalFiles[idx] = fl.query_info_finish(qres); }
+                            catch { /* intentionally ignored: thumbnail query finish failed fallback to raw file info */ finalFiles[idx] = cand.rawInfo; }
+                            pending--;
+                            if (pending === 0) {
+                                finish(null, finalFiles.filter(Boolean));
+                            }
                         }
-                        try { finalFiles[idx] = fl.query_info_finish(qres); }
-                        catch { /* intentionally ignored: thumbnail query finish failed fallback to raw file info */ finalFiles[idx] = cand.rawInfo; }
-                        pending--;
-                        if (pending === 0) {
-                            finish(null, finalFiles.filter(Boolean));
-                        }
+                    );
+                } catch {
+                    finalFiles[idx] = cand.rawInfo;
+                    pending--;
+                    if (pending === 0) {
+                        finish(null, finalFiles.filter(Boolean));
                     }
-                );
+                }
             });
         };
 

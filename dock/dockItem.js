@@ -353,7 +353,8 @@ class DockItem extends St.Widget {
         const bx = Math.round(cornerX - bw * 0.6);
         const by = Math.round(drawnY - bh * 0.4);
         if (bx !== this._badgePX || by !== this._badgePY) {
-            this._badge.set_position(bx, by);
+            this._badge.translation_x = bx;
+            this._badge.translation_y = by;
             this._badgePX = bx;
             this._badgePY = by;
         }
@@ -530,6 +531,13 @@ class DockItem extends St.Widget {
         }
         this.scaleCurrent = scale;
         if (this._bounce?.active || this._pulsing) return;
+        if (this._easingToRest) {
+            this._easingToRest = false;
+            try { this._icon.remove_all_transitions(); } catch { /* intentionally ignored: icon actor may already be disposed */ }
+            if (this._badge?.visible) {
+                try { this._badge.remove_all_transitions(); } catch { /* intentionally ignored: badge actor may already be disposed */ }
+            }
+        }
         this._syncTextureTier(scale);
         const fScale = Math.fround(scale);
         this._icon.set_scale(fScale, fScale);
@@ -554,20 +562,29 @@ class DockItem extends St.Widget {
         if (!this._icon || this._bounce?.active || this._pulsing || this._landing) return;
         const restScale = 1;
         this._icon.remove_all_transitions();
-        this._icon.translation_x = 0;
-        this._icon.translation_y = 0;
+        this._icon[this._vert ? 'translation_y' : 'translation_x'] = 0;
         this._iconLift = 0;
         if (!animationsEnabled()) {
+            this._easingToRest = false;
+            this._icon[this._liftProp] = 0;
             this._syncTextureTier(1, true);
             this._icon.set_scale(restScale, restScale);
+            if (this._badge?.visible) this._positionBadge();
             return;
         }
+        this._easingToRest = true;
         this._icon.ease({
             scale_x: restScale, scale_y: restScale,
             [this._liftProp]: 0, duration,
             mode: Clutter.AnimationMode.EASE_OUT_QUAD,
-            onComplete: () => this._syncTextureTier(1, true),
+            onComplete: () => {
+                this._easingToRest = false;
+                this._syncTextureTier(1, true);
+            },
         });
+        if (this._badge?.visible) {
+            this._positionBadge();
+        }
     }
 
     landIn(duration = 280) {
@@ -664,11 +681,22 @@ class DockItem extends St.Widget {
             scale_x: base * factor, scale_y: base * factor, duration: 130,
             mode: Clutter.AnimationMode.EASE_OUT_QUAD,
             onComplete: () => {
+                if (!this._icon || this._icon.is_destroyed?.()) {
+                    this._pulsing = false;
+                    onDone?.();
+                    return;
+                }
                 const b = this.scaleCurrent;
                 this._icon.ease({
                     scale_x: b, scale_y: b, duration: 120,
                     mode: Clutter.AnimationMode.EASE_IN_OUT_QUAD,
-                    onComplete: () => { this._pulsing = false; onDone?.(); },
+                    onComplete: () => {
+                        this._pulsing = false;
+                        if (this._icon && !this._icon.is_destroyed?.()) {
+                            this.setScale(this.scaleCurrent);
+                        }
+                        onDone?.();
+                    },
                 });
             },
         });

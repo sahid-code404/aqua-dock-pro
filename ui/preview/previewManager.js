@@ -601,13 +601,20 @@ export class PreviewManager {
             const actor = pending.pop();
             actor.reactive = false;
             actor.can_focus = false;
+            if (actor instanceof Clutter.Clone) {
+                try { actor.source = null; } catch { /* intentionally ignored: clone source already cleared */ }
+            }
             for (const child of actor.get_children?.() ?? [])
                 pending.push(child);
         }
     }
 
     _destroyBox(box) {
-        try { box.remove_all_transitions(); box.destroy(); } catch { /* intentionally ignored: preview box or menu actor may already be destroyed */ }
+        try {
+            this._deactivateBox(box);
+            box.remove_all_transitions();
+            box.destroy();
+        } catch { /* intentionally ignored: preview box or menu actor may already be destroyed */ }
     }
 
     _cancelOpen() {

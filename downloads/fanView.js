@@ -352,6 +352,9 @@ export class FanView {
             this.cfg.placeIconSourceSize,
             'aqua-dl-fan-icon');
         iconActor.set_size(iconSize, iconSize);
+        if (btn._icon && thumb.get_child?.() === btn._icon) {
+            try { thumb.remove_child?.(btn._icon); } catch { /* intentionally ignored: pooled icon detach failed */ }
+        }
         thumb.set_child(iconActor);
         btn._activate = () => { launchUri(this.folder.get_uri()); this.close(); };
         btn._openFileMenu = null;
@@ -369,6 +372,9 @@ export class FanView {
             this.cfg.placeIconSourceSize,
             'aqua-dl-fan-icon');
         iconActor.set_size(iconSize, iconSize);
+        if (btn._icon && thumb.get_child?.() === btn._icon) {
+            try { thumb.remove_child?.(btn._icon); } catch { /* intentionally ignored: pooled icon detach failed */ }
+        }
         thumb.set_child(iconActor);
         btn._activate = () => { launchUri(this.folder.get_uri()); this.close(); };
         btn._openFileMenu = null;
@@ -452,6 +458,8 @@ export class FanView {
     // onDone() is called when the close animation finishes (or immediately if
     // animations are off). The DownloadsStack then destroys the actor.
     animateClose(onDone) {
+        this._fileMenu?.destroy();
+        this._fileMenu = null;
         const actor = this._actor;
         if (!actor) { onDone(); return; }
         stopSubtreeTransitions(actor);
