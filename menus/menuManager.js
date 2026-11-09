@@ -80,7 +80,8 @@ export class MenuManager {
                 },
                 isWindowIsolationActive: () => {
                     const cfg = this._host.getConfig();
-                    return cfg.isolateWS || cfg.isolateMonitors;
+                    const isolateMonitors = cfg.isolateMonitors === true && cfg.multiMonitor !== false;
+                    return cfg.isolateWS || isolateMonitors;
                 },
             });
             this._styleItems();

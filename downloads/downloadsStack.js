@@ -129,8 +129,15 @@ export class DownloadsStack {
             blocker.connect('button-press-event', () => { this.hide(); return Clutter.EVENT_STOP; });
             this._blocker = blocker;
         }
-        blocker.set_position(mon.x, mon.y);
-        blocker.set_size(mon.width, mon.height);
+        const stageW = globalThis.global?.stage?.width ?? 0;
+        const stageH = globalThis.global?.stage?.height ?? 0;
+        if (stageW > 0 && stageH > 0) {
+            blocker.set_position(0, 0);
+            blocker.set_size(stageW, stageH);
+        } else {
+            blocker.set_position(mon.x, mon.y);
+            blocker.set_size(mon.width, mon.height);
+        }
         blocker.visible = true;
         blocker.opacity = 0;
         const bParent = blocker.get_parent?.();

@@ -21,21 +21,30 @@ export class VisibilityController {
         this._hidden = hidden;
         const x = hidden ? geom.hiddenX : geom.x;
         const y = hidden ? geom.hiddenY : geom.y;
+        if (this._container) this._container.reactive = !hidden;
         if (x === undefined || y === undefined) return true;
 
         try {
             this._container.remove_transition('x');
             this._container.remove_transition('y');
+            this._container.remove_transition('opacity');
         } catch { /* intentionally ignored: dock container actor may already be destroyed or unparented */ }
 
+        const targetOpacity = hidden ? 0 : 255;
         if (animate && animationsEnabled()) {
             this._container.ease({
-                x, y, duration: SLIDE_MS,
+                x, y,
+                opacity: targetOpacity,
+                duration: SLIDE_MS,
                 mode: Clutter.AnimationMode.EASE_OUT_QUAD,
-                onComplete: () => { if (!hidden) onComplete?.(); },
+                onComplete: () => {
+                    if (this._container) this._container.opacity = targetOpacity;
+                    if (!hidden) onComplete?.();
+                },
             });
         } else {
             this._container.set_position(x, y);
+            this._container.opacity = targetOpacity;
             if (!hidden) onComplete?.();
         }
         return true;
@@ -48,6 +57,9 @@ export class VisibilityController {
         try {
             this._container.remove_transition('x');
             this._container.remove_transition('y');
+            this._container.remove_transition('opacity');
+            this._container.reactive = !this._hidden;
+            this._container.opacity = this._hidden ? 0 : 255;
             if (x !== undefined && y !== undefined)
                 this._container.set_position(x, y);
         } catch { /* intentionally ignored: dock container actor may already be destroyed or unparented */ }
@@ -57,6 +69,7 @@ export class VisibilityController {
         try {
             this._container?.remove_transition('x');
             this._container?.remove_transition('y');
+            this._container?.remove_transition('opacity');
         } catch { /* intentionally ignored: dock container actor may already be destroyed or unparented */ }
         this._container = null;
     }

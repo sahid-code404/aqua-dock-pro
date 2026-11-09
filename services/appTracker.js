@@ -65,7 +65,7 @@ class AppStateHub {
         const record = {
             callback,
             isolateWS: config.isolateWS === true,
-            isolateMonitors: config.isolateMonitors === true,
+            isolateMonitors: config.isolateMonitors === true && config.multiMonitor !== false,
             monitorIndex: config.monitorIndex ?? -1,
         };
         this._subscribers.add(record);
@@ -81,7 +81,7 @@ class AppStateHub {
         unsubscribe.updateConfig = (nextCfg) => {
             if (!live || !nextCfg) return;
             const nextWS = nextCfg.isolateWS === true;
-            const nextMon = nextCfg.isolateMonitors === true;
+            const nextMon = nextCfg.isolateMonitors === true && nextCfg.multiMonitor !== false;
             const nextIdx = nextCfg.monitorIndex ?? -1;
             if (record.isolateWS !== nextWS || record.isolateMonitors !== nextMon || record.monitorIndex !== nextIdx) {
                 record.isolateWS = nextWS;
@@ -325,6 +325,7 @@ export class AppTracker {
             {
                 isolateWS: cfg.isolateWS,
                 isolateMonitors: cfg.isolateMonitors,
+                multiMonitor: cfg.multiMonitor,
                 monitorIndex: cfg.monitorIndex,
             });
     }
@@ -378,11 +379,12 @@ export class AppTracker {
             catch { /* intentionally ignored: active workspace query failed during session transition */ }
         }
 
+        const isolateMonitors = cfg.isolateMonitors === true && cfg.multiMonitor !== false;
         const runningExtra = [];
         for (const app of running) {
             if (favIds.has(app.get_id())) continue;
             const windows = appWindowsForConfig(app, cfg, activeWorkspace);
-            if ((cfg.isolateWS || cfg.isolateMonitors) && !windows.length) continue;
+            if ((cfg.isolateWS || isolateMonitors) && !windows.length) continue;
             runningExtra.push(app);
         }
 

@@ -52,6 +52,15 @@ const both = appWindowsForConfig(app, {
 assert(both.length === 1 && both[0].id === 'a1',
     'combined workspace and monitor isolation must use their intersection');
 
+const singleMonitorMode = appWindowsForConfig(app, {
+    multiMonitor: false,
+    isolateMonitors: true,
+    isolateWS: false,
+    monitorIndex: 0,
+}, workspaceA);
+assert(singleMonitorMode === windows,
+    'single-monitor mode (multiMonitor: false) must ignore isolateMonitors so secondary-monitor windows remain accessible');
+
 assert(appWindowsForConfig(null, {}, workspaceA).length === 0,
     'an unavailable app must return an empty list');
 

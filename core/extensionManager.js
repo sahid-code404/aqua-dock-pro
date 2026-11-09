@@ -136,30 +136,51 @@ export class ExtensionManager {
             return;
         }
 
-        let monitorIndex = -1;
-        try { monitorIndex = global.display.focus_window?.get_monitor?.() ?? -1; }
-        catch { /* intentionally ignored: focus window query failed during window transition */ }
-        if (monitorIndex < 0) {
-            try {
-                const [x, y] = global.get_pointer();
-                monitorIndex = (Main.layoutManager.monitors ?? []).findIndex(mon =>
-                    x >= mon.x && x < mon.x + mon.width &&
-                    y >= mon.y && y < mon.y + mon.height);
-            } catch { /* intentionally ignored: pointer coordinates query failed during monitor lookup */ }
+        const candidateIndices = [];
+        try {
+            const focusMon = global.display.focus_window?.get_monitor?.() ?? -1;
+            if (focusMon >= 0) candidateIndices.push(focusMon);
+        } catch { /* intentionally ignored: focus window query failed during window transition */ }
+
+        try {
+            const [x, y] = global.get_pointer();
+            const ptrMon = (Main.layoutManager.monitors ?? []).findIndex(mon =>
+                x >= mon.x && x < mon.x + mon.width &&
+                y >= mon.y && y < mon.y + mon.height);
+            if (ptrMon >= 0 && !candidateIndices.includes(ptrMon))
+                candidateIndices.push(ptrMon);
+        } catch { /* intentionally ignored: pointer coordinates query failed during monitor lookup */ }
+
+        for (const monIdx of candidateIndices) {
+            const dock = this._docks.find(item => item.monitorIndex === monIdx);
+            if (dock?.focusFirst()) return;
         }
-        const dock = this._docks.find(item => item.monitorIndex === monitorIndex) ??
-            this._docks[0];
-        dock?.focusFirst();
+        for (const dock of this._docks) {
+            if (dock?.focusFirst()) return;
+        }
     }
 
     _rebuildDocks() {
         this._cancelDashRetry();
         const previous = this._docks;
+        // Release previous struts before measuring workareas for replacement docks
+        // so an old bottom strut does not skew a new vertical dock's bottomInset.
+        for (let i = 0; i < previous.length; i++) {
+            try { previous[i]?._chrome?.applyStrut(null); } catch { /* intentionally ignored */ }
+        }
         // Build the complete replacement before touching the working docks.
         // Candidate docks deliberately do not own the stock dash yet; otherwise
         // they could capture the previous controller's already-hidden dash as
         // their restoration baseline.
-        const next = this._createDocks(false);
+        let next;
+        try {
+            next = this._createDocks(false);
+        } catch (e) {
+            for (let i = 0; i < previous.length; i++) {
+                try { previous[i]?.relayout?.(); } catch { /* intentionally ignored */ }
+            }
+            throw e;
+        }
         this._docks = next;
 
         for (let i = previous.length - 1; i >= 0; i--) {

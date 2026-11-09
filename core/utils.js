@@ -141,7 +141,7 @@ export function appWindows(app) {
  */
 export function appWindowsForConfig(app, cfg, activeWorkspace = undefined) {
     const windows = appWindows(app);
-    const isolateMonitors = cfg?.isolateMonitors === true;
+    const isolateMonitors = cfg?.isolateMonitors === true && cfg?.multiMonitor !== false;
     const isolateWorkspaces = cfg?.isolateWS === true;
     if (!isolateMonitors && !isolateWorkspaces) return windows;
 

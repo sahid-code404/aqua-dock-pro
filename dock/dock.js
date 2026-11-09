@@ -157,6 +157,10 @@ export class DockChrome {
             hidden ? geom.hiddenY : geom.y,
             geom.width,
             geom.height);
+        if (this._container) {
+            this._container.reactive = !hidden;
+            this._container.opacity = hidden ? 0 : 255;
+        }
     }
 
     // Seed the pill rect; the engine takes over per-frame via setPill().

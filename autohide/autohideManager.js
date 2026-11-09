@@ -159,6 +159,14 @@ export class AutohideManager {
         // Positive fullscreen transitions must hide immediately. A transient
         // negative reading is held by _fullscreenBlocksDock() until confirmed.
         s.connect(d, 'in-fullscreen-changed', () => this.updateIntellihide());
+        s.connect(d, 'window-entered-monitor', (_d, monIdx) => {
+            if (monIdx === (this._host.getMonitorIndex?.() ?? -1))
+                this.queueIntellihide();
+        });
+        s.connect(d, 'window-left-monitor', (_d, monIdx) => {
+            if (monIdx === (this._host.getMonitorIndex?.() ?? -1))
+                this.queueIntellihide();
+        });
 
         const wm = global.window_manager;
         // Hold an already-hidden dock through the compositor's destroy/minimize

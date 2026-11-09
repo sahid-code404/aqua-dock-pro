@@ -363,7 +363,8 @@ class DockItem extends St.Widget {
         const app = this.entry.app;
         const windows = app ? appWindowsForConfig(app, cfg, activeWorkspace) : null;
         const windowCount = windows?.length ?? 0;
-        const running = cfg.isolateMonitors || cfg.isolateWS
+        const isolateMonitors = cfg.isolateMonitors === true && cfg.multiMonitor !== false;
+        const running = isolateMonitors || cfg.isolateWS
             ? windowCount > 0
             : app?.get_state?.() === Shell.AppState.RUNNING;
         const multiStyle = cfg.indicatorStyle === 'dots' || cfg.indicatorStyle === 'glow-dots';

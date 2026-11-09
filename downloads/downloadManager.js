@@ -19,6 +19,7 @@ const WATCH_RETRY_MS = 5000;
 const FLY_DISTANCE = 220;
 
 let sharedWatcher = null;
+const activeDownloadManagers = new Set();
 
 class DownloadsWatcher {
     constructor() {
@@ -165,6 +166,7 @@ export class DownloadManager {
     get anchor() { return this._stack?.anchor ?? this._activeItem; }
 
     enable() {
+        activeDownloadManagers.add(this);
         if (!this._stack && this._host)
             this._stack = new DownloadsStack(this._host.getMonitor, () => this._host.getContainer?.());
         const cfg = this._host.getConfig();
@@ -209,6 +211,12 @@ export class DownloadManager {
         if (!this._stack) return;
 
         this._host?.hideTooltip?.();
+
+        for (const other of activeDownloadManagers) {
+            if (other !== this && other.stackOpen) {
+                try { other.closeStack(true); } catch { /* intentionally ignored: secondary monitor stack close failed */ }
+            }
+        }
 
         // Toggle stack if already open for this exact anchor or folder URI
         if (this._stack.isOpen) {
@@ -460,6 +468,7 @@ export class DownloadManager {
     }
 
     disable() {
+        activeDownloadManagers.delete(this);
         this._gen++;
         this._iconQuery?.cancel();
         this._iconQuery = null;
@@ -487,7 +496,8 @@ export class DownloadManager {
         this._destroyAllFlyers();
         this._stack?.destroy();
         this._stack = null;
-        clearIconCaches();
+        if (activeDownloadManagers.size === 0)
+            clearIconCaches();
     }
 
     destroy() {

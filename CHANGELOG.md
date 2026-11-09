@@ -1,5 +1,15 @@
 # Changelog
 
+## 302
+
+- Multi-Monitor Logic Hardening & Cross-Monitor Fixes:
+  - Single-Monitor Mode (`multi-monitor = false`) Window Access (`core/utils.js`, `services/appTracker.js`, `dock/dockItem.js`, `menus/menuManager.js`): Gated `isolateMonitors` on `cfg.multiMonitor !== false` so disabling `Show on all monitors` never strands or hides windows residing on secondary monitors from the single primary-monitor dock.
+  - Adjacent-Monitor Hidden Dock Bleed Fix (`autohide/visibilityController.js`, `dock/dock.js`): Set `this._container.reactive = !hidden` and animated/synced `this._container.opacity` (`0` when hidden, `255` when visible) so a hidden dock whose off-screen coordinates (`hiddenX`/`hiddenY`) cross a shared monitor boundary never bleeds visibly or steals pointer events on the neighboring monitor.
+  - Cross-Monitor Window Move Intellihide & Genie Tracking (`autohide/autohideManager.js`, `dock/dockController.js`, `dock/dockFactory.js`): Connected `window-entered-monitor` and `window-left-monitor` on `global.display` in `AutohideManager` so moving a window across monitors immediately re-evaluates intellihide on both source and destination monitors; connected `window-entered-monitor` and in-place entry syncs in `DockController` to update `GenieController` icon geometry; guarded `enforceDashGap` with `this._manageDash`; and refreshed `item._cfg = cfg` before `item.refresh()` in `DockFactory`.
+  - Pinned BMS Monitor Index on Off-Screen Slide (`dock/dockBlur.js`, `dock/dockController.js`): Tagged `container._monitorIndex` and `autohideHandle._monitorIndex` and resolved `_monitorIndex` first in `AquaDockSurface` so Blur My Shell static blur never switches to an adjacent monitor's wallpaper actor while sliding off-screen.
+  - Cross-Monitor Stack Dismissal & Cache Preservation (`downloads/downloadManager.js`, `downloads/downloadsStack.js`): Coordinated `activeDownloadManagers` across monitor docks so opening a stack on one monitor closes any open stack on other monitors, sized the click-outside blocker to full stage dimensions (`global.stage.width` × `global.stage.height`), and preserved shared icon caches across transactional multi-monitor rebuilds.
+  - Clean Multi-Monitor Strut Handoff & Keyboard Focus Fallback (`core/extensionManager.js`): Released previous docks' struts before computing layout for rebuilt docks in `_rebuildDocks()` (with rollback on error) and added pointer-monitor and remaining-monitor fallbacks to `_focusDock()` (`<Super>d`) when the focused window's monitor dock is blocked by fullscreen.
+
 ## 301
 
 - Dead Code & Duplicate Removal Cleanup:

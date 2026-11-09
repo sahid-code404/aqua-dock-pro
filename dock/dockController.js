@@ -81,6 +81,8 @@ export class DockController {
 
     _build() {
         this._chrome = new DockChrome();
+        if (this._chrome.container) this._chrome.container._monitorIndex = this._monitorIndex;
+        if (this._chrome.autohideHandle) this._chrome.autohideHandle._monitorIndex = this._monitorIndex;
         this._factory = new DockFactory(this._chrome.container, item => this._wireItem(item));
         // VolumeMonitor can wake on several system signals. Avoid creating it
         // when the entire mounted-devices feature is disabled; this key is
@@ -480,15 +482,19 @@ export class DockController {
                 this._autohide?.queueIntellihide();
             });
         s.connect(global.display, 'window-created', (_d, win) => this._genie.onWindowCreated(win));
+        s.connect(global.display, 'window-entered-monitor', (_d, monIdx, win) => {
+            if (monIdx === this._monitorIndex)
+                this._genie?.onWindowCreated(win);
+        });
         for (const sig of ['item-drag-end', 'item-drag-cancelled'])
             s.connect(Main.overview, sig, () => this._drag.clearDrop());
         s.connect(Main.overview, 'showing', () => {
-            this._chrome.enforceDashGap(this._cfg);
+            if (this._manageDash) this._chrome.enforceDashGap(this._cfg);
             this._chrome.raiseAboveOverview();
         });
         // GNOME re-shows the dash when DnD starts in the overview; squash it.
         s.connect(Main.overview, 'item-drag-begin', () => {
-            this._chrome.enforceDashGap(this._cfg);
+            if (this._manageDash) this._chrome.enforceDashGap(this._cfg);
         });
 
         if (global.display) {
@@ -535,7 +541,10 @@ export class DockController {
         if (this._press?.item && !this._factory.items.includes(this._press.item))
             this._press = null;
         if (changed) this.relayout();
-        else this._engine.kick();
+        else {
+            this._genie?.updateAllIconGeometry();
+            this._engine.kick();
+        }
     }
 
     _refreshItems(refreshNotifications = true) {

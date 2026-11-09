@@ -37,7 +37,9 @@ export class DockFactory {
                         item,
                         previousEntry: item.entry,
                         previousGicon: item.gicon,
+                        previousCfg: item._cfg,
                     });
+                    item._cfg = cfg;
                     item.entry = e;
                     if (!sameIcon(item.gicon, e.gicon)) item.setGicon(e.gicon);
                     item.refresh();
@@ -47,8 +49,9 @@ export class DockFactory {
                 // rebuild. Restore every item already touched so callers never
                 // observe a dock containing a mixture of old and new entries.
                 for (let i = touched.length - 1; i >= 0; i--) {
-                    const { item, previousEntry, previousGicon } = touched[i];
+                    const { item, previousEntry, previousGicon, previousCfg } = touched[i];
                     try {
+                        item._cfg = previousCfg;
                         item.entry = previousEntry;
                         if (!sameIcon(item.gicon, previousGicon)) item.setGicon(previousGicon);
                         item.refresh();
@@ -101,6 +104,7 @@ export class DockFactory {
                         entry,
                         previousEntry: item.entry,
                         previousGicon: item.gicon,
+                        previousCfg: item._cfg,
                     });
                 } else {
                     item = new DockItem(entry, cfg);
@@ -120,14 +124,16 @@ export class DockFactory {
             try {
                 for (const record of reused) {
                     const { item, entry } = record;
+                    item._cfg = cfg;
                     item.entry = entry;
                     if (!sameIcon(item.gicon, entry.gicon)) item.setGicon(entry.gicon);
                     item.refresh();
                 }
             } catch (error) {
                 for (let i = reused.length - 1; i >= 0; i--) {
-                    const { item, previousEntry, previousGicon } = reused[i];
+                    const { item, previousEntry, previousGicon, previousCfg } = reused[i];
                     try {
+                        item._cfg = previousCfg;
                         item.entry = previousEntry;
                         if (!sameIcon(item.gicon, previousGicon)) item.setGicon(previousGicon);
                         item.refresh();

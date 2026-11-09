@@ -355,10 +355,15 @@ export class AquaDockSurface {
         this._signals = new SignalGroup();
         this._bgSignals = new SignalGroup();
         this._updateId = 0;
+        const explicitIdx = dashContainer?._monitorIndex;
+        const explicitMon = (explicitIdx !== undefined && explicitIdx >= 0)
+            ? Main.layoutManager?.monitors?.[explicitIdx]
+            : null;
         this.current_monitor_index = (
+            explicitMon ??
             Main.layoutManager?.findMonitorForActor?.(dashContainer) ??
             Main.layoutManager?.primaryMonitor
-        )?.index ?? null;
+        )?.index ?? (typeof explicitIdx === 'number' && explicitIdx >= 0 ? explicitIdx : null);
         this._isChangingBlurType = false;
         this._isRemoving = false;
         this._lastStaticGeom = null;
@@ -675,7 +680,12 @@ export class AquaDockSurface {
     }
 
     _update_static_size() {
-        const monitor = Main.layoutManager?.findMonitorForActor?.(this.dash_container)
+        const explicitIdx = this.dash_container?._monitorIndex;
+        const explicitMon = (explicitIdx !== undefined && explicitIdx >= 0)
+            ? Main.layoutManager?.monitors?.[explicitIdx]
+            : null;
+        const monitor = explicitMon
+            ?? Main.layoutManager?.findMonitorForActor?.(this.dash_container)
             ?? Main.layoutManager?.primaryMonitor;
         if (!monitor) return;
 
