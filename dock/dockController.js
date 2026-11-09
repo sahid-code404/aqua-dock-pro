@@ -143,7 +143,10 @@ export class DockController {
             getGeom: () => this._geom,
             isLayoutLocked: () => this._settings.raw.get_boolean('lock-layout'),
             onOpen: () => { this._tooltip.hide(); this._preview.hide(true); this._hoverItem = null; },
-            onClose: () => this._autohide?.onDockLeft(),
+            onClose: () => {
+                if (!this._pointerInContainer && !this._pointerInMag && !this._pointerInEdge)
+                    this._autohide?.onDockLeft();
+            },
             holdItem: item => { this._engine.setHeldItem(item); this._engine.kick(); },
             releaseHold: () => { this._engine.setHeldItem(null); this._engine.kick(); },
             onTrashEmptied: () => this._refreshItems(false),
@@ -169,7 +172,8 @@ export class DockController {
             },
             onStackClosed: () => {
                 this._engine.setMagnificationSuppressed(false);
-                this._autohide?.onDockLeft();
+                if (!this._pointerInContainer && !this._pointerInMag && !this._pointerInEdge)
+                    this._autohide?.onDockLeft();
             },
         });
         this._trash = this._cfg.showTrash ? new TrashWatcher({
@@ -835,6 +839,11 @@ export class DockController {
         }
         const item = this._pickItemRedirected(sx, sy);
         if (!item) return Clutter.EVENT_PROPAGATE;
+        if (button === 1 && (item.entry?.kind === 'downloads' || item.entry?.kind === 'folder')) {
+            this._press = null;
+            this._dispatch(item, button);
+            return Clutter.EVENT_STOP;
+        }
         this._press = { item, sx, sy, button };
         return Clutter.EVENT_STOP;
     }
@@ -941,8 +950,8 @@ export class DockController {
         const transProp = vert ? 'translation_y' : 'translation_x';
 
         // Single-pass scan through chips to pick without per-event allocations or Cogl matrix inversion
-        let firstBx = 0, firstCenter = 0, firstItem = null;
-        let prevBx = 0, prevBw = 0, prevCenter = 0, prevItem = null;
+        let firstLeft = 0, firstCenter = 0, firstItem = null;
+        let prevRight = 0, prevCenter = 0, prevItem = null;
 
         for (let i = 0, len = chips.length; i < len; i++) {
             const chip = chips[i];
@@ -950,49 +959,47 @@ export class DockController {
             const tt = Number.isFinite(chip.spreadOffset)
                 ? chip.spreadOffset
                 : (chip.actor[transProp] ?? 0);
-            const curBx = chip.baseX + tt;
-            const curBw = chip.w;
-            const curCenter = chip.center + tt;
             const curItem = chip.item;
+            const curScale = Math.max(1, curItem.scaleCurrent || 1);
+            const curHalfW = (chip.w * curScale) * 0.5;
+            const curCenter = chip.center + tt;
+            const curLeft = curCenter - curHalfW;
+            const curRight = curCenter + curHalfW;
 
             if (!firstItem) {
-                firstBx = curBx;
+                firstLeft = curLeft;
                 firstCenter = curCenter;
                 firstItem = curItem;
-                if (main < firstBx - 12) return null;
-                if (main < firstCenter) return firstItem;
-                prevBx = curBx;
-                prevBw = curBw;
+                if (main < firstLeft - 12) return null;
+                if (main <= curCenter) return firstItem;
+                prevRight = curRight;
                 prevCenter = curCenter;
                 prevItem = curItem;
                 continue;
             }
 
             if (main <= curCenter) {
-                const midpoint = (prevCenter + curCenter) / 2;
-                const distFromMid = Math.abs(main - midpoint);
+                if (main <= prevRight) return prevItem;
+                if (main >= curLeft) return curItem;
 
-                // Deadzone in the exact middle between the two apps:
-                // When in the exact middle, return null so no app name is shown
-                // in the tooltip and clicking does not activate either app.
-                // Scaled to the inter-item gap with a minimum 3px threshold.
-                const gap = Math.max(0, curBx - (prevBx + prevBw));
-                const deadzone = Math.max(3, Math.round(gap * 0.35));
+                const gap = Math.max(0, curLeft - prevRight);
+                const gapMid = (prevRight + curLeft) * 0.5;
+                const distFromMid = Math.abs(main - gapMid);
+                const deadzone = Math.min(4, Math.max(1.5, gap * 0.2));
 
                 if (distFromMid <= deadzone)
                     return null;
 
-                return main < midpoint ? prevItem : curItem;
+                return main < gapMid ? prevItem : curItem;
             }
 
-            prevBx = curBx;
-            prevBw = curBw;
+            prevRight = curRight;
             prevCenter = curCenter;
             prevItem = curItem;
         }
 
         if (!prevItem) return null;
-        if (main > prevBx + prevBw + 12) return null;
+        if (main > prevRight + 12) return null;
         return prevItem;
     }
 
@@ -1016,7 +1023,7 @@ export class DockController {
         try { button = ev.get_button(); [sx, sy] = ev.get_coords(); }
         catch { /* intentionally ignored: captured event button or coords query failed */ return Clutter.EVENT_PROPAGATE; }
         if (button !== 1 && button !== 2 && button !== 3) return Clutter.EVENT_PROPAGATE;
-        const item = this._pickItem(sx, sy);
+        const item = this._pickItem(sx, sy) ?? this._pickItemRedirected(sx, sy);
         return this._handleButton(type, button, sx, sy, item);
     }
 
@@ -1031,6 +1038,11 @@ export class DockController {
         }
         const item = this._pickItemRedirected(sx, sy);
         if (!item) return Clutter.EVENT_PROPAGATE;
+        if (button === 1 && (item.entry?.kind === 'downloads' || item.entry?.kind === 'folder')) {
+            this._press = null;
+            this._dispatch(item, button);
+            return Clutter.EVENT_STOP;
+        }
         this._press = { item, sx, sy, button };
         return Clutter.EVENT_STOP;
     }
@@ -1055,6 +1067,11 @@ export class DockController {
             if (this._downloads?.stackOpen && (!item || button === 3)) {
                 try { this._downloads.closeStack(); } catch { /* intentionally ignored: downloads stack may already be closed or destroyed */ }
             }
+            if (button === 1 && (item?.entry?.kind === 'downloads' || item?.entry?.kind === 'folder')) {
+                this._press = null;
+                this._dispatch(item, button);
+                return Clutter.EVENT_STOP;
+            }
             this._press = item ? { item, sx, sy, button } : null;
             return item ? Clutter.EVENT_STOP : Clutter.EVENT_PROPAGATE;
         }
@@ -1064,7 +1081,11 @@ export class DockController {
             return Clutter.EVENT_STOP;
         }
         const target = this._takePress(button, sx, sy);
-        if (!target) return Clutter.EVENT_PROPAGATE;
+        if (!target) {
+            if (button === 1 && (item?.entry?.kind === 'downloads' || item?.entry?.kind === 'folder'))
+                return Clutter.EVENT_STOP;
+            return Clutter.EVENT_PROPAGATE;
+        }
         this._dispatch(target, button);
         return Clutter.EVENT_STOP;
     }
@@ -1076,7 +1097,10 @@ export class DockController {
         const press = this._press;
         this._press = null;
         if (!press || press.button !== button || !press.item) return null;
-        if (Math.hypot(sx - press.sx, sy - press.sy) > MOVE_THRESHOLD) return null;
+        if (Math.hypot(sx - press.sx, sy - press.sy) > MOVE_THRESHOLD) {
+            const current = this._pickItem(sx, sy) ?? this._pickItemRedirected(sx, sy);
+            if (current !== press.item) return null;
+        }
         return press.item;
     }
 
@@ -1085,8 +1109,11 @@ export class DockController {
         if (!press) return false;
         const distance = Math.hypot(x - press.sx, y - press.sy);
         if (this._drag.maybeStart(press, x, y, distance)) return true;
-        if (distance > MOVE_THRESHOLD)
-            this._press = null;
+        if (distance > MOVE_THRESHOLD) {
+            const current = this._pickItem(x, y) ?? this._pickItemRedirected(x, y);
+            if (current !== press.item)
+                this._press = null;
+        }
         return false;
     }
 

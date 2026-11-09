@@ -38,6 +38,28 @@ try {
     const prewarmed = await enumerateRecent(folder, null, 'name', 5);
     assert(!prewarmed.error && prewarmed.files.length === 5, 'prewarmed listing failed');
 
+    // Test larger-limit cache satisfaction (e.g. startup prewarm limit=11 satisfying limit=4)
+    invalidateListingCache(folder.get_uri());
+    const full11 = await enumerateRecent(folder, null, 'name', 11);
+    assert(full11.files.length === 11, 'limit=11 enumeration returned wrong count');
+    const sliced4 = await enumerateRecent(folder, null, 'name', 4);
+    assert(sliced4.files.length === 4 && sliced4.total === 40, 'sliced cached enumeration failed');
+    const sliced4Repeat = await enumerateRecent(folder, null, 'name', 4);
+    assert(sliced4Repeat === sliced4, 'sliced cached enumeration did not persist in cache');
+
+    // Test empty folder caching
+    const emptyPath = GLib.dir_make_tmp('aqua-dock-empty-XXXXXX');
+    const emptyFolder = Gio.File.new_for_path(emptyPath);
+    try {
+        const emptyListing1 = await enumerateRecent(emptyFolder, null, 'newest', 11);
+        assert(!emptyListing1.error && emptyListing1.files.length === 0 && emptyListing1.total === 0,
+            'empty folder enumeration failed');
+        const emptyListing2 = await enumerateRecent(emptyFolder, null, 'newest', 11);
+        assert(emptyListing2 === emptyListing1, 'empty folder enumeration was not cached');
+    } finally {
+        emptyFolder.delete(null);
+    }
+
     const missing = await enumerateRecent(
         Gio.File.new_for_path(`${path}-missing`), null, 'name', 5);
     assert(missing.error, 'missing folder enumeration was reported as empty success');

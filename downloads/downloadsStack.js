@@ -41,7 +41,7 @@ export class DownloadsStack {
         });
     }
 
-    get isOpen() { return this._opening || !!(this._view || this._dying || (this._blocker && this._blocker.visible)); }
+    get isOpen() { return this._opening || !!(this._view || (this._blocker && this._blocker.visible)); }
     get view() { return this._view; }
     get blurRegion() { return this._view?.blurRegion ?? null; }
     get anchor() { return this._anchor; }
@@ -194,14 +194,14 @@ export class DownloadsStack {
         const onClose = this._onClose;
         this._view = null;
         this._onClose = null;
+        this._anchor = null;
+        this._currentFolderUri = null;
 
         if (this._blocker && !this._blocker.is_destroyed?.()) {
             this._blocker.visible = false;
         }
         if (onClose) { try { onClose(); } catch (e) { logError(e, 'downloads onClose'); } }
         if (!view) {
-            this._anchor = null;
-            this._currentFolderUri = null;
             return;
         }
 
@@ -215,15 +215,10 @@ export class DownloadsStack {
         }
         this._dying = view.actor;
         this._dyingView = view;
-        const dyingAnchor = this._anchor;
         view.animateClose(() => {
             if (this._dying === view.actor) {
                 this._dying = null;
                 this._dyingView = null;
-                if (this._anchor === dyingAnchor) {
-                    this._anchor = null;
-                    this._currentFolderUri = null;
-                }
             }
             this._destroyActor(view.actor);
         });

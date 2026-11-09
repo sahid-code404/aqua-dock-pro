@@ -1,5 +1,13 @@
 # Changelog
 
+## 299
+
+- Instant Zero-Delay Downloads & Folder Stack Click Response:
+  - Magnified Hit-Testing & Deadzone Elimination (`dock/dockController.js`): Computed each dock item's actual magnified visual bounds (`chip.w * scaleCurrent`) in `_pickItem()` rather than unmagnified `chip.w`, eliminating the wide deadzone across the Downloads icon and separator when magnification is active.
+  - Immediate Button-Press Stack Trigger & Motion-Tolerant Clicks (`dock/dockController.js`): Triggered Downloads and Folder stack toggles immediately on primary `BUTTON_PRESS` across all dock hit zones (`container`, `magZone`, `edgeZone`), eliminating button-release wait latency and preventing fast mouse swoops from dropping clicks.
+  - Zero-Lockout Rapid Stack Re-Opening (`downloads/downloadsStack.js`): Excluded closing (`_dying`) actors from `DownloadsStack.isOpen` and cleared `_anchor` / `_currentFolderUri` immediately on `hide()` so rapid consecutive clicks re-open the stack instantly without waiting for the close animation to finish.
+  - Empty-Folder Caching, In-Flight Deduplication & Prefix Limit Slicing (`downloads/fileEnumerator.js`, `downloads/downloadManager.js`): Cached empty folder listings (`0` files) that previously bypassed `putCachedListing`, deduplicated concurrent in-flight enumerations, satisfied smaller limits from prewarmed listings, and deferred icon texture pre-warming to low-priority idle callbacks after promise resolution.
+
 ## 298
 
 - Critical Bug Fixes & Lifecycle Hardening:

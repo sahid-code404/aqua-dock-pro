@@ -15,34 +15,58 @@ const ATTRS_SCAN_NAME = 'standard::name,standard::display-name';
 const ATTRS_SCAN_TYPE = 'standard::name,standard::content-type,time::modified';
 
 const LISTING_CACHE_CAPACITY = 16;
-const LISTING_CACHE_TTL_US = 60 * 1000 * 1000; // 60s sliding window for active consecutive toggles
+const LISTING_CACHE_TTL_US = 3600 * 1000 * 1000; // 1h sliding window with SWR background refresh
 const LISTING_CACHE_STALE_US = 8 * 1000 * 1000; // 8s SWR threshold for background revalidation
 const listingCache = new Map();
 const inFlightRevalidations = new Set();
+const inFlightEnumerations = new Map();
 
-function getCachedListing(key) {
-    const entry = listingCache.get(key);
-    if (!entry) return null;
+function getCachedListing(key, folderUri = null, sort = null, limit = 0) {
     const now = GLib.get_monotonic_time();
-    if ((now - entry.lastAccess) > LISTING_CACHE_TTL_US) {
-        listingCache.delete(key);
-        return null;
+    const entry = listingCache.get(key);
+    if (entry) {
+        if ((now - entry.lastAccess) > LISTING_CACHE_TTL_US) {
+            listingCache.delete(key);
+        } else {
+            entry.lastAccess = now;
+            listingCache.delete(key);
+            listingCache.set(key, entry);
+            return entry;
+        }
     }
-    entry.lastAccess = now;
-    listingCache.delete(key);
-    listingCache.set(key, entry);
-    return entry;
+    if (folderUri && sort && limit > 0) {
+        const prefix = `${folderUri}:${sort}:`;
+        for (const [k, candidate] of listingCache) {
+            if (!k.startsWith(prefix)) continue;
+            if ((now - candidate.lastAccess) > LISTING_CACHE_TTL_US) {
+                listingCache.delete(k);
+                continue;
+            }
+            if ((candidate.limit ?? 0) >= limit && candidate.result && !candidate.result.error) {
+                const sliced = {
+                    files: candidate.result.files.slice(0, limit),
+                    total: candidate.result.total,
+                    error: null,
+                };
+                putCachedListing(key, sliced, limit, candidate.timestamp);
+                return listingCache.get(key);
+            }
+        }
+    }
+    return null;
 }
 
-function putCachedListing(key, result) {
-    if (listingCache.size >= LISTING_CACHE_CAPACITY) {
+function putCachedListing(key, result, limit = 11, timestamp = null) {
+    if (!listingCache.has(key) && listingCache.size >= LISTING_CACHE_CAPACITY) {
         const oldestKey = listingCache.keys().next().value;
         if (oldestKey !== undefined) listingCache.delete(oldestKey);
     }
     const now = GLib.get_monotonic_time();
+    listingCache.delete(key);
     listingCache.set(key, {
-        timestamp: now,
+        timestamp: timestamp ?? now,
         lastAccess: now,
+        limit,
         result,
     });
 }
@@ -51,6 +75,7 @@ export function invalidateListingCache(folderUri = null) {
     if (!folderUri) {
         listingCache.clear();
         inFlightRevalidations.clear();
+        inFlightEnumerations.clear();
         return;
     }
     for (const [key] of listingCache) {
@@ -58,6 +83,9 @@ export function invalidateListingCache(folderUri = null) {
     }
     for (const key of inFlightRevalidations) {
         if (key.startsWith(folderUri)) inFlightRevalidations.delete(key);
+    }
+    for (const [key] of inFlightEnumerations) {
+        if (key.startsWith(folderUri)) inFlightEnumerations.delete(key);
     }
 }
 
@@ -105,11 +133,18 @@ function _doEnumerate(folder, cancellable, sort, limit, cacheKey = null) {
                 return;
             }
             const res = { files: finalFiles || [], total, error: null };
-            if (res.files.length > 0) {
-                warmTextureCache(res.files);
-                if (cacheKey) putCachedListing(cacheKey, res);
-            }
+            if (cacheKey) putCachedListing(cacheKey, res, limit);
             resolve(res);
+            if (res.files.length > 0) {
+                if (typeof GLib !== 'undefined' && GLib.idle_add) {
+                    GLib.idle_add(GLib.PRIORITY_LOW, () => {
+                        warmTextureCache(res.files);
+                        return GLib.SOURCE_REMOVE;
+                    });
+                } else {
+                    warmTextureCache(res.files);
+                }
+            }
         };
 
         const fetchPhase2 = () => {
@@ -206,7 +241,7 @@ export function enumerateRecent(folder, cancellable = null, sort = 'newest', lim
     const cacheKey = `${folderUri}:${sort}:${limit}`;
 
     if (!cancellable?.is_cancelled()) {
-        const entry = getCachedListing(cacheKey);
+        const entry = getCachedListing(cacheKey, folderUri, sort, limit);
         if (entry) {
             const now = GLib.get_monotonic_time();
             if ((now - entry.timestamp) > LISTING_CACHE_STALE_US) {
@@ -214,6 +249,27 @@ export function enumerateRecent(folder, cancellable = null, sort = 'newest', lim
             }
             return Promise.resolve(entry.result);
         }
+
+        const inFlight = inFlightEnumerations.get(cacheKey);
+        if (inFlight) {
+            if (!cancellable) return inFlight;
+            return inFlight.then(res => {
+                if (cancellable.is_cancelled()) {
+                    return { files: [], total: 0, error: new Error('Operation cancelled') };
+                }
+                return res;
+            });
+        }
+    }
+
+    if (!cancellable && folderUri) {
+        const promise = _doEnumerate(folder, null, sort, limit, cacheKey).finally(() => {
+            if (inFlightEnumerations.get(cacheKey) === promise) {
+                inFlightEnumerations.delete(cacheKey);
+            }
+        });
+        inFlightEnumerations.set(cacheKey, promise);
+        return promise;
     }
 
     return _doEnumerate(folder, cancellable, sort, limit, cacheKey);
@@ -260,7 +316,7 @@ export function prewarmFolderListing(folder, sort = 'newest', limit = 11) {
     const folderUri = folder?.get_uri?.() ?? '';
     if (!folderUri) return;
     const cacheKey = `${folderUri}:${sort}:${limit}`;
-    const entry = getCachedListing(cacheKey);
+    const entry = getCachedListing(cacheKey, folderUri, sort, limit);
     if (entry) {
         if (entry.result?.files?.length) warmTextureCache(entry.result.files);
         return;
@@ -274,8 +330,10 @@ export function prewarmFolderListing(folder, sort = 'newest', limit = 11) {
  * Asynchronously prewarms folder listings during idle system startup.
  *
  * @param {Array<Gio.File|string>} [foldersOrUris=[]] - Folders or URIs to prewarm.
+ * @param {'newest'|'name'|'type'} [sort='newest'] - Sorting criterion.
+ * @param {number} [limit=11] - Maximum number of files to prewarm.
  */
-export function prewarmStartupFolders(foldersOrUris = []) {
+export function prewarmStartupFolders(foldersOrUris = [], sort = 'newest', limit = 11) {
     if (typeof GLib === 'undefined' || !GLib.idle_add) return;
     GLib.idle_add(GLib.PRIORITY_LOW, () => {
         try {
@@ -283,7 +341,7 @@ export function prewarmStartupFolders(foldersOrUris = []) {
                 if (!item) continue;
                 try {
                     const folder = (typeof item === 'string') ? Gio.File.new_for_uri(item) : item;
-                    prewarmFolderListing(folder);
+                    prewarmFolderListing(folder, sort, Math.max(limit, 11));
                 } catch { /* intentionally ignored: invalid startup folder URI */ }
             }
         } catch { /* intentionally ignored: startup folder prewarm failed */ }

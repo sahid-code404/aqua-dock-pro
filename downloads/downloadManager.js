@@ -55,6 +55,12 @@ class DownloadsWatcher {
         try {
             monitor = downloadsDir().monitor_directory(Gio.FileMonitorFlags.NONE, null);
             this._monitorId = monitor.connect('changed', (_m, file, _other, event) => {
+                if (event === Gio.FileMonitorEvent.DELETED ||
+                    event === Gio.FileMonitorEvent.MOVED_OUT ||
+                    event === Gio.FileMonitorEvent.RENAMED) {
+                    try { invalidateListingCache(file?.get_parent?.()?.get_uri?.()); } catch { /* intentionally ignored */ }
+                    return;
+                }
                 if (event !== Gio.FileMonitorEvent.CREATED &&
                     event !== Gio.FileMonitorEvent.MOVED_IN)
                     return;
@@ -169,7 +175,7 @@ export class DownloadManager {
                 if (item?.type === 'folder' && item?.uri) customUris.push(item.uri);
             }
         }
-        prewarmStartupFolders([downloadsDir(), ...customUris]);
+        prewarmStartupFolders([downloadsDir(), ...customUris], cfg.downloadsSort ?? 'newest', cfg.downloadsMaxFiles ?? 11);
         if (!cfg.showDownloads || this._watchUnsubscribe) return;
         this._watchUnsubscribe = subscribeDownloads(file => this._scheduleArrival(file));
     }
@@ -330,6 +336,7 @@ export class DownloadManager {
         this._pendingArrivalUris.delete(next.uri);
         this._lastArrivalAt = now;
         this._lastArrivalUri = next.uri;
+        try { this.prewarm(next.file?.get_parent?.(), this._host?.getConfig?.()); } catch { /* intentionally ignored */ }
         this._playArrival(next.file);
 
         if (this._arrivalQueue.length) {
