@@ -1,6 +1,12 @@
 # Changelog
 
-## 296
+## 297
+
+- Downloads & Folder Stack Visual Anchor Polish:
+  - Down-Chevron Anchor 'v' Icon Removal: Removed the down-chevron anchor tile (`aquaStackAnchor`, `pan-down-symbolic`) from dock folder and downloads items when a stack opens.
+  - Natural Icon Preservation: Dock folder and downloads icons now remain clearly and naturally visible at full opacity when stack views (Fan, Grid, List) are open, rather than being replaced by or transitioning into an anchor chevron tile.
+  - Settle & Texture Lifecycle Cleanup: Streamlined `DockItem.settleMotion()`, `setStackOpenState()`, and lifecycle teardown to eliminate unnecessary transition eases, corner clipping setup, and BMS target registrations for removed anchor tiles while preserving stack origin geometry and popup anchoring.
+
 
 - Preferences Settings Redesign & Clutter-Free Adw Architecture:
   - Clean & Perfectly Sorted Adwaita Preferences Pages: Reorganized preferences into intuitive, uncluttered `Adw.PreferencesGroup` sections across all pages ('Dock placement', 'Icon geometry', 'Pill appearance & blur', 'Dock items', 'Edge pressure & gestures', 'Window click actions', and 'Workspaces & shortcuts').

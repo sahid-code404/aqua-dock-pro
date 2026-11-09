@@ -8,14 +8,27 @@ trap 'rm -rf "$schema_dir"' EXIT
 cd "$project_root"
 
 glib-compile-schemas --strict --targetdir="$schema_dir" schemas
-jq -e '
-    .uuid == "aqua-dock-pro@shaque" and
-    (.version | type == "number") and
-    ."shell-version" == ["50", "51"] and
-    (.description | contains("clipboard"))
-' metadata.json >/dev/null
+if command -v jq >/dev/null; then
+    jq -e '
+        .uuid == "aqua-dock-pro@shaque" and
+        (.version | type == "number") and
+        ."shell-version" == ["50", "51"] and
+        (.description | contains("clipboard"))
+    ' metadata.json >/dev/null
 
-metadata_version=$(jq -r '.version' metadata.json)
+    metadata_version=$(jq -r '.version' metadata.json)
+else
+    python3 -c '
+import json
+with open("metadata.json") as f:
+    m = json.load(f)
+assert m.get("uuid") == "aqua-dock-pro@shaque"
+assert isinstance(m.get("version"), (int, float))
+assert m.get("shell-version") == ["50", "51"]
+assert "clipboard" in m.get("description", "")
+'
+    metadata_version=$(python3 -c 'import json; print(json.load(open("metadata.json"))["version"])')
+fi
 changelog_version=$(awk '/^## [0-9]+$/ { print $2; exit }' CHANGELOG.md)
 if [[ "$metadata_version" != "$changelog_version" ]]; then
     printf 'metadata.json version (%s) does not match latest CHANGELOG version (%s).\n' \
@@ -120,7 +133,7 @@ gjs -c '
 
 gi_paths=()
 library_paths=()
-for path in /usr/lib64/gnome-shell /usr/lib64/mutter-*; do
+for path in /usr/lib64/gnome-shell /usr/lib64/mutter-* /usr/lib/gnome-shell /usr/lib/mutter-*; do
     [[ -d "$path" ]] || continue
     gi_paths+=("$path")
     library_paths+=("$path")

@@ -12,7 +12,6 @@ import { SETTLE_EPS } from '../core/constants.js';
 import { Bounce } from '../animation/bounce.js';
 import { peakTierThresholds, stableArtworkSourceSize, usePeakTier } from './iconResolution.js';
 import { indicatorMetrics, indicatorPosition } from './dockLayout.js';
-import { isBmsStackBlurActive, registerBmsTarget, unregisterBmsTarget, setupBackgroundCorners } from './dockBlur.js';
 
 export const DockItem = GObject.registerClass({
     GTypeName: 'AquaDockProDockItem',
@@ -87,26 +86,9 @@ class DockItem extends St.Widget {
         this._peakIcon.set_pivot_point(0, 0);
         const sourceScale = cfg.iconSize / Math.max(1, this._peakSourceSize);
         this._peakIcon.set_scale(sourceScale, sourceScale);
-        this._stackAnchor = new St.Bin({
-            style_class: 'aqua-stack-anchor-tile',
-            reactive: false,
-            x_align: Clutter.ActorAlign.CENTER,
-            y_align: Clutter.ActorAlign.CENTER,
-            visible: false,
-            opacity: 0,
-        });
-        this._stackAnchor.name = 'aquaStackAnchor';
-        this._stackAnchor._isAquaDock = true;
-        this._stackAnchor._blurType = 'popup';
-        this._stackAnchorIcon = new St.Icon({
-            icon_name: 'pan-down-symbolic',
-            style_class: 'aqua-stack-anchor-chevron',
-        });
-        this._stackAnchor.set_child(this._stackAnchorIcon);
         this._icon.add_child(this._focusPill);
         this._icon.add_child(this._restIcon);
         this._icon.add_child(this._peakIcon);
-        this._icon.add_child(this._stackAnchor);
 
         // BoxPointer combines transformed source extents with an unscaled
         // source content box. Anchoring to the magnified icon therefore shifts
@@ -144,13 +126,6 @@ class DockItem extends St.Widget {
         this.connect('destroy', () => {
             this._bounce?.destroy();
             this._bounce = null;
-            if (this._stackAnchor) {
-                try { unregisterBmsTarget(this._stackAnchor); } catch { /* intentionally ignored: stack anchor may already be unregistered from BMS */ }
-            }
-            this._stackAnchor?.remove_all_transitions();
-            this._stackAnchor?.destroy();
-            this._stackAnchor = null;
-            this._stackAnchorIcon = null;
             this.onComposed = null;
             this.onAnimationSettled = null;
         });
@@ -205,80 +180,13 @@ class DockItem extends St.Widget {
 
     get isStackOpen() { return !!this._stackOpenState; }
 
-    setStackOpenState(isOpen, animate = true) {
+    setStackOpenState(isOpen, _animate = true) {
         if (this._stackOpenState === isOpen) return;
         this._stackOpenState = isOpen;
-        const reduce = !animationsEnabled() || !animate;
-
-        this._stackAnchor?.remove_transition('opacity');
-        this._peakIcon?.remove_transition('opacity');
-        this._restIcon?.remove_transition('opacity');
-
-        if (isOpen) {
-            this._stackAnchor?.show();
-            if (isBmsStackBlurActive(this._cfg)) {
-                registerBmsTarget(this._stackAnchor, () => this._anchorRadius);
-            }
-            if (reduce) {
-                if (this._stackAnchor) this._stackAnchor.opacity = 255;
-                if (this._peakIcon) this._peakIcon.opacity = 0;
-                if (this._restIcon) this._restIcon.opacity = 0;
-                return;
-            }
-            this._stackAnchor?.ease({
-                opacity: 255,
-                duration: 130,
-                mode: Clutter.AnimationMode.EASE_OUT_QUAD,
-            });
-            this._peakIcon?.ease({
-                opacity: 0,
-                duration: 130,
-                mode: Clutter.AnimationMode.EASE_OUT_QUAD,
-            });
-            this._restIcon?.ease({
-                opacity: 0,
-                duration: 130,
-                mode: Clutter.AnimationMode.EASE_OUT_QUAD,
-            });
-        } else {
-            if (reduce) {
-                if (this._stackAnchor) {
-                    this._stackAnchor.opacity = 0;
-                    this._stackAnchor.hide();
-                    try { unregisterBmsTarget(this._stackAnchor); } catch { /* intentionally ignored: stack anchor may already be unregistered from BMS */ }
-                }
-                const targetPeakOpacity = this._usingPeakTier ? 255 : 0;
-                const targetRestOpacity = this._usingPeakTier ? 0 : 255;
-                if (this._peakIcon) this._peakIcon.opacity = targetPeakOpacity;
-                if (this._restIcon) this._restIcon.opacity = targetRestOpacity;
-                return;
-            }
-            this._stackAnchor?.ease({
-                opacity: 0,
-                duration: 130,
-                mode: Clutter.AnimationMode.EASE_OUT_QUAD,
-                onComplete: () => {
-                    this._stackAnchor?.hide();
-                    try { unregisterBmsTarget(this._stackAnchor); } catch { /* intentionally ignored: stack anchor may already be unregistered from BMS */ }
-                },
-            });
-            const targetPeakOpacity = this._usingPeakTier ? 255 : 0;
-            const targetRestOpacity = this._usingPeakTier ? 0 : 255;
-            this._peakIcon?.ease({
-                opacity: targetPeakOpacity,
-                duration: 130,
-                mode: Clutter.AnimationMode.EASE_OUT_QUAD,
-            });
-            this._restIcon?.ease({
-                opacity: targetRestOpacity,
-                duration: 130,
-                mode: Clutter.AnimationMode.EASE_OUT_QUAD,
-            });
-        }
     }
 
     _syncTextureTier(scale, force = false) {
-        if (this._stableArtwork || this._stackOpenState) return;
+        if (this._stableArtwork) return;
         const peak = usePeakTier(
             scale, this._peakTierThresholds, this._usingPeakTier, force);
         if (peak === this._usingPeakTier) return;
@@ -333,16 +241,6 @@ class DockItem extends St.Widget {
         this._peakIcon.set_position(0, 0);
         const sourceScale = restSize / Math.max(1, this._peakSourceSize);
         this._peakIcon.set_scale(sourceScale, sourceScale);
-        const anchorRadius = Math.round(restSize * 0.22);
-        const anchorIconSize = Math.round(restSize * 0.38);
-        this._anchorRadius = anchorRadius;
-        this._stackAnchor.set_position(0, 0);
-        this._stackAnchor.set_size(restSize, restSize);
-        this._stackAnchor.set_style(`border-radius: ${anchorRadius}px;`);
-        this._stackAnchor._dockRadius = anchorRadius;
-        this._stackAnchor.get_dock_radius = () => this._anchorRadius;
-        setupBackgroundCorners(this._stackAnchor, () => this._anchorRadius);
-        this._stackAnchorIcon.icon_size = anchorIconSize;
         peakTierThresholds(cfg.zoomMax, this._peakTierThresholds);
         const restGap = Math.round((cfg.dockH - restSize) / 2);
         if (!vert) {
@@ -710,20 +608,7 @@ class DockItem extends St.Widget {
         this._pulsing = false;
         this.vel = 0;
         this.scaleCurrent = this.scaleTarget;
-        if (this._stackOpenState) {
-            if (this._stackAnchor) {
-                this._stackAnchor.opacity = 255;
-                this._stackAnchor.show();
-            }
-            if (this._peakIcon) this._peakIcon.opacity = 0;
-            if (this._restIcon) this._restIcon.opacity = 0;
-        } else {
-            if (this._stackAnchor) {
-                this._stackAnchor.opacity = 0;
-                this._stackAnchor.hide();
-            }
-            this._syncTextureTier(this.scaleCurrent, true);
-        }
+        this._syncTextureTier(this.scaleCurrent, true);
         this._icon.opacity = 255;
         const fScale = Math.fround(this.scaleCurrent);
         this._icon.set_scale(fScale, fScale);
