@@ -18,49 +18,49 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=INTEGER; plural=EXPRESSION;\n"
 
-#: dock/dockItem.js:292
+#: dock/dockItem.js:200
 msgid "Applications"
 msgstr ""
 
-#: dock/dockItem.js:293 downloads/downloadManager.js:197
-#: downloads/downloadsStack.js:75 downloads/panelView.js:260
-#: prefs/pages/downloadsPage.js:26 services/appTracker.js:396
+#: dock/dockItem.js:201 downloads/downloadManager.js:203
+#: downloads/downloadsStack.js:75 downloads/panelView.js:265
+#: prefs/pages/downloadsPage.js:26 services/appTracker.js:410
 msgid "Downloads"
 msgstr ""
 
-#: dock/dockItem.js:294 downloads/downloadManager.js:200
-#: menus/menuActions.js:55 prefs/pages/downloadsPage.js:86
-#: services/appTracker.js:406
+#: dock/dockItem.js:202 downloads/downloadManager.js:206
+#: menus/menuActions.js:48 prefs/pages/downloadsPage.js:86
+#: services/appTracker.js:420
 msgid "Folder"
 msgstr ""
 
-#: dock/dockItem.js:295 menus/menuActions.js:59 services/appTracker.js:474
-#: services/appTracker.js:475
+#: dock/dockItem.js:203 menus/menuActions.js:52 services/appTracker.js:488
+#: services/appTracker.js:489
 msgid "Location"
 msgstr ""
 
-#: dock/dockItem.js:296 menus/menuActions.js:63 menus/menuActions.js:66
-#: menus/menuActions.js:67 menus/menuActions.js:76 menus/menuActions.js:77
+#: dock/dockItem.js:204 menus/menuActions.js:56 menus/menuActions.js:59
+#: menus/menuActions.js:60 menus/menuActions.js:69 menus/menuActions.js:70
 #: prefs/pages/devicesPage.js:112
 msgid "Mounted device"
 msgstr ""
 
-#: dock/dockItem.js:297 prefs/pages/dockPage.js:107
+#: dock/dockItem.js:205 prefs/pages/dockPage.js:107
 msgid "Trash"
 msgstr ""
 
-#: dock/dockItem.js:533
+#: dock/dockItem.js:442
 #, javascript-format
 msgid "%d open window"
 msgid_plural "%d open windows"
 msgstr[0] ""
 msgstr[1] ""
 
-#: dock/dockItem.js:534
+#: dock/dockItem.js:443
 msgid "running"
 msgstr ""
 
-#: dock/dockItem.js:537
+#: dock/dockItem.js:446
 #, javascript-format
 msgid "%d notification"
 msgid_plural "%d notifications"
@@ -80,18 +80,18 @@ msgstr ""
 msgid "Copy"
 msgstr ""
 
-#: downloads/panelView.js:266
+#: downloads/panelView.js:271
 #, javascript-format
 msgid "%d item"
 msgid_plural "%d items"
 msgstr[0] ""
 msgstr[1] ""
 
-#: downloads/panelView.js:272
+#: downloads/panelView.js:277
 msgid "Open Folder"
 msgstr ""
 
-#: downloads/panelView.js:370
+#: downloads/panelView.js:375
 #, javascript-format
 msgid "+%d more item in Files"
 msgid_plural "+%d more items in Files"
@@ -106,96 +106,92 @@ msgstr ""
 msgid "Open"
 msgstr ""
 
-#: menus/menuActions.js:47
+#: menus/menuActions.js:40
 msgid "Open Applications"
 msgstr ""
 
-#: menus/menuActions.js:52
+#: menus/menuActions.js:45
 msgid "Open Downloads"
 msgstr ""
 
-#: menus/menuActions.js:55 menus/menuActions.js:59 menus/menuActions.js:63
+#: menus/menuActions.js:48 menus/menuActions.js:52 menus/menuActions.js:56
 #, javascript-format
 msgid "Open %s"
 msgstr ""
 
-#: menus/menuActions.js:66
+#: menus/menuActions.js:59
 #, javascript-format
 msgid "Eject %s"
 msgstr ""
 
-#: menus/menuActions.js:69
+#: menus/menuActions.js:62
 #, javascript-format
 msgid "Could not eject %s"
 msgstr ""
 
-#: menus/menuActions.js:70
+#: menus/menuActions.js:63
 #, javascript-format
 msgid "%s ejected"
 msgstr ""
 
-#: menus/menuActions.js:72
+#: menus/menuActions.js:65
 #, javascript-format
 msgid "Could not start ejecting %s"
 msgstr ""
 
-#: menus/menuActions.js:73 menus/menuActions.js:83
+#: menus/menuActions.js:66 menus/menuActions.js:76
 msgid "Another device operation may already be running."
 msgstr ""
 
-#: menus/menuActions.js:76
+#: menus/menuActions.js:69
 #, javascript-format
 msgid "Unmount %s"
 msgstr ""
 
-#: menus/menuActions.js:79
+#: menus/menuActions.js:72
 #, javascript-format
 msgid "Could not unmount %s"
 msgstr ""
 
-#: menus/menuActions.js:80
+#: menus/menuActions.js:73
 #, javascript-format
 msgid "%s unmounted"
 msgstr ""
 
-#: menus/menuActions.js:82
+#: menus/menuActions.js:75
 #, javascript-format
 msgid "Could not start unmounting %s"
 msgstr ""
 
-#: menus/menuActions.js:88
+#: menus/menuActions.js:81
 msgid "Open Trash"
 msgstr ""
 
-#: menus/menuActions.js:89 menus/menuManager.js:198
+#: menus/menuActions.js:82 menus/menuManager.js:198
 msgid "Empty Trash"
 msgstr ""
 
-#: menus/menuActions.js:101
+#: menus/menuActions.js:94
 msgid "Unlock Layout"
 msgstr ""
 
-#: menus/menuActions.js:101
+#: menus/menuActions.js:94
 msgid "Lock Layout"
 msgstr ""
 
-#: menus/menuActions.js:113
+#: menus/menuActions.js:106
 msgid "New Window"
 msgstr ""
 
-#: menus/menuActions.js:132
+#: menus/menuActions.js:125
 msgid "Unpin from Dock"
 msgstr ""
 
-#: menus/menuActions.js:132
+#: menus/menuActions.js:125
 msgid "Pin to Dock"
 msgstr ""
 
-#: menus/menuActions.js:150
-msgid "Window"
-msgstr ""
-
-#: menus/menuActions.js:168
+#: menus/menuActions.js:141
 msgid "Quit"
 msgstr ""
 

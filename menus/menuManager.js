@@ -103,7 +103,7 @@ export class MenuManager {
             // only the arrow side follows the dock edge for vertical layouts.
             this._menu = new AppMenu(anchor, side, {
                 favoritesSection: true,
-                showSingleWindows: true,
+                showSingleWindows: false,
             });
             this._menu.setApp(item.entry.app);
             this._attachMenu(item);

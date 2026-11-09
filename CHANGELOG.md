@@ -1,5 +1,10 @@
 # Changelog
 
+## 300
+
+- Context Menu Polish:
+  - Removed Open Window Title List from App Context Menus (`menus/menuActions.js`, `menus/menuManager.js`): Removed the redundant per-window title entries from dock application right-click menus so the context menu stays clean (`New Window`, `Pin/Unpin from Dock`, `Lock Layout`, `Quit`).
+
 ## 299
 
 - Instant Zero-Delay Downloads & Folder Stack Click Response:

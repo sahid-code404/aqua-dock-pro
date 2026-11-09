@@ -12,13 +12,6 @@ import { downloadsUri } from '../services/fileService.js';
 import { ejectMountedDevice, unmountMountedDevice } from '../services/mountedDevices.js';
 import { notifyUser } from '../compat/shell.js';
 
-function activateWindowSafe(win) {
-    try {
-        if (!win) return;
-        win.activate(global.get_current_time());
-    } catch { /* intentionally ignored: window activation or delete failed for unmanaged window */ }
-}
-
 /**
  * Populates a popup context menu with contextual actions tailored to the clicked dock item kind.
  * Supports application actions, folder stacks, mounted drive unmounting/ejection, and trash management.
@@ -143,26 +136,6 @@ function populateAppMenu(menu, app, isLayoutLocked, onToggleLayoutLock,
     addLayoutToggle(menu, isLayoutLocked, onToggleLayoutLock);
 
     const wins = appWindowsFor(app);
-    if (wins.length) {
-        menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
-        for (const win of wins) {
-            let title;
-            try { title = win.get_title() || app.get_name() || _('Window'); }
-            catch { /* intentionally ignored: window title query failed on destroyed window */ continue; }
-            const label = title.length > 30 ? title.slice(0, 29).trimEnd() + '…' : title;
-            const itm = menu.addAction(label, () => activateWindowSafe(win));
-            try { itm.label?.clutter_text?.set_ellipsize?.(3); } catch { /* intentionally ignored: clutter text ellipsize unsupported on disposing menu item */ }
-            // If a listed window disappears while the menu is open, close the
-            // popup instead of leaving a stale action target behind. Ownership
-            // follows the menu actor, so teardown disconnects automatically.
-            try {
-                win.connectObject('unmanaging', () => {
-                    try { menu.close(); } catch { /* intentionally ignored: context menu may already be closed or destroyed */ }
-                }, menu.actor);
-            } catch { /* intentionally ignored: context menu may already be closed or destroyed */ }
-        }
-    }
-
     if (wins.length && app.get_state() === Shell.AppState.RUNNING) {
         menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
         menu.addAction(_('Quit'), () => {
