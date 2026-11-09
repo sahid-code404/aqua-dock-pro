@@ -104,6 +104,7 @@ export class MenuManager {
             this._menu = new AppMenu(anchor, side, {
                 favoritesSection: true,
                 showSingleWindows: false,
+                showWindows: false,
             });
             this._menu.setApp(item.entry.app);
             this._attachMenu(item);

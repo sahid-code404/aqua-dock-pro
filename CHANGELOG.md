@@ -1,5 +1,14 @@
 # Changelog
 
+## 301
+
+- Dead Code & Duplicate Removal Cleanup:
+  - Removed Duplicate Preferences Toggle (`prefs/pages/dockPage.js`): Removed the duplicate `show-downloads` switch (`Downloads stack`) from the Dock page so the canonical `Downloads` page holds the single control for `show-downloads`.
+  - Removed Leftover Stack-Anchor CSS Rules (`stylesheet.css`): Removed 37 lines of unused `.aqua-stack-anchor-tile` and `.aqua-stack-anchor-chevron` CSS rules left over from the removed chevron anchor tile.
+  - Removed Dead DockItem & AnimationEngine Methods (`dock/dockItem.js`, `animation/animationEngine.js`, `dock/dockController.js`, `downloads/downloadManager.js`): Removed uncalled `DockItem.landIn()`, `DockItem.isSettled()`, `DockItem.cancelBounce()`, `DockItem.isStackOpen`, and `_landing`/`_landingScale` state branches, as well as the duplicate `setSuppressedItem()` wrapper around `setMagnificationSuppressed()`.
+  - Removed Unused Exports & Dead Helpers (`animation/easing.js`, `compat/shell.js`, `downloads/keyboardNav.js`, `services/mountedDevices.js`): Removed unused `smoothTowards()`, `shellMajorVersion()`, `messageTraySources()`, `SelectionModel.clear()`, and internal-only `export` modifiers on `mountedDevices.js` helper functions.
+  - Removed Dead Stack & Tooltip Properties (`downloads/fanView.js`, `downloads/panelView.js`, `downloads/tileStyle.js`, `interactions/tooltipManager.js`): Removed unused `_blurRegions`/`blurRegions` arrays and empty loops in `FanView`, unused `_pivot` and `blurRegions` in `PanelView`, duplicate `pillStyle`/`labelStyle`/`thumbStyle` alias keys in `getRowStyles()`, and write-only `_normalBg` fields in `TooltipManager`.
+
 ## 300
 
 - Context Menu Polish:

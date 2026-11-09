@@ -64,20 +64,14 @@ export function getRowStyles(cfg, thumbRadius, padding = '0 12px', isBlurActive 
 
         normal = Object.freeze({
             pill: pillNormal,
-            pillStyle: pillNormal,
             label: labelStyle,
-            labelStyle,
             thumb: thumbNormal,
-            thumbStyle: thumbNormal,
         });
 
         hover = Object.freeze({
             pill: pillHover,
-            pillStyle: pillHover,
             label: labelStyle,
-            labelStyle,
             thumb: thumbHover,
-            thumbStyle: thumbHover,
         });
 
         if (NORMAL_ROW_STYLES.size >= MAX_ROW_STYLE_CACHE) {

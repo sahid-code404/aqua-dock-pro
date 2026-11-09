@@ -8,7 +8,6 @@ import St from 'gi://St';
 
 import { animationsEnabled, clamp, appWindowsForConfig } from '../core/utils.js';
 import { _, format, ngettext } from '../core/i18n.js';
-import { SETTLE_EPS } from '../core/constants.js';
 import { Bounce } from '../animation/bounce.js';
 import { peakTierThresholds, stableArtworkSourceSize, usePeakTier } from './iconResolution.js';
 import { indicatorMetrics, indicatorPosition } from './dockLayout.js';
@@ -42,8 +41,6 @@ class DockItem extends St.Widget {
 
         // While an owned transition runs, setScale() records but does not write
         // the icon transform.
-        this._landing = false;
-        this._landingScale = null;
         this._pulsing = false;
 
         // Optional hooks set by the controller (kept null when unused so the
@@ -178,8 +175,6 @@ class DockItem extends St.Widget {
         if (this._peakIcon) this._peakIcon.gicon = gicon;
     }
 
-    get isStackOpen() { return !!this._stackOpenState; }
-
     setStackOpenState(isOpen, _animate = true) {
         if (this._stackOpenState === isOpen) return;
         this._stackOpenState = isOpen;
@@ -296,7 +291,7 @@ class DockItem extends St.Widget {
             this._syncTextureTier(this.scaleCurrent, true);
             this._icon[vert ? 'translation_y' : 'translation_x'] = 0;
             this._bounce.recompose();
-        } else if (this._pulsing || this._landing) {
+        } else if (this._pulsing) {
             this._syncTextureTier(this.scaleCurrent, true);
         } else {
             const fScale = Math.fround(this.scaleCurrent);
@@ -525,10 +520,6 @@ class DockItem extends St.Widget {
 
     // ── Magnification visual ────────────────────────────────────────────────
     setScale(scale) {
-        if (this._landing) {
-            this._landingScale = scale;
-            return;
-        }
         this.scaleCurrent = scale;
         if (this._bounce?.active || this._pulsing) return;
         if (this._easingToRest) {
@@ -552,14 +543,9 @@ class DockItem extends St.Widget {
         return this._liftSign * Math.max(0, lift);
     }
 
-    isSettled() {
-        return Math.abs(this.scaleTarget - this.scaleCurrent) < SETTLE_EPS &&
-            Math.abs(this.vel) < SETTLE_EPS;
-    }
-
     // ── Transitions ─────────────────────────────────────────────────────────
     easeToRest(duration = 200) {
-        if (!this._icon || this._bounce?.active || this._pulsing || this._landing) return;
+        if (!this._icon || this._bounce?.active || this._pulsing) return;
         const restScale = 1;
         this._icon.remove_all_transitions();
         this._icon[this._vert ? 'translation_y' : 'translation_x'] = 0;
@@ -587,41 +573,10 @@ class DockItem extends St.Widget {
         }
     }
 
-    landIn(duration = 280) {
-        if (!this._icon) return;
-        const restScale = 1;
-        this._icon.remove_all_transitions();
-        this._syncTextureTier(1, true);
-        this._landingScale = null;
-        if (!animationsEnabled()) {
-            this._landing = false;
-            this._icon.set_scale(restScale, restScale);
-            this._icon.opacity = 255;
-            this.onAnimationSettled?.();
-            return;
-        }
-        this._icon.set_scale(restScale * 0.4, restScale * 0.4);
-        this._icon.opacity = 0;
-        this._landing = true;     // first engine tick must leave the ease in control
-        this._icon.ease({
-            scale_x: restScale, scale_y: restScale, opacity: 255, duration,
-            mode: Clutter.AnimationMode.EASE_OUT_BACK,
-            onComplete: () => {
-                const pending = this._landingScale;
-                this._landing = false;
-                this._landingScale = null;
-                if (pending !== null) this.setScale(pending);
-                this.onAnimationSettled?.();
-            },
-        });
-    }
-
     settleMotion() {
         if (!this._icon || this._dragging) return;
         try { this._icon.remove_all_transitions(); } catch { /* intentionally ignored: icon actor may already be destroyed or unparented */ }
         this._bounce?.cancel();
-        this._landing = false;
-        this._landingScale = null;
         this._pulsing = false;
         this.vel = 0;
         this.scaleCurrent = this.scaleTarget;
@@ -647,8 +602,6 @@ class DockItem extends St.Widget {
     }
 
     stopBounce() { this._bounce?.stopLaunch(); }
-
-    cancelBounce() { this._bounce?.cancel(); }
 
     _composeBounce(heightPx, sx, sy) {
         if (!this._icon) return;

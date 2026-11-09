@@ -183,7 +183,6 @@ export class TooltipManager {
         this._blurActive = false;
         this._radius = 6;
         this._side = 'bottom';
-        this._normalBg = 'rgba(32, 32, 36, 0.92)';
         this._borderWidth = 1;
         this._w = null;
         this._h = null;
@@ -341,7 +340,6 @@ export class TooltipManager {
 
         this._blurRegion.set_style(`border-radius: ${radius}px;`);
 
-        this._normalBg = normalBg;
         this._borderWidth = bw;
 
         if (blurActive !== this._blurActive) {
@@ -641,7 +639,6 @@ export class TooltipManager {
         this._lastGeom = null;
         this._x = NaN;
         this._y = NaN;
-        this._normalBg = null;
         if (this._blurRegion) {
             try { this._blurRegion.destroy(); } catch { /* intentionally ignored: tooltip container or blur region actor may already be destroyed */ }
             this._blurRegion = null;

@@ -8,15 +8,6 @@ import { warnOnce } from '../core/utils.js';
 
 const SHELL_MAJOR = Number.parseInt(Config.PACKAGE_VERSION, 10) || 0;
 
-/**
- * Retrieves the integer major version of the running GNOME Shell (e.g. 50, 51).
- *
- * @returns {number} Integer major version of GNOME Shell, or 0 if unresolvable.
- */
-export function shellMajorVersion() {
-    return SHELL_MAJOR;
-}
-
 // GNOME Shell 51 changed PopupMenu.open()/close() from a PopupAnimation enum
 // argument to an options object. Keep that ABI difference confined here so the
 // same extension package remains correct on both GNOME Shell 50 and 51+.
@@ -86,15 +77,6 @@ export function messageTraySourcesSnapshot() {
         warnOnce('message-tray-sources', 'Notification source enumeration failed; badge polling will use the last valid snapshot.');
         return null;
     }
-}
-
-/**
- * Returns current notification sources from the message tray, falling back to an empty array.
- *
- * @returns {Array<object>} Array of notification sources.
- */
-export function messageTraySources() {
-    return messageTraySourcesSnapshot() ?? [];
 }
 
 /**

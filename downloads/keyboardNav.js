@@ -57,14 +57,4 @@ export class SelectionModel {
             });
         }
     }
-
-    clear() {
-        if (this._rows) {
-            for (const r of this._rows) {
-                try { r._thumb?.remove_all_transitions?.(); } catch { /* intentionally ignored */ }
-            }
-        }
-        this._rows = [];
-        this._i = -1;
-    }
 }

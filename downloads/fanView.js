@@ -47,14 +47,12 @@ export class FanView {
         this._collapse = null;
         this._reduce = false;
         this._fileMenu = new FileItemMenu(opts.mon, opts.cfg);
-        this._blurRegions = [];
         this._blurActive = false;
         this._labelPillWidth = null;
     }
 
     get actor() { return this._actor; }
-    get blurRegion() { return this._blurRegions?.[0] ?? null; }
-    get blurRegions() { return this._blurRegions ?? []; }
+    get blurRegion() { return null; }
 
     build() {
         const { cfg, mon, files } = this;
@@ -158,7 +156,6 @@ export class FanView {
         this._fileMenu.bind(fan);
 
         const rows = [];
-        this._blurRegions = [];
 
         builders.forEach((make, i) => {
             const row = make();
@@ -204,8 +201,6 @@ export class FanView {
 
         this._model.setRows(rows);
         if (rows.length) this._model.select(0);
-        fan._blurRegion = null;
-        fan._blurRegions = [];
 
         fan.connect('destroy', () => {
             for (const r of this._model?.rows ?? []) {
@@ -410,15 +405,6 @@ export class FanView {
             stopSubtreeTransitions(actor);
             actor.opacity = 255;
         } catch { /* intentionally ignored: stack view row or blur actor may already be destroyed */ }
-        for (const br of this.blurRegions) {
-            try {
-                br.remove_all_transitions();
-                br.translation_x = 0;
-                br.translation_y = 0;
-                br.set_scale(1, 1);
-                if (this._blurActive) br.opacity = 255;
-            } catch { /* intentionally ignored: stack view row or blur actor may already be destroyed */ }
-        }
         for (const row of this._model.rows) {
             try {
                 stopSubtreeTransitions(row);
@@ -463,9 +449,6 @@ export class FanView {
         const actor = this._actor;
         if (!actor) { onDone(); return; }
         stopSubtreeTransitions(actor);
-        for (const br of this.blurRegions) {
-            try { br.remove_all_transitions(); } catch { /* intentionally ignored: stack view row or blur actor may already be destroyed */ }
-        }
         if (this._reduce || !this._collapse || !animationsEnabled()) {
             this.releaseRows();
             onDone();
@@ -477,29 +460,6 @@ export class FanView {
             ? 6 + 56 / 2
             : 6 + (this._labelPillWidth ?? 114) + CONTENT_GAP + 56 / 2);
         const rowH = this._rowH ?? 60;
-        if (this._blurActive) {
-            this.blurRegions.forEach((br, i) => {
-                const tile = kids[i];
-                if (!tile) return;
-                const delay = (n - 1 - i) * FAN_ANIM.close.stagger;
-                br.remove_all_transitions();
-                br.ease({
-                    translation_x: this._collapse.x - (tile.x + iconCx),
-                    translation_y: this._collapse.y - (tile.y + rowH / 2),
-                    scale_x: 0.25,
-                    scale_y: 0.25,
-                    duration: FAN_ANIM.close.duration,
-                    delay,
-                    mode: FAN_ANIM.close.mode,
-                });
-                br.ease({
-                    opacity: 0,
-                    duration: FAN_ANIM.close.fadeDuration,
-                    delay,
-                    mode: FAN_ANIM.close.mode,
-                });
-            });
-        }
         kids.forEach((tile, i) => {
             const delay = (n - 1 - i) * FAN_ANIM.close.stagger;
             tile.remove_all_transitions();

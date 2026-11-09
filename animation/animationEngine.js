@@ -81,11 +81,6 @@ export class AnimationEngine {
         return this._suppressMagnification;
     }
 
-    // Kept for backward compatibility; maps to dock magnification suppression.
-    setSuppressedItem(item) {
-        this.setMagnificationSuppressed(Boolean(item));
-    }
-
     // Keep the tooltip aligned while the icon magnifies.
     setFrameHook(fn) { this._frameHook = fn; }
 
@@ -241,7 +236,7 @@ export class AnimationEngine {
         const vert = this._vert;
         const prop = this._transProp;
         for (const it of items) {
-            if (it._landing || it._dragging) continue;
+            if (it._dragging) continue;
             it.vel = 0; it.scaleTarget = 1; it.scaleCurrent = 1;
             it.easeToRest(duration);
         }
@@ -339,12 +334,7 @@ export class AnimationEngine {
             // Right-click menu holds its icon at peak zoom until the menu closes.
             if (item === this._heldItem) target = zoomMax;
             item.scaleTarget = target;
-            if (item._landing) {
-                // The landing ease owns the actor transform, but DockItem records
-                // the latest target so it can hand off without a stale-scale jump.
-                item.vel = 0;
-                item.setScale(target);
-            } else if (item.vel !== 0 || item.scaleCurrent !== target) {
+            if (item.vel !== 0 || item.scaleCurrent !== target) {
                 s.cur = item.scaleCurrent;
                 s.vel = item.vel;
                 integrateSpring(s, target, m.tension, dampPow, st, nSteps);

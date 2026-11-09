@@ -102,8 +102,6 @@ export function buildDockPage(window, s) {
     apps.add_row(iconChooserRow(window, s, 'apps-button-icon', _('Applications icon')));
     items.add(apps);
 
-    items.add(switchRow(s, 'show-downloads', _('Downloads stack'),
-        _('Show the Downloads folder with arrival bounce')));
     items.add(switchRow(s, 'show-trash', _('Trash'),
         _('Show the trash with full/empty state')));
     p.add(items);

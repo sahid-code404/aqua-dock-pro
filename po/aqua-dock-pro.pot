@@ -18,60 +18,60 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=INTEGER; plural=EXPRESSION;\n"
 
-#: dock/dockItem.js:200
+#: dock/dockItem.js:195
 msgid "Applications"
 msgstr ""
 
-#: dock/dockItem.js:201 downloads/downloadManager.js:203
-#: downloads/downloadsStack.js:75 downloads/panelView.js:265
+#: dock/dockItem.js:196 downloads/downloadManager.js:203
+#: downloads/downloadsStack.js:75 downloads/panelView.js:262
 #: prefs/pages/downloadsPage.js:26 services/appTracker.js:410
 msgid "Downloads"
 msgstr ""
 
-#: dock/dockItem.js:202 downloads/downloadManager.js:206
+#: dock/dockItem.js:197 downloads/downloadManager.js:206
 #: menus/menuActions.js:48 prefs/pages/downloadsPage.js:86
 #: services/appTracker.js:420
 msgid "Folder"
 msgstr ""
 
-#: dock/dockItem.js:203 menus/menuActions.js:52 services/appTracker.js:488
+#: dock/dockItem.js:198 menus/menuActions.js:52 services/appTracker.js:488
 #: services/appTracker.js:489
 msgid "Location"
 msgstr ""
 
-#: dock/dockItem.js:204 menus/menuActions.js:56 menus/menuActions.js:59
+#: dock/dockItem.js:199 menus/menuActions.js:56 menus/menuActions.js:59
 #: menus/menuActions.js:60 menus/menuActions.js:69 menus/menuActions.js:70
 #: prefs/pages/devicesPage.js:112
 msgid "Mounted device"
 msgstr ""
 
-#: dock/dockItem.js:205 prefs/pages/dockPage.js:107
+#: dock/dockItem.js:200 prefs/pages/dockPage.js:105
 msgid "Trash"
 msgstr ""
 
-#: dock/dockItem.js:442
+#: dock/dockItem.js:437
 #, javascript-format
 msgid "%d open window"
 msgid_plural "%d open windows"
 msgstr[0] ""
 msgstr[1] ""
 
-#: dock/dockItem.js:443
+#: dock/dockItem.js:438
 msgid "running"
 msgstr ""
 
-#: dock/dockItem.js:446
+#: dock/dockItem.js:441
 #, javascript-format
 msgid "%d notification"
 msgid_plural "%d notifications"
 msgstr[0] ""
 msgstr[1] ""
 
-#: downloads/fanView.js:92
+#: downloads/fanView.js:90
 msgid "Open in Files"
 msgstr ""
 
-#: downloads/fanView.js:94
+#: downloads/fanView.js:92
 #, javascript-format
 msgid "%s is empty"
 msgstr ""
@@ -80,18 +80,18 @@ msgstr ""
 msgid "Copy"
 msgstr ""
 
-#: downloads/panelView.js:271
+#: downloads/panelView.js:268
 #, javascript-format
 msgid "%d item"
 msgid_plural "%d items"
 msgstr[0] ""
 msgstr[1] ""
 
-#: downloads/panelView.js:277
+#: downloads/panelView.js:274
 msgid "Open Folder"
 msgstr ""
 
-#: downloads/panelView.js:375
+#: downloads/panelView.js:372
 #, javascript-format
 msgid "+%d more item in Files"
 msgid_plural "+%d more items in Files"
@@ -167,7 +167,7 @@ msgstr ""
 msgid "Open Trash"
 msgstr ""
 
-#: menus/menuActions.js:82 menus/menuManager.js:198
+#: menus/menuActions.js:82 menus/menuManager.js:199
 msgid "Empty Trash"
 msgstr ""
 
@@ -195,31 +195,31 @@ msgstr ""
 msgid "Quit"
 msgstr ""
 
-#: menus/menuManager.js:188
+#: menus/menuManager.js:189
 msgid "Empty Trash?"
 msgstr ""
 
-#: menus/menuManager.js:189
+#: menus/menuManager.js:190
 msgid "All items in Trash will be permanently deleted."
 msgstr ""
 
-#: menus/menuManager.js:193 prefs/pages/aboutPage.js:79
+#: menus/menuManager.js:194 prefs/pages/aboutPage.js:79
 #: prefs/widgets/customItems.js:92
 msgid "Cancel"
 msgstr ""
 
-#: menus/menuManager.js:210
+#: menus/menuManager.js:211
 msgid "Trash could not be fully emptied"
 msgstr ""
 
-#: menus/menuManager.js:211
+#: menus/menuManager.js:212
 #, javascript-format
 msgid "%d item could not be removed."
 msgid_plural "%d items could not be removed."
 msgstr[0] ""
 msgstr[1] ""
 
-#: menus/menuManager.js:214
+#: menus/menuManager.js:215
 msgid "Trash emptied"
 msgstr ""
 
@@ -838,16 +838,12 @@ msgstr ""
 msgid "Applications icon"
 msgstr ""
 
-#: prefs/pages/dockPage.js:105 prefs/pages/downloadsPage.js:29
-msgid "Downloads stack"
-msgstr ""
-
 #: prefs/pages/dockPage.js:106
-msgid "Show the Downloads folder with arrival bounce"
+msgid "Show the trash with full/empty state"
 msgstr ""
 
-#: prefs/pages/dockPage.js:108
-msgid "Show the trash with full/empty state"
+#: prefs/pages/downloadsPage.js:29
+msgid "Downloads stack"
 msgstr ""
 
 #: prefs/pages/downloadsPage.js:29

@@ -34,13 +34,11 @@ export class PanelView {
         this._reduce = false;
         this._fileMenu = new FileItemMenu(opts.mon, opts.cfg);
         this._blurRegion = null;
-        this._pivot = null;
         this._trans = null;
     }
 
     get actor() { return this._actor; }
     get blurRegion() { return this._blurRegion; }
-    get blurRegions() { return this._blurRegion ? [this._blurRegion] : []; }
 
     build() {
         const { cfg, mon, files, folder } = this;
@@ -232,7 +230,6 @@ export class PanelView {
         }
 
         panel.set_pivot_point(pivotX, pivotY);
-        this._pivot = { x: pivotX, y: pivotY };
         this._trans = { x: transX, y: transY };
 
         if (blurActive) {
@@ -408,18 +405,11 @@ export class PanelView {
     }
 
     _animateOpen(panel, tiles, _view) {
-        const blurEnabled = Boolean(this._blurActive);
         if (this._reduce) {
             panel.opacity = 255;
             panel.set_scale(1, 1);
             panel.translation_x = 0;
             panel.translation_y = 0;
-            if (this._blurRegion && blurEnabled) {
-                this._blurRegion.opacity = 255;
-                this._blurRegion.set_scale(1, 1);
-                this._blurRegion.translation_x = 0;
-                this._blurRegion.translation_y = 0;
-            }
             for (const tile of tiles) {
                 tile.opacity = 255;
                 tile.translation_y = 0;

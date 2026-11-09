@@ -164,7 +164,6 @@ export class DockController {
             kickEngine: () => this._engine.kick(),
             setMagnificationSuppressed: suppressed =>
                 this._engine.setMagnificationSuppressed(suppressed),
-            setSuppressedItem: item => this._engine.setSuppressedItem(item),
             hideTooltip: () => {
                 this._tooltip?.hide();
                 this._preview?.hide(true);

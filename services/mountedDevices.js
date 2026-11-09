@@ -140,7 +140,7 @@ function mountAction(mount, candidates, action, onDone) {
  *
  * @returns {void}
  */
-export function cancelMountedDeviceOperations() {
+function cancelMountedDeviceOperations() {
     for (const [cancellable, cleanup] of activeOperations) {
         try { cancellable.cancel(); } catch { /* intentionally ignored: async operation cancellable may already be cancelled */ }
         try { cleanup?.(); } catch { /* intentionally ignored: unmount cleanup callback failed */ }
@@ -208,7 +208,7 @@ export function unmountMountedDevice(mount, onDone = null) {
  * @param {Gio.Mount} mount - The GIO mount instance.
  * @returns {string|null} Stable device identifier string, or null if unresolvable.
  */
-export function mountedDeviceId(mount) {
+function mountedDeviceId(mount) {
     const mountUuid = nonEmpty(safely(() => mount.get_uuid()));
     if (mountUuid) return `mount:${mountUuid}`;
 
@@ -238,7 +238,7 @@ export function mountedDeviceId(mount) {
  * @param {Gio.Mount} mount - The GIO mount instance.
  * @returns {'removable'|'network'|'fixed'} Device category group name.
  */
-export function mountedDeviceGroup(mount) {
+function mountedDeviceGroup(mount) {
     const drive = driveForMount(mount);
     const root = safely(() => mount.get_root()) ?? mountLocation(mount);
     const scheme = safely(() => root?.get_uri_scheme(), '')?.toLowerCase() ?? '';
@@ -260,7 +260,7 @@ export function mountedDeviceGroup(mount) {
  * @param {Gio.Mount} mount - The GIO mount instance.
  * @returns {object|null} Normalized entry descriptor object, or null if ignored.
  */
-export function mountedDeviceEntry(mount) {
+function mountedDeviceEntry(mount) {
     if (!mount || safely(() => mount.is_shadowed(), true)) return null;
 
     const location = mountLocation(mount);
