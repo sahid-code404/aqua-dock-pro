@@ -20,6 +20,19 @@ const LISTING_CACHE_STALE_US = 8 * 1000 * 1000; // 8s SWR threshold for backgrou
 const listingCache = new Map();
 const inFlightRevalidations = new Set();
 const inFlightEnumerations = new Map();
+const activeIdleSources = new Set();
+let invalidationEpoch = 0;
+
+function scheduleIdle(priority, callback) {
+    if (typeof GLib === 'undefined' || !GLib.idle_add) return 0;
+    let id = 0;
+    id = GLib.idle_add(priority, () => {
+        activeIdleSources.delete(id);
+        return callback();
+    });
+    if (id) activeIdleSources.add(id);
+    return id;
+}
 
 function getCachedListing(key, folderUri = null, sort = null, limit = 0) {
     const now = GLib.get_monotonic_time();
@@ -72,10 +85,15 @@ function putCachedListing(key, result, limit = 11, timestamp = null) {
 }
 
 export function invalidateListingCache(folderUri = null) {
+    invalidationEpoch++;
     if (!folderUri) {
         listingCache.clear();
         inFlightRevalidations.clear();
         inFlightEnumerations.clear();
+        for (const id of activeIdleSources) {
+            try { GLib.source_remove(id); } catch {}
+        }
+        activeIdleSources.clear();
         return;
     }
     for (const [key] of listingCache) {
@@ -92,7 +110,7 @@ export function invalidateListingCache(folderUri = null) {
 function _scheduleBackgroundRevalidate(folder, sort, limit, cacheKey) {
     if (inFlightRevalidations.has(cacheKey)) return;
     inFlightRevalidations.add(cacheKey);
-    GLib.idle_add(GLib.PRIORITY_LOW, () => {
+    scheduleIdle(GLib.PRIORITY_LOW, () => {
         if (!inFlightRevalidations.has(cacheKey)) return GLib.SOURCE_REMOVE;
         _doEnumerate(folder, null, sort, limit, cacheKey)
             .then(fresh => {
@@ -108,6 +126,7 @@ function _scheduleBackgroundRevalidate(folder, sort, limit, cacheKey) {
     });
 }
 function _doEnumerate(folder, cancellable, sort, limit, cacheKey = null) {
+    const startEpoch = invalidationEpoch;
     return new Promise(resolve => {
         let scanAttrs = ATTRS_SCAN_NEWEST;
         if (sort === 'name') scanAttrs = ATTRS_SCAN_NAME;
@@ -127,17 +146,19 @@ function _doEnumerate(folder, cancellable, sort, limit, cacheKey = null) {
         const finish = (error = null, finalFiles = null) => {
             if (done) return;
             done = true;
-            try { en?.close_async(GLib.PRIORITY_DEFAULT, null, null); } catch { /* intentionally ignored: file enumerator stream may already be closed */ }
+            try { en?.close_async(GLib.PRIORITY_DEFAULT, null, null); } catch {}
             if (error) {
                 resolve({ files: [], total, error });
                 return;
             }
             const res = { files: finalFiles || [], total, error: null };
-            if (cacheKey) putCachedListing(cacheKey, res, limit);
+            if (cacheKey && invalidationEpoch === startEpoch) {
+                putCachedListing(cacheKey, res, limit);
+            }
             resolve(res);
             if (res.files.length > 0) {
                 if (typeof GLib !== 'undefined' && GLib.idle_add) {
-                    GLib.idle_add(GLib.PRIORITY_LOW, () => {
+                    scheduleIdle(GLib.PRIORITY_LOW, () => {
                         warmTextureCache(res.files);
                         return GLib.SOURCE_REMOVE;
                     });
@@ -163,12 +184,14 @@ function _doEnumerate(folder, cancellable, sort, limit, cacheKey = null) {
                     childFile.query_info_async(
                         ATTRS_HEAVY, Gio.FileQueryInfoFlags.NONE, GLib.PRIORITY_DEFAULT, cancellable,
                         (fl, qres) => {
+                            let info = null;
+                            try { info = fl.query_info_finish(qres); }
+                            catch { info = cand.rawInfo; }
                             if (cancellable?.is_cancelled()) {
                                 finish(new Error('Operation cancelled'));
                                 return;
                             }
-                            try { finalFiles[idx] = fl.query_info_finish(qres); }
-                            catch { /* intentionally ignored: thumbnail query finish failed fallback to raw file info */ finalFiles[idx] = cand.rawInfo; }
+                            finalFiles[idx] = info;
                             pending--;
                             if (pending === 0) {
                                 finish(null, finalFiles.filter(Boolean));
@@ -236,30 +259,31 @@ function _doEnumerate(folder, cancellable, sort, limit, cacheKey = null) {
  * @returns {Promise<{ files: Gio.FileInfo[], total: number, error: Error|null }>} Enumerated file infos and total count.
  */
 export function enumerateRecent(folder, cancellable = null, sort = 'newest', limit = 11) {
+    if (cancellable?.is_cancelled()) {
+        return Promise.resolve({ files: [], total: 0, error: new Error('Operation cancelled') });
+    }
     limit = Math.max(1, Math.trunc(limit) || 11);
     const folderUri = folder?.get_uri?.() ?? '';
     const cacheKey = `${folderUri}:${sort}:${limit}`;
 
-    if (!cancellable?.is_cancelled()) {
-        const entry = getCachedListing(cacheKey, folderUri, sort, limit);
-        if (entry) {
-            const now = GLib.get_monotonic_time();
-            if ((now - entry.timestamp) > LISTING_CACHE_STALE_US) {
-                _scheduleBackgroundRevalidate(folder, sort, limit, cacheKey);
-            }
-            return Promise.resolve(entry.result);
+    const entry = getCachedListing(cacheKey, folderUri, sort, limit);
+    if (entry) {
+        const now = GLib.get_monotonic_time();
+        if ((now - entry.timestamp) > LISTING_CACHE_STALE_US) {
+            _scheduleBackgroundRevalidate(folder, sort, limit, cacheKey);
         }
+        return Promise.resolve(entry.result);
+    }
 
-        const inFlight = inFlightEnumerations.get(cacheKey);
-        if (inFlight) {
-            if (!cancellable) return inFlight;
-            return inFlight.then(res => {
-                if (cancellable.is_cancelled()) {
-                    return { files: [], total: 0, error: new Error('Operation cancelled') };
-                }
-                return res;
-            });
-        }
+    const inFlight = inFlightEnumerations.get(cacheKey);
+    if (inFlight) {
+        if (!cancellable) return inFlight;
+        return inFlight.then(res => {
+            if (cancellable.is_cancelled()) {
+                return { files: [], total: 0, error: new Error('Operation cancelled') };
+            }
+            return res;
+        });
     }
 
     if (!cancellable && folderUri) {
@@ -285,7 +309,7 @@ export function iconForInfo(info) {
     try {
         const thumbPath = info.get_attribute_byte_string('thumbnail::path');
         if (thumbPath) return getCachedFileIcon(thumbPath);
-    } catch { /* intentionally ignored: thumbnail attribute lookup fallback to standard file icon */ }
+    } catch {}
     return info.get_icon();
 }
 
@@ -298,9 +322,9 @@ function warmTextureCache(files) {
             try {
                 const gicon = iconForInfo(info);
                 if (gicon) cache.load_gicon(null, gicon, 48, 1, 1);
-            } catch { /* intentionally ignored: individual texture pre-warm failure */ }
+            } catch {}
         }
-    } catch { /* intentionally ignored: texture cache unavailable */ }
+    } catch {}
 }
 
 /**
@@ -334,17 +358,16 @@ export function prewarmFolderListing(folder, sort = 'newest', limit = 11) {
  * @param {number} [limit=11] - Maximum number of files to prewarm.
  */
 export function prewarmStartupFolders(foldersOrUris = [], sort = 'newest', limit = 11) {
-    if (typeof GLib === 'undefined' || !GLib.idle_add) return;
-    GLib.idle_add(GLib.PRIORITY_LOW, () => {
+    scheduleIdle(GLib.PRIORITY_LOW, () => {
         try {
             for (const item of foldersOrUris) {
                 if (!item) continue;
                 try {
                     const folder = (typeof item === 'string') ? Gio.File.new_for_uri(item) : item;
                     prewarmFolderListing(folder, sort, Math.max(limit, 11));
-                } catch { /* intentionally ignored: invalid startup folder URI */ }
+                } catch {}
             }
-        } catch { /* intentionally ignored: startup folder prewarm failed */ }
+        } catch {}
         return GLib.SOURCE_REMOVE;
     });
 }

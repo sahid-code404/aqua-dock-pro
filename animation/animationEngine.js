@@ -40,8 +40,6 @@ export class AnimationEngine {
         this._suspended = false; // a drag owns the chip translations
         this._animate = true;
 
-        // Frame-loop invariants, cached on setModel() to avoid property lookups
-        // on the model/cfg/geom objects every tick.
         this._vert = false;
         this._cellW = 1;
         this._zoomMax = 1;
@@ -94,8 +92,6 @@ export class AnimationEngine {
         this._bgTargetX = geom.bgBaseX;
         this._bgTargetW = geom.bgBaseW;
 
-        // Cache frame-loop invariants so _frame()/_applySpread() avoid
-        // property chain lookups on every tick.
         const cfg = model.cfg;
         this._vert = cfg.vertical;
         this._cellW = cfg.cellW;
@@ -172,11 +168,11 @@ export class AnimationEngine {
             const prop = this._transProp;
             if (this._cachedChips) {
                 for (const chip of this._cachedChips) {
-                    try { chip.actor.remove_transition(prop); } catch { /* intentionally ignored: chip actor transition removal on disposed actor */ }
+                    try { chip.actor.remove_transition(prop); } catch {}
                 }
             }
-            try { this._cachedBg?.remove_all_transitions?.(); } catch { /* intentionally ignored: dock background transition removal on disposed actor */ }
-            try { this._cachedBlurRegion?.remove_all_transitions?.(); } catch { /* intentionally ignored: blur region transition removal on disposed actor */ }
+            try { this._cachedBg?.remove_all_transitions?.(); } catch {}
+            try { this._cachedBlurRegion?.remove_all_transitions?.(); } catch {}
         }
 
         this._scheduler.start();
@@ -211,14 +207,14 @@ export class AnimationEngine {
                 chip.actor.remove_transition(prop);
                 chip.actor[prop] = 0;
                 chip.spreadOffset = 0;
-            } catch { /* intentionally ignored: chip actor transition removal on disposed actor */ }
+            } catch {}
         }
         this._bgCurrentX = this._bgTargetX = this._bgBaseX;
         this._bgCurrentW = this._bgTargetW = this._bgBaseW;
         this._bgLastA = this._bgLastB = NaN;
         const magZone = this._cachedMagZone;
         if (magZone) {
-            try { magZone.set_size(0, 0); } catch { /* intentionally ignored: magnification zone actor may already be destroyed */ }
+            try { magZone.set_size(0, 0); } catch {}
             this._magZoneActive = false;
         }
         this._applySpread(true);
@@ -245,7 +241,7 @@ export class AnimationEngine {
                 chip.spreadOffset = NaN;
                 chip.actor.remove_transition(prop);
                 chip.actor.ease({ [prop]: 0, duration, mode: Clutter.AnimationMode.EASE_OUT_QUAD });
-            } catch { /* intentionally ignored: chip actor transition removal on disposed actor */ }
+            } catch {}
         }
         this._bgCurrentX = this._bgTargetX = this._bgBaseX;
         this._bgCurrentW = this._bgTargetW = this._bgBaseW;
@@ -254,9 +250,9 @@ export class AnimationEngine {
         const params = vert
             ? { y: Math.round(this._bgBaseX), height: Math.round(this._bgBaseW) }
             : { x: Math.round(this._bgBaseX), width: Math.round(this._bgBaseW) };
-        try { bg.ease({ ...params, duration, mode: Clutter.AnimationMode.EASE_OUT_QUAD }); } catch { /* intentionally ignored: dock background or blur region ease transition on disposed actor */ }
+        try { bg.ease({ ...params, duration, mode: Clutter.AnimationMode.EASE_OUT_QUAD }); } catch {}
         if (blurRegion) {
-            try { blurRegion.ease({ ...params, duration, mode: Clutter.AnimationMode.EASE_OUT_QUAD }); } catch { /* intentionally ignored: dock background or blur region ease transition on disposed actor */ }
+            try { blurRegion.ease({ ...params, duration, mode: Clutter.AnimationMode.EASE_OUT_QUAD }); } catch {}
         }
         this._bgLastA = this._bgLastB = NaN;
         const magZone = this._cachedMagZone;
@@ -430,11 +426,11 @@ export class AnimationEngine {
                 this._bgLastB = h;
                 sizeChanged = true;
             }
-            if (posChanged) {
-                try { bg.notify?.('y'); bg.notify?.('position'); } catch { /* intentionally ignored: property notification on disposing background actor */ }
+            if (posChanged && !(bg instanceof Clutter.Actor)) {
+                try { bg.notify?.('y'); bg.notify?.('position'); } catch {}
             }
-            if (sizeChanged) {
-                try { bg.notify?.('height'); bg.notify?.('size'); } catch { /* intentionally ignored: property notification on disposing background actor */ }
+            if (sizeChanged && !(bg instanceof Clutter.Actor)) {
+                try { bg.notify?.('height'); bg.notify?.('size'); } catch {}
             }
         } else {
             const left = Math.round(this._bgCurrentX);
@@ -453,11 +449,11 @@ export class AnimationEngine {
                 this._bgLastB = w;
                 sizeChanged = true;
             }
-            if (posChanged) {
-                try { bg.notify?.('x'); bg.notify?.('position'); } catch { /* intentionally ignored: property notification on disposing background actor */ }
+            if (posChanged && !(bg instanceof Clutter.Actor)) {
+                try { bg.notify?.('x'); bg.notify?.('position'); } catch {}
             }
-            if (sizeChanged) {
-                try { bg.notify?.('width'); bg.notify?.('size'); } catch { /* intentionally ignored: property notification on disposing background actor */ }
+            if (sizeChanged && !(bg instanceof Clutter.Actor)) {
+                try { bg.notify?.('width'); bg.notify?.('size'); } catch {}
             }
         }
 

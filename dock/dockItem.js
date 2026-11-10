@@ -202,7 +202,7 @@ class DockItem extends St.Widget {
         }
     }
 
-    // ── Geometry ────────────────────────────────────────────────────────────
+    // Geometry
     relayout(cfg, containerHeadroom) {
         this._cfg = cfg;
         this._containerHeadroom = containerHeadroom ?? cfg.headroom;
@@ -355,7 +355,7 @@ class DockItem extends St.Widget {
         }
     }
 
-    // ── Running indicator + badge ───────────────────────────────────────────
+    // Running indicator + badge
     // notifMap: optional Map<appId, count> for O(1) lookup (built once per
     // refresh batch by the controller). Falls back to per-item lookup.
     refresh(notifMap, activeWorkspace = undefined) {
@@ -519,23 +519,28 @@ class DockItem extends St.Widget {
         }
     }
 
-    // ── Magnification visual ────────────────────────────────────────────────
+    // Magnification visual
     setScale(scale) {
         this.scaleCurrent = scale;
         if (this._bounce?.active || this._pulsing) return;
         if (this._easingToRest) {
             this._easingToRest = false;
-            try { this._icon.remove_all_transitions(); } catch { /* intentionally ignored: icon actor may already be disposed */ }
+            try { this._icon.remove_all_transitions(); } catch {}
             if (this._badge?.visible) {
-                try { this._badge.remove_all_transitions(); } catch { /* intentionally ignored: badge actor may already be disposed */ }
+                try { this._badge.remove_all_transitions(); } catch {}
             }
         }
         this._syncTextureTier(scale);
         const fScale = Math.fround(scale);
-        this._icon.set_scale(fScale, fScale);
+        if (this._lastScale !== fScale) {
+            this._lastScale = fScale;
+            this._icon.set_scale(fScale, fScale);
+        }
         const lift = Math.fround(this._baseLift());
-        this._icon[this._liftProp] = lift;
-        this._iconLift = lift;
+        if (this._iconLift !== lift) {
+            this._icon[this._liftProp] = lift;
+            this._iconLift = lift;
+        }
         if (this._badge?.visible) this._positionBadge();
     }
 
@@ -544,10 +549,10 @@ class DockItem extends St.Widget {
         return this._liftSign * Math.max(0, lift);
     }
 
-    // ── Transitions ─────────────────────────────────────────────────────────
     easeToRest(duration = 200) {
         if (!this._icon || this._bounce?.active || this._pulsing) return;
         const restScale = 1;
+        this._lastScale = NaN;
         this._icon.remove_all_transitions();
         this._icon[this._vert ? 'translation_y' : 'translation_x'] = 0;
         this._iconLift = 0;
@@ -566,6 +571,7 @@ class DockItem extends St.Widget {
             mode: Clutter.AnimationMode.EASE_OUT_QUAD,
             onComplete: () => {
                 this._easingToRest = false;
+                if (!this._icon || this._icon.is_destroyed?.() || this.is_destroyed?.()) return;
                 this._syncTextureTier(1, true);
             },
         });
@@ -576,7 +582,7 @@ class DockItem extends St.Widget {
 
     settleMotion() {
         if (!this._icon || this._dragging) return;
-        try { this._icon.remove_all_transitions(); } catch { /* intentionally ignored: icon actor may already be destroyed or unparented */ }
+        try { this._icon.remove_all_transitions(); } catch {}
         this._bounce?.cancel();
         this._pulsing = false;
         this.vel = 0;
@@ -593,7 +599,7 @@ class DockItem extends St.Widget {
         this.onAnimationSettled?.();
     }
 
-    // ── Bounce + pulse ──────────────────────────────────────────────────────
+    // Bounce + pulse
     bounce(height = 24, opts = {}) {
         if (height <= 0 || !this._icon) return;
         // Clear in-flight eases so the bounce is the sole transform driver.

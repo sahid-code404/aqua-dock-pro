@@ -73,8 +73,7 @@ export function messageTraySourcesSnapshot() {
         }
         return tray.getSources() ?? [];
     } catch {
-        /* intentionally ignored: message tray source query failed */
-        warnOnce('message-tray-sources', 'Notification source enumeration failed; badge polling will use the last valid snapshot.');
+                warnOnce('message-tray-sources', 'Notification source enumeration failed; badge polling will use the last valid snapshot.');
         return null;
     }
 }
@@ -124,8 +123,7 @@ export function monitorInFullscreen(index) {
         const monitor = Main.layoutManager.monitors?.[index];
         return Boolean(monitor?.inFullscreen ?? monitor?.in_fullscreen);
     } catch {
-        /* intentionally ignored: monitor fullscreen query failed */
-        warnOnce('monitor-fullscreen', 'Monitor fullscreen state is unavailable.');
+                warnOnce('monitor-fullscreen', 'Monitor fullscreen state is unavailable.');
         return false;
     }
 }
@@ -143,7 +141,6 @@ export function notifyUser(title, detail = '', error = false) {
         if (error) Main.notifyError(title, detail);
         else Main.notify(title, detail);
     } catch {
-        /* intentionally ignored: shell notification failed */
-        warnOnce('notify-user', 'Shell notifications are unavailable.');
+                warnOnce('notify-user', 'Shell notifications are unavailable.');
     }
 }

@@ -65,7 +65,7 @@ export async function trashHasFiles(cancellable = null) {
         const entries = await en.next_files_async(1, GLib.PRIORITY_DEFAULT, cancellable);
         return entries.length > 0;
     } finally {
-        try { await en.close_async(GLib.PRIORITY_DEFAULT, null); } catch { /* intentionally ignored: enumerator stream may already be closed */ }
+        try { await en.close_async(GLib.PRIORITY_DEFAULT, null); } catch {}
     }
 }
 
@@ -102,23 +102,25 @@ export function emptyTrash(onDone = null) {
         );
 
         cancelId = cancellable.connect(() => {
-            try { process.force_exit(); } catch { /* intentionally ignored: subprocess may already have terminated */ }
+            try { process.force_exit(); } catch {}
         });
 
         process.wait_check_async(cancellable, (_process, asyncResult) => {
             if (cancelId) {
-                try { cancellable.disconnect(cancelId); } catch { /* intentionally ignored: cancellable signal handler may already be disconnected */ }
+                try { cancellable.disconnect(cancelId); } catch {}
                 cancelId = 0;
             }
 
             result.cancelled = cancellable.is_cancelled();
-            if (!result.cancelled) {
-                try {
-                    const ok = process.wait_check_finish(asyncResult);
+            try {
+                const ok = process.wait_check_finish(asyncResult);
+                if (!result.cancelled) {
                     result.failed = ok ? 0 : 1;
                     if (!ok)
                         logError(new Error('gio trash --empty failed'), 'emptyTrash');
-                } catch (error) {
+                }
+            } catch (error) {
+                if (!result.cancelled) {
                     result.failed = 1;
                     logError(error, 'emptyTrash');
                 }
@@ -129,7 +131,7 @@ export function emptyTrash(onDone = null) {
         });
     } catch (error) {
         if (cancelId) {
-            try { cancellable.disconnect(cancelId); } catch { /* intentionally ignored: cancellable signal handler may already be disconnected */ }
+            try { cancellable.disconnect(cancelId); } catch {}
             cancelId = 0;
         }
         result.cancelled = cancellable.is_cancelled();
@@ -144,7 +146,7 @@ export function emptyTrash(onDone = null) {
     return cancellable;
 }
 
-// ── GIcon Caching ─────────────────────────────────────────────────────────────
+// GIcon Caching
 const MAX_ICON_CACHE_ENTRIES = 128;
 const _fileIconCache = new Map();
 const _themedIconCache = new Map();
@@ -177,8 +179,7 @@ export function getCachedThemedIcon(name, useFallbacks = false) {
         _themedIconCache.set(key, icon);
         return icon;
     } catch {
-        /* intentionally ignored: themed icon construction failed */
-        return null;
+                return null;
     }
 }
 
@@ -207,8 +208,7 @@ export function getCachedFileIcon(path) {
         _fileIconCache.set(path, icon);
         return icon;
     } catch {
-        /* intentionally ignored: file icon construction failed for path */
-        return null;
+                return null;
     }
 }
 
@@ -241,7 +241,7 @@ export function getCachedIconForExtension(filenameOrExt) {
             _themedIconCache.set(key, icon);
             return icon;
         }
-    } catch { /* intentionally ignored: content type guessing failed fallback to generic icon */ }
+    } catch {}
     return getCachedThemedIcon('text-x-generic');
 }
 
@@ -260,7 +260,7 @@ export function clearThemedIconCache() {
 }
 
 /**
- * Clear all cached GIcons. Invoked during extension disable or testing teardown.
+ * Clear all cached GIcons on extension disable.
  */
 export function clearIconCaches() {
     _fileIconCache.clear();

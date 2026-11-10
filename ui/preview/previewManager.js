@@ -94,7 +94,7 @@ export class PreviewManager {
         const cfg = this._getConfig();
         const showAll = forceAll || cfg.previewWindowMode === 'all';
         let ws = null;
-        try { ws = global.workspace_manager.get_active_workspace(); } catch { /* intentionally ignored: active workspace query failed during session transition */ }
+        try { ws = global.workspace_manager.get_active_workspace(); } catch {}
         return appWindowsForConfig(item.entry.app, cfg, ws).filter(win => {
             try {
                 // Meta.Window may begin unmanaging after appWindowsForConfig()
@@ -108,8 +108,7 @@ export class PreviewManager {
                 const rect = win.get_frame_rect();
                 return Boolean(actor && rect && rect.width > 0 && rect.height > 0);
             } catch {
-                /* intentionally ignored: window compositor private or frame rect query failed on disappearing window */
-                return false;
+                                return false;
             }
         });
     }
@@ -169,13 +168,13 @@ export class PreviewManager {
         }
         const focusables = [];
         let fallbackIcon = null;
-        try { fallbackIcon = item.entry.app.get_icon(); } catch { /* intentionally ignored: app icon lookup failed on unmanaged app */ }
+        try { fallbackIcon = item.entry.app.get_icon(); } catch {}
         const titleStyle =
             `font-size: ${(9 * (cfg.interfaceTextScale ?? 1)).toFixed(2)}pt;`;
         for (const win of shown) {
             let windowTitle;
             try { windowTitle = win.get_title() || item.label(); }
-            catch { /* intentionally ignored: window title query failed on disappearing window */ continue; }
+            catch { continue; }
             const btn = new St.Button({
                 style_class: 'aqua-preview-col',
                 reactive: true,
@@ -203,7 +202,7 @@ export class PreviewManager {
             try {
                 win.connectObject('unmanaging', () =>
                     this._queueWindowRefresh(item, box, forceAll, page, focusPreview), box);
-            } catch { /* intentionally ignored: window unmanaging signal connection failed on closed window */ }
+            } catch {}
 
             if (cfg.previewCloseButtons) {
                 const titleRow = new St.BoxLayout({ x_expand: true });
@@ -251,7 +250,7 @@ export class PreviewManager {
             focusables.push(btn);
         }
         if (!focusables.length) {
-            try { box.destroy(); } catch { /* intentionally ignored: preview box or menu actor may already be destroyed */ }
+            try { box.destroy(); } catch {}
             this.hide(true);
             return;
         }
@@ -355,7 +354,7 @@ export class PreviewManager {
         this._position(box, item);
 
         if (focusPreview && focusables.length) {
-            try { focusables[0].grab_key_focus(); } catch { /* intentionally ignored: focus grab failed on unmapped preview actor */ }
+            try { focusables[0].grab_key_focus(); } catch {}
         }
 
         if (!animationsEnabled()) {
@@ -395,37 +394,37 @@ export class PreviewManager {
             menu.actor.name = 'aquaMenu';
             menu.actor.add_style_class_name('aqua-menu');
             menu.addAction(_('Activate'), () => {
-                try { win.activate(global.get_current_time()); } catch { /* intentionally ignored: window manipulation failed for unmanaged window */ }
+                try { win.activate(global.get_current_time()); } catch {}
                 this.hide(true);
             });
 
             const workspace = global.workspace_manager.get_active_workspace();
             let onWorkspace = true;
-            try { onWorkspace = win.located_on_workspace(workspace); } catch { /* intentionally ignored: window manipulation failed for unmanaged window */ }
+            try { onWorkspace = win.located_on_workspace(workspace); } catch {}
             if (!onWorkspace) {
                 menu.addAction(_('Move to Current Workspace'), () => {
                     try {
                         win.change_workspace(workspace);
                         win.activate(global.get_current_time());
-                    } catch { /* intentionally ignored: window manipulation failed for unmanaged window */ }
+                    } catch {}
                     this.hide(true);
                 });
             }
 
             const monitors = Main.layoutManager.monitors ?? [];
             let currentMonitor = -1;
-            try { currentMonitor = win.get_monitor(); } catch { /* intentionally ignored: window manipulation failed for unmanaged window */ }
+            try { currentMonitor = win.get_monitor(); } catch {}
             if (monitors.length > 1) {
                 for (let index = 0; index < monitors.length; index++) {
                     if (index === currentMonitor) continue;
                     menu.addAction(format(_('Move to Monitor %d'), index + 1), () => {
-                        try { win.move_to_monitor(index); } catch { /* intentionally ignored: window manipulation failed for unmanaged window */ }
+                        try { win.move_to_monitor(index); } catch {}
                         this.hide(true);
                     });
                 }
             }
             menu.addAction(_('Close Window'), () => {
-                try { win.delete(global.get_current_time()); } catch { /* intentionally ignored: window manipulation failed for unmanaged window */ }
+                try { win.delete(global.get_current_time()); } catch {}
                 this.hide(true);
             });
 
@@ -453,7 +452,7 @@ export class PreviewManager {
                 win.connectObject('unmanaging', () => {
                     if (this._windowMenu === menu) this._destroyWindowMenu();
                 }, menu.actor);
-            } catch { /* intentionally ignored: window unmanaging signal connection failed on closed window */ }
+            } catch {}
 
             this._windowMenuManager = new PopupMenu.PopupMenuManager(owner);
             this._windowMenuManager.addMenu(menu);
@@ -478,8 +477,13 @@ export class PreviewManager {
                 if (open) {
                     this._cancelGrace();
                 } else {
-                    this._destroyWindowMenu();
-                    if (this._box === owner) this.hide(false);
+                    if (this._windowMenuCloseId) this._timers.remove(this._windowMenuCloseId);
+                    this._windowMenuCloseId = this._timers.addIdle(() => {
+                        this._windowMenuCloseId = 0;
+                        if (this._windowMenu === menu) this._destroyWindowMenu();
+                        if (this._box === owner) this.hide(false);
+                        return GLib.SOURCE_REMOVE;
+                    });
                 }
             });
             menu.actor.hide();
@@ -491,21 +495,25 @@ export class PreviewManager {
     }
 
     _destroyWindowMenu() {
+        if (this._windowMenuCloseId) {
+            this._timers.remove(this._windowMenuCloseId);
+            this._windowMenuCloseId = 0;
+        }
         if (this._windowMenu) {
             if (this._windowMenuBlurRegistered) {
                 unregisterBmsTarget(this._windowMenu.actor);
                 this._windowMenuBlurRegistered = false;
             }
             if (this._windowMenuStateId) {
-                try { this._windowMenu.disconnect(this._windowMenuStateId); } catch { /* intentionally ignored: window menu signal handler may already be disconnected */ }
+                try { this._windowMenu.disconnect(this._windowMenuStateId); } catch {}
                 this._windowMenuStateId = 0;
             }
-            try { this._windowMenuManager?.removeMenu(this._windowMenu); } catch { /* intentionally ignored: window menu signal handler may already be disconnected */ }
-            try { this._windowMenu.destroy(); } catch { /* intentionally ignored: preview box or menu actor may already be destroyed */ }
+            try { this._windowMenuManager?.removeMenu(this._windowMenu); } catch {}
+            try { this._windowMenu.destroy(); } catch {}
         }
         this._windowMenu = null;
         this._windowMenuStateId = 0;
-        try { this._windowMenuManager?.destroy?.(); } catch { /* intentionally ignored: preview box or menu actor may already be destroyed */ }
+        try { this._windowMenuManager?.destroy?.(); } catch {}
         this._windowMenuManager = null;
     }
 
@@ -560,7 +568,7 @@ export class PreviewManager {
         const box = this._box;
         this._box = null;
         if (!box) return;
-        this._deactivateBox(box);
+        this._deactivateBox(box, false);
         this._dying = box;
         box.remove_all_transitions();
         if (!animationsEnabled()) {
@@ -592,17 +600,17 @@ export class PreviewManager {
             this._box.remove_all_transitions();
             this._box.opacity = 255;
             this._box.translation_y = 0;
-        } catch { /* intentionally ignored: preview actor may already be destroyed */ }
+        } catch {}
     }
 
-    _deactivateBox(box) {
+    _deactivateBox(box, clearClones = true) {
         const pending = [box];
         while (pending.length) {
             const actor = pending.pop();
             actor.reactive = false;
             actor.can_focus = false;
-            if (actor instanceof Clutter.Clone) {
-                try { actor.source = null; } catch { /* intentionally ignored: clone source already cleared */ }
+            if (clearClones && actor instanceof Clutter.Clone) {
+                try { actor.source = null; } catch {}
             }
             for (const child of actor.get_children?.() ?? [])
                 pending.push(child);
@@ -611,10 +619,10 @@ export class PreviewManager {
 
     _destroyBox(box) {
         try {
-            this._deactivateBox(box);
+            this._deactivateBox(box, true);
             box.remove_all_transitions();
             box.destroy();
-        } catch { /* intentionally ignored: preview box or menu actor may already be destroyed */ }
+        } catch {}
     }
 
     _cancelOpen() {

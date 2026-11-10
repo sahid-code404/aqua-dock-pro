@@ -28,7 +28,7 @@ export class VisibilityController {
             this._container.remove_transition('x');
             this._container.remove_transition('y');
             this._container.remove_transition('opacity');
-        } catch { /* intentionally ignored: dock container actor may already be destroyed or unparented */ }
+        } catch {}
 
         const targetOpacity = hidden ? 0 : 255;
         if (animate && animationsEnabled()) {
@@ -38,7 +38,10 @@ export class VisibilityController {
                 duration: SLIDE_MS,
                 mode: Clutter.AnimationMode.EASE_OUT_QUAD,
                 onComplete: () => {
-                    if (this._container) this._container.opacity = targetOpacity;
+                    try {
+                        if (this._container && !this._container.is_destroyed?.())
+                            this._container.opacity = targetOpacity;
+                    } catch {}
                     if (!hidden) onComplete?.();
                 },
             });
@@ -62,7 +65,7 @@ export class VisibilityController {
             this._container.opacity = this._hidden ? 0 : 255;
             if (x !== undefined && y !== undefined)
                 this._container.set_position(x, y);
-        } catch { /* intentionally ignored: dock container actor may already be destroyed or unparented */ }
+        } catch {}
     }
 
     destroy() {
@@ -70,7 +73,7 @@ export class VisibilityController {
             this._container?.remove_transition('x');
             this._container?.remove_transition('y');
             this._container?.remove_transition('opacity');
-        } catch { /* intentionally ignored: dock container actor may already be destroyed or unparented */ }
+        } catch {}
         this._container = null;
     }
 }

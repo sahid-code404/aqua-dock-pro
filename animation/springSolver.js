@@ -8,9 +8,14 @@ let _cachedDamping = -1;
 let _dampLut = null;
 const _fractionalDampCache = new Map();
 
+export function resetSpringSolverCache() {
+    _cachedDamping = -1;
+    _dampLut = null;
+    _fractionalDampCache.clear();
+}
+
 /**
  * Precomputes or retrieves cached damping power (damping^st) for frame sub-steps.
- * Eliminates per-frame Math.pow() evaluations during animation ticks.
  *
  * @param {number} damping - Damping coefficient in [0.2, 1.0].
  * @param {number} dtMs - Clamped frame duration in milliseconds [0.1, 64].
@@ -49,11 +54,9 @@ function getDampPow(damping, dtMs, st) {
     return val;
 }
 
-// Derive the frame-invariant magnification constants from a config snapshot.
-// Computed once per layout (not per frame) and cached on the layout result.
 /**
- * Derives frame-invariant magnification constants and precomputes a 1D lookup table (LUT)
- * from a configuration snapshot. Computed once per layout pass to eliminate per-frame allocations.
+ * Derives magnification constants and precomputes a 1D lookup table
+ * from a configuration snapshot.
  *
  * @param {object} cfg - Layout configuration snapshot.
  * @param {number} cfg.zoomRange - Cursor influence radius in pixels.
@@ -72,8 +75,6 @@ export function magnificationParams(cfg) {
     const cutoff = sigma * Math.pow(14, 1 / curve);
     const zoomSpan = cfg.zoomMax - 1;
 
-    // Precompute 1D Float32Array lookup table for distance indices 0 to Math.ceil(cutoff) + 1.
-    // Beyond cutoff, magnification is 1.0.
     const maxIndex = Math.ceil(cutoff) + 1;
     const lut = new Float32Array(maxIndex + 1);
     const invSigma = 1 / sigma;
@@ -99,11 +100,8 @@ export function magnificationParams(cfg) {
     };
 }
 
-// Target scale for an icon whose centre is `dist` px from the (clamped) cursor.
-// Returns a value in [1, zoomMax]. `m` is the object from magnificationParams.
 /**
  * Computes the target magnification scale factor for an icon at a given pixel distance from the cursor.
- * Uses the precomputed 1D Float32Array LUT for O(1) evaluation in hot pointer motion paths.
  *
  * @param {number} dist - Distance in pixels from the cursor to the item center.
  * @param {object} m - Magnification parameters returned by {@link magnificationParams}.
@@ -121,33 +119,26 @@ export function gaussianTarget(dist, m) {
     return d >= m.cutoff ? 1 : m.lut[d];
 }
 
-// Number of fixed ~16ms physics sub-steps for a frame delta, and the per-step
-// damping power. Sub-stepping keeps the spring stable when a frame is long
-// (e.g. after a stall) without changing its tuned feel.
 /**
  * Calculates the number of physics sub-steps and the per-step damping power for a frame delta.
- * Sub-stepping ensures numerical stability during frame drops without altering tuned spring dynamics.
  *
  * @param {number} dtMs - Elapsed frame duration in milliseconds.
  * @param {number} damping - Damping coefficient in the range [0.2, 1.0].
- * @param {object} [out={}] - Optional reusable output object to avoid allocations.
+ * @param {object} [out={}] - Optional reusable output object.
  * @returns {{ nSteps: number, st: number, dampPow: number }} Populated step count, normalized step size, and damping power.
  */
 export function subSteps(dtMs, damping, out = {}) {
     dtMs = Number.isFinite(dtMs) ? clamp(dtMs, 0.1, 64) : 16;
     const nSteps = Math.max(1, Math.ceil(dtMs / 16));
-    const st = (dtMs / nSteps) / 16;       // normalized step (1 == 16ms)
+    const st = (dtMs / nSteps) / 16;
     out.nSteps = nSteps;
     out.st = st;
     out.dampPow = getDampPow(damping, dtMs, st);
     return out;
 }
 
-// Advance one icon's spring toward `target`. Mutates `state` ({cur, vel}) in
-// place to avoid per-frame allocation. Snaps to target when within SETTLE_EPS.
 /**
- * Advances a single icon spring state towards the target scale using Velocity Verlet numerical integration.
- * Mutates state in-place to ensure zero allocation churn in the animation frame loop.
+ * Advances a single icon spring state towards the target scale.
  *
  * @param {{ cur: number, vel: number }} state - Spring state object with current position and velocity.
  * @param {number} target - Target scale value.

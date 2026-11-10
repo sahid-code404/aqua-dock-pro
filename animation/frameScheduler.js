@@ -20,7 +20,7 @@ export class FrameScheduler {
         if (this._actor && typeof this._actor.connect === 'function') {
             try {
                 this._destroyId = this._actor.connect('destroy', () => this.destroy());
-            } catch { /* intentionally ignored: actor destroy signal connection unsupported on mock actor */ }
+            } catch {}
         }
     }
 
@@ -49,7 +49,7 @@ export class FrameScheduler {
 
     stop() {
         if (this._timeline) {
-            try { this._timeline.stop(); } catch { /* intentionally ignored: timeline or object already disposed */ }
+            try { this._timeline.stop(); } catch {}
         }
     }
 
@@ -59,16 +59,16 @@ export class FrameScheduler {
 
     destroy() {
         if (this._timeline) {
-            try { this._timeline.stop(); } catch { /* intentionally ignored: timeline may already be stopped or disposed */ }
+            try { this._timeline.stop(); } catch {}
             if (this._frameId) {
-                try { this._timeline.disconnect(this._frameId); } catch { /* intentionally ignored: timeline frame signal handler may already be disconnected */ }
+                try { this._timeline.disconnect(this._frameId); } catch {}
                 this._frameId = 0;
             }
-            try { this._timeline.set_actor(null); } catch { /* intentionally ignored: timeline actor reference may already be cleared */ }
+            try { this._timeline.set_actor(null); } catch {}
             this._timeline = null;
         }
         if (this._destroyId && this._actor && typeof this._actor.disconnect === 'function') {
-            try { this._actor.disconnect(this._destroyId); } catch { /* intentionally ignored: actor may already be disposed */ }
+            try { this._actor.disconnect(this._destroyId); } catch {}
         }
         this._destroyId = 0;
         this._actor = null;

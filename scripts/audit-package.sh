@@ -49,15 +49,31 @@ metadata=$(mktemp)
 trap 'rm -f "$metadata"' EXIT
 unzip -p "$bundle" metadata.json >"$metadata"
 
-jq -e '
-    .uuid == "aqua-dock-pro@shaque" and
-    .name == "AquaDockPro" and
-    .url == "https://github.com/sahid-code404/aqua-dock-pro" and
-    ."shell-version" == ["50", "51"] and
-    (."session-modes"? == null)
-' "$metadata" >/dev/null || {
-    printf 'Packaged metadata is not EGO-compatible for GNOME Shell 50 and 51.\n' >&2
-    exit 1
-}
+if command -v jq >/dev/null; then
+    jq -e '
+        .uuid == "aqua-dock-pro@shaque" and
+        .name == "AquaDockPro" and
+        .url == "https://github.com/sahid-code404/aqua-dock-pro" and
+        ."shell-version" == ["50", "51"] and
+        (."session-modes"? == null)
+    ' "$metadata" >/dev/null || {
+        printf 'Packaged metadata is not EGO-compatible for GNOME Shell 50 and 51.\n' >&2
+        exit 1
+    }
+else
+    python3 - "$metadata" <<'PY' || {
+import json, sys
+with open(sys.argv[1], encoding="utf-8") as f:
+    m = json.load(f)
+assert m.get("uuid") == "aqua-dock-pro@shaque"
+assert m.get("name") == "AquaDockPro"
+assert m.get("url") == "https://github.com/sahid-code404/aqua-dock-pro"
+assert m.get("shell-version") == ["50", "51"]
+assert m.get("session-modes") is None
+PY
+        printf 'Packaged metadata is not EGO-compatible for GNOME Shell 50 and 51.\n' >&2
+        exit 1
+    }
+fi
 
 printf 'Package audit passed (%d files).\n' "${#entries[@]}"

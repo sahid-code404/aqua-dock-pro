@@ -18,14 +18,13 @@ function getExtensionSettings() {
                 schema_id: 'org.gnome.shell.extensions.aqua-dock-pro',
             });
         } catch {
-            /* intentionally ignored: schema lookup may fail in early startup or test harness */
-            _extensionSettings = null;
+                        _extensionSettings = null;
         }
     }
     return _extensionSettings;
 }
 
-// ── Logging ───────────────────────────────────────────────────────────────────
+// Logging
 /**
  * Emits a formatted debug log message prefixed with the extension logging identifier.
  *
@@ -76,7 +75,7 @@ export function clearRuntimeWarnings() {
     _extensionSettings = null;
 }
 
-// ── Pure helpers ───────────────────────────────────────────────────────────────
+// Pure helpers
 /**
  * Clamps a numeric value between a minimum and maximum boundary.
  *
@@ -101,7 +100,7 @@ export function clamp(v, min, max) {
 export function sameIcon(a, b) {
     if (a === b) return true;
     if (!a || !b) return false;
-    try { return a.equal(b); } catch { /* intentionally ignored: icon comparison failed on disparate GIcon types */ return false; }
+    try { return a.equal(b); } catch { return false; }
 }
 
 /**
@@ -113,7 +112,7 @@ export function getFocusedAppSafe() {
     const win = global.display?.focus_window ?? null;
     if (!win) return null;
     try { return Shell.WindowTracker.get_default().get_window_app(win) ?? null; }
-    catch { /* intentionally ignored: app lookup failed on unmanaged or closing window */ return null; }
+    catch { return null; }
 }
 
 /**
@@ -124,7 +123,7 @@ export function getFocusedAppSafe() {
  */
 export function appWindows(app) {
     try { return app?.get_windows?.() ?? []; }
-    catch { /* intentionally ignored: window list query failed on disposed app */ return []; }
+    catch { return []; }
 }
 
 // Return the windows that belong to this dock's configured scope. Keeping this
@@ -148,19 +147,19 @@ export function appWindowsForConfig(app, cfg, activeWorkspace = undefined) {
     let workspace = activeWorkspace;
     if (isolateWorkspaces && workspace === undefined) {
         try { workspace = global.workspace_manager?.get_active_workspace?.() ?? null; }
-        catch { /* intentionally ignored: workspace query failed during workspace switch */ workspace = null; }
+        catch { workspace = null; }
     }
 
     return windows.filter(window => {
         if (isolateMonitors) {
             try {
                 if (window.get_monitor?.() !== cfg.monitorIndex) return false;
-            } catch { /* intentionally ignored: monitor query failed on destroyed window */ return false; }
+            } catch { return false; }
         }
         if (isolateWorkspaces && workspace) {
             try {
                 if (!window.located_on_workspace?.(workspace)) return false;
-            } catch { /* intentionally ignored: workspace query failed on destroyed window */ return false; }
+            } catch { return false; }
         }
         return true;
     });
@@ -232,17 +231,15 @@ export function animationsEnabled() {
         const reducedMotion = settings.reducedMotion ?? settings.reduced_motion;
         return reduce === undefined || reducedMotion !== reduce;
     }
-    catch { /* intentionally ignored: St settings query failed fallback to standard animation */ return true; }
+    catch { return true; }
 }
 
-// ── SignalGroup ────────────────────────────────────────────────────────────────
+// SignalGroup
 // Owns a batch of GObject signal connections. Every connect() made through the
 // group is released exactly once by disconnectAll(); failed connects are never
 // recorded, so disconnectAll() can never touch a stale id.
 export class SignalGroup {
     constructor() {
-        // Flat parallel arrays keep this allocation-light: no per-connection
-        // wrapper object is created.
         this._objects = [];
         this._ids = [];
     }
@@ -263,7 +260,7 @@ export class SignalGroup {
         const objs = this._objects;
         const ids = this._ids;
         for (let i = ids.length - 1; i >= 0; i--) {
-            try { objs[i].disconnect(ids[i]); } catch { /* intentionally ignored: timeline or object already disposed */ }
+            try { objs[i].disconnect(ids[i]); } catch {}
         }
         objs.length = 0;
         ids.length = 0;
@@ -272,7 +269,7 @@ export class SignalGroup {
     get size() { return this._ids.length; }
 }
 
-// ── TimeoutGroup ───────────────────────────────────────────────────────────────
+// TimeoutGroup
 // Owns GLib timeout/idle sources. A source that completes on its own (callback
 // returns GLib.SOURCE_REMOVE) deregisters itself, so removeAll() and explicit
 // remove() never call Source.remove() on a dead id.

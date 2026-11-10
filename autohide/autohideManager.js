@@ -52,7 +52,7 @@ export class AutohideManager {
 
     get hidden() { return this._vis.hidden; }
 
-    // ── Lifecycle ───────────────────────────────────────────────────────────
+    // Lifecycle
     enable() {
         if (this._enabled) return;
         this._enabled = true;
@@ -121,7 +121,7 @@ export class AutohideManager {
             this._vis.hidden && cfg.showAutohideHandle && !this._fullscreenBlocksDock(), false);
     }
 
-    // ── Pointer hooks called by the controller ───────────────────────────────
+    // Pointer hooks called by the controller
     onDockActivity() {
         this._cancelHide();
         if (this._transitionBlocksReveal()) return;
@@ -133,7 +133,7 @@ export class AutohideManager {
         this._debounceCheckHide();
     }
 
-    // ── Signal wiring ─────────────────────────────────────────────────────────
+    // Signal wiring
     _connect() {
         const s = this._signals;
         const strip = this._host.chrome.strip;
@@ -185,7 +185,7 @@ export class AutohideManager {
         s.connect(Main.overview, 'hidden', () => this.queueIntellihide());
     }
 
-    // ── Intellihide ───────────────────────────────────────────────────────────
+    // Intellihide
     queueIntellihide() {
         if (this._idleId) return;
         this._idleId = this._timers.addIdle(() => {
@@ -255,7 +255,7 @@ export class AutohideManager {
         if (this._debounceId) { this._timers.remove(this._debounceId); this._debounceId = 0; }
     }
 
-    // ── Hide / reveal timers ──────────────────────────────────────────────────
+    // Hide / reveal timers
     _scheduleHide(delayMs = null) {
         const cfg = this._host.getConfig();
         if (this._hideId || cfg.autoHideMode === 'never') return;
@@ -305,7 +305,7 @@ export class AutohideManager {
         this._setHidden(false, true);
     }
 
-    // ── Slide + side effects ──────────────────────────────────────────────────
+    // Slide + side effects
     _setHidden(hidden, animate) {
         const cfg = this._host.getConfig();
         const fullscreen = this._fullscreenBlocksDock();
@@ -317,7 +317,8 @@ export class AutohideManager {
 
         this._host.chrome.setAutohideHandleVisible(
             hidden && cfg.showAutohideHandle && !fullscreen, animate);
-        const changed = this._vis.setHidden(hidden, geom, animate, () => this._host.kickEngine());
+        const changed = this._vis.setHidden(
+            hidden, geom, animate, this._enabled ? () => this._host.kickEngine() : null);
         if (!changed) return;
 
         if (hidden) {
@@ -328,10 +329,10 @@ export class AutohideManager {
         }
     }
 
-    // ── Window-transition guard ───────────────────────────────────────────────
+    // Window-transition guard
     _beginWindowTransition(actor) {
         if (!this._enabled || Main.overview.visible || !actor ||
-            this._windowTransitions.has(actor)) return;
+            actor.is_destroyed?.() || this._windowTransitions.has(actor)) return;
 
         const window = actor.meta_window;
         const monitor = this._host.getMonitorIndex?.() ?? -1;
@@ -339,7 +340,6 @@ export class AutohideManager {
         try {
             if (window.get_monitor?.() !== monitor) return;
         } catch {
-            /* intentionally ignored: window monitor query failed on destroyed window */
             return;
         }
 
@@ -353,18 +353,18 @@ export class AutohideManager {
         try {
             const id = actor.connect('effects-completed', finish);
             if (id) ids.push(id);
-        } catch { /* intentionally ignored: window actor may already be destroyed or unmanaged */ }
+        } catch {}
         try {
             const id = actor.connect('hide', finish);
             if (id) ids.push(id);
-        } catch { /* intentionally ignored: window actor may already be destroyed or unmanaged */ }
+        } catch {}
         try {
             const id = actor.connect('destroy', finish);
             if (id) ids.push(id);
-        } catch { /* intentionally ignored: window actor may already be destroyed or unmanaged */ }
+        } catch {}
         if (!ids.length) return;
 
-        ids.timeoutId = this._timers.addOnce(800, finish);
+        ids.timeoutId = this._timers.addOnce(250, finish);
         this._windowTransitions.set(actor, ids);
         if (this._vis.hidden) this._cancelReveal();
     }
@@ -376,7 +376,7 @@ export class AutohideManager {
         if (ids.timeoutId) this._timers.remove(ids.timeoutId);
         const list = Array.isArray(ids) ? ids : (ids.ids ?? []);
         for (const id of list) {
-            try { actor.disconnect(id); } catch { /* intentionally ignored: window actor signal handler may already be disconnected */ }
+            try { actor.disconnect(id); } catch {}
         }
 
         if (!this._windowTransitions.size && this._enabled && !this._transitionReleaseId) {
@@ -400,7 +400,7 @@ export class AutohideManager {
             if (ids?.timeoutId) this._timers.remove(ids.timeoutId);
             const list = Array.isArray(ids) ? ids : (ids?.ids ?? []);
             for (const id of list) {
-                try { actor.disconnect(id); } catch { /* intentionally ignored: window actor signal handler may already be disconnected */ }
+                try { actor.disconnect(id); } catch {}
             }
         }
         this._windowTransitions.clear();
@@ -411,7 +411,7 @@ export class AutohideManager {
             (this._windowTransitions.size > 0 || this._transitionReleaseId !== 0);
     }
 
-    // ── Fullscreen policy ────────────────────────────────────────────────────
+    // Fullscreen policy
     _forceFullscreenHidden() {
         this._cancelHide();
         this._cancelReveal();
@@ -433,8 +433,7 @@ export class AutohideManager {
                 !window.located_on_workspace(workspace))
                 return;
         } catch {
-            /* intentionally ignored: window workspace check failed on destroyed window */
-            return;
+                        return;
         }
 
         // Meta.Display.list_all_windows() keeps Meta.Window objects independent
@@ -442,10 +441,10 @@ export class AutohideManager {
         // only a different fullscreen window underneath should pre-hide us.
         let windows = null;
         try { windows = global.display?.list_all_windows?.() ?? null; }
-        catch { /* intentionally ignored: display window list query failed during session transition */ windows = null; }
+        catch { windows = null; }
         if (!windows) {
             try { windows = workspace?.list_windows?.() ?? null; }
-            catch { /* intentionally ignored: workspace window list query failed during session transition */ windows = null; }
+            catch { windows = null; }
         }
         if (!windows) return;
 
@@ -460,20 +459,21 @@ export class AutohideManager {
     }
 
     _rawFullscreenBlocksDock() {
+        if (Main.sessionMode?.isLocked) return true;
         const monitor = this._host.getMonitorIndex?.() ?? -1;
         if (monitor < 0) return false;
         if (monitorInFullscreen(monitor)) return true;
 
         let workspace = null;
         try { workspace = global.workspace_manager.get_active_workspace(); }
-        catch { /* intentionally ignored: workspace manager unavailable during session transition */ }
+        catch {}
 
         // list_all_windows() is the stable Meta.Window inventory. Unlike actor
         // lists, it is not tied to whether a window is currently mapped/painted.
         try {
             const windows = global.display?.list_all_windows?.();
             if (windows) return hasFullscreenWindow(windows, monitor, workspace);
-        } catch { /* intentionally ignored: display window list query failed during session transition */ }
+        } catch {}
 
         // Compatibility fallback for Shell versions where the display inventory
         // is unavailable. Keep the old workspace/actor sources as a last resort.
@@ -481,14 +481,14 @@ export class AutohideManager {
             const windows = workspace?.list_windows?.();
             if (windows && hasFullscreenWindow(windows, monitor, workspace))
                 return true;
-        } catch { /* intentionally ignored: workspace window list query failed during workspace switch */ }
+        } catch {}
         try {
             const actors = global.get_window_actors?.() ?? [];
             for (const actor of actors) {
                 if (windowKeepsDockHidden(actor?.meta_window, monitor, workspace))
                     return true;
             }
-        } catch { /* intentionally ignored: window actors query failed during overview transition */ }
+        } catch {}
 
         return false;
     }
@@ -537,15 +537,15 @@ export class AutohideManager {
 
     _pointerButtonDown() {
         try { return Boolean(global.get_pointer()[2] & POINTER_BUTTON_MASK); }
-        catch { /* intentionally ignored: global pointer query failed during display teardown */ return false; }
+        catch { return false; }
     }
 
-    // ── Pointer-in-dock truth ─────────────────────────────────────────────────
+    // Pointer-in-dock truth
     _pointerReallyInside() {
         const geom = this._host.getGeom();
         if (!geom) return false;
         let px, py;
-        try { [px, py] = global.get_pointer(); } catch { /* intentionally ignored: global pointer query failed during display teardown */ return false; }
+        try { [px, py] = global.get_pointer(); } catch { return false; }
 
         const c = this._host.chrome.container;
         if (c && !this._vis.hidden &&

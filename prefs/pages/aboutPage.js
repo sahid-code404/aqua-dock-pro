@@ -33,7 +33,7 @@ export function buildAboutPage(window, s, metadata) {
         open.add_css_class('flat');
         open.connect('clicked', () => {
             try { Gtk.show_uri(window, metadata.url, Gtk.get_current_event_time?.() ?? 0); }
-            catch { try { Gio.AppInfo.launch_default_for_uri(metadata.url, null); } catch { /* intentionally ignored: default URI handler launch failed */ } }
+            catch { try { Gio.AppInfo.launch_default_for_uri(metadata.url, null); } catch {} }
         });
         linkRow.add_suffix(open);
         linkRow.activatable_widget = open;
@@ -62,7 +62,7 @@ export function buildAboutPage(window, s, metadata) {
     support.add(diagnosticsRow);
     p.add(support);
 
-    // ── Reset ──
+    // Reset
     const reset = group(_('Reset'), _('Restore every setting to its default value.'));
     const resetRow = new Adw.ActionRow({
         title: _('Reset all settings'),
@@ -83,7 +83,7 @@ export function buildAboutPage(window, s, metadata) {
             if (resp === 'reset') {
                 for (const key of s.settings_schema.list_keys()) {
                     if (key === 'settings-version') continue;
-                    try { s.reset(key); } catch { /* intentionally ignored: settings key reset failed */ }
+                    try { s.reset(key); } catch {}
                 }
             }
             dialog.destroy();

@@ -97,23 +97,25 @@ export function buildDownloadsPage(window, s) {
     buildCustomItemsEditor(window, s, dockItems);
     p.add(dockItems);
 
+    const syncBlurSensitivity = () => {
+        const masterBlur = s.get_boolean('blur-effect');
+        const dlEnabled = s.get_boolean('show-downloads');
+        stackBlur.set_sensitive(dlEnabled && masterBlur);
+        const blurOn = masterBlur && s.get_boolean('downloads-blur-effect');
+        panelColor.set_sensitive(!blurOn);
+        cardColor.set_sensitive(!blurOn);
+    };
+
     const syncDownloadsSensitivity = () => {
         const enabled = s.get_boolean('show-downloads');
         viewRow.set_sensitive(enabled);
         filesRow.set_sensitive(enabled);
         sortRow.set_sensitive(enabled);
-        stackBlur.set_sensitive(enabled);
         panelStyle.set_sensitive(enabled);
+        syncBlurSensitivity();
     };
     syncDownloadsSensitivity();
     (window._settingsSignalIds ??= []).push(s.connect('changed::show-downloads', syncDownloadsSensitivity));
-
-    const syncBlurSensitivity = () => {
-        const blurOn = s.get_boolean('blur-effect') && s.get_boolean('downloads-blur-effect');
-        panelColor.set_sensitive(!blurOn);
-        cardColor.set_sensitive(!blurOn);
-    };
-    syncBlurSensitivity();
     (window._settingsSignalIds ??= []).push(s.connect('changed::blur-effect', syncBlurSensitivity));
     (window._settingsSignalIds ??= []).push(s.connect('changed::downloads-blur-effect', syncBlurSensitivity));
 }

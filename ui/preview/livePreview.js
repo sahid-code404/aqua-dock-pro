@@ -23,9 +23,9 @@ export function buildWindowFrame(win, frameW, frameH, fallbackGicon) {
     frame.set_size(frameW, frameH);
 
     let actor = null;
-    try { actor = win.get_compositor_private?.(); } catch { /* intentionally ignored: window actor geometry query failed for closing window */ }
+    try { actor = win.get_compositor_private?.(); } catch {}
     let rect = null;
-    try { rect = win.get_frame_rect(); } catch { /* intentionally ignored: window actor geometry query failed for closing window */ }
+    try { rect = win.get_frame_rect(); } catch {}
 
     if (actor && rect && rect.width > 0 && rect.height > 0) {
         const clone = new Clutter.Clone({ source: actor, reactive: false });
@@ -40,7 +40,7 @@ export function buildWindowFrame(win, frameW, frameH, fallbackGicon) {
         try {
             const bx = win.get_buffer_rect?.();
             if (bx) { ox = (rect.x - bx.x) * scale; oy = (rect.y - bx.y) * scale; }
-        } catch { /* intentionally ignored: window actor geometry query failed for closing window */ }
+        } catch {}
         clone.set_position(
             Math.round((frameW - sw) / 2 - ox),
             Math.round((frameH - sh) / 2 - oy));

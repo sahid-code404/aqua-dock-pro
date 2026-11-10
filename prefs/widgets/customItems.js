@@ -65,7 +65,7 @@ export function buildCustomItemsEditor(window, settings, group) {
             try {
                 const file = source.select_folder_finish(result);
                 if (file) add({ type: 'folder', uri: file.get_uri(), name: file.get_basename() ?? '' });
-            } catch { /* intentionally ignored: file or folder picker dialog dismissed or cancelled */ }
+            } catch {}
         });
     }));
     locationControls.add_suffix(button('document-open-symbolic', _('Add file'), () => {
@@ -76,7 +76,7 @@ export function buildCustomItemsEditor(window, settings, group) {
             try {
                 const file = source.open_finish(result);
                 if (file) add({ type: 'file', uri: file.get_uri(), name: file.get_basename() ?? '' });
-            } catch { /* intentionally ignored: file or folder picker dialog dismissed or cancelled */ }
+            } catch {}
         });
     }));
     locationControls.add_suffix(button('web-browser-symbolic', _('Add web link'), () => {
@@ -160,7 +160,7 @@ export function buildCustomItemsEditor(window, settings, group) {
     rebuild();
     const changedId = settings.connect('changed::custom-dock-items', rebuild);
     window._cleanupCallbacks.push(() => {
-        try { settings.disconnect(changedId); } catch { /* intentionally ignored: preferences dialog closed before async load completed */ }
+        try { settings.disconnect(changedId); } catch {}
         rows = [];
     });
 }

@@ -20,20 +20,20 @@ export function deepFreeze(obj) {
     return Object.freeze(obj);
 }
 
-// ── Identity ────────────────────────────────────────────────────────────────
+// Identity
 export const LOG_PREFIX = 'AquaDockPro';
 
-// ── Layout geometry (logical px, pre-scale) ──────────────────────────────────
+// Layout geometry (logical px, pre-scale)
 export const ICON_BOT = 8;
 export const BG_PAD_X = 10;
 export const DOT_SIZE = 5;
 export const SEP_W = 2;
 export const SEP_PAD = 8;
 
-// ── Physics ──────────────────────────────────────────────────────────────────
+// Physics
 export const SETTLE_EPS = 0.002;
 
-// ── Settings pipeline ────────────────────────────────────────────────────────
+// Settings pipeline
 export const SETTINGS_DEBOUNCE_MS = 120;
 
 // These keys are consumed directly by GNOME/GSettings or by migration code and

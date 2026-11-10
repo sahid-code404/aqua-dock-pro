@@ -45,7 +45,7 @@ function computeConfig(s) {
     const autoHideMode = s.get_string('auto-hide-mode');
 
     return {
-        // ── Sizing / geometry ──
+        // Sizing / geometry
         scale,
         iconSize,
         zoomMax,
@@ -72,14 +72,14 @@ function computeConfig(s) {
         dockRadius: s.get_int('dock-radius'),
         hoverLift,
 
-        // ── Background / chrome ──
+        // Background / chrome
         bgOpacity: s.get_double('background-opacity'),
         pillColor: s.get_string('pill-color'),
         borderColor: s.get_string('border-color'),
         borderWidth: s.get_int('border-width'),
         blurEffect: s.get_boolean('blur-effect'),
 
-        // ── Sections / behaviour ──
+        // Sections / behaviour
         showApps: s.get_boolean('show-apps-button'),
         appsButtonPosition: s.get_int('apps-button-position'),
         appsIcon: s.get_string('apps-button-icon'),
@@ -103,7 +103,7 @@ function computeConfig(s) {
         layoutLocked: s.get_boolean('lock-layout'),
         isolateWS: s.get_boolean('isolate-workspaces'),
 
-        // ── Auto-hide ──
+        // Auto-hide
         autoHideMode,
         autoHideActive: autoHideMode !== 'never',
         hideDelay: s.get_int('hide-delay'),
@@ -112,18 +112,18 @@ function computeConfig(s) {
         pressureSense: s.get_boolean('pressure-sense'),
         pressureSenseSensitivity: s.get_double('pressure-sense-sensitivity'),
 
-        // ── Animation / physics ──
+        // Animation / physics
         tau: s.get_int('animation-smoothness'),
         springTension: s.get_double('spring-tension'),
         springDamping: s.get_double('spring-damping'),
         bounceHeight: Math.round(s.get_int('bounce-height') * scale),
         bounceDecay: clamp(s.get_double('bounce-decay'), 0.30, 0.95),
 
-        // ── Genie ──
+        // Genie
         enableGenieEffect: s.get_boolean('enable-genie-effect'),
         genieDuration: s.get_int('genie-duration'),
 
-        // ── Tooltip ──
+        // Tooltip
         showTooltip: s.get_boolean('show-tooltip'),
         tooltipDelay: s.get_int('tooltip-delay'),
         tooltipRadius: s.get_int('tooltip-radius'),
@@ -134,7 +134,7 @@ function computeConfig(s) {
         tooltipUseMenuTheme: s.get_boolean('tooltip-use-menu-theme'),
         tooltipBlurEffect: s.get_boolean('tooltip-blur-effect'),
 
-        // ── Context menu ──
+        // Context menu
         menuUseGnomeDefault: s.get_boolean('menu-use-gnome-default'),
         menuRadius: s.get_int('menu-radius'),
         menuBg: s.get_string('menu-bg-color'),
@@ -143,7 +143,7 @@ function computeConfig(s) {
         menuBorderWidth: s.get_int('menu-border-width'),
         menuBlurEffect: s.get_boolean('menu-blur-effect'),
 
-        // ── Previews ──
+        // Previews
         showPreviews: s.get_boolean('show-previews'),
         previewDelay: s.get_int('preview-delay'),
         previewSize: Math.round(s.get_int('preview-size') * scale),
@@ -154,7 +154,7 @@ function computeConfig(s) {
         previewKeyboardNavigation: s.get_boolean('preview-keyboard-navigation'),
         previewWindowActions: s.get_boolean('preview-window-actions'),
 
-        // ── Indicators / badges ──
+        // Indicators / badges
         indicatorStyle: s.get_string('indicator-style'),
         indicatorSize: s.get_int('indicator-size'),
         indicatorColor: s.get_string('indicator-color'),
@@ -163,7 +163,7 @@ function computeConfig(s) {
         badgeColor: s.get_string('badge-color'),
         badgeTextColor: s.get_string('badge-text-color'),
 
-        // ── Downloads stack ──
+        // Downloads stack
         downloadsView: s.get_string('downloads-view'),
         downloadsMaxFiles: s.get_int('downloads-max-files'),
         downloadsSort: s.get_string('downloads-sort'),
@@ -180,7 +180,7 @@ function computeConfig(s) {
         dlItemThumbColor: s.get_string('downloads-item-thumb-color'),
         dlItemFontColor: s.get_string('downloads-item-font-color'),
 
-        // ── Accessibility ──
+        // Accessibility
         reduceMotion: s.get_boolean('reduce-motion'),
         highContrast: s.get_boolean('high-contrast'),
         interfaceTextScale: s.get_double('interface-text-scale'),

@@ -205,7 +205,7 @@ export class FanView {
         fan.connect('destroy', () => {
             for (const r of this._model?.rows ?? []) {
                 if (r._labelPill) {
-                    try { unregisterBmsTarget(r._labelPill); } catch { /* intentionally ignored: BMS target cleanup fallback */ }
+                    try { unregisterBmsTarget(r._labelPill); } catch {}
                 }
             }
         });
@@ -274,11 +274,11 @@ export class FanView {
         }
 
         btn._isAquaDock = true;
-        btn._dockBlurEnabled = false; // Strictly false per Invariant 1
+        btn._dockBlurEnabled = false;
         btn._dockRadius = radius;
         btn.get_dock_radius = () => radius;
 
-        const rowStyles = getRowStyles(this.cfg, thumbRadius, '6px 14px', this._blurActive, 0, labelPill);
+        const rowStyles = getRowStyles(this.cfg, thumbRadius, '6px 14px', this._blurActive, pillH, labelPill);
         if (btn._appliedStyleKey !== rowStyles.key) {
             btn._appliedStyleKey = rowStyles.key;
             label.set_style(rowStyles.normal.label);
@@ -348,7 +348,7 @@ export class FanView {
             'aqua-dl-fan-icon');
         iconActor.set_size(iconSize, iconSize);
         if (btn._icon && thumb.get_child?.() === btn._icon) {
-            try { thumb.remove_child?.(btn._icon); } catch { /* intentionally ignored: pooled icon detach failed */ }
+            try { thumb.remove_child?.(btn._icon); } catch {}
         }
         thumb.set_child(iconActor);
         btn._activate = () => { launchUri(this.folder.get_uri()); this.close(); };
@@ -368,7 +368,7 @@ export class FanView {
             'aqua-dl-fan-icon');
         iconActor.set_size(iconSize, iconSize);
         if (btn._icon && thumb.get_child?.() === btn._icon) {
-            try { thumb.remove_child?.(btn._icon); } catch { /* intentionally ignored: pooled icon detach failed */ }
+            try { thumb.remove_child?.(btn._icon); } catch {}
         }
         thumb.set_child(iconActor);
         btn._activate = () => { launchUri(this.folder.get_uri()); this.close(); };
@@ -404,7 +404,7 @@ export class FanView {
         try {
             stopSubtreeTransitions(actor);
             actor.opacity = 255;
-        } catch { /* intentionally ignored: stack view row or blur actor may already be destroyed */ }
+        } catch {}
         for (const row of this._model.rows) {
             try {
                 stopSubtreeTransitions(row);
@@ -412,14 +412,10 @@ export class FanView {
                 row.translation_y = 0;
                 row.set_scale(1, 1);
                 row.opacity = 255;
-            } catch { /* intentionally ignored: stack view row or blur actor may already be destroyed */ }
+            } catch {}
         }
     }
 
-    /**
-     * Detach all rows from the view container and release them to the pool.
-     * Prevents Clutter from recursively destroying pooled actors when view.actor.destroy() runs.
-     */
     releaseRows() {
         const pool = this.pool ?? this._fallbackPool;
         const rows = this._model?.rows ?? [];
@@ -431,14 +427,18 @@ export class FanView {
                 row.set_scale(1.0, 1.0);
                 row.opacity = 255;
                 if (row._labelPill) {
-                    try { unregisterBmsTarget(row._labelPill); } catch { /* intentionally ignored: BMS target cleanup fallback */ }
+                    try { unregisterBmsTarget(row._labelPill); } catch {}
                 }
                 const parent = row.get_parent?.();
                 if (parent) parent.remove_child(row);
-            } catch { /* intentionally ignored: stack view row or blur actor may already be destroyed */ }
+            } catch {}
             pool?.releaseFanItem(row);
         }
         this._model?.setRows([]);
+        if (this._fallbackPool) {
+            this._fallbackPool.clear();
+            this._fallbackPool = null;
+        }
     }
 
     // onDone() is called when the close animation finishes (or immediately if

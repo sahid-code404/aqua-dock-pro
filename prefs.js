@@ -36,20 +36,26 @@ export default class AquaDockProPreferences extends ExtensionPreferences {
         buildAccessibilityPage(window, s);
         buildAboutPage(window, s, this.metadata);
 
-        window.connect('close-request', () => {
+        let cleanedUp = false;
+        const cleanupWindow = () => {
+            if (cleanedUp) return;
+            cleanedUp = true;
             for (const cancellable of (window._dialogCancellables ?? [])) {
-                try { cancellable.cancel(); } catch { /* intentionally ignored: preferences dialog closed before async load completed */ }
+                try { cancellable.cancel(); } catch {}
             }
             window._dialogCancellables?.clear();
 
             for (const cleanup of (window._cleanupCallbacks ?? [])) {
-                try { cleanup(); } catch { /* intentionally ignored: preferences dialog closed before async load completed */ }
+                try { cleanup(); } catch {}
             }
             window._cleanupCallbacks = [];
             for (const id of (window._settingsSignalIds ?? [])) {
-                try { s.disconnect(id); } catch { /* intentionally ignored: preferences dialog closed before async load completed */ }
+                try { s.disconnect(id); } catch {}
             }
             window._settingsSignalIds = [];
-        });
+        };
+
+        window.connect('close-request', cleanupWindow);
+        window.connect('destroy', cleanupWindow);
     }
 }

@@ -197,7 +197,7 @@ export function iconChooserRow(window, s, key, title) {
             if (!v) preview.set_from_icon_name('view-app-grid-symbolic');
             else if (v.includes('/')) preview.set_from_file(v);
             else preview.set_from_icon_name(v);
-        } catch { /* intentionally ignored: icon file or name invalid fallback to missing icon symbolic */ preview.set_from_icon_name('image-missing-symbolic'); }
+        } catch { preview.set_from_icon_name('image-missing-symbolic'); }
     };
     refresh();
     window._settingsSignalIds.push(s.connect(`changed::${key}`, refresh));
@@ -223,7 +223,7 @@ export function iconChooserRow(window, s, key, title) {
             try {
                 const file = d.open_finish(res);
                 if (file) s.set_string(key, file.get_path());
-            } catch { /* intentionally ignored: file or folder dialog dismissed or cancelled */ }
+            } catch {}
         });
     });
     row.add_suffix(browse);
@@ -270,7 +270,7 @@ export function folderChooserRow(window, s, key, title, subtitle) {
             try {
                 const folder = source.select_folder_finish(result);
                 if (folder) s.set_string(key, folder.get_uri());
-            } catch { /* intentionally ignored: file or folder dialog dismissed or cancelled */ }
+            } catch {}
         });
     });
     row.add_suffix(choose);

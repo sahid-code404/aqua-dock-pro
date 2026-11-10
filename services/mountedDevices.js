@@ -38,7 +38,7 @@ class IdleSourceGroup {
 
     removeAll() {
         for (const id of this._ids) {
-            try { GLib.source_remove(id); } catch { /* intentionally ignored: timer source may already be removed */ }
+            try { GLib.source_remove(id); } catch {}
         }
         this._ids.clear();
     }
@@ -49,8 +49,7 @@ function safely(read, fallback = null) {
         const value = read();
         return value ?? fallback;
     } catch {
-        /* intentionally ignored: safe property query fallback */
-        return fallback;
+                return fallback;
     }
 }
 
@@ -92,7 +91,7 @@ const monitorStores = new Map();
 function operationCancelled(cancellable, error) {
     if (cancellable?.is_cancelled()) return true;
     try { return error?.matches?.(Gio.io_error_quark(), Gio.IOErrorEnum.CANCELLED) === true; }
-    catch { /* intentionally ignored: error matches check failed */ return false; }
+    catch { return false; }
 }
 
 function runAsync(target, method, finish, buildArgs, action, onDone) {
@@ -142,8 +141,8 @@ function mountAction(mount, candidates, action, onDone) {
  */
 function cancelMountedDeviceOperations() {
     for (const [cancellable, cleanup] of activeOperations) {
-        try { cancellable.cancel(); } catch { /* intentionally ignored: async operation cancellable may already be cancelled */ }
-        try { cleanup?.(); } catch { /* intentionally ignored: unmount cleanup callback failed */ }
+        try { cancellable.cancel(); } catch {}
+        try { cleanup?.(); } catch {}
     }
     activeOperations.clear();
 }
@@ -156,7 +155,7 @@ export function clearMountedDeviceCache() {
     cancelMountedDeviceOperations();
     for (const store of monitorStores.values()) {
         try { store.destroy(); }
-        catch { /* intentionally ignored: device store may already be disposed */ }
+        catch {}
     }
     monitorStores.clear();
 }

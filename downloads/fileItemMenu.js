@@ -1,13 +1,14 @@
 // Context menu shared by the fan, grid and list folder-stack views.
 
 import Clutter from 'gi://Clutter';
+import GLib from 'gi://GLib';
 import St from 'gi://St';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 
 import { _ } from '../core/i18n.js';
-import { clamp, logError } from '../core/utils.js';
+import { TimeoutGroup, clamp, logError } from '../core/utils.js';
 import { copyFileToClipboard } from './fileClipboard.js';
 import { applyStackMenuPillStyle } from './tileStyle.js';
 import {
@@ -28,6 +29,8 @@ export class FileItemMenu {
         this._menu = null;
         this._blurRegistered = false;
         this._itemSignals = [];
+        this._timers = new TimeoutGroup();
+        this._closeIdleId = 0;
     }
 
     bind(owner) {
@@ -79,7 +82,7 @@ export class FileItemMenu {
                 try {
                     copyItem._ornamentIcon.destroy();
                     copyItem._ornamentIcon = null;
-                } catch { /* intentionally ignored: context menu actor may already be destroyed */ }
+                } catch {}
             }
 
             copyItem.x_expand = true;
@@ -106,8 +109,14 @@ export class FileItemMenu {
             this._manager.addMenu(menu);
             Main.uiGroup.add_child(menu.actor);
             menu.connect('open-state-changed', (_m, open) => {
-                if (!open)
-                    this._destroyMenu();
+                if (!open) {
+                    if (this._closeIdleId) this._timers.remove(this._closeIdleId);
+                    this._closeIdleId = this._timers.addIdle(() => {
+                        this._closeIdleId = 0;
+                        if (this._menu === menu) this._destroyMenu();
+                        return GLib.SOURCE_REMOVE;
+                    });
+                }
             });
             this._styleMenu(menu, [copyItem], anchor);
             this._setupBlur(menu);
@@ -131,8 +140,7 @@ export class FileItemMenu {
             const monitorMiddle = this._mon.x + this._mon.width / 2;
             return x + width / 2 > monitorMiddle ? St.Side.RIGHT : St.Side.LEFT;
         } catch {
-            /* intentionally ignored: transformed position query failed on unmapped actor */
-            return St.Side.RIGHT;
+                        return St.Side.RIGHT;
         }
     }
 
@@ -184,8 +192,7 @@ export class FileItemMenu {
                 [pillStageX, pillStageY] = sourceActor.get_transformed_position();
                 [pillW, pillH] = sourceActor.get_transformed_size();
             } catch {
-                /* intentionally ignored: transformed position query failed on unmapped actor fallback to local allocation */
-                const alloc = sourceActor.get_allocation_box();
+                                const alloc = sourceActor.get_allocation_box();
                 pillStageX = alloc.x1;
                 pillStageY = alloc.y1;
                 pillW = alloc.get_width();
@@ -237,8 +244,7 @@ export class FileItemMenu {
                 try {
                     [success, x, y] = parent.transform_stage_point(resX, resY);
                 } catch {
-                    /* intentionally ignored: stage coordinate transformation failed fallback to stage coordinates */
-                    success = true;
+                                        success = true;
                     x = resX;
                     y = resY;
                     break;
@@ -260,8 +266,7 @@ export class FileItemMenu {
                 [stageX] = sourceActor.get_transformed_position();
                 [pillW] = sourceActor.get_transformed_size();
             } catch {
-                /* intentionally ignored: transformed position query failed on unmapped actor fallback to default side */
-                return arrowSide;
+                                return arrowSide;
             }
             const [, , natWidth] = this.get_preferred_size();
             const gap = 8;
@@ -312,28 +317,34 @@ export class FileItemMenu {
     }
 
     _destroyMenu() {
+        if (this._closeIdleId) {
+            this._timers.remove(this._closeIdleId);
+            this._closeIdleId = 0;
+        }
         if (!this._menu) return;
         for (const { actor, id } of this._itemSignals) {
-            try { actor?.disconnect(id); } catch { /* intentionally ignored: menu signal handler may already be disconnected */ }
+            try { actor?.disconnect(id); } catch {}
         }
         this._itemSignals = [];
         if (this._blurRegistered) {
             unregisterBmsTarget(this._menu.actor);
             this._blurRegistered = false;
         }
-        try { this._manager?.removeMenu(this._menu); } catch { /* intentionally ignored: menu may already be removed from manager */ }
-        try { this._menu.destroy(); } catch { /* intentionally ignored: context menu actor may already be destroyed */ }
+        try { this._manager?.removeMenu(this._menu); } catch {}
+        try { this._menu.destroy(); } catch {}
         this._menu = null;
     }
 
     destroy() {
+        this._timers.removeAll();
+        this._closeIdleId = 0;
         this._destroyMenu();
         if (this._owner && this._ownerDestroyId) {
-            try { this._owner.disconnect(this._ownerDestroyId); } catch { /* intentionally ignored: menu signal handler may already be disconnected */ }
+            try { this._owner.disconnect(this._ownerDestroyId); } catch {}
         }
         this._ownerDestroyId = 0;
         this._owner = null;
-        try { this._manager?.destroy?.(); } catch { /* intentionally ignored: context menu actor may already be destroyed */ }
+        try { this._manager?.destroy?.(); } catch {}
         this._manager = null;
         this._mon = null;
         this._cfg = null;

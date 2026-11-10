@@ -55,16 +55,20 @@ class DownloadsWatcher {
         let monitor = null;
         try {
             monitor = downloadsDir().monitor_directory(Gio.FileMonitorFlags.NONE, null);
-            this._monitorId = monitor.connect('changed', (_m, file, _other, event) => {
+            this._monitorId = monitor.connect('changed', (_m, file, other, event) => {
                 if (event === Gio.FileMonitorEvent.DELETED ||
-                    event === Gio.FileMonitorEvent.MOVED_OUT ||
-                    event === Gio.FileMonitorEvent.RENAMED) {
-                    try { invalidateListingCache(file?.get_parent?.()?.get_uri?.()); } catch { /* intentionally ignored */ }
+                    event === Gio.FileMonitorEvent.MOVED_OUT) {
+                    try { invalidateListingCache(file?.get_parent?.()?.get_uri?.()); } catch {}
                     return;
                 }
-                if (event !== Gio.FileMonitorEvent.CREATED &&
-                    event !== Gio.FileMonitorEvent.MOVED_IN)
+                if (event === Gio.FileMonitorEvent.RENAMED) {
+                    try { invalidateListingCache(file?.get_parent?.()?.get_uri?.()); } catch {}
+                    if (!other) return;
+                    file = other;
+                } else if (event !== Gio.FileMonitorEvent.CREATED &&
+                    event !== Gio.FileMonitorEvent.MOVED_IN) {
                     return;
+                }
 
                 const name = file?.get_basename?.() ?? '';
                 if (name.startsWith('.') || name.endsWith('.part') ||
@@ -136,9 +140,10 @@ function subscribeDownloads(callback) {
 export function clearDownloadWatcherCache() {
     if (sharedWatcher) {
         try { sharedWatcher.destroy(); }
-        catch { /* intentionally ignored: download flyer or watcher may already be destroyed */ }
+        catch {}
         sharedWatcher = null;
     }
+    invalidateListingCache();
     clearIconCaches();
 }
 
@@ -214,7 +219,7 @@ export class DownloadManager {
 
         for (const other of activeDownloadManagers) {
             if (other !== this && other.stackOpen) {
-                try { other.closeStack(true); } catch { /* intentionally ignored: secondary monitor stack close failed */ }
+                try { other.closeStack(true); } catch {}
             }
         }
 
@@ -227,11 +232,11 @@ export class DownloadManager {
             this.closeStack(!isSame);
             if (isSame) return;
         } else if (this._activeItem && this._activeItem !== item) {
-            try { this._activeItem.setStackOpenState?.(false, false); } catch { /* intentionally ignored */ }
+            try { this._activeItem.setStackOpenState?.(false, false); } catch {}
             this._activeItem = null;
         }
         if (this._stack.anchor && this._stack.anchor !== item) {
-            try { this._stack.anchor.setStackOpenState?.(false, false); } catch { /* intentionally ignored */ }
+            try { this._stack.anchor.setStackOpenState?.(false, false); } catch {}
         }
 
         this._activeItem = item;
@@ -241,7 +246,7 @@ export class DownloadManager {
 
         this._stack.show(item, folder, cfg, () => {
             if (this._activeItem === item) {
-                try { item.setStackOpenState?.(false); } catch { /* intentionally ignored: stack item actor may already be destroyed or unparented */ }
+                try { item.setStackOpenState?.(false); } catch {}
                 this._activeItem = null;
             }
             this._host?.setMagnificationSuppressed?.(false);
@@ -252,7 +257,7 @@ export class DownloadManager {
 
     closeStack(immediate = false) {
         if (this._activeItem) {
-            try { this._activeItem.setStackOpenState?.(false, !immediate); } catch { /* intentionally ignored: stack item actor may already be destroyed or unparented */ }
+            try { this._activeItem.setStackOpenState?.(false, !immediate); } catch {}
             this._activeItem = null;
         }
         this._host?.setMagnificationSuppressed?.(false);
@@ -266,7 +271,7 @@ export class DownloadManager {
         try {
             flyer.remove_all_transitions();
             flyer.destroy();
-        } catch { /* intentionally ignored: download flyer or watcher may already be destroyed */ }
+        } catch {}
     }
 
     _destroyAllFlyers() {
@@ -274,7 +279,7 @@ export class DownloadManager {
             try {
                 flyer.remove_all_transitions();
                 flyer.destroy();
-            } catch { /* intentionally ignored: download flyer or watcher may already be destroyed */ }
+            } catch {}
         }
         this._flyers.clear();
     }
@@ -301,7 +306,7 @@ export class DownloadManager {
         if (!file) return;
 
         let uri = null;
-        try { uri = file.get_uri(); } catch { /* intentionally ignored: file info or URI query failed on deleted file */ }
+        try { uri = file.get_uri(); } catch {}
         if (!uri) return;
 
         if (this._pendingArrivalUris.has(uri)) return;
@@ -311,7 +316,7 @@ export class DownloadManager {
 
         this._pendingArrivalUris.add(uri);
         this._arrivalQueue.push({ file, uri });
-        try { invalidateListingCache(file.get_parent()?.get_uri?.()); } catch { /* intentionally ignored: cache invalidation on invalid file parent */ }
+        try { invalidateListingCache(file.get_parent()?.get_uri?.()); } catch {}
 
         if (this._debounceId) this._timers.remove(this._debounceId);
         this._debounceId = this._timers.addOnce(DEBOUNCE_MS, () => {
@@ -341,7 +346,7 @@ export class DownloadManager {
         this._pendingArrivalUris.delete(next.uri);
         this._lastArrivalAt = now;
         this._lastArrivalUri = next.uri;
-        try { this.prewarm(next.file?.get_parent?.(), this._host?.getConfig?.()); } catch { /* intentionally ignored */ }
+        try { this.prewarm(next.file?.get_parent?.(), this._host?.getConfig?.()); } catch {}
         this._playArrival(next.file);
 
         if (this._arrivalQueue.length) {
@@ -365,7 +370,7 @@ export class DownloadManager {
             try {
                 target.bounce(cfg.bounceHeight,
                     { state: 'attention', decay: cfg.bounceDecay });
-            } catch { /* intentionally ignored: stack item bounce or pulse animation failed on disposing item */ }
+            } catch {}
             this._host.kickEngine?.();
         };
 
@@ -375,7 +380,7 @@ export class DownloadManager {
         }
 
         let pos = null;
-        try { pos = item.get_transformed_position(); } catch { /* intentionally ignored: transformed position lookup failed on unparented item */ }
+        try { pos = item.get_transformed_position(); } catch {}
         if (!pos) {
             bounceOnly(item);
             return;
@@ -391,8 +396,7 @@ export class DownloadManager {
             let tx, ty;
             try { [tx, ty] = target.get_transformed_position(); }
             catch {
-                /* intentionally ignored: transformed position query failed on unmapped target */
-                bounceOnly(target);
+                                bounceOnly(target);
                 return;
             }
 
@@ -437,7 +441,7 @@ export class DownloadManager {
                             const current = live();
                             if (current && animationsEnabled()) bounceOnly(current);
                         });
-                    } catch { /* intentionally ignored: stack item bounce or pulse animation failed on disposing item */ }
+                    } catch {}
                 },
             });
         };
@@ -453,16 +457,14 @@ export class DownloadManager {
                 iconQuery,
                 (source, result) => {
                     if (this._iconQuery === iconQuery) this._iconQuery = null;
-                    if (iconQuery.is_cancelled() || !live()) return;
-
                     let gicon = null;
                     try { gicon = source.query_info_finish(result)?.get_icon?.(); }
-                    catch { /* intentionally ignored: file info or URI query failed on deleted file */ }
+                    catch {}
+                    if (iconQuery.is_cancelled() || !live()) return;
                     spawn(gicon);
                 });
         } catch {
-            /* intentionally ignored: query_info_async failed fallback to generic icon */
-            if (this._iconQuery === iconQuery) this._iconQuery = null;
+                        if (this._iconQuery === iconQuery) this._iconQuery = null;
             spawn(fallback);
         }
     }

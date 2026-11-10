@@ -24,7 +24,7 @@ function customIcon(info) {
                 ? Gio.File.new_for_uri(value)
                 : Gio.File.new_for_path(value);
             return Gio.FileIcon.new(file);
-        } catch { /* intentionally ignored: invalid or unparseable custom-icon URI fallback to custom-icon-name */ }
+        } catch {}
     }
     const iconName = info.get_attribute_string('metadata::custom-icon-name')?.trim();
     return iconName ? Gio.ThemedIcon.new(iconName) : null;
@@ -81,7 +81,7 @@ export class LocationResolver {
 
         let file;
         try { file = Gio.File.new_for_uri(uri); }
-        catch { /* intentionally ignored: invalid URI syntax */ return; }
+        catch { return; }
 
         const cancellable = new Gio.Cancellable();
         const generation = this._generation;
@@ -95,15 +95,14 @@ export class LocationResolver {
                 (source, result) => {
                     if (this._pending.get(uri) === cancellable)
                         this._pending.delete(uri);
-                    if (generation !== this._generation || cancellable.is_cancelled()) return;
-
                     let info;
                     try { info = source.query_info_finish(result); }
                     catch {
-                        /* intentionally ignored: asynchronous file query failed */
-                        this._recordFailure(uri);
+                        if (generation === this._generation && !cancellable.is_cancelled())
+                            this._recordFailure(uri);
                         return;
                     }
+                    if (generation !== this._generation || cancellable.is_cancelled()) return;
 
                     this._failedAt.delete(uri);
                     const next = {
@@ -118,8 +117,7 @@ export class LocationResolver {
                     if (!sameResolved(previous, next)) this._queueChanged();
                 });
         } catch {
-            /* intentionally ignored: failed to start asynchronous file query */
-            this._pending.delete(uri);
+                        this._pending.delete(uri);
             this._recordFailure(uri);
         }
     }

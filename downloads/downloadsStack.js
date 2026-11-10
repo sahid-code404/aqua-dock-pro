@@ -36,7 +36,7 @@ export class DownloadsStack {
         this._pool = new ActorPool(16);
         this._prewarmId = GLib.idle_add(GLib.PRIORITY_LOW, () => {
             this._prewarmId = 0;
-            try { this._pool?.prewarm(12); } catch { /* intentionally ignored: pool prewarm failed */ }
+            try { this._pool?.prewarm(12); } catch {}
             return GLib.SOURCE_REMOVE;
         });
     }
@@ -57,7 +57,7 @@ export class DownloadsStack {
         try {
             const fromHost = this._getContainer?.();
             if (fromHost) return fromHost;
-        } catch { /* intentionally ignored: container lookup failed on disposing host */ }
+        } catch {}
         let cur = anchor;
         while (cur && cur !== Main.uiGroup) {
             const parent = cur.get_parent?.();
@@ -67,8 +67,7 @@ export class DownloadsStack {
         try {
             return Main.uiGroup?.find_child_by_name?.('aquaDockContainer') ?? null;
         } catch {
-            /* intentionally ignored: dock container search failed on unparented uiGroup */
-            return null;
+                        return null;
         }
     }
 
@@ -76,7 +75,7 @@ export class DownloadsStack {
         this._destroyNow();             // clear any lingering popup synchronously
         this._onClose = onClose;
         this._anchor = anchor;
-        try { this._currentFolderUri = folder?.get_uri?.() ?? null; } catch { /* intentionally ignored: folder URI query failed on invalid folder */ this._currentFolderUri = null; }
+        try { this._currentFolderUri = folder?.get_uri?.() ?? null; } catch { this._currentFolderUri = null; }
         const gen = ++this._showGen;
         this._opening = true;
         const cancellable = new Gio.Cancellable();
@@ -92,13 +91,13 @@ export class DownloadsStack {
             logError(e, 'enumerateRecent');
             if (gen === this._showGen) this.hide();
             else if (this._anchor !== anchor) {
-                try { anchor.setStackOpenState?.(false, false); } catch { /* intentionally ignored */ }
+                try { anchor.setStackOpenState?.(false, false); } catch {}
             }
             return;
         }
         if (gen !== this._showGen) {
             if (this._anchor !== anchor) {
-                try { anchor.setStackOpenState?.(false, false); } catch { /* intentionally ignored */ }
+                try { anchor.setStackOpenState?.(false, false); } catch {}
             }
             return;        // superseded or destroyed
         }
@@ -108,7 +107,7 @@ export class DownloadsStack {
                 logError(listing.error, 'enumerateRecent');
             if (gen === this._showGen) this.hide();
             else if (this._anchor !== anchor) {
-                try { anchor.setStackOpenState?.(false, false); } catch { /* intentionally ignored */ }
+                try { anchor.setStackOpenState?.(false, false); } catch {}
             }
             return;
         }
@@ -117,7 +116,7 @@ export class DownloadsStack {
         const mon = this._getMonitor?.();
         if (!mon) {
             this.hide();
-            try { anchor.setStackOpenState?.(false, false); } catch { /* intentionally ignored: anchor state update failed during stack closing */ }
+            try { anchor.setStackOpenState?.(false, false); } catch {}
             return;
         }
         const origin = this._origin(anchor, mon, cfg);
@@ -143,13 +142,15 @@ export class DownloadsStack {
         const bParent = blocker.get_parent?.();
         if (bParent !== Main.uiGroup) {
             if (bParent) {
-                try { bParent.remove_child(blocker); } catch { /* intentionally ignored: blocker unparenting failed */ }
+                try { bParent.remove_child(blocker); } catch {}
             }
             if (dockContainer && typeof Main.uiGroup?.insert_child_below === 'function') {
                 Main.uiGroup.insert_child_below(blocker, dockContainer);
             } else if (Main.uiGroup?.add_child) {
                 Main.uiGroup.add_child(blocker);
             }
+        } else if (dockContainer && typeof Main.uiGroup?.set_child_below_sibling === 'function') {
+            try { Main.uiGroup.set_child_below_sibling(blocker, dockContainer); } catch {}
         }
         this._opening = false;
 
@@ -214,7 +215,7 @@ export class DownloadsStack {
 
         // Kill a previous still-dying actor so we never stack two fades.
         if (this._dying) {
-            try { this._dyingView?.settleAnimations?.(); } catch { /* intentionally ignored: view animation settlement failed during stack closing */ }
+            try { this._dyingView?.settleAnimations?.(); } catch {}
             this._dyingView?.releaseRows?.();
             this._destroyActor(this._dying);
             this._dying = null;
@@ -232,9 +233,9 @@ export class DownloadsStack {
     }
 
     settleAnimations() {
-        try { this._view?.settleAnimations?.(); } catch { /* intentionally ignored: view animation settlement failed during stack closing */ }
+        try { this._view?.settleAnimations?.(); } catch {}
         if (this._dying) {
-            try { this._dyingView?.settleAnimations?.(); } catch { /* intentionally ignored: view animation settlement failed during stack closing */ }
+            try { this._dyingView?.settleAnimations?.(); } catch {}
             this._dyingView?.releaseRows?.();
             this._destroyActor(this._dying);
             this._dying = null;
@@ -249,13 +250,13 @@ export class DownloadsStack {
         this._cancellable?.cancel();
         this._cancellable = null;
         if (this._view) {
-            try { this._view.settleAnimations?.(); } catch { /* intentionally ignored: view animation settlement failed during synchronous destroy */ }
+            try { this._view.settleAnimations?.(); } catch {}
             this._view.releaseRows?.();
             this._destroyActor(this._view.actor);
             this._view = null;
         }
         if (this._dying) {
-            try { this._dyingView?.settleAnimations?.(); } catch { /* intentionally ignored: view animation settlement failed during synchronous destroy */ }
+            try { this._dyingView?.settleAnimations?.(); } catch {}
             this._dyingView?.releaseRows?.();
             this._destroyActor(this._dying);
             this._dying = null;
@@ -268,7 +269,7 @@ export class DownloadsStack {
 
     _destroyActor(actor) {
         if (!actor || actor.is_destroyed?.()) return;
-        try { stopSubtreeTransitions(actor); actor.destroy(); } catch { /* intentionally ignored: modal blocker or stack view actor may already be destroyed */ }
+        try { stopSubtreeTransitions(actor); actor.destroy(); } catch {}
     }
 
     destroy() {
@@ -279,7 +280,7 @@ export class DownloadsStack {
         this._showGen++;
         this._destroyNow();
         if (this._blocker) {
-            try { this._blocker.destroy(); } catch { /* intentionally ignored: modal blocker actor may already be destroyed */ }
+            try { this._blocker.destroy(); } catch {}
             this._blocker = null;
         }
         this._pool?.clear();
@@ -321,8 +322,7 @@ export class DownloadsStack {
 
             return { x: cx, y: cy };
         } catch {
-            /* intentionally ignored: anchor coordinate transformation failed on unmapped actor */
-            return {
+                        return {
                 x: (mon?.x ?? 0) + (mon?.width ?? 0) / 2,
                 y: cfg.vertical
                     ? (mon?.y ?? 0) + (mon?.height ?? 0) / 2

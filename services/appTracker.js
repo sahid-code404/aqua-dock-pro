@@ -25,9 +25,6 @@ class AppStateHub {
         this._optionalWorkspace = false;
         this._optionalMonitor = false;
 
-        // Keep the long-lived global signal ids explicit. This works with the
-        // real Shell objects and the existing test doubles while making the
-        // matching teardown directly visible to EGO/Shexli reviewers.
         this._favoriteChangedId = this._favorites.connect('changed', () => this._emitAll());
         this._installedChangedId = this._appSystem.connect('installed-changed', () => {
             // Desktop-file updates are the point at which an application's icon
@@ -49,11 +46,11 @@ class AppStateHub {
         const id = app?.get_id?.();
         if (!id) {
             try { return app?.get_icon?.() ?? null; }
-            catch { /* intentionally ignored: fallback app icon lookup failed */ return null; }
+            catch { return null; }
         }
         if (this._iconCache.has(id)) return this._iconCache.get(id);
         let icon = null;
-        try { icon = app.get_icon(); } catch { /* intentionally ignored: app icon query failed on unmanaged app */ }
+        try { icon = app.get_icon(); } catch {}
         // A transient Shell lookup failure should not poison the shared cache
         // for the rest of the session. Successful icons remain stable until the
         // desktop-file set changes.
@@ -171,9 +168,8 @@ class AppStateHub {
                 this._emitOptional();
             }));
         } catch {
-            /* intentionally ignored: window signal connection failed on disappearing window */
-            for (const id of ids) {
-                try { window.disconnect(id); } catch { /* intentionally ignored: signal handler may already be disconnected */ }
+                        for (const id of ids) {
+                try { window.disconnect(id); } catch {}
             }
             return;
         }
@@ -185,7 +181,7 @@ class AppStateHub {
         if (!ids) return;
         this._windowSignals.delete(window);
         for (const id of ids) {
-            try { window.disconnect(id); } catch { /* intentionally ignored: signal handler may already be disconnected */ }
+            try { window.disconnect(id); } catch {}
         }
     }
 
@@ -225,15 +221,15 @@ class AppStateHub {
     destroy() {
         this._optionalSignals.disconnectAll();
         if (this._favoriteChangedId) {
-            try { this._favorites?.disconnect(this._favoriteChangedId); } catch { /* intentionally ignored: signal handler may already be disconnected */ }
+            try { this._favorites?.disconnect(this._favoriteChangedId); } catch {}
             this._favoriteChangedId = 0;
         }
         if (this._installedChangedId) {
-            try { this._appSystem?.disconnect(this._installedChangedId); } catch { /* intentionally ignored: signal handler may already be disconnected */ }
+            try { this._appSystem?.disconnect(this._installedChangedId); } catch {}
             this._installedChangedId = 0;
         }
         if (this._appStateChangedId) {
-            try { this._appSystem?.disconnect(this._appStateChangedId); } catch { /* intentionally ignored: signal handler may already be disconnected */ }
+            try { this._appSystem?.disconnect(this._appStateChangedId); } catch {}
             this._appStateChangedId = 0;
         }
         this._clearWindowSignals();
@@ -282,12 +278,12 @@ function releaseLocations(resolver, unsubscribe) {
 export function clearAppTrackerCache() {
     if (sharedAppState) {
         try { sharedAppState.destroy(); }
-        catch { /* intentionally ignored: shared app state or location store may already be destroyed */ }
+        catch {}
         sharedAppState = null;
     }
     if (sharedLocations) {
         try { sharedLocations.destroy(); }
-        catch { /* intentionally ignored: shared app state or location store may already be destroyed */ }
+        catch {}
         sharedLocations = null;
     }
     sharedLocationUsers = 0;
@@ -376,7 +372,7 @@ export class AppTracker {
         let activeWorkspace;
         if (cfg.isolateWS) {
             try { activeWorkspace = global.workspace_manager.get_active_workspace(); }
-            catch { /* intentionally ignored: active workspace query failed during session transition */ }
+            catch {}
         }
 
         const isolateMonitors = cfg.isolateMonitors === true && cfg.multiMonitor !== false;
@@ -411,7 +407,7 @@ export class AppTracker {
         if (cfg.showDownloads) {
             const fallback = { name: _('Downloads'), gicon: this._downloadsGicon() };
             const resolved = cfg.useFolderMetadataIcons
-                ? this._locations.resolve(downloadsDir().get_uri(), fallback.name, fallback.gicon)
+                ? (this._locations?.resolve(downloadsDir().get_uri(), fallback.name, fallback.gicon) ?? fallback)
                 : fallback;
             systemEntries.push({ key: 'downloads', kind: 'downloads', gicon: resolved.gicon });
         }
@@ -421,9 +417,10 @@ export class AppTracker {
                 const folder = Gio.File.new_for_uri(cfg.customFolderUri);
                 const fallbackName = folder.get_basename() || _('Folder');
                 const fallbackIcon = this._iconForLocation('folder');
+                const fallback = { name: fallbackName, gicon: fallbackIcon };
                 const resolved = cfg.useFolderMetadataIcons
-                    ? this._locations.resolve(cfg.customFolderUri, fallbackName, fallbackIcon)
-                    : { name: fallbackName, gicon: fallbackIcon };
+                    ? (this._locations?.resolve(cfg.customFolderUri, fallbackName, fallbackIcon) ?? fallback)
+                    : fallback;
                 systemEntries.push({
                     key: `folder:${cfg.customFolderUri}`,
                     kind: 'folder',
@@ -431,7 +428,7 @@ export class AppTracker {
                     uri: cfg.customFolderUri,
                     gicon: resolved.gicon,
                 });
-            } catch { /* intentionally ignored: custom folder URI query failed for invalid URI */ }
+            } catch {}
         }
 
         if (cfg.showCustomDockItems) {
@@ -446,11 +443,12 @@ export class AppTracker {
 
                 const fallbackName = definition.name || this._locationBasename(definition.uri);
                 const fallbackIcon = this._iconForLocation(definition.type);
+                const fallback = { name: fallbackName, gicon: fallbackIcon };
                 const resolveMetadata = definition.type !== 'url' &&
                     (definition.type !== 'folder' || cfg.useFolderMetadataIcons);
                 const resolved = !resolveMetadata
-                    ? { name: fallbackName, gicon: fallbackIcon }
-                    : this._locations.resolve(definition.uri, fallbackName, fallbackIcon);
+                    ? fallback
+                    : (this._locations?.resolve(definition.uri, fallbackName, fallbackIcon) ?? fallback);
 
                 systemEntries.push({
                     key: `custom:${definition.id}`,
@@ -488,7 +486,7 @@ export class AppTracker {
 
     _locationBasename(uri) {
         try { return Gio.File.new_for_uri(uri).get_basename() || _('Location'); }
-        catch { /* intentionally ignored: file basename query failed for invalid URI */ return _('Location'); }
+        catch { return _('Location'); }
     }
 
     trashGicon(full) {

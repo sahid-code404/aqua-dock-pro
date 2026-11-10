@@ -1,6 +1,4 @@
-// Lightweight, leak-free actor pool for Downloads stack views (Fan, Grid, List).
-// Reuses Clutter/St actor composites across open/close cycles, eliminating actor churn.
-// Strictly compliant with AGENTS.md Invariant 1 (zero stack blur).
+// Actor pool for Downloads stack views (Fan, Grid, List).
 
 import Clutter from 'gi://Clutter';
 import St from 'gi://St';
@@ -9,14 +7,9 @@ const MAX_POOL_CAPACITY = 16;
 const CONTENT_GAP = 14;
 const DEFAULT_LABEL_WIDTH = 86;
 
-/**
- * Recursively removes all transitions on an actor and all its descendants.
- * Prevents Clutter warnings and clock stalls from timelines running on detached actors.
- * @param {Clutter.Actor} actor
- */
 export function stopSubtreeTransitions(actor) {
     if (!actor || actor.is_destroyed?.()) return;
-    try { actor.remove_all_transitions?.(); } catch { /* intentionally ignored: actor may already be destroyed */ }
+    try { actor.remove_all_transitions?.(); } catch {}
     try {
         if (typeof actor.get_children === 'function') {
             const kids = actor.get_children();
@@ -24,7 +17,7 @@ export function stopSubtreeTransitions(actor) {
                 stopSubtreeTransitions(kids[i]);
             }
         }
-    } catch { /* intentionally ignored: children traversal failed */ }
+    } catch {}
 }
 
 export class ActorPool {
@@ -35,10 +28,6 @@ export class ActorPool {
         this._panelPool = [];
     }
 
-    /**
-     * Prewarm the pool during idle time to eliminate first-open allocation stutter.
-     * @param {number} [count=12] Target number of items to pre-instantiate
-     */
     prewarm(count = 12) {
         if (typeof global === 'undefined' || !global.stage) return;
         const target = Math.min(count, this._maxCapacity);
@@ -52,14 +41,9 @@ export class ActorPool {
         }
     }
 
-    /**
-     * Acquire a fan item card from the pool or create a new composite.
-     * @returns {object} { btn, box, labelPill, label, gap, thumb, icon }
-     */
     acquireFanItem() {
         if (this._fanPool.length > 0) {
             const card = this._fanPool.pop();
-            stopSubtreeTransitions(card.btn);
             card.btn.translation_x = 0;
             card.btn.translation_y = 0;
             card.btn.set_scale?.(1.0, 1.0);
@@ -70,11 +54,6 @@ export class ActorPool {
         return this._factory?.createFanCard ? this._factory.createFanCard() : this._createFanCard();
     }
 
-    /**
-     * Release a fan item card back to the pool.
-     * Detaches delegates, transitions, and resets state.
-     * @param {St.Button} btn
-     */
     releaseFanItem(btn) {
         if (!btn || btn.is_destroyed?.()) return;
 
@@ -86,44 +65,42 @@ export class ActorPool {
             btn.opacity = 255;
             btn.hover = false;
 
-            // Remove state & selection classes
             btn.remove_style_class_name?.('aqua-dl-fan-row-sel');
             btn.remove_style_class_name?.('aqua-dl-fan-action');
             btn.remove_style_class_name?.('aqua-dl-fan-more');
 
-            // Detach all closures to prevent memory leaks
             btn._activate = null;
             btn._openFileMenu = null;
             btn._onHover = null;
             btn._updatePillStyle = null;
+            btn._appliedStyleKey = null;
+            btn._appliedHover = null;
+            btn._dockBlurEnabled = false;
             btn.accessible_name = '';
 
-            // Reset label
             if (btn._label) {
                 btn._label.text = '';
                 btn._label.clutter_text?.set_ellipsize?.(2);
             }
 
-            // Reset labelPill blur state
             if (btn._labelPill) {
                 btn._labelPill._dockBlurEnabled = false;
                 const kids = btn._labelPill.get_children?.() ?? [];
                 for (const k of kids) {
                     if (k !== btn._label) {
-                        try { k.destroy?.(); } catch { /* intentionally ignored: pooled row or button actor may already be destroyed */ }
+                        try { k.destroy?.(); } catch {}
                     }
                 }
             }
 
-            // Reset thumbnail child back to base icon if replaced
             if (btn._thumb) {
                 btn._thumb.remove_all_transitions?.();
                 btn._thumb.set_scale?.(1.0, 1.0);
                 btn._thumb.opacity = 255;
                 const currentChild = btn._thumb.get_child?.();
                 if (currentChild && currentChild !== btn._icon) {
-                    try { btn._thumb.remove_child?.(currentChild); } catch { /* intentionally ignored: child detach failed */ }
-                    try { currentChild.destroy?.(); } catch { /* intentionally ignored: pooled row or button actor may already be destroyed */ }
+                    try { btn._thumb.remove_child?.(currentChild); } catch {}
+                    try { currentChild.destroy?.(); } catch {}
                 }
                 if (!btn._icon || btn._icon.is_destroyed?.()) {
                     btn._icon = new St.Icon({
@@ -137,7 +114,6 @@ export class ActorPool {
                 }
             }
 
-            // Pool capacity check
             if (this._fanPool.length < this._maxCapacity) {
                 this._fanPool.push({
                     btn,
@@ -151,18 +127,12 @@ export class ActorPool {
             } else {
                 btn.destroy?.();
             }
-        } catch { /* intentionally ignored: pooled row or button actor may already be destroyed */ }
+        } catch {}
     }
 
-    /**
-     * Acquire a panel (grid/list) item card from the pool or create a new composite.
-     * @param {string} view 'grid' | 'list'
-     * @returns {object} { row, box, labelPill, label, gap, thumb, icon }
-     */
     acquirePanelItem(view) {
         if (this._panelPool.length > 0) {
             const card = this._panelPool.pop();
-            stopSubtreeTransitions(card.row);
             card.row.translation_y = 0;
             card.row.set_scale?.(1.0, 1.0);
             card.row.opacity = 255;
@@ -175,10 +145,6 @@ export class ActorPool {
         return this._factory?.createPanelCard ? this._factory.createPanelCard(view) : this._createPanelCard(view);
     }
 
-    /**
-     * Release a panel item card back to the pool.
-     * @param {St.Button} row
-     */
     releasePanelItem(row) {
         if (!row || row.is_destroyed?.()) return;
 
@@ -196,6 +162,9 @@ export class ActorPool {
             row._openFileMenu = null;
             row._onHover = null;
             row._updatePillStyle = null;
+            row._appliedStyleKey = null;
+            row._appliedHover = null;
+            row._dockBlurEnabled = false;
             row.accessible_name = '';
 
             if (row._label) {
@@ -208,8 +177,8 @@ export class ActorPool {
                 row._thumb.remove_all_transitions?.();
                 const currentChild = row._thumb.get_child?.();
                 if (currentChild && currentChild !== row._icon) {
-                    try { row._thumb.remove_child?.(currentChild); } catch { /* intentionally ignored: child detach failed */ }
-                    try { currentChild.destroy?.(); } catch { /* intentionally ignored: pooled row or button actor may already be destroyed */ }
+                    try { row._thumb.remove_child?.(currentChild); } catch {}
+                    try { currentChild.destroy?.(); } catch {}
                 }
                 if (!row._icon || row._icon.is_destroyed?.()) {
                     row._icon = new St.Icon({
@@ -236,7 +205,7 @@ export class ActorPool {
             } else {
                 row.destroy?.();
             }
-        } catch { /* intentionally ignored: pooled row or button actor may already be destroyed */ }
+        } catch {}
     }
 
     /**
@@ -323,7 +292,7 @@ export class ActorPool {
         btn._thumbnailFirst = true;
 
         btn._isAquaDock = true;
-        btn._dockBlurEnabled = false; // Strictly false per Invariant 1
+        btn._dockBlurEnabled = false;
 
         // Permanent signal wiring with dynamic dispatch delegates
         btn.set_button_mask(
@@ -425,7 +394,7 @@ export class ActorPool {
         row._icon = icon;
 
         row._isAquaDock = true;
-        row._dockBlurEnabled = false; // Strictly false per Invariant 1
+        row._dockBlurEnabled = false;
 
         row.set_button_mask(
             (St.ButtonMask.PRIMARY ?? St.ButtonMask.ONE) |
@@ -468,7 +437,7 @@ export class ActorPool {
             try {
                 item.btn.remove_all_transitions?.();
                 item.btn.destroy?.();
-            } catch { /* intentionally ignored: pooled row or button actor may already be destroyed */ }
+            } catch {}
         }
         this._fanPool.length = 0;
 
@@ -476,7 +445,7 @@ export class ActorPool {
             try {
                 item.row.remove_all_transitions?.();
                 item.row.destroy?.();
-            } catch { /* intentionally ignored: pooled row or button actor may already be destroyed */ }
+            } catch {}
         }
         this._panelPool.length = 0;
     }

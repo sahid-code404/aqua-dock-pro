@@ -180,7 +180,7 @@ function subscribeTrashState(callback) {
 export function clearTrashWatcherCache() {
     if (sharedTrashState) {
         try { sharedTrashState.destroy(); }
-        catch { /* intentionally ignored: shared trash monitor store may already be disposed */ }
+        catch {}
         sharedTrashState = null;
     }
 }
@@ -212,7 +212,7 @@ export class TrashWatcher {
             try {
                 item.bounce(cfg.bounceHeight,
                     { state: 'attention', decay: cfg.bounceDecay });
-            } catch { /* intentionally ignored: trash item actor or animation engine may be unparented or disposed */ }
+            } catch {}
             this._host.kickEngine?.();
         }
 

@@ -18,7 +18,7 @@ const LAUNCH_WATCH_MS = 8000;
 
 function windowMinimized(win) {
     try { return Boolean(win?.minimized); }
-    catch { /* intentionally ignored: minimized state query failed on destroyed window */ return false; }
+    catch { return false; }
 }
 
 function windowVisibleOnWorkspace(win, workspace) {
@@ -26,19 +26,18 @@ function windowVisibleOnWorkspace(win, workspace) {
         if (!win || win.minimized) return false;
         return !workspace || Boolean(win.located_on_workspace?.(workspace));
     } catch {
-        /* intentionally ignored: workspace query failed on destroyed window */
-        return false;
+                return false;
     }
 }
 
 function windowHasFocus(win) {
     try { return Boolean(win?.has_focus?.()); }
-    catch { /* intentionally ignored: focus query failed on destroyed window */ return false; }
+    catch { return false; }
 }
 
 function windowUserTime(win) {
     try { return win?.get_user_time?.() ?? 0; }
-    catch { /* intentionally ignored: user time query failed on destroyed window */ return 0; }
+    catch { return 0; }
 }
 
 export class AppActions {
@@ -69,7 +68,7 @@ export class AppActions {
     // should still receive the same immediate launch feedback as app icons.
     _openUri(item, uri) {
         const cfg = this._getConfig();
-        try { item.bounce(cfg.bounceHeight, { decay: cfg.bounceDecay }); } catch { /* intentionally ignored: item actor bounce animation failed on disposing item */ }
+        try { item.bounce(cfg.bounceHeight, { decay: cfg.bounceDecay }); } catch {}
         launchUri(uri);
     }
 
@@ -84,7 +83,7 @@ export class AppActions {
         const windows = appWindowsForConfig(app, cfg);
         const focusApp = getFocusedAppSafe();
         let ws = null;
-        try { ws = global.workspace_manager.get_active_workspace(); } catch { /* intentionally ignored: active workspace unavailable during session transition */ }
+        try { ws = global.workspace_manager.get_active_workspace(); } catch {}
         const onHere = windows.filter(w => windowVisibleOnWorkspace(w, ws));
         const focusedIndex = focusApp === app ? onHere.findIndex(windowHasFocus) : -1;
         const focusedHere = focusedIndex >= 0;
@@ -116,14 +115,14 @@ export class AppActions {
         }
         if (focusedHere && onHere.length > 1) {
             try { onHere[(focusedIndex + 1) % onHere.length].activate(global.get_current_time()); }
-            catch { /* intentionally ignored: window activation or minimization failed for unmanaged window */ }
+            catch {}
             this._lastClickKey = clickKey; return;
         }
         if (cfg.clickToMinimize && (focusedHere || (repeat && focusApp === app))) {
             const wins = focusedHere ? [onHere[focusedIndex]] : onHere;
             this._minimize(item, wins);
             try { item.bounce(Math.max(8, Math.round(cfg.bounceHeight * 0.5)), { decay: cfg.bounceDecay }); }
-            catch { /* intentionally ignored: item actor bounce animation failed on disposing item */ }
+            catch {}
             this._lastClickKey = null; return;
         }
         this._raise(windows, item); this._lastClickKey = clickKey;
@@ -138,7 +137,7 @@ export class AppActions {
         try {
             if (windowMinimized(target)) target.unminimize();
             Main.activateWindow(target, global.get_current_time());
-        } catch { try { target.activate(global.get_current_time()); } catch { /* intentionally ignored: window activation or minimization failed for unmanaged window */ } }
+        } catch { try { target.activate(global.get_current_time()); } catch {} }
     }
 
     cycle(windows, backwards = false) {
@@ -147,7 +146,7 @@ export class AppActions {
 
     // Minimize, genie-ing into the dock icon when the effect is enabled.
     _minimize(item, windows) {
-        const doMin = () => { for (const w of windows) { try { w.minimize(); } catch { /* intentionally ignored: window activation or minimization failed for unmanaged window */ } } };
+        const doMin = () => { for (const w of windows) { try { w.minimize(); } catch {} } };
         if (this._genie?.enabled) {
             this._genie.setIconGeometry(item, windows);
             this._genie.withDuration(doMin);
@@ -164,7 +163,7 @@ export class AppActions {
         const minimized = windowMinimized(target);
         const doRaise = () => {
             try { if (windowMinimized(target)) target.unminimize(); Main.activateWindow(target, t); }
-            catch { try { target.activate(t); } catch { /* intentionally ignored: window activation or minimization failed for unmanaged window */ } }
+            catch { try { target.activate(t); } catch {} }
         };
         // Restore genies out of the icon when un-minimizing a hidden window.
         if (this._genie?.enabled && minimized && item) {
@@ -199,15 +198,15 @@ export class AppActions {
         const stop = (itemDestroyed = false) => {
             if (!this._launching.has(app)) return;
             this._launching.delete(app);
-            if (rec.stateId) { try { app.disconnect(rec.stateId); } catch { /* intentionally ignored: app state or item destroy signal handler may already be disconnected */ } }
+            if (rec.stateId) { try { app.disconnect(rec.stateId); } catch {} }
             if (rec.timeoutId) this._timers.remove(rec.timeoutId);
             if (rec.itemDestroyId && !itemDestroyed) {
-                try { item.disconnect(rec.itemDestroyId); } catch { /* intentionally ignored: app state or item destroy signal handler may already be disconnected */ }
+                try { item.disconnect(rec.itemDestroyId); } catch {}
             }
             rec.stateId = rec.itemDestroyId = rec.timeoutId = 0;
             rec.item = null;
             if (!itemDestroyed) {
-                try { item.stopBounce(); } catch { /* intentionally ignored: item actor bounce animation failed on disposing item */ }
+                try { item.stopBounce(); } catch {}
             }
         };
 
@@ -236,12 +235,12 @@ export class AppActions {
 
     destroy() {
         for (const [app, rec] of this._launching) {
-            if (rec.stateId) { try { app.disconnect(rec.stateId); } catch { /* intentionally ignored: app state or item destroy signal handler may already be disconnected */ } }
+            if (rec.stateId) { try { app.disconnect(rec.stateId); } catch {} }
             if (rec.timeoutId) this._timers.remove(rec.timeoutId);
             if (rec.itemDestroyId) {
                 // DockController destroys AppActions before its item actors, so
                 // the connection is still live here.
-                try { rec.item?.disconnect(rec.itemDestroyId); } catch { /* intentionally ignored: app state or item destroy signal handler may already be disconnected */ }
+                try { rec.item?.disconnect(rec.itemDestroyId); } catch {}
             }
             rec.item = null;
         }

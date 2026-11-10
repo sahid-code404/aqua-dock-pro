@@ -22,7 +22,6 @@ export function clearDockLayoutCache() {
 
 /**
  * Parses an rgb/rgba or hex color string and multiplies its alpha channel by factor.
- * Memoized with an LRU cache (up to 128 entries) to eliminate regex evaluation on hover.
  *
  * @param {string} colorStr - Color string in hex (#RGB, #RRGGBB, #RRGGBBAA) or rgb()/rgba() syntax.
  * @param {number} factor - Alpha multiplier factor in [0, 1].

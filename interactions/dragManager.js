@@ -88,12 +88,12 @@ export class DragManager {
         }
 
         const { duration: _duration, mode: _mode, onComplete, ...target } = params;
-        try { actor.remove_all_transitions(); } catch { /* intentionally ignored: dragged item actor may already be destroyed */ }
+        try { actor.remove_all_transitions(); } catch {}
         try {
             for (const [property, value] of Object.entries(target))
                 actor[property] = value;
-        } catch { /* intentionally ignored: drag defensive guard on transition */ }
-        try { onComplete?.(); } catch { /* intentionally ignored: drag completion callback failed */ }
+        } catch {}
+        try { onComplete?.(); } catch {}
     }
 
     // Cancel/snap drag-owned transitions immediately when Reduce Motion is
@@ -107,7 +107,7 @@ export class DragManager {
                     r.flyer.opacity = 240;
                     r.flyer.set_scale(1.1, 1.1);
                 }
-            } catch { /* intentionally ignored: dragged item actor may already be destroyed */ }
+            } catch {}
             try {
                 r.badge?.remove_all_transitions();
                 if (r.badge) {
@@ -115,14 +115,14 @@ export class DragManager {
                     const scale = r.mode === 'open' ? 1.08 : 1;
                     r.badge.set_scale(scale, scale);
                 }
-            } catch { /* intentionally ignored: dragged item actor may already be destroyed */ }
+            } catch {}
             if (r.canReorder) {
-                try { this._showReorderPreview(r, r.toIndex); } catch { /* intentionally ignored: drag reorder preview failed during rapid pointer motion */ }
+                try { this._showReorderPreview(r, r.toIndex); } catch {}
             }
         }
 
         if (this._externalDnD && this._dropGapPos >= 0) {
-            try { this._showDropGap(this._dropGapPos); } catch { /* intentionally ignored: drag reorder preview failed during rapid pointer motion */ }
+            try { this._showDropGap(this._dropGapPos); } catch {}
         }
 
         // Exit flyers exist only to animate away after finish(); once motion is
@@ -133,18 +133,18 @@ export class DragManager {
         }
 
         for (const chip of this._host?.getChips?.() ?? []) {
-            try { chip.actor?.remove_all_transitions(); } catch { /* intentionally ignored: dragged item actor may already be destroyed */ }
+            try { chip.actor?.remove_all_transitions(); } catch {}
             const icon = chip.item?._icon;
             if (!icon) continue;
             try {
                 icon.remove_all_transitions();
                 // The dragged item's source actor stays hidden under its flyer.
                 if (chip.item !== r?.item) icon.opacity = 255;
-            } catch { /* intentionally ignored: dragged item actor may already be destroyed */ }
+            } catch {}
         }
     }
 
-    // ── In-dock reorder ───────────────────────────────────────────────────────
+    // In-dock reorder
     maybeStart(press, px, py, distance = null) {
         if (!press || press.button !== 1) return false;
         if ((distance ?? Math.hypot(px - press.sx, py - press.sy)) < START_THRESHOLD)
@@ -186,7 +186,7 @@ export class DragManager {
         this._flyers.add(flyer);
         flyer.set_pivot_point(0.5, 0.5);
         Main.uiGroup.add_child(flyer);
-        try { Main.uiGroup.set_child_above_sibling(flyer, this._host.container); } catch { /* intentionally ignored: flyer or badge actor may already be unparented */ }
+        try { Main.uiGroup.set_child_above_sibling(flyer, this._host.container); } catch {}
         flyer.set_position(Math.round(iconX + (visual - size) / 2), Math.round(iconY + (visual - size) / 2));
         flyer.set_scale(liftScale, liftScale);
         flyer.opacity = 255;
@@ -207,7 +207,7 @@ export class DragManager {
         badge.set_pivot_point(0.5, 0.5);
         badge.opacity = 0;
         Main.uiGroup.add_child(badge);
-        try { Main.uiGroup.set_child_above_sibling(badge, flyer); } catch { /* intentionally ignored: flyer or badge actor may already be unparented */ }
+        try { Main.uiGroup.set_child_above_sibling(badge, flyer); } catch {}
         this._ease(badge, {
             opacity: 255,
             duration: 200,
@@ -259,7 +259,7 @@ export class DragManager {
         this._setBadgeMode(r, 'move');
 
         let p;
-        try { p = this._host.container.transform_stage_point(px, py); } catch { /* intentionally ignored: container transform stage point failed on unmapped actor */ return; }
+        try { p = this._host.container.transform_stage_point(px, py); } catch { return; }
         if (!p?.[0]) return;
         const cfg = this._host.getConfig();
         const vert = cfg.vertical;
@@ -286,6 +286,8 @@ export class DragManager {
             // visible slot.
             if (chip.item === r.item) continue;
             const shift = r.previewSlots[i] - chip.baseX;
+            if (chip._dragTargetShift === shift) continue;
+            chip._dragTargetShift = shift;
             try {
                 chip.spreadOffset = NaN;
                 chip.actor.remove_transition(prop);
@@ -294,7 +296,7 @@ export class DragManager {
                     duration: 180,
                     mode: Clutter.AnimationMode.EASE_OUT_QUAD,
                 });
-            } catch { /* intentionally ignored: dragged item actor may already be destroyed */ }
+            } catch {}
         }
     }
 
@@ -342,7 +344,7 @@ export class DragManager {
                     mode: Clutter.AnimationMode.EASE_OUT_QUAD,
                     onComplete: () => this._destroyFlyer(r.flyer),
                 });
-            } catch { /* intentionally ignored: flyer transition failed on unparented actor */ this._destroyFlyer(r.flyer); }
+            } catch { this._destroyFlyer(r.flyer); }
             this._restoreIcon(r.item, true);
             this._zeroTranslations();
             this._host.engine.setSuspended(false);
@@ -373,17 +375,21 @@ export class DragManager {
         // Released inside the pill → commit reorder if position changed.
         const targetChip = r.movableChips[r.toIndex];
         if (targetChip && r.flyer) {
-            const [tx, ty] = targetChip.actor.get_transformed_position();
-            this._ease(r.flyer, {
-                x: Math.round(tx + (targetChip.w - r.size) / 2),
-                y: Math.round(ty + (targetChip.actor.height - r.size) / 2),
-                scale_x: 1,
-                scale_y: 1,
-                opacity: 0,
-                duration: 220,
-                mode: Clutter.AnimationMode.EASE_OUT_CUBIC,
-                onComplete: () => this._destroyFlyer(r.flyer),
-            });
+            try {
+                const [tx, ty] = targetChip.actor.get_transformed_position();
+                this._ease(r.flyer, {
+                    x: Math.round(tx + (targetChip.w - r.size) / 2),
+                    y: Math.round(ty + (targetChip.actor.height - r.size) / 2),
+                    scale_x: 1,
+                    scale_y: 1,
+                    opacity: 0,
+                    duration: 220,
+                    mode: Clutter.AnimationMode.EASE_OUT_CUBIC,
+                    onComplete: () => this._destroyFlyer(r.flyer),
+                });
+            } catch {
+                this._destroyFlyer(r.flyer);
+            }
         } else { this._destroyFlyer(r.flyer); }
 
         this._restoreIcon(r.item, true);
@@ -450,7 +456,7 @@ export class DragManager {
 
     _destroyBadge(r) {
         if (r.badge) {
-            try { r.badge.remove_all_transitions(); r.badge.destroy(); } catch { /* intentionally ignored: drag flyer or badge actor may already be destroyed */ }
+            try { r.badge.remove_all_transitions(); r.badge.destroy(); } catch {}
             r.badge = null;
         }
     }
@@ -475,16 +481,15 @@ export class DragManager {
         this.clearDrop();
     }
 
-    // ── Pointer poll during drag ─────────────────────────────────────────────
+    // Pointer poll during drag
     // Polls global.get_pointer() at ~60 fps so the flyer tracks the cursor
-    // even when it's over windows outside the dock. Detects button-up via
-    // the modifier mask — zero event-routing conflicts.
+    // even when it's over windows outside the dock.
     _connectGlobalCapture() {
         if (this._dragPollId) return;
         this._dragPollId = this._timers.add(16, () => {
             if (!this._reorder) { this._dragPollId = 0; return GLib.SOURCE_REMOVE; }
             let px, py, mods;
-            try { [px, py, mods] = global.get_pointer(); } catch { /* intentionally ignored: pointer query failed during drag poll */ return GLib.SOURCE_CONTINUE; }
+            try { [px, py, mods] = global.get_pointer(); } catch { return GLib.SOURCE_CONTINUE; }
             this.update(px, py);
             // Button1 released?
             if (!(mods & Clutter.ModifierType.BUTTON1_MASK)) {
@@ -524,23 +529,23 @@ export class DragManager {
 
     _badgeWidth(badge) {
         try { return badge?.get_preferred_width(-1)?.[1] ?? 0; }
-        catch { /* intentionally ignored: preferred width query failed on disposed badge */ return 0; }
+        catch { return 0; }
     }
 
     _destroyFlyer(flyer) {
         if (!flyer) return;
         this._flyers.delete(flyer);
-        try { flyer.remove_all_transitions(); flyer.destroy(); } catch { /* intentionally ignored: drag flyer or badge actor may already be destroyed */ }
+        try { flyer.remove_all_transitions(); flyer.destroy(); } catch {}
     }
 
     _restoreIcon(item, animate) {
         const icon = item?._icon;
         if (!icon) return;
         item._dragging = false;
-        try { icon.remove_all_transitions(); } catch { /* intentionally ignored: dragged item actor may already be destroyed */ }
-        try { item.relayout(this._host.getConfig(), 0); } catch { /* intentionally ignored: drag preview state update failed on disposing actor */ }
+        try { icon.remove_all_transitions(); } catch {}
+        try { item.relayout(this._host.getConfig(), 0); } catch {}
         if (!animate || !animationsEnabled()) {
-            try { icon.opacity = 255; } catch { /* intentionally ignored: drag preview state update failed on disposing actor */ }
+            try { icon.opacity = 255; } catch {}
             return;
         }
         try {
@@ -550,21 +555,22 @@ export class DragManager {
                 duration: 200,
                 mode: Clutter.AnimationMode.EASE_OUT_QUAD,
             });
-        } catch { /* intentionally ignored: icon fade transition failed */ try { icon.opacity = 255; } catch { /* intentionally ignored: drag preview state update failed on disposing actor */ } }
+        } catch { try { icon.opacity = 255; } catch {} }
     }
 
     _zeroTranslations() {
         const prop = this._host.getConfig().vertical ? 'translation_y' : 'translation_x';
         for (const c of this._host.getChips()) {
+            c._dragTargetShift = NaN;
             try {
                 c.actor.remove_transition(prop);
                 c.actor[prop] = 0;
                 c.spreadOffset = 0;
-            } catch { /* intentionally ignored: dragged item actor may already be destroyed */ }
+            } catch {}
         }
     }
 
-    // ── Drop-to-pin (DND delegate; called by GNOME on container._delegate) ────
+    // Drop-to-pin (DND delegate; called by GNOME on container._delegate)
     _dragApp(source) {
         const app = dragSourceApp(source);
         return app?.get_id ? app : null;
@@ -621,7 +627,7 @@ export class DragManager {
                     duration: 180,
                     mode: Clutter.AnimationMode.EASE_OUT_QUAD,
                 });
-            } catch { /* intentionally ignored: dragged item actor may already be destroyed */ }
+            } catch {}
         }
     }
 

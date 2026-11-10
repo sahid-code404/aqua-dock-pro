@@ -16,7 +16,7 @@
     width: 0;
 }
 
-/* ── Dock background pill ─────────────────────────────────────────────────── */
+/* Dock background pill */
 .aqua-bg {
     background-color: rgba(28, 28, 32, 0.78);
     border:           1px solid rgba(255, 255, 255, 0.16);
@@ -46,7 +46,7 @@
     box-shadow:       none;
 }
 
-/* ── Icon slot ────────────────────────────────────────────────────────────── */
+/* Icon slot */
 .aqua-item {
     background-color: transparent;
     border:           none;
@@ -71,7 +71,7 @@
     background-color: #ffffff;
 }
 
-/* ── Running indicators (positioned/sized from JS) ────────────────────────── */
+/* Running indicators (positioned/sized from JS) */
 .aqua-dot {
     background-color: rgba(235, 235, 235, 0.92);
     border-radius:    3px;
@@ -98,7 +98,7 @@
     box-shadow:       none;
 }
 
-/* ── Section separator ────────────────────────────────────────────────────── */
+/* Section separator */
 .aqua-separator {
     background-color: rgba(255, 255, 255, 0.22);
     border-radius:    1px;
@@ -107,7 +107,7 @@
     background-color: transparent;
 }
 
-/* ── App-name tooltip (colours/radius/border set inline) ──────────────────── */
+/* App-name tooltip (colours/radius/border set inline) */
 .aqua-tooltip-container {
     background-color: transparent;
     border:           none;
@@ -150,7 +150,7 @@
     text-align:       center;
 }
 
-/* ── Context menu (box colours/radius set inline) ─────────────────────────── */
+/* Context menu (box colours/radius set inline) */
 .aqua-menu,
 .aqua-menu .popup-menu-boxpointer {
     -arrow-rise: 0;
@@ -199,7 +199,7 @@
 .aqua-menu .popup-menu-item:active {
     background-color: rgba(255, 255, 255, 0.16);
 }
-/* ── File item menu in Downloads/folder stacks ───────────────────────────── */
+/* File item menu in Downloads/folder stacks */
 .aqua-menu.aqua-file-item-menu,
 .aqua-file-item-menu {
     min-width:            0;
@@ -276,7 +276,7 @@
     height:           1px;
 }
 
-/* ── Window previews ──────────────────────────────────────────────────────── */
+/* Window previews */
 .aqua-preview-box {
     background-color: transparent;
     padding:          8px;
@@ -363,7 +363,7 @@
     border-color: #ffffff;
 }
 
-/* ── Notification badge ───────────────────────────────────────────────────── */
+/* Notification badge */
 .aqua-badge {
     background-color: #e03030;
     color:            #ffffff;
@@ -378,7 +378,7 @@
     border:           1px solid rgba(255, 255, 255, 0.30);
 }
 
-/* ── Downloads stack ──────────────────────────────────────────────────────── */
+/* Downloads stack */
 .aqua-dl-panel {
     background-color: rgba(28, 28, 32, 0.78);
     border:           1px solid rgba(255, 255, 255, 0.16);

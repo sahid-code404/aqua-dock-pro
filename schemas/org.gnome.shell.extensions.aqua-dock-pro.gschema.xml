@@ -9,7 +9,7 @@
       <summary>Internal settings data version used for safe migrations</summary>
     </key>
 
-    <!-- ── Appearance ────────────────────────────────────────────────── -->
+    <!-- Appearance -->
     <key name="icon-size" type="i">
       <default>60</default>
       <range min="26" max="128"/>
@@ -76,7 +76,7 @@
       <summary>Alignment of the dock along its screen edge</summary>
     </key>
 
-    <!-- ── Background ────────────────────────────────────────────────── -->
+    <!-- Background -->
     <key name="background-opacity" type="d">
       <default>0.25</default>
       <range min="0.1" max="1.0"/>
@@ -121,7 +121,7 @@
       <summary>Blur the background under the dock pill</summary>
     </key>
 
-    <!-- ── Behavior ───────────────────────────────────────────────────── -->
+    <!-- Behavior -->
     <key name="auto-hide-mode" type="s">
       <default>'dodge'</default>
       <choices>
@@ -217,7 +217,7 @@
       <summary>Keyboard shortcut that focuses the dock; an empty list disables it</summary>
     </key>
 
-    <!-- ── Dock Sections ──────────────────────────────────────────────── -->
+    <!-- Dock Sections -->
     <key name="show-apps-button" type="b">
       <default>true</default>
       <summary>Show Applications grid button</summary>
@@ -294,7 +294,7 @@
       <summary>Stable identifiers for mounted devices hidden from the dock</summary>
     </key>
 
-    <!-- ── Running Indicators ─────────────────────────────────────────── -->
+    <!-- Running Indicators -->
     <key name="indicator-style" type="s">
       <default>'glow-dots'</default>
       <choices>
@@ -324,7 +324,7 @@
       <summary>Show multiple dots for multiple windows</summary>
     </key>
 
-    <!-- ── Animation ──────────────────────────────────────────────────── -->
+    <!-- Animation -->
     <key name="animation-smoothness" type="i">
       <default>50</default>
       <range min="5" max="300"/>
@@ -367,7 +367,7 @@
       <summary>Icon lift in pixels on hover; 0 disables lift</summary>
     </key>
 
-    <!-- ── Tooltip ────────────────────────────────────────────────────── -->
+    <!-- Tooltip -->
     <key name="show-tooltip" type="b">
       <default>true</default>
       <summary>Show app name tooltip on hover</summary>
@@ -416,7 +416,7 @@
       <summary>Enable Blur My Shell background blur for tooltips</summary>
     </key>
 
-    <!-- ── Context Menu ─────────────────────────────────────────────── -->
+    <!-- Context Menu -->
     <key name="menu-use-gnome-default" type="b">
       <default>false</default>
       <summary>Use the native GNOME Shell application context menu for app icons</summary>
@@ -454,7 +454,7 @@
       <summary>Enable Blur My Shell background blur for context menus</summary>
     </key>
 
-    <!-- ── Window Previews ────────────────────────────────────────────── -->
+    <!-- Window Previews -->
     <key name="show-previews" type="b">
       <default>true</default>
       <summary>Show live window thumbnails on hover</summary>
@@ -511,7 +511,7 @@
       <summary>Enable a preview context menu for workspace, monitor, activation, and close actions</summary>
     </key>
 
-    <!-- ── Badges ─────────────────────────────────────────────────────── -->
+    <!-- Badges -->
     <key name="show-badges" type="b">
       <default>true</default>
       <summary>Show notification count badges</summary>
@@ -527,7 +527,7 @@
       <summary>Notification badge text colour (CSS color string)</summary>
     </key>
 
-    <!-- ── Downloads stack ────────────────────────────────────────────── -->
+    <!-- Downloads stack -->
     <key name="downloads-view" type="s">
       <default>'fan'</default>
       <choices>
@@ -577,7 +577,7 @@
     </key>
 
     <key name="downloads-blur-effect" type="b">
-      <default>false</default>
+      <default>true</default>
       <summary>Enable Blur My Shell background blur for stack views</summary>
     </key>
 
@@ -624,7 +624,7 @@
       <summary>Dock and all pills border width in pixels; 0 disables border</summary>
     </key>
 
-    <!-- ── Accessibility ─────────────────────────────────────────────── -->
+    <!-- Accessibility -->
     <key name="reduce-motion" type="b">
       <default>false</default>
       <summary>Disable dock animations in addition to respecting the system animation setting</summary>
@@ -646,7 +646,7 @@
       <summary>Include running-window and notification status in accessible dock item names</summary>
     </key>
 
-    <!-- ── Misc ──────────────────────────────────────────────────────── -->
+    <!-- Misc -->
     <key name="genie-duration" type="i">
       <default>120</default>
       <range min="50" max="1000"/>

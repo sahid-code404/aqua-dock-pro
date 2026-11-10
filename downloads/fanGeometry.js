@@ -1,4 +1,4 @@
-// Pure orientation helpers shared by the fan layout and its regression tests.
+// Pure orientation helpers for the fan stack layout.
 
 // Keep an opened folder stack visibly separate from the dock item that opened
 // it. This is screen-space clearance, so it stays consistent as icons resize.

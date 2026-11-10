@@ -140,13 +140,13 @@ class NotificationHub {
                 this._watchSource(source);
                 changed();
             });
-        } catch { /* intentionally ignored: message tray or notification source signal connection failed */ }
+        } catch {}
         try {
             removedId = this._tray.connect('source-removed', (_tray, source) => {
                 this._unwatchSource(source);
                 changed();
             });
-        } catch { /* intentionally ignored: message tray or notification source signal connection failed */ }
+        } catch {}
         if (addedId) this._trayIds.push(addedId);
         if (removedId) this._trayIds.push(removedId);
         if (!addedId || !removedId) this._baseReliable = false;
@@ -167,9 +167,9 @@ class NotificationHub {
         let countId = 0;
         let addedId = 0;
         let removedId = 0;
-        try { countId = source.connect('notify::count', changed); } catch { /* intentionally ignored: message tray or notification source signal connection failed */ }
-        try { addedId = source.connect('notification-added', changed); } catch { /* intentionally ignored: message tray or notification source signal connection failed */ }
-        try { removedId = source.connect('notification-removed', changed); } catch { /* intentionally ignored: message tray or notification source signal connection failed */ }
+        try { countId = source.connect('notify::count', changed); } catch {}
+        try { addedId = source.connect('notification-added', changed); } catch {}
+        try { removedId = source.connect('notification-removed', changed); } catch {}
         if (countId) ids.push(countId);
         if (addedId) ids.push(addedId);
         if (removedId) ids.push(removedId);
@@ -183,7 +183,7 @@ class NotificationHub {
         if (!record) return;
         this._sourceSignals.delete(source);
         for (const id of record.ids) {
-            try { source.disconnect(id); } catch { /* intentionally ignored: message tray or notification source signal connection failed */ }
+            try { source.disconnect(id); } catch {}
         }
         this._updateReliability();
     }
@@ -262,7 +262,7 @@ class NotificationHub {
 
         if (this._tray) {
             for (const id of this._trayIds) {
-                try { this._tray.disconnect(id); } catch { /* intentionally ignored: message tray or notification source signal connection failed */ }
+                try { this._tray.disconnect(id); } catch {}
             }
         }
         this._trayIds = [];

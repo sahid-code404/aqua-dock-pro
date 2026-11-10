@@ -1,10 +1,5 @@
 // Dock blur coordinator for Aqua Dock Pro.
-// Integrates with Blur my Shell pipelines at runtime via in-memory hooks.
 
-/* ============================================================================
- * SECTION 1: IMPORTS & STATE
- * GIO/St imports, runtime settings detection, and blur capability queries.
- * ============================================================================ */
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import Graphene from 'gi://Graphene';
@@ -27,8 +22,7 @@ export function getBmsSettings(schemaId) {
         }
         return new Gio.Settings({ schema_id: schemaId });
     } catch {
-        /* intentionally ignored: schema lookup or Gio.Settings construction failed */
-        return null;
+                return null;
     }
 }
 
@@ -44,8 +38,7 @@ export function isBmsDockBlurActive() {
             return false;
         return Boolean(bms._dash_to_dock_blur.enabled);
     } catch {
-        /* intentionally ignored: Blur My Shell global object query failed */
-        return false;
+                return false;
     }
 }
 
@@ -61,8 +54,7 @@ export function isBmsPopupBlurActive() {
             return false;
         return Boolean(bms._popup.enabled);
     } catch {
-        /* intentionally ignored: Blur My Shell popup object query failed */
-        return false;
+                return false;
     }
 }
 
@@ -91,12 +83,10 @@ export function isBmsTooltipBlurActive(cfg = null) {
 }
 
 /**
- * Evaluates whether Downloads stack views (Grid, List, and Fan View pills) should use background blur.
- * Active when blurEffect is enabled, highContrast is off, and Blur My Shell blur is active.
- * Invariant per user directive (2026-10-30): Grid, List, and Fan View pills enable frosted blur matching the dock pill.
+ * Evaluates whether Downloads stack views should use background blur.
  *
  * @param {object|null} [cfg=null] - Dock configuration object.
- * @returns {boolean} True if Grid, List, and Fan pill stack blur should be rendered.
+ * @returns {boolean} True if stack blur should be rendered.
  */
 export function isBmsStackBlurActive(cfg = null) {
     if (cfg && (!cfg.blurEffect || cfg.downloadsBlurEffect === false || cfg.stackBlurEffect === false || cfg.highContrast))
@@ -121,17 +111,17 @@ export function getBmsPopupSettings(dashBlur = null) {
             return {
                 settings: gioSettings,
                 get PIPELINE() {
-                    try { return gioSettings.get_string('pipeline'); } catch { /* intentionally ignored: pipeline key query failed */ return 'pipeline_default'; }
+                    try { return gioSettings.get_string('pipeline'); } catch { return 'pipeline_default'; }
                 },
                 get STATIC_BLUR() {
-                    try { return gioSettings.get_boolean('static-blur'); } catch { /* intentionally ignored: static-blur key query failed */ return false; }
+                    try { return gioSettings.get_boolean('static-blur'); } catch { return false; }
                 },
                 get BLUR() {
-                    try { return gioSettings.get_boolean('blur'); } catch { /* intentionally ignored: blur key query failed */ return true; }
+                    try { return gioSettings.get_boolean('blur'); } catch { return true; }
                 },
             };
         }
-    } catch { /* intentionally ignored: Blur My Shell extension settings or pipeline unavailable */ }
+    } catch {}
     return null;
 }
 
@@ -146,18 +136,12 @@ export function getBmsGeneralSettings(dashBlur = null) {
         const bms = globalThis.global?.blur_my_shell;
         return dashBlur?.settings?.settings ?? bms?.settings?.settings ?? getBmsSettings('org.gnome.shell.extensions.blur-my-shell');
     } catch {
-        /* intentionally ignored: Blur My Shell general settings query failed */
-        return null;
+                return null;
     }
 }
 
-/* ============================================================================
- * SECTION 2: TARGET IDENTIFICATION
- * Actor classification, container resolution, and corner geometry hooks.
- * ============================================================================ */
 /**
- * Classifies whether a container actor represents a popup blur target (tooltip, menu, or anchor).
- * Invariant per AGENTS.md: Down-Chevron stack anchor (.aqua-stack-anchor-tile) is classified as a popup target.
+ * Classifies whether a container actor represents a popup blur target.
  *
  * @param {Clutter.Actor|null} container - Container actor to inspect.
  * @returns {boolean} True if container is a popup blur target.
@@ -254,7 +238,7 @@ export function setupBackgroundCorners(background, getRadius = null) {
             if (stage && St?.ThemeContext?.get_for_stage) {
                 scale = St.ThemeContext.get_for_stage(stage)?.scale_factor ?? 1;
             }
-        } catch { /* intentionally ignored: stage theme context scale factor lookup failed */ }
+        } catch {}
         const scaled = Math.round(radius * scale);
         if (cachedProxy && cachedNode === node && cachedScaled === scaled) {
             return cachedProxy;
@@ -339,10 +323,6 @@ export function resolveAquaDockTarget(container) {
     };
 }
 
-/* ============================================================================
- * SECTION 3: PMS/BMS SURFACE LIFECYCLE
- * AquaDockSurface geometry, background clipping, and scale synchronization.
- * ============================================================================ */
 export class AquaDockSurface {
     constructor(dashBlur, dashContainer, target, blur) {
         this.dash_blur = dashBlur;
@@ -510,7 +490,7 @@ export class AquaDockSurface {
                 });
                 return;
             }
-        } catch { /* intentionally ignored: compositor laters source unavailable or already removed */ }
+        } catch {}
         this.update_size();
     }
 
@@ -518,7 +498,7 @@ export class AquaDockSurface {
         if (this._updateId) {
             try {
                 globalThis.global?.compositor?.get_laters?.()?.remove?.(this._updateId);
-            } catch { /* intentionally ignored: compositor laters source unavailable or already removed */ }
+            } catch {}
             this._updateId = 0;
         }
     }
@@ -588,9 +568,6 @@ export class AquaDockSurface {
         let h = this.dash_background.height ?? 0;
 
         if (this.dash_background === parent) {
-            // background_group is nested directly inside the background actor (e.g. blurRegion)
-            // Hardware-accelerated: x=0, y=0, w=parent.width, h=parent.height
-            // No Graphene transforms or allocation flushes needed!
             w = parent.width ?? w;
             h = parent.height ?? h;
             if (typeof this.background_group.set_position === 'function') {
@@ -603,7 +580,7 @@ export class AquaDockSurface {
             let isDirectSibling = false;
             try {
                 isDirectSibling = (this.dash_background.get_parent?.() === parent);
-            } catch { /* intentionally ignored: coordinate transformation or allocation query failed on unmapped actor */ }
+            } catch {}
 
             if (isDirectSibling) {
                 x = this.dash_background.x ?? 0;
@@ -614,37 +591,44 @@ export class AquaDockSurface {
                 y -= groupY;
             } else {
                 if (typeof this.dash_background.get_allocation_box === 'function') {
-                    try { this.dash_background.get_allocation_box(); } catch { /* intentionally ignored: coordinate transformation or allocation query failed on unmapped actor */ }
+                    try { this.dash_background.get_allocation_box(); } catch {}
                 }
                 if (typeof this.dash_background.apply_relative_transform_to_point === 'function') {
                     try {
-                        const corners = [
-                            [0, 0], [w, 0], [0, h], [w, h]
-                        ].map(([px, py]) => this.dash_background.apply_relative_transform_to_point(
-                            parent,
-                            new Graphene.Point3D({ x: px, y: py, z: 0 })
-                        ));
-                        const xs = corners.map(p => (p?.x ?? p?.[0] ?? 0));
-                        const ys = corners.map(p => (p?.y ?? p?.[1] ?? 0));
-                        const x1 = Math.min(...xs);
-                        const y1 = Math.min(...ys);
-                        x = x1;
-                        y = y1;
-                        w = Math.max(...xs) - x1;
-                        h = Math.max(...ys) - y1;
-                    } catch { /* intentionally ignored: coordinate transformation or allocation query failed on unmapped actor */ }
+                        const pt = (this._scratchPt ??= new Graphene.Point3D({ x: 0, y: 0, z: 0 }));
+                        let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
+                        for (let i = 0; i < 4; i++) {
+                            pt.x = (i & 1) ? w : 0;
+                            pt.y = (i & 2) ? h : 0;
+                            pt.z = 0;
+                            const p = this.dash_background.apply_relative_transform_to_point(parent, pt);
+                            const px = p?.x ?? p?.[0] ?? 0;
+                            const py = p?.y ?? p?.[1] ?? 0;
+                            if (px < x1) x1 = px;
+                            if (px > x2) x2 = px;
+                            if (py < y1) y1 = py;
+                            if (py > y2) y2 = py;
+                        }
+                        if (Number.isFinite(x1) && Number.isFinite(y1)) {
+                            x = x1;
+                            y = y1;
+                            w = x2 - x1;
+                            h = y2 - y1;
+                        }
+                    } catch {}
                 }
 
                 let groupX = 0, groupY = 0;
                 if (typeof this.background_group.apply_relative_transform_to_point === 'function') {
                     try {
-                        const pt = this.background_group.apply_relative_transform_to_point(
-                            parent,
-                            new Graphene.Point3D({ x: 0, y: 0, z: 0 })
-                        );
-                        groupX = pt?.x ?? pt?.[0] ?? 0;
-                        groupY = pt?.y ?? pt?.[1] ?? 0;
-                    } catch { /* intentionally ignored: coordinate transformation or allocation query failed on unmapped actor */ }
+                        const pt = (this._scratchPt ??= new Graphene.Point3D({ x: 0, y: 0, z: 0 }));
+                        pt.x = 0;
+                        pt.y = 0;
+                        pt.z = 0;
+                        const p = this.background_group.apply_relative_transform_to_point(parent, pt);
+                        groupX = p?.x ?? p?.[0] ?? 0;
+                        groupY = p?.y ?? p?.[1] ?? 0;
+                    } catch {}
                 }
                 x -= groupX;
                 y -= groupY;
@@ -662,8 +646,6 @@ export class AquaDockSurface {
                 this._lastDynamicGeom = { x, y, w, h };
             }
 
-            try { this.background?.remove_all_transitions?.(); } catch { /* intentionally ignored: blur actor may already be destroyed or unparented */ }
-            try { this.background_group?.remove_all_transitions?.(); } catch { /* intentionally ignored: blur actor may already be destroyed or unparented */ }
             if (typeof this.background.set_position === 'function') {
                 this.background.set_position(x, y);
             } else {
@@ -708,6 +690,12 @@ export class AquaDockSurface {
                 parent_stage_y = 0;
                 parent_stage_width = parent.width || (monitor.x + monitor.width);
                 parent_stage_height = parent.height || (monitor.y + monitor.height);
+            } else if (!this._isPopupType && parent === this.dash_container &&
+                (parent.scale_x ?? 1) === 1 && (parent.scale_y ?? 1) === 1) {
+                parent_stage_x = (parent.x ?? 0) + (parent.translation_x ?? 0);
+                parent_stage_y = (parent.y ?? 0) + (parent.translation_y ?? 0);
+                parent_stage_width = parent.width ?? 0;
+                parent_stage_height = parent.height ?? 0;
             } else {
                 [parent_stage_x, parent_stage_y] = parent.get_transformed_position?.() ?? [parent.x ?? 0, parent.y ?? 0];
                 [parent_stage_width, parent_stage_height] = parent.get_transformed_size?.() ?? [parent.width ?? 0, parent.height ?? 0];
@@ -788,15 +776,13 @@ export class AquaDockSurface {
             }
 
             this.background.set_pivot_point?.(0, 0);
-            try { this.background?.remove_all_transitions?.(); } catch { /* intentionally ignored: blur actor may already be destroyed or unparented */ }
-            try { this.background_group?.remove_all_transitions?.(); } catch { /* intentionally ignored: blur actor may already be destroyed or unparented */ }
             this.background.scale_x = targetScaleX;
             this.background.scale_y = targetScaleY;
             this.background.x = background_x;
             this.background.y = background_y;
 
             this.background.set_clip?.(clip_x, clip_y, clip_w, clip_h);
-        } catch { /* intentionally ignored: blur actor may already be destroyed or unparented */ }
+        } catch {}
     }
 
     update_corner_radius() {
@@ -863,16 +849,16 @@ export class AquaDockSurface {
                 this.pipeline.change_pipeline_to(pipelineName);
             }
             this.rounded_pipeline?.update?.();
-        } catch { /* intentionally ignored: Blur My Shell extension settings or pipeline unavailable */ }
+        } catch {}
     }
 
     destroy_dash() {
         this.clear_pending_update();
         this._bgSignals?.disconnectAll();
 
-        try { this.rounded_pipeline?.destroy?.(); } catch { /* intentionally ignored: blur pipeline or background actor may already be destroyed */ }
-        try { this.pipeline?.destroy?.(); } catch { /* intentionally ignored: blur pipeline or background actor may already be destroyed */ }
-        try { this.bg_manager?.destroy?.(); } catch { /* intentionally ignored: blur pipeline or background actor may already be destroyed */ }
+        try { this.rounded_pipeline?.destroy?.(); } catch {}
+        try { this.pipeline?.destroy?.(); } catch {}
+        try { this.bg_manager?.destroy?.(); } catch {}
 
         const bgGroup = this.background_group;
         this.background = null;
@@ -887,7 +873,7 @@ export class AquaDockSurface {
         this._isStatic = null;
 
         if (!bgGroup) return;
-        try { bgGroup.destroy?.(); } catch { /* intentionally ignored: blur pipeline or background actor may already be destroyed */ }
+        try { bgGroup.destroy?.(); } catch {}
     }
 
     remove_dash_blur(isBmsRemove = false) {
@@ -907,11 +893,12 @@ export class AquaDockSurface {
                     this.dash_blur.dashes.splice(idx, 1);
                 }
             }
-            if (this.dash_container?._aquaBlurManager) {
+            const mgr = this.dash_container?._aquaBlurManager;
+            if (mgr && !mgr._isDestroyed && !this.dash_container?.is_destroyed?.()) {
                 if (isBmsRemove) {
-                    this.dash_container._aquaBlurManager.handleBmsBlurRemoved();
-                } else if (this.dash_container._aquaBlurManager.bmsActive) {
-                    this.dash_container._aquaBlurManager.syncBlurState();
+                    mgr.handleBmsBlurRemoved();
+                } else if (mgr.bmsActive) {
+                    mgr.syncBlurState();
                 }
             }
         } finally {
@@ -920,10 +907,6 @@ export class AquaDockSurface {
     }
 }
 
-/* ============================================================================
- * SECTION 4: SHADER & PIPELINE HOOKS
- * In-memory monkey-patching of Blur My Shell pipelines and target registration.
- * ============================================================================ */
 const activeAquaContainers = new Set();
 let origTryBlur = null;
 let origBlurExistingDashes = null;
@@ -944,7 +927,7 @@ function tryBlurAquaDock(dashBlur, container) {
                 const curH = (target.background?.height && target.background.height > 0)
                     ? target.background.height : (container?.height ?? 0);
                 if (curW > 0 && curH > 0) {
-                    try { container.disconnect(container._aquaAllocWatch); } catch { /* intentionally ignored: allocation signal watch may already be disconnected */ }
+                    try { container.disconnect(container._aquaAllocWatch); } catch {}
                     container._aquaAllocWatch = null;
                     dashBlur.try_blur(container);
                 }
@@ -954,7 +937,7 @@ function tryBlurAquaDock(dashBlur, container) {
     }
 
     if (container._aquaAllocWatch) {
-        try { container.disconnect(container._aquaAllocWatch); } catch { /* intentionally ignored: allocation signal watch may already be disconnected */ }
+        try { container.disconnect(container._aquaAllocWatch); } catch {}
         container._aquaAllocWatch = null;
     }
 
@@ -1100,7 +1083,7 @@ export function registerBmsTarget(container, getRadius = null) {
 export function unregisterBmsTarget(container) {
     if (!container) return;
     if (container._aquaAllocWatch && typeof container.disconnect === 'function') {
-        try { container.disconnect(container._aquaAllocWatch); } catch { /* intentionally ignored: allocation signal watch may already be disconnected */ }
+        try { container.disconnect(container._aquaAllocWatch); } catch {}
         container._aquaAllocWatch = null;
     }
     activeAquaContainers.delete(container);
@@ -1115,16 +1098,12 @@ export function unregisterBmsTarget(container) {
             }
         }
         dashBlur?.pending_docks?.get(container)?.destroy();
-    } catch { /* intentionally ignored: Blur My Shell extension settings or pipeline unavailable */ }
+    } catch {}
     if (activeAquaContainers.size === 0) {
         unhookBms();
     }
 }
 
-/* ============================================================================
- * SECTION 5: TEARDOWN & RESET
- * Container unhooking, surface disposal, and DockBlurManager lifecycle.
- * ============================================================================ */
 /**
  * Unregister all active Aqua Dock blur containers and restore Blur My Shell hooks.
  * Invoked during extension disable or lifecycle reset.
@@ -1133,7 +1112,7 @@ export function cleanupBms() {
     for (const container of [...activeAquaContainers]) {
         try {
             unregisterBmsTarget(container);
-        } catch { /* intentionally ignored: Blur My Shell integration operation fallback */ }
+        } catch {}
     }
     activeAquaContainers.clear();
     unhookBms();
@@ -1216,7 +1195,7 @@ export class DockBlurManager {
                 if (dashBlur) {
                     try {
                         dashBlur.is_static = settings.get_boolean('static-blur');
-                    } catch { /* intentionally ignored: Blur My Shell extension settings or pipeline unavailable */ }
+                    } catch {}
                 }
                 surface.change_blur_type();
             }
@@ -1243,6 +1222,7 @@ export class DockBlurManager {
     }
 
     _removeBmsBlur() {
+        this._bmsActive = false;
         this._bmsRemoveConnected = false;
         if (this._container) {
             unregisterBmsTarget(this._container);
@@ -1258,14 +1238,14 @@ export class DockBlurManager {
                 }
             }
             bms?._dash_to_dock_blur?.pending_docks?.get(this._container)?.destroy();
-        } catch { /* intentionally ignored: Blur My Shell extension settings or pipeline unavailable */ }
+        } catch {}
         try {
             for (const cls of ['transparent-dash', 'light-dash', 'dark-dash']) {
                 this._bg?.remove_style_class_name?.(cls);
                 this._container?.remove_style_class_name?.(cls);
                 this._handle?.remove_style_class_name?.(cls);
             }
-        } catch { /* intentionally ignored: actor disposed or BMS static blur setting unavailable */ }
+        } catch {}
     }
 
     syncBlurState() {
@@ -1277,7 +1257,7 @@ export class DockBlurManager {
             try {
                 if (!this._bmsDashSettings.get_boolean('blur'))
                     bmsActive = false;
-            } catch { /* intentionally ignored: Blur My Shell extension settings or pipeline unavailable */ }
+            } catch {}
         }
         const prevBms = this._bmsActive;
         this._bmsActive = bmsActive;
@@ -1311,7 +1291,7 @@ export class DockBlurManager {
 
         try {
             dashBlur?.queue_discovery?.();
-        } catch { /* intentionally ignored: Blur My Shell extension settings or pipeline unavailable */ }
+        } catch {}
 
         if (prevBms !== bmsActive)
             this._onBlurStateChanged?.(true);
@@ -1322,19 +1302,21 @@ export class DockBlurManager {
     }
 
     destroy() {
+        this._isDestroyed = true;
+        this._bmsActive = false;
         this._signals.disconnectAll();
         this._bmsDashSettings = null;
         this._bmsSettings = null;
         if (this._container?._aquaAllocWatch && typeof this._container.disconnect === 'function') {
-            try { this._container.disconnect(this._container._aquaAllocWatch); } catch { /* intentionally ignored: allocation signal watch may already be disconnected */ }
+            try { this._container.disconnect(this._container._aquaAllocWatch); } catch {}
             this._container._aquaAllocWatch = null;
         }
-        this._removeBmsBlur();
         if (this._container) {
             if (this._container._aquaBlurManager === this)
                 delete this._container._aquaBlurManager;
             this._container._dockBlurEnabled = false;
         }
+        this._removeBmsBlur();
         this._container = null;
         this._bg = null;
         this._blurRegion = null;

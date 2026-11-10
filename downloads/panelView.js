@@ -1,5 +1,4 @@
 // Downloads grid and list view.
-// Stack background blur disabled per user directive.
 
 import Clutter from 'gi://Clutter';
 import St from 'gi://St';
@@ -479,20 +478,16 @@ export class PanelView {
             actor.translation_x = 0;
             actor.translation_y = 0;
             actor.set_scale(1, 1);
-        } catch { /* intentionally ignored: stack view row or blur actor may already be destroyed */ }
+        } catch {}
         for (const tile of this._model.rows) {
             try {
                 stopSubtreeTransitions(tile);
                 tile.opacity = 255;
                 tile.translation_y = 0;
-            } catch { /* intentionally ignored: stack view row or blur actor may already be destroyed */ }
+            } catch {}
         }
     }
 
-    /**
-     * Detach all rows from the view container and release them to the pool.
-     * Prevents Clutter from recursively destroying pooled actors when view.actor.destroy() runs.
-     */
     releaseRows() {
         const pool = this.pool ?? this._fallbackPool;
         if (!pool) return;
@@ -502,10 +497,14 @@ export class PanelView {
                 stopSubtreeTransitions(row);
                 const parent = row.get_parent?.();
                 if (parent) parent.remove_child(row);
-            } catch { /* intentionally ignored: stack view row or blur actor may already be destroyed */ }
+            } catch {}
             pool.releasePanelItem(row);
         }
         this._model?.setRows([]);
+        if (this._fallbackPool) {
+            this._fallbackPool.clear();
+            this._fallbackPool = null;
+        }
     }
 
     animateClose(onDone) {

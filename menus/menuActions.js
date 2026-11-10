@@ -145,7 +145,7 @@ function populateAppMenu(menu, app, isLayoutLocked, onToggleLayoutLock,
             }
             const time = global.get_current_time();
             for (const win of appWindowsFor(app)) {
-                try { win.delete(time); } catch { /* intentionally ignored: window activation or delete failed for unmanaged window */ }
+                try { win.delete(time); } catch {}
             }
         });
     }

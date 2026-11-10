@@ -149,31 +149,31 @@ export function applyStackMenuPillStyle(cfg, menuBox, actionItems, hover = false
             `border-radius: ${radius}px; padding: 0 16px !important; margin: 0 !important; spacing: 0 !important; box-shadow: none !important; ${heightStyle}`
         );
         if (typeof item?.set_x_align === 'function') {
-            try { item.set_x_align(Clutter?.ActorAlign?.FILL ?? 0); } catch { /* intentionally ignored: clutter text or alignment properties unsupported on disposing actor */ }
+            try { item.set_x_align(Clutter?.ActorAlign?.FILL ?? 0); } catch {}
         }
         if (typeof item?.set_y_align === 'function') {
-            try { item.set_y_align(Clutter?.ActorAlign?.FILL ?? 0); } catch { /* intentionally ignored: clutter text or alignment properties unsupported on disposing actor */ }
+            try { item.set_y_align(Clutter?.ActorAlign?.FILL ?? 0); } catch {}
         }
         if (typeof item?.set_x_expand === 'function') {
-            try { item.set_x_expand(true); } catch { /* intentionally ignored: clutter text or alignment properties unsupported on disposing actor */ }
+            try { item.set_x_expand(true); } catch {}
         }
         if (typeof item?.set_y_expand === 'function') {
-            try { item.set_y_expand(true); } catch { /* intentionally ignored: clutter text or alignment properties unsupported on disposing actor */ }
+            try { item.set_y_expand(true); } catch {}
         }
         item?.label?.set_style(
             `color: ${fontColor}; font-size: ${fontSize}pt; font-weight: 500; text-align: center; margin: 0 !important; padding: 0 !important;`
         );
         if (typeof item?.label?.set_x_align === 'function') {
-            try { item.label.set_x_align(Clutter?.ActorAlign?.CENTER ?? 2); } catch { /* intentionally ignored: clutter text or alignment properties unsupported on disposing actor */ }
+            try { item.label.set_x_align(Clutter?.ActorAlign?.CENTER ?? 2); } catch {}
         }
         if (typeof item?.label?.set_y_align === 'function') {
-            try { item.label.set_y_align(Clutter?.ActorAlign?.CENTER ?? 2); } catch { /* intentionally ignored: clutter text or alignment properties unsupported on disposing actor */ }
+            try { item.label.set_y_align(Clutter?.ActorAlign?.CENTER ?? 2); } catch {}
         }
         if (typeof item?.label?.set_x_expand === 'function') {
-            try { item.label.set_x_expand(true); } catch { /* intentionally ignored: clutter text or alignment properties unsupported on disposing actor */ }
+            try { item.label.set_x_expand(true); } catch {}
         }
         if (typeof item?.label?.set_y_expand === 'function') {
-            try { item.label.set_y_expand(true); } catch { /* intentionally ignored: clutter text or alignment properties unsupported on disposing actor */ }
+            try { item.label.set_y_expand(true); } catch {}
         }
         const ct = item?.label?.clutter_text;
         if (ct) {
@@ -182,7 +182,7 @@ export function applyStackMenuPillStyle(cfg, menuBox, actionItems, hover = false
                 ct.set_ellipsize(0);
                 if (typeof ct.set_x_align === 'function') ct.set_x_align(Clutter?.ActorAlign?.CENTER ?? 2);
                 if (typeof ct.set_y_align === 'function') ct.set_y_align(Clutter?.ActorAlign?.CENTER ?? 2);
-            } catch { /* intentionally ignored: clutter text or alignment properties unsupported on disposing actor */ }
+            } catch {}
         }
     }
 }

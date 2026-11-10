@@ -10,9 +10,11 @@ import { EventBus } from './eventBus.js';
 import { SettingsManager } from './settingsManager.js';
 import { TimeoutGroup, clearRuntimeWarnings, log, logError, setReduceMotionOverride } from './utils.js';
 import { DockController } from '../dock/dockController.js';
+import { resetSpringSolverCache } from '../animation/springSolver.js';
 import { cleanupBms } from '../dock/dockBlur.js';
 import { clearDockLayoutCache } from '../dock/dockLayout.js';
 import { clearDownloadWatcherCache } from '../downloads/downloadManager.js';
+import { invalidateListingCache } from '../downloads/fileEnumerator.js';
 import { clearTileStyleCache } from '../downloads/tileStyle.js';
 import { resetSlowDownFactor } from '../effects/genie/genieEffect.js';
 import { clearAppTrackerCache } from '../services/appTracker.js';
@@ -90,7 +92,7 @@ export class ExtensionManager {
             }
         } catch (e) {
             for (let i = built.length - 1; i >= 0; i--) {
-                try { built[i].destroy(); } catch { /* intentionally ignored: rollback cleanup of partially built dock controllers */ }
+                try { built[i].destroy(); } catch {}
             }
             throw e;
         }
@@ -140,7 +142,7 @@ export class ExtensionManager {
         try {
             const focusMon = global.display.focus_window?.get_monitor?.() ?? -1;
             if (focusMon >= 0) candidateIndices.push(focusMon);
-        } catch { /* intentionally ignored: focus window query failed during window transition */ }
+        } catch {}
 
         try {
             const [x, y] = global.get_pointer();
@@ -149,7 +151,7 @@ export class ExtensionManager {
                 y >= mon.y && y < mon.y + mon.height);
             if (ptrMon >= 0 && !candidateIndices.includes(ptrMon))
                 candidateIndices.push(ptrMon);
-        } catch { /* intentionally ignored: pointer coordinates query failed during monitor lookup */ }
+        } catch {}
 
         for (const monIdx of candidateIndices) {
             const dock = this._docks.find(item => item.monitorIndex === monIdx);
@@ -166,7 +168,7 @@ export class ExtensionManager {
         // Release previous struts before measuring workareas for replacement docks
         // so an old bottom strut does not skew a new vertical dock's bottomInset.
         for (let i = 0; i < previous.length; i++) {
-            try { previous[i]?._chrome?.applyStrut(null); } catch { /* intentionally ignored */ }
+            try { previous[i]?._chrome?.applyStrut(null); } catch {}
         }
         // Build the complete replacement before touching the working docks.
         // Candidate docks deliberately do not own the stock dash yet; otherwise
@@ -177,7 +179,7 @@ export class ExtensionManager {
             next = this._createDocks(false);
         } catch (e) {
             for (let i = 0; i < previous.length; i++) {
-                try { previous[i]?.relayout?.(); } catch { /* intentionally ignored */ }
+                try { previous[i]?.relayout?.(); } catch {}
             }
             throw e;
         }
@@ -298,13 +300,13 @@ export class ExtensionManager {
         this._timers.removeAll();
 
         if (this._keybindingAdded) {
-            try { Main.wm.removeKeybinding('focus-dock-shortcut'); } catch { /* intentionally ignored: keybinding may already have been removed */ }
+            try { Main.wm.removeKeybinding('focus-dock-shortcut'); } catch {}
             this._keybindingAdded = false;
         }
         if (this._unsubSettings) { this._unsubSettings(); this._unsubSettings = null; }
 
         if (this._monitorsChangedId) {
-            try { Main.layoutManager.disconnect(this._monitorsChangedId); } catch { /* intentionally ignored: monitors-changed signal handler may already be disconnected */ }
+            try { Main.layoutManager.disconnect(this._monitorsChangedId); } catch {}
             this._monitorsChangedId = 0;
         }
 
@@ -315,11 +317,13 @@ export class ExtensionManager {
         clearAppTrackerCache();
         clearTrashWatcherCache();
         clearDownloadWatcherCache();
+        invalidateListingCache();
         clearTileStyleCache();
         clearDockLayoutCache();
         clearIconCaches();
         cleanupBms();
         resetSlowDownFactor();
+        resetSpringSolverCache();
         clearNotificationCache();
 
         this._settings?.destroy();

@@ -55,7 +55,7 @@ export class DockFactory {
                         item.entry = previousEntry;
                         if (!sameIcon(item.gicon, previousGicon)) item.setGicon(previousGicon);
                         item.refresh();
-                    } catch { /* intentionally ignored: rollback restoration on disposed item */ }
+                    } catch {}
                 }
                 throw error;
             }
@@ -137,24 +137,24 @@ export class DockFactory {
                         item.entry = previousEntry;
                         if (!sameIcon(item.gicon, previousGicon)) item.setGicon(previousGicon);
                         item.refresh();
-                    } catch { /* intentionally ignored: rollback restoration on disposed item */ }
+                    } catch {}
                 }
                 throw error;
             }
         } catch (error) {
             for (let i = createdActors.length - 1; i >= 0; i--) {
-                try { createdActors[i].destroy(); } catch { /* intentionally ignored: item or chip actor may already be destroyed */ }
+                try { createdActors[i].destroy(); } catch {}
             }
             throw error;
         }
 
         // Destroy items that vanished and any old separators.
         for (const item of oldByKey.values()) {
-            try { item.destroy(); } catch { /* intentionally ignored: item or chip actor may already be destroyed */ }
+            try { item.destroy(); } catch {}
         }
         for (const chip of this._chips) {
             if (!chip.item) {
-                try { chip.actor.destroy(); } catch { /* intentionally ignored: item or chip actor may already be destroyed */ }
+                try { chip.actor.destroy(); } catch {}
             }
         }
 
@@ -164,7 +164,7 @@ export class DockFactory {
 
     destroyAll() {
         for (const chip of this._chips) {
-            try { chip.actor.destroy(); } catch { /* intentionally ignored: item or chip actor may already be destroyed */ }
+            try { chip.actor.destroy(); } catch {}
         }
         this._items = [];
         this._chips = [];

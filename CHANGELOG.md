@@ -1,5 +1,14 @@
 # Changelog
 
+## 303
+
+- Lifecycle, Resource & Review Hardening:
+  - Restored `downloads-blur-effect` default (`true`) in schema and linked stack blur sensitivity in preferences (`schemas/org.gnome.shell.extensions.aqua-dock-pro.gschema.xml`, `prefs/pages/downloadsPage.js`, `prefs.js`).
+  - Cleared folder listing caches, tracked background idle sources, and reset spring solver caches on `disable()` (`core/extensionManager.js`, `downloads/fileEnumerator.js`, `animation/springSolver.js`, `downloads/fanView.js`, `downloads/panelView.js`).
+  - Fixed GIO async completion cleanup on cancellation, browser temporary download rename arrival detection, and concurrent cache invalidation epochs (`downloads/downloadManager.js`, `downloads/fileEnumerator.js`, `services/fileService.js`, `services/locationResolver.js`, `services/appTracker.js`).
+  - Guarded Blur My Shell surface teardown against re-registration on destroyed containers, deferred popup menu destruction out of `open-state-changed` callbacks, preserved window preview clone sources during fade-out, and guarded actor disposal in animations and drag release (`dock/dockBlur.js`, `dock/dockController.js`, `dock/dockItem.js`, `dock/dock.js`, `autohide/autohideManager.js`, `autohide/visibilityController.js`, `downloads/fileItemMenu.js`, `ui/preview/previewManager.js`, `interactions/dragManager.js`, `menus/menuManager.js`, `downloads/downloadsStack.js`, `downloads/actorPool.js`).
+  - Reduced per-frame allocations and redundant GObject property notifications across hover magnification, blur tracking, tooltip positioning, and window overlap checks (`animation/animationEngine.js`, `dock/dockBlur.js`, `dock/dockItem.js`, `interactions/tooltipManager.js`, `autohide/overlapDetector.js`, `autohide/pressureBarrier.js`).
+
 ## 302
 
 - Multi-Monitor Logic Hardening & Cross-Monitor Fixes:

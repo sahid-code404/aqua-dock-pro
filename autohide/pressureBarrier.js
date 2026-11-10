@@ -66,7 +66,7 @@ export class PressureBarrier {
         const mon = this._getMonitor?.();
         if (!mon) return;
         let p;
-        try { p = global.get_pointer(); } catch { /* intentionally ignored: pointer query failed during display teardown */ return; }
+        try { p = global.get_pointer(); } catch { return; }
 
         const side = cfg.position;
         const monR = mon.x + mon.width;
@@ -103,11 +103,11 @@ export class PressureBarrier {
 
         this._dwell++;
 
-        // sensitivity 0 → 80 frames, 1 → 20 frames.
         const need = 80 - 60 * (cfg.pressureSenseSensitivity ?? 0.5);
         if (this._dwell >= need) {
             this._dwell = 0;
-            this.cancel();
+            this._anchorLateral = null;
+            this._pollId = 0;
             this._onReveal?.();
         }
     }

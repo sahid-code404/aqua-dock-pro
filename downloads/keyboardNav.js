@@ -14,7 +14,7 @@ export class SelectionModel {
     setRows(rows) {
         if (this._rows) {
             for (const r of this._rows) {
-                try { r._thumb?.remove_all_transitions?.(); } catch { /* intentionally ignored */ }
+                try { r._thumb?.remove_all_transitions?.(); } catch {}
             }
         }
         this._rows = rows;
@@ -38,7 +38,7 @@ export class SelectionModel {
     activateCurrent() {
         const row = this.current;
         if (row?._activate) row._activate();
-        else if (row) { try { row.emit('clicked', 0); } catch { /* intentionally ignored: row clicked signal emit failed on disposed row */ } }
+        else if (row) { try { row.emit('clicked', 0); } catch {} }
     }
 
     _paint(row, on, animate) {
