@@ -3,55 +3,8 @@
 import { clamp } from '../core/utils.js';
 import { SETTLE_EPS } from '../core/constants.js';
 
-// Precomputed damping power cache for integer and common fractional frame intervals.
-let _cachedDamping = -1;
-let _dampLut = null;
-const _fractionalDampCache = new Map();
-
 export function resetSpringSolverCache() {
-    _cachedDamping = -1;
-    _dampLut = null;
-    _fractionalDampCache.clear();
-}
-
-/**
- * Precomputes or retrieves cached damping power (damping^st) for frame sub-steps.
- *
- * @param {number} damping - Damping coefficient in [0.2, 1.0].
- * @param {number} dtMs - Clamped frame duration in milliseconds [0.1, 64].
- * @param {number} st - Normalized step size (1 == 16ms).
- * @returns {number} Damping power factor for the sub-step.
- */
-function getDampPow(damping, dtMs, st) {
-    if (st === 1) return damping;
-
-    if (_cachedDamping !== damping) {
-        _cachedDamping = damping;
-        _dampLut = new Float32Array(65);
-        for (let i = 1; i <= 64; i++) {
-            const n = Math.max(1, Math.ceil(i / 16));
-            const s = (i / n) / 16;
-            _dampLut[i] = s === 1 ? damping : Math.pow(damping, s);
-        }
-        _fractionalDampCache.clear();
-    }
-
-    const dtRound = Math.round(dtMs);
-    if (Math.abs(dtMs - dtRound) < 1e-4) {
-        return _dampLut[dtRound];
-    }
-
-    const stKey = Math.round(st * 1024);
-    let val = _fractionalDampCache.get(stKey);
-    if (val === undefined) {
-        val = Math.pow(damping, st);
-        if (_fractionalDampCache.size >= 32) {
-            const firstKey = _fractionalDampCache.keys().next().value;
-            if (firstKey !== undefined) _fractionalDampCache.delete(firstKey);
-        }
-        _fractionalDampCache.set(stKey, val);
-    }
-    return val;
+    // Preserved for test compatibility.
 }
 
 /**
@@ -133,7 +86,7 @@ export function subSteps(dtMs, damping, out = {}) {
     const st = (dtMs / nSteps) / 16;
     out.nSteps = nSteps;
     out.st = st;
-    out.dampPow = getDampPow(damping, dtMs, st);
+    out.dampPow = st === 1 ? damping : Math.pow(damping, st);
     return out;
 }
 

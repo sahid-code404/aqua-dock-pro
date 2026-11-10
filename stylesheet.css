@@ -20,7 +20,7 @@
 .aqua-bg {
     background-color: rgba(28, 28, 32, 0.78);
     border:           1px solid rgba(255, 255, 255, 0.16);
-    border-radius:    20px;
+    border-radius:    30px;
     box-shadow:       none;
 }
 
@@ -74,12 +74,12 @@
 /* Running indicators (positioned/sized from JS) */
 .aqua-dot {
     background-color: rgba(235, 235, 235, 0.92);
-    border-radius:    3px;
+    border-radius:    999px;
     box-shadow:       none;
 }
 .aqua-indic-line {
     background-color: rgba(235, 235, 235, 0.92);
-    border-radius:    2px;
+    border-radius:    999px;
     box-shadow:       none;
 }
 .aqua-indic-pill {
@@ -194,7 +194,7 @@
 }
 .aqua-menu .popup-menu-item:hover,
 .aqua-menu .popup-menu-item:focus {
-    background-color: rgba(255, 255, 255, 0.12);
+    background-color: rgba(255, 255, 255, 0.10);
 }
 .aqua-menu .popup-menu-item:active {
     background-color: rgba(255, 255, 255, 0.16);
@@ -299,7 +299,7 @@
 .aqua-preview-col:hover,
 .aqua-preview-col:focus {
     background-color: rgba(255, 255, 255, 0.08);
-    border-color:     rgba(255, 255, 255, 0.14);
+    border-color:     rgba(255, 255, 255, 0.16);
 }
 .aqua-preview-col:active {
     background-color: rgba(255, 255, 255, 0.13);
@@ -365,17 +365,18 @@
 
 /* Notification badge */
 .aqua-badge {
-    background-color: #e03030;
-    color:            #ffffff;
-    font-size:        7.5pt;
-    font-weight:      700;
-    border-radius:    10px;
-    padding:          1px 5px;
-    min-width:        16px;
-    min-height:       16px;
-    text-align:       center;
-    box-shadow:       none;
-    border:           1px solid rgba(255, 255, 255, 0.30);
+    background-color:      #e03030;
+    color:                 #ffffff;
+    font-size:             7.5pt;
+    font-weight:           700;
+    font-feature-settings: 'tnum';
+    border-radius:         10px;
+    padding:               1px 5px;
+    min-width:             16px;
+    min-height:            16px;
+    text-align:            center;
+    box-shadow:            none;
+    border:                1px solid rgba(255, 255, 255, 0.30);
 }
 
 /* Downloads stack */

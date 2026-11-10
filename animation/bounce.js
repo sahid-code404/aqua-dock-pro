@@ -33,8 +33,6 @@ export class Bounce {
         this._launchActive = null; // () => bool, for repeating launch bounce
         this._burstsLeft = 0;
         this._pauseLeft = 0;
-        this._invV0 = 1;
-        this._invPeak = 1;
     }
 
     get active() {
@@ -88,7 +86,6 @@ export class Bounce {
         this._composeDeformation();
     }
 
-    // Hard cancel — used on item destroy.
     cancel() {
         this._launchActive = null;
         this._burstsLeft = 0;
@@ -110,8 +107,6 @@ export class Bounce {
         this._v0 = Math.sqrt(2 * this._gravity * height);
         this._v = -this._v0;     // upward (screen-negative on the lift axis)
         this._y = 0;             // height above the resting line, px
-        this._invV0 = 1 / Math.max(1, this._v0);
-        this._invPeak = 1 / Math.max(1, this._peak);
     }
 
     _frame(dtMs) {
@@ -133,11 +128,11 @@ export class Bounce {
             const h = Math.min(SUB_STEP_S, remaining);
             remaining -= h;
             const ended = this._step(h);
-            if (ended === 'stop') {                // bounce fully settled
+            if (ended === 'stop') {
                 this._onSettle?.();
                 return false;
             }
-            if (ended === 'pause') return true;    // entering attention pause
+            if (ended === 'pause') return true;
         }
 
         // Velocity-driven squash/stretch, strongest low and fast near the floor.
@@ -146,8 +141,8 @@ export class Bounce {
     }
 
     _composeDeformation() {
-        const v = clamp(Math.abs(this._v) * this._invV0, 0, 1);
-        const lowness = 1 - clamp(this._y * this._invPeak, 0, 1);
+        const v = this._v0 > 0 ? clamp(Math.abs(this._v) / this._v0, 0, 1) : 0;
+        const lowness = this._peak > 0 ? 1 - clamp(this._y / this._peak, 0, 1) : 1;
         const grounded = v * lowness;
         const amp = this._squash;
         const s = v * amp;
@@ -157,24 +152,22 @@ export class Bounce {
         this._compose(this._y, sx, sy);
     }
 
-    // Advance one fixed sub-step. Returns 'stop' (settled), 'pause' (attention
-    // gap), or false (continue this frame).
+    // Advance one fixed sub-step. Returns 'stop' (settled), 'pause' (attention gap), or false.
     _step(h) {
         this._v += this._gravity * h;
         this._y -= this._v * h;
-        if (this._y > 0) return false;             // still airborne
+        if (this._y > 0) return false;
 
         this._y = 0;
         const speed = Math.abs(this._v);
         if (speed > IMPACT_EPS) {
-            this._v = -speed * this._restitution;  // rebound
+            this._v = -speed * this._restitution;
             return false;
         }
 
-        // Arc spent — state-machine decision.
         this._v = 0;
         if (this._state === 'launch' && this._launchActive?.()) {
-            this._launchProjectile(this._peak);     // loop launch
+            this._launchProjectile(this._peak);
             return false;
         }
         if (this._state === 'attention' && this._burstsLeft > 1) {
@@ -183,7 +176,7 @@ export class Bounce {
             this._compose(0, 1, 1);
             return 'pause';
         }
-        this._compose(0, 1, 1);                      // settle
+        this._compose(0, 1, 1);
         this._active = false;
         return 'stop';
     }

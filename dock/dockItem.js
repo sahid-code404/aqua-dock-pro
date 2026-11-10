@@ -38,6 +38,7 @@ class DockItem extends St.Widget {
         this.scaleTarget = 1;
         this.scaleCurrent = 1;
         this.vel = 0;
+        this._lastBadgeScale = -1;
 
         // While an owned transition runs, setScale() records but does not write
         // the icon transform.
@@ -541,7 +542,10 @@ class DockItem extends St.Widget {
             this._icon[this._liftProp] = lift;
             this._iconLift = lift;
         }
-        if (this._badge?.visible) this._positionBadge();
+        if (this._badge?.visible && Math.abs(scale - this._lastBadgeScale) >= 0.005) {
+            this._lastBadgeScale = scale;
+            this._positionBadge();
+        }
     }
 
     _baseLift() {
@@ -553,6 +557,7 @@ class DockItem extends St.Widget {
         if (!this._icon || this._bounce?.active || this._pulsing) return;
         const restScale = 1;
         this._lastScale = NaN;
+        this._lastBadgeScale = -1;
         this._icon.remove_all_transitions();
         this._icon[this._vert ? 'translation_y' : 'translation_x'] = 0;
         this._iconLift = 0;
@@ -595,7 +600,10 @@ class DockItem extends St.Widget {
         this._icon.translation_x = this._vert ? lift : 0;
         this._icon.translation_y = this._vert ? 0 : lift;
         this._iconLift = lift;
-        if (this._badge?.visible) this._positionBadge();
+        if (this._badge?.visible) {
+            this._lastBadgeScale = this.scaleCurrent;
+            this._positionBadge();
+        }
         this.onAnimationSettled?.();
     }
 

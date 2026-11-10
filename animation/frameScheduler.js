@@ -17,6 +17,7 @@ export class FrameScheduler {
         this._timeline = null;
         this._frameId = 0;
         this._destroyId = 0;
+        this._lastDt = null;
         if (this._actor && typeof this._actor.connect === 'function') {
             try {
                 this._destroyId = this._actor.connect('destroy', () => this.destroy());
@@ -38,7 +39,12 @@ export class FrameScheduler {
         this._frameId = this._timeline.connect('new-frame', () => {
             // Frame-clock delta in ms; clamp pathological gaps (resume/stall).
             let dt = this._timeline.get_delta();
-            dt = Number.isFinite(dt) && dt > 0 ? Math.min(64, dt) : 16;
+            if (!Number.isFinite(dt) || dt <= 0) {
+                dt = this._lastDt ?? 16.67;
+            } else {
+                dt = Math.min(64, dt);
+                this._lastDt = dt;
+            }
             let keep = false;
             try { keep = this._onFrame(dt); }
             catch (e) { logError(e, 'FrameScheduler.onFrame'); keep = false; }
@@ -73,5 +79,6 @@ export class FrameScheduler {
         this._destroyId = 0;
         this._actor = null;
         this._onFrame = null;
+        this._lastDt = null;
     }
 }

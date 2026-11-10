@@ -496,7 +496,6 @@ export class AnimationEngine {
         } else {
             mx = sx + mainStart; my = sy - oh; mw = mainLength; mh = oh;
         }
-        // Only write actor properties when they actually changed.
         if (mx !== this._mzX || my !== this._mzY) { magZone.set_position(mx, my); this._mzX = mx; this._mzY = my; }
         if (mw !== this._mzW || mh !== this._mzH) { magZone.set_size(mw, mh); this._mzW = mw; this._mzH = mh; }
     }

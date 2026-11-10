@@ -1,5 +1,21 @@
 # Changelog
 
+## 307
+
+- High-Refresh-Rate Frame Delta Smoothing & Clean Physics Easing:
+  - High-Refresh-Rate Frame Delta Smoothing (`animation/frameScheduler.js`): Normalized Clutter frame-clock deltas with exponential moving average initial smoothing on 120Hz/144Hz displays, preventing large initial delta jumps from stalling or jumping spring simulations.
+  - Clean Spring Solver & Direct Easing (`animation/springSolver.js`, `animation/bounce.js`, `animation/animationEngine.js`): Removed unused LUT precomputations and MapIterator LRU caching overhead in `SpringSolver` in favor of direct analytic evaluation; implemented zero-guarded direct division for squash/stretch deformation in `Bounce`; and eliminated AI-style commentary and redundant intermediate variables across physics engines.
+
+- Pointer Motion Deduplication & Chrome Lifecycle:
+  - Pointer Motion Deduplication (`dock/dockController.js`): Implemented continuous sub-pixel accumulation and deadband filtering for pointer motion, preventing redundant layout recalculations and animation updates during micro-movements.
+  - Badge Reposition Throttling & Synchronized Scale (`dock/dockItem.js`): Throttled notification badge repositioning during hover magnification animations with delta-scale thresholding (>= 0.005) and synchronized final badge position upon settling, eliminating superfluous Clutter layout cycles.
+  - Transactional Rollback & Bounded Separator Recycling (`dock/dockFactory.js`): Replaced unbounded separator instantiations with a bounded recycling pool (capacity 4), and added transactional rollback on rebuild failures to prevent broken dock states during dynamic app updates.
+
+- Look & Feel Refinements & Architectural Invariants:
+  - Tabular Numbers & Concentric Geometry (`stylesheet.css`): Added `font-feature-settings: 'tnum'` to `.aqua-badge` for jitter-free tabular numeral alignment; updated `.aqua-dot` and `.aqua-indic-line` running indicators to use concentric 999px border radii.
+  - Container Radius & Contrast Alignment (`stylesheet.css`): Updated `.aqua-bg` static border-radius to 30px to align with schema defaults (v306); refined subtle menu hover contrast (`rgba(255, 255, 255, 0.10)`) and preview hover borders (`rgba(255, 255, 255, 0.16)`).
+  - Architectural Invariant Compliance: Strictly preserved Blur My Shell frosted background blur for Grid and List panels and Fan View label pills, maintained unblurred Fan View canvas/wrappers, and preserved dock stack anchoring with direct icon visibility (no chevron tile).
+
 ## 306
 
 - Production Configuration Defaults:

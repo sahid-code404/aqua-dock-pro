@@ -59,6 +59,8 @@ export class DockController {
         this._pointerInContainer = false;
         this._pointerInMag = false;
         this._pointerInEdge = false;
+        this._lastPointerX = NaN;
+        this._lastPointerY = NaN;
         this._press = null;
         this._hoverItem = null;
         this._focusItem = null;
@@ -440,12 +442,18 @@ export class DockController {
         const ez = this._chrome.edgeZone;
 
         s.connect(c, 'motion-event', (_a, ev) => this._onMotion(ev));
-        s.connect(c, 'enter-event', (_a, ev) => this._onMotion(ev));
+        s.connect(c, 'enter-event', (_a, ev) => {
+            this._resetPointerCoords();
+            return this._onMotion(ev);
+        });
         s.connect(c, 'leave-event', () => this._onContainerLeave());
         s.connect(c, 'captured-event', (_a, ev) => this._onCaptured(ev));
         s.connect(c, 'scroll-event', (_a, ev) => this._onScroll(ev));
 
-        s.connect(mz, 'enter-event', (_a, ev) => this._onMagMotion(ev));
+        s.connect(mz, 'enter-event', (_a, ev) => {
+            this._resetPointerCoords();
+            return this._onMagMotion(ev);
+        });
         s.connect(mz, 'motion-event', (_a, ev) => this._onMagMotion(ev));
         s.connect(mz, 'leave-event', () => this._onMagLeave());
         s.connect(mz, 'button-press-event', (_a, ev) => this._onMagPress(ev));
@@ -456,7 +464,10 @@ export class DockController {
         // Forwards pointer tracking (for magnification), clicks (to activate
         // dock items underneath), and scroll — mirroring the original AquaDock
         // behaviour.
-        s.connect(ez, 'enter-event', (_a, ev) => this._onEdgeMotion(ev));
+        s.connect(ez, 'enter-event', (_a, ev) => {
+            this._resetPointerCoords();
+            return this._onEdgeMotion(ev);
+        });
         s.connect(ez, 'motion-event', (_a, ev) => this._onEdgeMotion(ev));
         s.connect(ez, 'leave-event', () => this._onEdgeLeave());
         s.connect(ez, 'button-press-event', (_a, ev) => this._onEdgePress(ev));
@@ -746,15 +757,31 @@ export class DockController {
         return Clutter.EVENT_PROPAGATE;
     }
 
+    _resetPointerCoords() {
+        this._lastPointerX = NaN;
+        this._lastPointerY = NaN;
+    }
+
     _onMotion(ev) {
         let x, y;
         try { [x, y] = ev.get_coords(); } catch { return Clutter.EVENT_PROPAGATE; }
+        try {
+            if (ev.type?.() === Clutter.EventType.ENTER)
+                this._resetPointerCoords();
+        } catch {}
         this._pointerInContainer = true;
         // A reorder drag takes over: it owns the chip translations and the flyer.
         if (this._drag.reordering) { this._drag.update(x, y); return Clutter.EVENT_STOP; }
         if (this._updatePressedDrag(x, y)) return Clutter.EVENT_STOP;
         this._autohide?.onDockActivity();
         this._cancelEndHover();
+        if (Number.isFinite(this._lastPointerX) && Number.isFinite(this._lastPointerY) &&
+            Math.hypot(x - this._lastPointerX, y - this._lastPointerY) < 0.5) {
+            this._engine.setPointer(x, y, true);
+            return Clutter.EVENT_PROPAGATE;
+        }
+        this._lastPointerX = x;
+        this._lastPointerY = y;
         this._engine.setPointer(x, y, true);
         this._engine.kick();
         this._setHover(this._pickItem(x, y));
@@ -764,6 +791,10 @@ export class DockController {
     _onMagMotion(ev) {
         let x, y;
         try { [x, y] = ev.get_coords(); } catch { return Clutter.EVENT_PROPAGATE; }
+        try {
+            if (ev.type?.() === Clutter.EventType.ENTER)
+                this._resetPointerCoords();
+        } catch {}
         this._pointerInMag = true;
         if (this._drag.reordering) { this._drag.update(x, y); return Clutter.EVENT_STOP; }
         if (this._updatePressedDrag(x, y)) return Clutter.EVENT_STOP;
@@ -772,6 +803,13 @@ export class DockController {
         const geom = this._geom;
         const rx = geom?.vert ? geom.x + geom.thick / 2 : x;
         const ry = geom && !geom.vert ? geom.y + geom.thick / 2 : y;
+        if (Number.isFinite(this._lastPointerX) && Number.isFinite(this._lastPointerY) &&
+            Math.hypot(x - this._lastPointerX, y - this._lastPointerY) < 0.5) {
+            this._engine.setPointer(rx, ry, true);
+            return Clutter.EVENT_PROPAGATE;
+        }
+        this._lastPointerX = x;
+        this._lastPointerY = y;
         this._engine.setPointer(rx, ry, true);
         this._engine.kick();
         this._setHover(this._pickItem(rx, ry));
@@ -779,12 +817,14 @@ export class DockController {
     }
 
     _onContainerLeave() {
+        this._resetPointerCoords();
         this._pointerInContainer = false;
         if (!this._pointerInMag && !this._pointerInEdge) this._scheduleEndHover();
         return Clutter.EVENT_PROPAGATE;
     }
 
     _onMagLeave() {
+        this._resetPointerCoords();
         this._pointerInMag = false;
         if (!this._pointerInContainer && !this._pointerInEdge) this._scheduleEndHover();
         return Clutter.EVENT_PROPAGATE;
@@ -794,6 +834,10 @@ export class DockController {
     _onEdgeMotion(ev) {
         let x, y;
         try { [x, y] = ev.get_coords(); } catch { return Clutter.EVENT_PROPAGATE; }
+        try {
+            if (ev.type?.() === Clutter.EventType.ENTER)
+                this._resetPointerCoords();
+        } catch {}
         this._pointerInEdge = true;
         if (this._drag.reordering) { this._drag.update(x, y); return Clutter.EVENT_STOP; }
         if (this._updatePressedDrag(x, y)) return Clutter.EVENT_STOP;
@@ -802,6 +846,13 @@ export class DockController {
         const geom = this._geom;
         const rx = geom?.vert ? geom.x + geom.thick / 2 : x;
         const ry = geom && !geom.vert ? geom.y + geom.thick / 2 : y;
+        if (Number.isFinite(this._lastPointerX) && Number.isFinite(this._lastPointerY) &&
+            Math.hypot(x - this._lastPointerX, y - this._lastPointerY) < 0.5) {
+            this._engine.setPointer(rx, ry, true);
+            return Clutter.EVENT_PROPAGATE;
+        }
+        this._lastPointerX = x;
+        this._lastPointerY = y;
         this._engine.setPointer(rx, ry, true);
         this._engine.kick();
         this._setHover(this._pickItem(rx, ry));
@@ -809,6 +860,7 @@ export class DockController {
     }
 
     _onEdgeLeave() {
+        this._resetPointerCoords();
         this._pointerInEdge = false;
         if (!this._pointerInContainer && !this._pointerInMag) {
             this._scheduleEndHover();
@@ -882,6 +934,7 @@ export class DockController {
     }
 
     _endHover(kick = true) {
+        this._resetPointerCoords();
         this._cancelEndHover();
         this._downloads?.cancelPrewarm();
         this._hoverItem = null;
@@ -1228,5 +1281,6 @@ export class DockController {
         this._geom = null;
         this._press = null;
         this._hoverItem = null;
+        this._resetPointerCoords();
     }
 }

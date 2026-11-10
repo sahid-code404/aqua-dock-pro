@@ -15,6 +15,7 @@ export class DockFactory {
         this._onItemCreated = onItemCreated;
         this._items = [];   // DockItem[] (no separators)
         this._chips = [];   // { entry, actor, item, w }[]
+        this._separatorPool = [];
     }
 
     get items() { return this._items; }
@@ -74,12 +75,31 @@ export class DockFactory {
         return true;
     }
 
+    _recycleSeparator(sep) {
+        if (!sep) return;
+        try {
+            sep.remove_all_transitions?.();
+            const parent = sep.get_parent?.();
+            if (parent?.remove_child) parent.remove_child(sep);
+            sep.style_class = '';
+            if (typeof sep.set_style === 'function') sep.set_style(null);
+            if (this._separatorPool.length < 16) {
+                this._separatorPool.push(sep);
+            } else {
+                sep.destroy?.();
+            }
+        } catch {
+            try { sep.destroy?.(); } catch {}
+        }
+    }
+
     _rebuild(entries, cfg) {
         const oldByKey = new Map(this._items.map(item => [item.entry.key, item]));
         const nextItems = [];
         const nextChips = [];
         const createdActors = [];
         const reused = [];
+        const reusedSeparators = [];
 
         try {
             // Build the replacement structure first. Existing DockItems are not
@@ -87,12 +107,22 @@ export class DockFactory {
             // constructor/factory failure cannot leave the old layout half-new.
             for (const entry of entries) {
                 if (entry.kind === 'separator' || entry.kind === 'spacer') {
-                    const sep = new St.Widget({
-                        style_class: entry.kind === 'spacer' ? 'aqua-spacer' : 'aqua-separator',
-                        reactive: false,
-                    });
-                    createdActors.push(sep);
-                    this._container.add_child(sep);
+                    const styleClass = entry.kind === 'spacer' ? 'aqua-spacer' : 'aqua-separator';
+                    let sep = this._separatorPool.pop();
+                    if (sep) {
+                        reusedSeparators.push(sep);
+                        sep.style_class = styleClass;
+                        if (typeof sep.set_style === 'function') sep.set_style(null);
+                        sep.visible = true;
+                    } else {
+                        sep = new St.Widget({
+                            style_class: styleClass,
+                            reactive: false,
+                        });
+                        createdActors.push(sep);
+                    }
+                    if (sep.get_parent?.() !== this._container)
+                        this._container.add_child(sep);
                     nextChips.push({ entry, actor: sep, item: null, w: SEP_TOTAL });
                     continue;
                 }
@@ -145,17 +175,19 @@ export class DockFactory {
             for (let i = createdActors.length - 1; i >= 0; i--) {
                 try { createdActors[i].destroy(); } catch {}
             }
+            for (const sep of reusedSeparators) {
+                this._recycleSeparator(sep);
+            }
             throw error;
         }
 
-        // Destroy items that vanished and any old separators.
+        // Destroy items that vanished and recycle outgoing separators.
         for (const item of oldByKey.values()) {
             try { item.destroy(); } catch {}
         }
         for (const chip of this._chips) {
-            if (!chip.item) {
-                try { chip.actor.destroy(); } catch {}
-            }
+            if (!chip.item && chip.actor)
+                this._recycleSeparator(chip.actor);
         }
 
         this._items = nextItems;
@@ -166,6 +198,10 @@ export class DockFactory {
         for (const chip of this._chips) {
             try { chip.actor.destroy(); } catch {}
         }
+        for (const sep of this._separatorPool) {
+            try { sep.destroy?.(); } catch {}
+        }
+        this._separatorPool = [];
         this._items = [];
         this._chips = [];
         this._container = null;
