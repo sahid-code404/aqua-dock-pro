@@ -61,10 +61,16 @@ if (bgOpacity.get_sensitive() !== false)
     throw new Error('Background opacity should be insensitive when blur-effect is enabled');
 if (pillColor.get_sensitive() !== false)
     throw new Error('Pill colour should be insensitive when blur-effect is enabled');
+if (panelBg.get_sensitive() !== true)
+    throw new Error('Panel background should be sensitive when downloads-blur-effect is disabled by default');
+if (cardBg.get_sensitive() !== true)
+    throw new Error('Card background should be sensitive when downloads-blur-effect is disabled by default');
+
+settings.set_boolean('downloads-blur-effect', true);
 if (panelBg.get_sensitive() !== false)
-    throw new Error('Panel background should be insensitive when blur-effect is enabled');
+    throw new Error('Panel background should be insensitive when blur-effect and downloads-blur-effect are enabled');
 if (cardBg.get_sensitive() !== false)
-    throw new Error('Card background should be insensitive when blur-effect is enabled');
+    throw new Error('Card background should be insensitive when blur-effect and downloads-blur-effect are enabled');
 
 settings.set_boolean('blur-effect', false);
 if (bgOpacity.get_sensitive() !== true)
@@ -86,6 +92,7 @@ if (panelBg.get_sensitive() !== false)
 if (cardBg.get_sensitive() !== false)
     throw new Error('Card background should be insensitive when blur-effect is re-enabled');
 
+settings.reset('downloads-blur-effect');
 settings.reset('blur-effect');
 
 for (const cleanup of window._cleanupCallbacks) cleanup();

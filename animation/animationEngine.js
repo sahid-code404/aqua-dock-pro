@@ -334,6 +334,10 @@ export class AnimationEngine {
                 s.cur = item.scaleCurrent;
                 s.vel = item.vel;
                 integrateSpring(s, target, m.tension, dampPow, st, nSteps);
+                if (target === 1 && s.cur <= 1.001) {
+                    s.cur = 1;
+                    s.vel = 0;
+                }
                 item.vel = s.vel;
                 item.setScale(s.cur);
                 if (s.vel !== 0 || s.cur !== target) anyUnsettled = true;
@@ -467,7 +471,7 @@ export class AnimationEngine {
         const mc = this._cachedMagConst;
         if (!magZone) return;
 
-        if (maxScale <= 1.005) {
+        if (this._suppressMagnification || maxScale <= 1.005) {
             if (this._magZoneActive) { magZone.set_size(0, 0); this._magZoneActive = false; }
             return;
         }

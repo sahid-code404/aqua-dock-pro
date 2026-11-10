@@ -193,7 +193,7 @@ export class DownloadsStack {
         }
     }
 
-    hide() {
+    hide(immediate = false) {
         this._showGen++;                 // invalidate any pending show
         this._cancellable?.cancel();
         this._cancellable = null;
@@ -220,6 +220,12 @@ export class DownloadsStack {
             this._destroyActor(this._dying);
             this._dying = null;
             this._dyingView = null;
+        }
+        if (immediate) {
+            try { view.settleAnimations?.(); } catch {}
+            view.releaseRows?.();
+            this._destroyActor(view.actor);
+            return;
         }
         this._dying = view.actor;
         this._dyingView = view;

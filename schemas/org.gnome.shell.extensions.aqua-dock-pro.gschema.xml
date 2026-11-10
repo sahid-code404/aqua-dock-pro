@@ -577,7 +577,7 @@
     </key>
 
     <key name="downloads-blur-effect" type="b">
-      <default>true</default>
+      <default>false</default>
       <summary>Enable Blur My Shell background blur for stack views</summary>
     </key>
 

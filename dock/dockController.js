@@ -169,8 +169,10 @@ export class DockController {
             },
             onStackClosed: () => {
                 this._engine.setMagnificationSuppressed(false);
-                if (!this._pointerInContainer && !this._pointerInMag && !this._pointerInEdge)
+                if (!this._pointerInContainer && !this._pointerInMag && !this._pointerInEdge) {
+                    this._endHover(false);
                     this._autohide?.onDockLeft();
+                }
             },
         });
         this._trash = this._cfg.showTrash ? new TrashWatcher({

@@ -48,12 +48,14 @@ export class SelectionModel {
         row._updatePillStyle?.(on);
         if (row._thumb) {
             if (!animate) {
-                row._thumb.set_scale(on ? 1.10 : 1, on ? 1.10 : 1);
+                row._thumb.set_scale(on ? 1.08 : 1, on ? 1.08 : 1);
                 return;
             }
             row._thumb.ease({
-                scale_x: on ? 1.10 : 1, scale_y: on ? 1.10 : 1, duration: 180,
-                mode: on ? Clutter.AnimationMode.EASE_OUT_BACK : Clutter.AnimationMode.EASE_OUT_QUAD,
+                scale_x: on ? 1.08 : 1,
+                scale_y: on ? 1.08 : 1,
+                duration: 140,
+                mode: Clutter.AnimationMode.EASE_OUT_QUAD,
             });
         }
     }

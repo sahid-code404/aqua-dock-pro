@@ -1,5 +1,15 @@
 # Changelog
 
+## 304
+
+- Downloads & Folder Stack Jitter Elimination & Animation Polish:
+  - Mid-Flight Hover Throttling & Pre-Selection Removal (`downloads/fanView.js`, `downloads/panelView.js`): Suppressed item hover and style updates during stack open and close animations so cursor crossing during arc expansion does not trigger mid-flight theme node rebuilds; removed unconditional row 0 selection on open to prevent conflicting thumb scale transitions.
+  - Smooth Clutter Easing Transitions (`downloads/fanView.js`, `downloads/panelView.js`, `downloads/keyboardNav.js`): Consolidated card open/close transforms into single timelines per card (`EASE_OUT_CUBIC`); eliminated panel scale overshoot and subpixel font jitter by switching panel open to `EASE_OUT_CUBIC`; softened keyboard and hover thumbnail scaling to `EASE_OUT_QUAD` (140ms, 1.08x).
+  - Background Listing Revalidation & Orphan Texture Removal (`downloads/fileEnumerator.js`): Raised folder listing staleness threshold to 30 seconds and deferred revalidations to a 450ms low-priority timeout so async directory reads never interleave with the opening animation; removed unparented `St.TextureCache` actor allocations.
+  - Offscreen Canvas FBO Redirect Elimination (`downloads/fanView.js`, `stylesheet.css`): Avoided container-level opacity fades during fan close so Clutter never redirects the entire fan canvas into an offscreen FBO texture; removed CSS transition durations on stack cards, thumbnails, and rows to prevent offscreen Cogl FBO crossfade allocations.
+  - Style Cache Preservation Across Actor Recycling (`downloads/actorPool.js`, `downloads/fanView.js`, `downloads/panelView.js`): Preserved `_appliedStyleKey` across `ActorPool` acquire/release cycles so warm opens reuse computed widget styles; guarded size and layout properties against redundant writes; reused pooled icons directly for action and info cards.
+  - Dock Demagnification Undershoot & Zone Boundary Fix (`animation/animationEngine.js`, `dock/dockController.js`, `downloads/downloadManager.js`, `downloads/downloadsStack.js`): Clamped spring values returning to 1.0x to eliminate demagnification bounce-back; collapsed `magZone` immediately on stack open; cleaned up hover state when stacks close with cursor off-dock; supported immediate stack destruction on rapid switching between stacks.
+
 ## 303
 
 - Lifecycle, Resource & Review Hardening:

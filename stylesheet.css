@@ -404,16 +404,15 @@
 .aqua-dl-flyer { box-shadow: none; border-radius: 8px; }
 
 .aqua-dl-fan-row {
-    background-color:    transparent;
-    border:              none;
-    box-shadow:          none;
-    padding:             0;
-    border-radius:       11px;
-    transition-duration: 120ms;
+    background-color: transparent;
+    border:           none;
+    box-shadow:       none;
+    padding:          0;
+    border-radius:    11px;
 }
 .aqua-dl-fan-row-sel { background-color: rgba(255, 255, 255, 0.16); }
 .aqua-dl-fan-row-inner { padding: 0 6px; }
-.aqua-dl-fan-thumb { transition-duration: 140ms; }
+.aqua-dl-fan-thumb { box-shadow: none; }
 .aqua-dl-fan-label {
     color:          #f2f2f5;
     font-size:      10.5pt;
@@ -462,7 +461,6 @@
     border:           1px solid transparent;
     border-radius:    10px;
     padding:          0;
-    transition:       background-color 120ms ease, border-color 120ms ease;
 }
 .aqua-dl-row:hover,
 .aqua-dl-row:focus,

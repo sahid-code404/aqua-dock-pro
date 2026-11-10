@@ -34,6 +34,8 @@ export class PanelView {
         this._fileMenu = new FileItemMenu(opts.mon, opts.cfg);
         this._blurRegion = null;
         this._trans = null;
+        this._animating = false;
+        this._isClosed = false;
     }
 
     get actor() { return this._actor; }
@@ -286,15 +288,19 @@ export class PanelView {
         const thumbW = thumbSz, thumbH = Math.round(thumbSz * 0.72);
         const thumbRadius = Math.round(Math.min(thumbW, thumbH) * 0.22);
 
-        thumb.set_size(thumbW, thumbH);
-        thumb.width = thumbW;
-        thumb.height = thumbH;
+        if (thumb.width !== thumbW || thumb.height !== thumbH) {
+            thumb.set_size(thumbW, thumbH);
+            thumb.width = thumbW;
+            thumb.height = thumbH;
+        }
         const iconSize = Math.round(Math.min(thumbW, thumbH) * 0.78);
         const gicon = iconForInfo(info);
         if (icon && !icon.is_destroyed?.()) {
-            icon.gicon = gicon;
-            icon.icon_size = iconSize;
-            icon.set_size(iconSize, iconSize);
+            if (icon.gicon !== gicon) icon.gicon = gicon;
+            if (icon.icon_size !== iconSize) {
+                icon.icon_size = iconSize;
+                icon.set_size(iconSize, iconSize);
+            }
             if (thumb.get_child() !== icon) thumb.set_child(icon);
         } else {
             const newIcon = new St.Icon({
@@ -309,8 +315,10 @@ export class PanelView {
 
         label.text = displayName;
         row.accessible_name = displayName;
-        labelPill.set_height(thumbH);
-        labelPill.height = thumbH;
+        if (labelPill.height !== thumbH) {
+            labelPill.set_height(thumbH);
+            labelPill.height = thumbH;
+        }
 
         const rowStyles = getRowStyles(this.cfg, thumbRadius, '0 12px', this._blurActive, thumbH, labelPill);
         if (row._appliedStyleKey !== rowStyles.key) {
@@ -333,6 +341,7 @@ export class PanelView {
         row._activate = () => { launchUri(file.get_uri()); this.close(); };
         row._openFileMenu = () => { this._fileMenu.openFor(labelPill, file); };
         row._onHover = () => {
+            if (this._animating || this._isClosed) return;
             const idx = this._model.rows.indexOf(row);
             if (idx >= 0) this._model.select(idx);
         };
@@ -347,15 +356,19 @@ export class PanelView {
         const thumbW = thumbSz, thumbH = Math.round(thumbSz * 0.72);
         const thumbRadius = Math.round(Math.min(thumbW, thumbH) * 0.22);
 
-        thumb.set_size(thumbW, thumbH);
-        thumb.width = thumbW;
-        thumb.height = thumbH;
+        if (thumb.width !== thumbW || thumb.height !== thumbH) {
+            thumb.set_size(thumbW, thumbH);
+            thumb.width = thumbW;
+            thumb.height = thumbH;
+        }
         const iconSize = Math.round(Math.min(thumbW, thumbH) * 0.72);
         const gicon = firstHidden ? iconForInfo(firstHidden) : getCachedThemedIcon('folder-download');
         if (icon && !icon.is_destroyed?.()) {
-            icon.gicon = gicon;
-            icon.icon_size = iconSize;
-            icon.set_size(iconSize, iconSize);
+            if (icon.gicon !== gicon) icon.gicon = gicon;
+            if (icon.icon_size !== iconSize) {
+                icon.icon_size = iconSize;
+                icon.set_size(iconSize, iconSize);
+            }
             if (thumb.get_child() !== icon) thumb.set_child(icon);
         } else {
             const newIcon = new St.Icon({
@@ -372,8 +385,10 @@ export class PanelView {
         label.text = moreText;
         row.accessible_name = moreText;
         label.add_style_class_name('aqua-dl-fan-more');
-        labelPill.set_height(thumbH);
-        labelPill.height = thumbH;
+        if (labelPill.height !== thumbH) {
+            labelPill.set_height(thumbH);
+            labelPill.height = thumbH;
+        }
 
         const rowStyles = getRowStyles(this.cfg, thumbRadius, '0 12px', this._blurActive, thumbH, labelPill);
         if (row._appliedStyleKey !== rowStyles.key) {
@@ -396,6 +411,7 @@ export class PanelView {
         row._activate = () => { launchUri(this.folder.get_uri()); this.close(); };
         row._openFileMenu = null;
         row._onHover = () => {
+            if (this._animating || this._isClosed) return;
             const idx = this._model.rows.indexOf(row);
             if (idx >= 0) this._model.select(idx);
         };
@@ -416,7 +432,7 @@ export class PanelView {
             return;
         }
 
-        const initScale = 0.80;
+        const initScale = 0.82;
         const transX = this._trans?.x ?? 0;
         const transY = this._trans?.y ?? 18;
 
@@ -425,24 +441,26 @@ export class PanelView {
         panel.translation_y = transY;
         panel.opacity = 0;
 
+        for (const tile of tiles) {
+            tile.opacity = 255;
+            tile.translation_y = 0;
+        }
+
+        this._animating = true;
         panel.ease({
             scale_x: 1,
             scale_y: 1,
             translation_x: 0,
             translation_y: 0,
-            duration: 250,
-            mode: Clutter.AnimationMode.EASE_OUT_BACK,
-        });
-        panel.ease({
             opacity: 255,
-            duration: 160,
-            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+            duration: 200,
+            mode: Clutter.AnimationMode.EASE_OUT_CUBIC,
+            onComplete: () => {
+                this._animating = false;
+                const hoveredIdx = tiles.findIndex(t => t.hover);
+                if (hoveredIdx >= 0) this._model.select(hoveredIdx);
+            },
         });
-
-        for (const tile of tiles) {
-            tile.opacity = 255;
-            tile.translation_y = 0;
-        }
     }
 
     handleKey(ev) {
@@ -470,6 +488,7 @@ export class PanelView {
     }
 
     settleAnimations() {
+        this._animating = false;
         const actor = this._actor;
         if (!actor) return;
         try {
@@ -518,9 +537,12 @@ export class PanelView {
             onDone();
             return;
         }
+        this._animating = false;
+        this._isClosed = true;
+
         const finish = () => {
-            if (this._isClosed) return;
-            this._isClosed = true;
+            if (this._closeFinished) return;
+            this._closeFinished = true;
             this.releaseRows();
             onDone();
         };

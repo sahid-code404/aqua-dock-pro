@@ -2,7 +2,6 @@
 
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
-import St from 'gi://St';
 
 import { getCachedFileIcon } from '../services/fileService.js';
 
@@ -16,7 +15,7 @@ const ATTRS_SCAN_TYPE = 'standard::name,standard::content-type,time::modified';
 
 const LISTING_CACHE_CAPACITY = 16;
 const LISTING_CACHE_TTL_US = 3600 * 1000 * 1000; // 1h sliding window with SWR background refresh
-const LISTING_CACHE_STALE_US = 8 * 1000 * 1000; // 8s SWR threshold for background revalidation
+const LISTING_CACHE_STALE_US = 30 * 1000 * 1000; // 30s SWR threshold for background revalidation
 const listingCache = new Map();
 const inFlightRevalidations = new Set();
 const inFlightEnumerations = new Map();
@@ -27,6 +26,17 @@ function scheduleIdle(priority, callback) {
     if (typeof GLib === 'undefined' || !GLib.idle_add) return 0;
     let id = 0;
     id = GLib.idle_add(priority, () => {
+        activeIdleSources.delete(id);
+        return callback();
+    });
+    if (id) activeIdleSources.add(id);
+    return id;
+}
+
+function scheduleTimeout(priority, intervalMs, callback) {
+    if (typeof GLib === 'undefined' || !GLib.timeout_add) return 0;
+    let id = 0;
+    id = GLib.timeout_add(priority, intervalMs, () => {
         activeIdleSources.delete(id);
         return callback();
     });
@@ -110,16 +120,10 @@ export function invalidateListingCache(folderUri = null) {
 function _scheduleBackgroundRevalidate(folder, sort, limit, cacheKey) {
     if (inFlightRevalidations.has(cacheKey)) return;
     inFlightRevalidations.add(cacheKey);
-    scheduleIdle(GLib.PRIORITY_LOW, () => {
+    scheduleTimeout(GLib.PRIORITY_LOW, 450, () => {
         if (!inFlightRevalidations.has(cacheKey)) return GLib.SOURCE_REMOVE;
         _doEnumerate(folder, null, sort, limit, cacheKey)
-            .then(fresh => {
-                inFlightRevalidations.delete(cacheKey);
-                if (!fresh.error && fresh.files?.length > 0) {
-                    warmTextureCache(fresh.files);
-                }
-            })
-            .catch(() => {
+            .finally(() => {
                 inFlightRevalidations.delete(cacheKey);
             });
         return GLib.SOURCE_REMOVE;
@@ -156,16 +160,6 @@ function _doEnumerate(folder, cancellable, sort, limit, cacheKey = null) {
                 putCachedListing(cacheKey, res, limit);
             }
             resolve(res);
-            if (res.files.length > 0) {
-                if (typeof GLib !== 'undefined' && GLib.idle_add) {
-                    scheduleIdle(GLib.PRIORITY_LOW, () => {
-                        warmTextureCache(res.files);
-                        return GLib.SOURCE_REMOVE;
-                    });
-                } else {
-                    warmTextureCache(res.files);
-                }
-            }
         };
 
         const fetchPhase2 = () => {
@@ -313,22 +307,8 @@ export function iconForInfo(info) {
     return info.get_icon();
 }
 
-function warmTextureCache(files) {
-    if (typeof global === 'undefined' || !global.stage) return;
-    try {
-        const cache = St.TextureCache?.get_default?.();
-        if (!cache?.load_gicon) return;
-        for (const info of files) {
-            try {
-                const gicon = iconForInfo(info);
-                if (gicon) cache.load_gicon(null, gicon, 48, 1, 1);
-            } catch {}
-        }
-    } catch {}
-}
-
 /**
- * Asynchronously prewarms folder listing and GPU texture cache on hover.
+ * Asynchronously prewarms folder listing on hover.
  *
  * @param {Gio.File} folder - GIO directory to prewarm.
  * @param {'newest'|'name'|'type'} [sort='newest'] - Sorting criterion.
@@ -341,13 +321,8 @@ export function prewarmFolderListing(folder, sort = 'newest', limit = 11) {
     if (!folderUri) return;
     const cacheKey = `${folderUri}:${sort}:${limit}`;
     const entry = getCachedListing(cacheKey, folderUri, sort, limit);
-    if (entry) {
-        if (entry.result?.files?.length) warmTextureCache(entry.result.files);
-        return;
-    }
-    enumerateRecent(folder, null, sort, limit).then(res => {
-        if (res?.files?.length) warmTextureCache(res.files);
-    }).catch(() => {});
+    if (entry) return;
+    enumerateRecent(folder, null, sort, limit).catch(() => {});
 }
 
 /**

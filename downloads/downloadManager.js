@@ -229,8 +229,15 @@ export class DownloadManager {
             const isSame = (this._stack.anchor === item) ||
                 (this._activeItem === item) ||
                 (folderUri && this._stack.currentFolderUri === folderUri);
-            this.closeStack(!isSame);
-            if (isSame) return;
+            if (isSame) {
+                this.closeStack(false);
+                return;
+            }
+            if (this._activeItem) {
+                try { this._activeItem.setStackOpenState?.(false, false); } catch {}
+                this._activeItem = null;
+            }
+            this._stack.hide(true);
         } else if (this._activeItem && this._activeItem !== item) {
             try { this._activeItem.setStackOpenState?.(false, false); } catch {}
             this._activeItem = null;
@@ -262,7 +269,7 @@ export class DownloadManager {
         }
         this._host?.setMagnificationSuppressed?.(false);
         this._host?.kickEngine?.();
-        this._stack?.hide();
+        this._stack?.hide(immediate);
     }
 
     _destroyFlyer(flyer) {

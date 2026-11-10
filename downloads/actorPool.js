@@ -69,12 +69,13 @@ export class ActorPool {
             btn.remove_style_class_name?.('aqua-dl-fan-action');
             btn.remove_style_class_name?.('aqua-dl-fan-more');
 
+            if (btn._appliedHover) {
+                try { btn._updatePillStyle?.(false); } catch {}
+            }
             btn._activate = null;
             btn._openFileMenu = null;
             btn._onHover = null;
             btn._updatePillStyle = null;
-            btn._appliedStyleKey = null;
-            btn._appliedHover = null;
             btn._dockBlurEnabled = false;
             btn.accessible_name = '';
 
@@ -158,12 +159,13 @@ export class ActorPool {
             row.remove_style_class_name?.('aqua-dl-row-sel');
             row.remove_style_class_name?.('aqua-dl-row-more');
 
+            if (row._appliedHover) {
+                try { row._updatePillStyle?.(false); } catch {}
+            }
             row._activate = null;
             row._openFileMenu = null;
             row._onHover = null;
             row._updatePillStyle = null;
-            row._appliedStyleKey = null;
-            row._appliedHover = null;
             row._dockBlurEnabled = false;
             row.accessible_name = '';
 

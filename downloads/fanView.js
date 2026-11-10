@@ -13,7 +13,6 @@ import { FileItemMenu } from './fileItemMenu.js';
 import { aboveDockY, fanOrientation, sideFanX, FAN_CELL_OFFSETS, getFanCellOffsets } from './fanGeometry.js';
 import { getRowStyles } from './tileStyle.js';
 import { SelectionModel } from './keyboardNav.js';
-import { buildPlaceIcon } from './placeIcon.js';
 import { ActorPool, stopSubtreeTransitions } from './actorPool.js';
 import { isBmsStackBlurActive, registerBmsTarget, unregisterBmsTarget, setupBackgroundCorners } from '../dock/dockBlur.js';
 
@@ -49,6 +48,8 @@ export class FanView {
         this._fileMenu = new FileItemMenu(opts.mon, opts.cfg);
         this._blurActive = false;
         this._labelPillWidth = null;
+        this._animating = false;
+        this._isClosed = false;
     }
 
     get actor() { return this._actor; }
@@ -58,6 +59,8 @@ export class FanView {
         const { cfg, mon, files } = this;
         const reduce = !animationsEnabled();
         this._reduce = reduce;
+        this._animating = !reduce;
+        this._isClosed = false;
 
         const fan = new St.Widget({
             style_class: 'aqua-dl-fan-panel',
@@ -144,13 +147,6 @@ export class FanView {
         const blurActive = isBmsStackBlurActive(cfg);
         this._blurActive = blurActive;
 
-        const dockContainer = this.dockContainer;
-        if (dockContainer && typeof Main.uiGroup?.insert_child_below === 'function') {
-            Main.uiGroup.insert_child_below(fan, dockContainer);
-        } else if (Main.uiGroup?.add_child) {
-            Main.uiGroup.add_child(fan);
-        }
-
         const anchorLX = originX - px, anchorLY = ay - py;
         this._collapse = { x: anchorLX, y: anchorLY };
         this._fileMenu.bind(fan);
@@ -164,43 +160,59 @@ export class FanView {
             row.set_position(fx, fy);
             row.set_size(rowW, rowH);
             row.set_pivot_point(iconCx / rowW, 0.5);
+
+            if (!reduce) {
+                const initTx = anchorLX - (fx + iconCx);
+                const initTy = anchorLY - (fy + rowH / 2);
+                row.translation_x = initTx;
+                row.translation_y = initTy;
+                row.set_scale(0.25, 0.25);
+                row.opacity = 0;
+            }
+
             fan.add_child(row);
             rows.push(row);
 
             row._isAquaDock = true;
             row._dockBlurEnabled = false;
-
-            if (blurActive && row._labelPill) {
-                registerBmsTarget(row._labelPill, () => radius);
-            }
-
-            if (reduce) return;
-            const initTx = anchorLX - (fx + iconCx);
-            const initTy = anchorLY - (fy + rowH / 2);
-            row.set_pivot_point(iconCx / rowW, 0.5);
-            row.translation_x = initTx;
-            row.translation_y = initTy;
-            row.set_scale(0.25, 0.25);
-            row.opacity = 0;
-            const delay = i * FAN_ANIM.open.stagger;
-            row.ease({
-                translation_x: 0, translation_y: 0,
-                scale_x: 1.0, scale_y: 1.0,
-                duration: FAN_ANIM.open.duration,
-                delay,
-                mode: FAN_ANIM.open.mode,
-            });
-            row.ease({
-                opacity: 255,
-                duration: FAN_ANIM.open.fadeDuration,
-                delay,
-                mode: FAN_ANIM.open.mode,
-            });
-
         });
 
+        const dockContainer = this.dockContainer;
+        if (dockContainer && typeof Main.uiGroup?.insert_child_below === 'function') {
+            Main.uiGroup.insert_child_below(fan, dockContainer);
+        } else if (Main.uiGroup?.add_child) {
+            Main.uiGroup.add_child(fan);
+        }
+
+        if (blurActive) {
+            for (const row of rows) {
+                if (row._labelPill) registerBmsTarget(row._labelPill, () => radius);
+            }
+        }
+
+        if (!reduce) {
+            rows.forEach((row, i) => {
+                const delay = i * FAN_ANIM.open.stagger;
+                const isLast = i === n - 1;
+                row.ease({
+                    translation_x: 0,
+                    translation_y: 0,
+                    scale_x: 1.0,
+                    scale_y: 1.0,
+                    opacity: 255,
+                    duration: FAN_ANIM.open.duration,
+                    delay,
+                    mode: FAN_ANIM.open.mode,
+                    onComplete: isLast ? () => {
+                        this._animating = false;
+                        const hoveredIdx = rows.findIndex(r => r.hover);
+                        if (hoveredIdx >= 0) this._model.select(hoveredIdx);
+                    } : undefined,
+                });
+            });
+        }
+
         this._model.setRows(rows);
-        if (rows.length) this._model.select(0);
 
         fan.connect('destroy', () => {
             for (const r of this._model?.rows ?? []) {
@@ -236,11 +248,13 @@ export class FanView {
         const card = this._getPool().acquireFanItem();
         const { btn, box, labelPill, label, gap, thumb, icon } = card;
 
-        btn.set_size(w, h);
+        if (btn.width !== w || btn.height !== h) btn.set_size(w, h);
         if (extraClass) btn.add_style_class_name(extraClass);
-        labelPill.set_size(labelPillW, pillH);
-        labelPill.width = labelPillW;
-        labelPill.height = pillH;
+        if (labelPill.width !== labelPillW || labelPill.height !== pillH) {
+            labelPill.set_size(labelPillW, pillH);
+            labelPill.width = labelPillW;
+            labelPill.height = pillH;
+        }
         labelPill._dockRadius = radius;
         labelPill.get_dock_radius = () => radius;
 
@@ -254,10 +268,13 @@ export class FanView {
         labelPill._dockBlurRegion = label;
         setupBackgroundCorners(labelPill, () => radius);
 
-        label.width = this._labelWidth ?? LABEL_WIDTH;
-        thumb.set_size(thumbW, thumbH);
-        thumb.width = thumbW;
-        thumb.height = thumbH;
+        const targetLabelW = this._labelWidth ?? LABEL_WIDTH;
+        if (label.width !== targetLabelW) label.width = targetLabelW;
+        if (thumb.width !== thumbW || thumb.height !== thumbH) {
+            thumb.set_size(thumbW, thumbH);
+            thumb.width = thumbW;
+            thumb.height = thumbH;
+        }
 
         if (btn._thumbnailFirst !== this._thumbnailFirst) {
             box.remove_all_children();
@@ -297,6 +314,7 @@ export class FanView {
         btn._updatePillStyle(false);
 
         btn._onHover = () => {
+            if (this._animating || this._isClosed) return;
             const idx = this._model.rows.indexOf(btn);
             if (idx >= 0) this._model.select(idx);
         };
@@ -314,9 +332,11 @@ export class FanView {
         const iconSize = Math.round(Math.min(thumbW, thumbH) * 0.78);
         const gicon = iconForInfo(info);
         if (icon && !icon.is_destroyed?.()) {
-            icon.gicon = gicon;
-            icon.icon_size = iconSize;
-            icon.set_size(iconSize, iconSize);
+            if (icon.gicon !== gicon) icon.gicon = gicon;
+            if (icon.icon_size !== iconSize) {
+                icon.icon_size = iconSize;
+                icon.set_size(iconSize, iconSize);
+            }
             if (thumb.get_child() !== icon) thumb.set_child(icon);
         } else {
             const newIcon = new St.Icon({
@@ -335,42 +355,57 @@ export class FanView {
     }
 
     _actionCard(text, thumbSize, w, h) {
-        const { btn, label, thumb, thumbW, thumbH } = this._card(thumbSize, w, h, 'aqua-dl-fan-action');
+        const { btn, label, thumb, thumbW, thumbH, icon } = this._card(thumbSize, w, h, 'aqua-dl-fan-action');
         label.text = text;
         btn.accessible_name = text;
         label.clutter_text.set_ellipsize(0);
         const folderGicon = this.gicon ?? getCachedThemedIcon('folder', true);
         const iconSize = Math.round(Math.min(thumbW, thumbH) * 0.78);
-        const iconActor = buildPlaceIcon(
-            folderGicon,
-            iconSize,
-            this.cfg.placeIconSourceSize,
-            'aqua-dl-fan-icon');
-        iconActor.set_size(iconSize, iconSize);
-        if (btn._icon && thumb.get_child?.() === btn._icon) {
-            try { thumb.remove_child?.(btn._icon); } catch {}
+        if (icon && !icon.is_destroyed?.()) {
+            if (icon.gicon !== folderGicon) icon.gicon = folderGicon;
+            if (icon.icon_size !== iconSize) {
+                icon.icon_size = iconSize;
+                icon.set_size(iconSize, iconSize);
+            }
+            if (thumb.get_child() !== icon) thumb.set_child(icon);
+        } else {
+            const newIcon = new St.Icon({
+                gicon: folderGicon,
+                icon_size: iconSize,
+                style_class: 'aqua-dl-fan-icon',
+            });
+            newIcon.set_size(iconSize, iconSize);
+            btn._icon = newIcon;
+            thumb.set_child(newIcon);
         }
-        thumb.set_child(iconActor);
         btn._activate = () => { launchUri(this.folder.get_uri()); this.close(); };
         btn._openFileMenu = null;
         return btn;
     }
 
     _infoCard(text, thumbSize, w, h) {
-        const { btn, label, thumb, thumbW, thumbH } = this._card(thumbSize, w, h, 'aqua-dl-fan-more');
+        const { btn, label, thumb, thumbW, thumbH, icon } = this._card(thumbSize, w, h, 'aqua-dl-fan-more');
         label.text = text;
         btn.accessible_name = text;
+        const infoGicon = this.gicon ?? getCachedThemedIcon('folder-download');
         const iconSize = Math.round(Math.min(thumbW, thumbH) * 0.72);
-        const iconActor = buildPlaceIcon(
-            this.gicon ?? getCachedThemedIcon('folder-download'),
-            iconSize,
-            this.cfg.placeIconSourceSize,
-            'aqua-dl-fan-icon');
-        iconActor.set_size(iconSize, iconSize);
-        if (btn._icon && thumb.get_child?.() === btn._icon) {
-            try { thumb.remove_child?.(btn._icon); } catch {}
+        if (icon && !icon.is_destroyed?.()) {
+            if (icon.gicon !== infoGicon) icon.gicon = infoGicon;
+            if (icon.icon_size !== iconSize) {
+                icon.icon_size = iconSize;
+                icon.set_size(iconSize, iconSize);
+            }
+            if (thumb.get_child() !== icon) thumb.set_child(icon);
+        } else {
+            const newIcon = new St.Icon({
+                gicon: infoGicon,
+                icon_size: iconSize,
+                style_class: 'aqua-dl-fan-icon',
+            });
+            newIcon.set_size(iconSize, iconSize);
+            btn._icon = newIcon;
+            thumb.set_child(newIcon);
         }
-        thumb.set_child(iconActor);
         btn._activate = () => { launchUri(this.folder.get_uri()); this.close(); };
         btn._openFileMenu = null;
         return btn;
@@ -399,6 +434,7 @@ export class FanView {
     }
 
     settleAnimations() {
+        this._animating = false;
         const actor = this._actor;
         if (!actor) return;
         try {
@@ -454,41 +490,56 @@ export class FanView {
             onDone();
             return;
         }
+        this._animating = false;
+        this._isClosed = true;
+
         const kids = this._model.rows;
         const n = kids.length;
+
+        if (this._blurActive) {
+            for (const row of kids) {
+                if (row._labelPill) {
+                    try { unregisterBmsTarget(row._labelPill); } catch {}
+                }
+            }
+        }
+
         const iconCx = this._iconCx ?? (this._thumbnailFirst
             ? 6 + 56 / 2
             : 6 + (this._labelPillWidth ?? 114) + CONTENT_GAP + 56 / 2);
         const rowH = this._rowH ?? 60;
-        kids.forEach((tile, i) => {
+        let finished = false;
+        const finish = () => {
+            if (finished) return;
+            finished = true;
+            this.releaseRows();
+            onDone();
+        };
+
+        if (n === 0) {
+            finish();
+            return;
+        }
+
+        const targetTx = this._collapse.x;
+        const targetTy = this._collapse.y;
+
+        for (let i = n - 1; i >= 0; i--) {
+            const tile = kids[i];
             const delay = (n - 1 - i) * FAN_ANIM.close.stagger;
+            const isLast = i === 0;
             tile.remove_all_transitions();
             tile.ease({
-                translation_x: this._collapse.x - (tile.x + iconCx),
-                translation_y: this._collapse.y - (tile.y + rowH / 2),
+                translation_x: targetTx - (tile.x + iconCx),
+                translation_y: targetTy - (tile.y + rowH / 2),
                 scale_x: 0.25,
                 scale_y: 0.25,
+                opacity: 0,
                 duration: FAN_ANIM.close.duration,
                 delay,
                 mode: FAN_ANIM.close.mode,
+                onComplete: isLast ? finish : undefined,
             });
-            tile.ease({
-                opacity: 0,
-                duration: FAN_ANIM.close.fadeDuration,
-                delay,
-                mode: FAN_ANIM.close.mode,
-            });
-        });
-        actor.ease({
-            opacity: 0,
-            duration: FAN_ANIM.close.duration + n * FAN_ANIM.close.stagger,
-            mode: FAN_ANIM.close.mode,
-            onComplete: () => {
-                if (this._isClosed) return;
-                this._isClosed = true;
-                this.releaseRows();
-                onDone();
-            },
-        });
+        }
     }
 }
