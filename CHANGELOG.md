@@ -1,5 +1,10 @@
 # Changelog
 
+## 306
+
+- Production Configuration Defaults:
+  - Synchronized default schema values with user configuration: magnification (2.0x), zoom spread radius (150px), hover lift (15px), and auto-hide reveal pressure (200ms) (`schemas/org.gnome.shell.extensions.aqua-dock-pro.gschema.xml`, `tests/settings.test.js`).
+
 ## 305
 
 - Motion Settings Alignment:

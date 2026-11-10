@@ -23,13 +23,13 @@
     </key>
 
     <key name="magnification" type="d">
-      <default>2.6</default>
+      <default>2.0</default>
       <range min="1.0" max="3.5"/>
       <summary>Peak magnification factor under the cursor</summary>
     </key>
 
     <key name="zoom-range" type="i">
-      <default>100</default>
+      <default>150</default>
       <range min="40" max="500"/>
       <summary>Gaussian magnification spread radius in pixels</summary>
     </key>
@@ -139,7 +139,7 @@
     </key>
 
     <key name="reveal-pressure" type="i">
-      <default>300</default>
+      <default>200</default>
       <range min="0" max="1000"/>
       <summary>Reveal pressure threshold in milliseconds; 0 = immediate</summary>
     </key>
@@ -362,7 +362,7 @@
 
 
     <key name="hover-lift" type="i">
-      <default>20</default>
+      <default>15</default>
       <range min="0" max="24"/>
       <summary>Icon lift in pixels on hover; 0 disables lift</summary>
     </key>
