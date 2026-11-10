@@ -1,5 +1,10 @@
 # Changelog
 
+## 305
+
+- Motion Settings Alignment:
+  - Restored Motion configuration values to match version 269: magnification (2.6x), spread radius zoom-range (100px), and launch bounce height (70px) (`schemas/org.gnome.shell.extensions.aqua-dock-pro.gschema.xml`, `tests/settings.test.js`).
+
 ## 304
 
 - Downloads & Folder Stack Jitter Elimination & Animation Polish:

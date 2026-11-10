@@ -38,7 +38,7 @@ const bus = { emit() {} };
 const manager = new SettingsManager(settings, bus);
 const cfg = manager.config;
 
-assert(cfg.iconSize === 60 && cfg.zoomMax === 2.5 && cfg.iconSpacing === 10,
+assert(cfg.iconSize === 60 && cfg.zoomMax === 2.6 && cfg.iconSpacing === 10,
     'existing visual defaults changed');
 assert(cfg.autoShrink, 'screen-fit shrinking must remain enabled by default');
 assert(cfg.showAutohideHandle, 'the hidden dock handle must be enabled by default');

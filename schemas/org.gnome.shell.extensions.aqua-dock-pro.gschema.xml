@@ -23,13 +23,13 @@
     </key>
 
     <key name="magnification" type="d">
-      <default>2.5</default>
+      <default>2.6</default>
       <range min="1.0" max="3.5"/>
       <summary>Peak magnification factor under the cursor</summary>
     </key>
 
     <key name="zoom-range" type="i">
-      <default>150</default>
+      <default>100</default>
       <range min="40" max="500"/>
       <summary>Gaussian magnification spread radius in pixels</summary>
     </key>
@@ -344,7 +344,7 @@
     </key>
 
     <key name="bounce-height" type="i">
-      <default>50</default>
+      <default>70</default>
       <range min="0" max="80"/>
       <summary>Launch bounce height in pixels; 0 disables bounce</summary>
     </key>
